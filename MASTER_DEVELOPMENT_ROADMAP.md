@@ -674,4 +674,4 @@ Phase 7 requires Phases 1–3 complete.
 
 **Reading order for a new engineer:** Phase 1 items in order → R-201/R-204 → R-301/R-302 → then by team assignment.
 
-**Totals:** 22 R-items · Critical: 5 · High: 7 · Medium: 10 (Phase 8 items graded Low priority, high leverage).
+**Totals:** 32 R-items · Critical: 5 · High: 10 · Medium: 12 · Low: 5 (Phase 8 items graded Low priority, high leverage).
