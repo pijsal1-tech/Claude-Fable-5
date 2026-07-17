@@ -1,0 +1,6 @@
+:root {
+  --bg: #1e1e2e;
+  --fg: #cdd6f4;
+}
+body { background: var(--bg); color: var(--fg); font-family: sans-serif; }
+#title { font-size: 2rem; }
