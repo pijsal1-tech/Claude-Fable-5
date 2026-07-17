@@ -2,8 +2,8 @@
 
 > Granular execution tasks (15–90 min each) derived from `MASTER_DEVELOPMENT_ROADMAP.md`.
 > **One task = one commit.** Tasks are ordered; dependencies are explicit.
-> Total: **52 tasks** (T-001 → T-052).
-> **Provenance:** Unified task list — consolidated from two drafts; the complete 52-task draft (all 8 phases) is the base, enriched with the stronger acceptance details of the partial 33-task draft. Fully aligned with `MASTER_DEVELOPMENT_ROADMAP.md` (R-101 → R-805).
+> Total: **66 tasks** (T-001 → T-066).
+> **Provenance:** Unified task list — consolidated from two drafts; the complete 52-task draft (all 8 phases) is the base, enriched with the stronger acceptance details of the partial 33-task draft. Fully aligned with `MASTER_DEVELOPMENT_ROADMAP.md` (R-101 → R-805 + review-merge additions R-106/R-205/R-206/R-504 and Phase 9 UI/UX R-901 → R-906; tasks T-053 → T-066 appended without renumbering).
 
 ---
 
@@ -740,7 +740,213 @@
 - **Testing:** [ ] n/a (spike)
 - **Regression:** [ ] n/a
 - **Documentation:** [ ] the plan itself
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-053 (created by this task)
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-100+ (Phase-8 breakdown created by this task; numbered from T-100 to avoid clashing with T-053+)
+
+---
+
+# Review-Merge Additions — Phase 1 (T-053 … T-054, R-106)
+
+---
+
+## T-053 — CheckpointManager Core (R-106)
+- **Description:** New `core/checkpoint.py` — `CheckpointManager.snapshot(run_id, paths)` stores content-addressed (sha256) pre-write copies + a `CheckpointLog` (JSONL) keyed by `run_id`; `restore_run(run_id)` / `restore_file(run_id, path)` verify the current on-disk hash first and **refuse with a conflict report** if a file changed externally. Unit-tested standalone, no server wiring yet.
+- **Reason:** Post-write reversibility is the highest product-trust item; the manager must exist before the WS surface.
+- **Priority:** Critical · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-012 (gate staging exists)
+- **Files to Modify:** `core/checkpoint.py` (new), `tests/unit/test_checkpoint.py`
+- **Affected Modules:** none yet
+- **Acceptance Criteria:** 5-file batch snapshot+restore is byte-exact; per-file restore leaves siblings; external-modification refusal unit-tested; duplicate content stored once (dedup asserted).
+- **Implementation:** [ ] content-addressed store · [ ] CheckpointLog · [ ] restore_run/restore_file · [ ] hash-conflict refusal
+- **Testing:** [ ] byte-exact restore · [ ] partial restore · [ ] conflict refusal · [ ] dedup
+- **Regression:** [ ] suite green
+- **Documentation:** [ ] checkpoint store layout
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-054
+
+## T-054 — Wire Checkpoints + Rollback WS Commands (R-106)
+- **Description:** Every `ApprovalGate`-approved apply calls `CheckpointManager.snapshot()` before writing (chain + agent paths); record before/after diff post-apply; add WS `rollback_run(run_id)` and `rollback_file(run_id, path)` handlers returning success/partial/refused frames; checkpoints registered with R-305 `RetentionPolicy` (extend T-033's sweep).
+- **Reason:** A checkpoint nobody can trigger is dead weight; this makes every agent edit reversible end-to-end.
+- **Priority:** Critical · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-053, T-016
+- **Files to Modify:** `chain/bridge.py`, `chain/action_applier.py`, `server.py` (WS frames), `core/retention.py`, `tests/integration/test_rollback.py`
+- **Affected Modules:** apply path, WS protocol (additive frames), retention
+- **Acceptance Criteria:** integration — apply 3-file batch via gate then `rollback_run` restores bytes; no apply path bypasses snapshot (grep + test); retention sweep bounds checkpoint storage across 50 fixture runs.
+- **Implementation:** [ ] snapshot-before-apply in both paths · [ ] WS handlers · [ ] retention hookup
+- **Testing:** [ ] E2E rollback · [ ] per-file rollback · [ ] conflict frame · [ ] retention bound
+- **Regression:** [ ] approval matrix E2E from T-012 still green
+- **Documentation:** [ ] WS rollback frames
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-055
+
+---
+
+# Review-Merge Additions — Phase 2 (T-055 … T-057, R-205/R-206)
+
+---
+
+## T-055 — SymbolIndex with tree-sitter (R-205)
+- **Description:** New `context/symbol_index.py` — build per-file symbol tables (function/class definitions, references, imports) using `tree-sitter` grammars for the 3–4 dominant languages (start: Python, JS/TS, HTML/CSS); refresh hooks on file writes; unsupported extensions indexed as "no symbols" (never error). Perf-tested on a 2k-file fixture.
+- **Reason:** The system currently parses code as text only; structural understanding is the biggest context-quality gap.
+- **Priority:** High · **Complexity:** 4/5 · **Time:** 90 min · **Dependencies:** T-018
+- **Files to Modify:** `context/symbol_index.py` (new), `requirements` (tree-sitter), `tests/unit/test_symbol_index.py`
+- **Affected Modules:** none yet
+- **Acceptance Criteria:** definitions/references/imports extracted correctly on fixture files per language; unsupported extension → empty table, no exception; 2k-file index build under the agreed ceiling.
+- **Implementation:** [ ] grammar loading · [ ] def/ref/import extraction · [ ] write-hook refresh · [ ] graceful no-parse path
+- **Testing:** [ ] per-language goldens · [ ] unsupported-ext test · [ ] perf ceiling
+- **Regression:** [ ] suite green
+- **Documentation:** [ ] supported-language matrix
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-056
+
+## T-056 — SymbolSource in ContextEngine (R-205)
+- **Description:** New `SymbolSource(ContextSource)` — resolves "definition of X", "callers of X", and file-import context as `high`-tier items via `SymbolIndex`; falls back to `KeywordSource` behavior for files without symbol data; register in `ContextEngine` source list.
+- **Reason:** Turns the index into actual prompt quality: mentions resolve to definitions and call sites, not string-match noise.
+- **Priority:** High · **Complexity:** 3/5 · **Time:** 75 min · **Dependencies:** T-055, T-023
+- **Files to Modify:** `context/sources.py` (or engine module), `tests/unit/test_symbol_source.py`, golden fixtures
+- **Affected Modules:** ContextEngine source registry
+- **Acceptance Criteria:** "who calls function X" golden returns the exact call-site set; degradation test (unparsed file) matches keyword behavior; budget-tier compliance (high tier, never displaces must_have).
+- **Implementation:** [ ] SymbolSource · [ ] fallback path · [ ] engine registration
+- **Testing:** [ ] find-usages golden · [ ] degradation · [ ] tier compliance
+- **Regression:** [ ] T-017 goldens still pass
+- **Documentation:** [ ] source ordering note
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-057
+
+## T-057 — Minimal SemanticSource (R-206)
+- **Description:** New `context/semantic_source.py` — pluggable embedding call (one interface, one default backend); embed file chunks + recent turns; `SemanticSource` injects top-k at `opportunistic` tier only; hard timeout with skip-on-timeout (never blocks a response); config flag `context.semantic.enabled` (default on).
+- **Reason:** Relevance-based recall from day one instead of Phase 8; the tiered budget makes it cheap to be wrong.
+- **Priority:** Medium · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-023
+- **Files to Modify:** `context/semantic_source.py` (new), `config.yaml`, `tests/unit/test_semantic_source.py`
+- **Affected Modules:** ContextEngine source registry, config
+- **Acceptance Criteria:** fixture query about an early decision retrieves the right chunk; simulated slow-embedding test proves skip-on-timeout; tier test proves must_have/high never displaced; flag-off disables cleanly.
+- **Implementation:** [ ] embedding interface · [ ] chunking · [ ] top-k retrieval · [ ] timeout-skip · [ ] config flag
+- **Testing:** [ ] precision fixture · [ ] timeout-skip · [ ] tier compliance · [ ] flag off
+- **Regression:** [ ] suite green with flag on and off
+- **Documentation:** [ ] config flag + backend choice
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-058
+
+---
+
+# Review-Merge Additions — Phase 5 (T-058 … T-059, R-504)
+
+---
+
+## T-058 — run_command Agent Tool + Allowlist (R-504)
+- **Description:** Add `run_command` to `chain/agent_tools.py`: executes only project-allowlisted commands (config: test/lint/typecheck/build entries) via existing `cmd_runner`; captures stdout/stderr/exit code; `RunTicket`-linked timeout + cancellation; non-allowlisted command → structured rejection, never silent execution.
+- **Reason:** Agents need an execute-and-observe primitive; unrestricted shell is not acceptable.
+- **Priority:** High · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-041, T-015, T-054
+- **Files to Modify:** `chain/agent_tools.py`, `config.yaml` (allowlist schema), `tests/unit/test_run_command.py`
+- **Affected Modules:** agent tools, config
+- **Acceptance Criteria:** allowlist enforcement unit-tested (rejection is explicit and logged); hung-command timeout + ticket cancellation test; output captured and size-capped.
+- **Implementation:** [ ] tool + schema · [ ] allowlist check · [ ] ticket-linked timeout/cancel · [ ] output capture
+- **Testing:** [ ] allowlist matrix · [ ] timeout/cancel · [ ] output cap
+- **Regression:** [ ] existing agent tool suite green
+- **Documentation:** [ ] allowlist config example
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-059
+
+## T-059 — Verification Feedback Loop (R-504)
+- **Description:** Feed `run_command` results into the next agent iteration as a `high`-tier context item; update agent system prompts so a configured test command is run before declaring success; route any command-triggered file writes (e.g. autoformatter) through `ApprovalGate` + `CheckpointManager` — no ungated mutation path.
+- **Reason:** Closes the loop from "writes code" to "writes code that works"; keeps safety invariants intact.
+- **Priority:** High · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-058, T-043
+- **Files to Modify:** `AgentRunner`, agent prompt templates, `tests/integration/test_agent_feedback.py`
+- **Affected Modules:** agent loop, prompts
+- **Acceptance Criteria:** fixture where the agent's first attempt fails a test and the second iteration (informed by failure output) passes; command-triggered writes provably gated and checkpointed (grep + test); token cost of feedback items budget-compliant.
+- **Implementation:** [ ] result → context item · [ ] prompt update · [ ] gated command-writes
+- **Testing:** [ ] fail-then-fix fixture · [ ] gated-writes proof · [ ] budget compliance
+- **Regression:** [ ] agent parity E2E still green
+- **Documentation:** [ ] verification-step contract in agent docs
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-060
+
+---
+
+# Phase 9 — UI/UX Professional Track (T-060 … T-066, parallel from Week 1)
+
+---
+
+## T-060 — Design-Token Layer + Dark/Light Themes (R-905)
+- **Description:** Create `static/themes/tokens.css` defining CSS custom properties for every color role (`--bg-*`, `--text-*`, `--accent`, `--diff-*`, `--syntax-*`, `--icon-*`); migrate all existing stylesheets to consume tokens (zero raw hex/rgb outside theme files, CI-greppable); ship `dark.css` (default) + `light.css`; set `data-theme` synchronously before first paint (no FOUC); respect `prefers-color-scheme` on first visit.
+- **Reason:** Foundation for the whole track — icons and highlighting must consume tokens, not hard-coded colors.
+- **Priority:** High · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** none (parallel track start)
+- **Files to Modify:** `static/themes/` (new), all existing CSS, `public/index.html` (theme bootstrap script)
+- **Affected Modules:** all styling
+- **Acceptance Criteria:** CI grep finds no raw color values outside `static/themes/`; toggling `data-theme` restyles the whole app without reload; no FOUC on hard refresh.
+- **Implementation:** [ ] token sheet · [ ] migration · [ ] dark+light · [ ] pre-paint bootstrap · [ ] CI color lint
+- **Testing:** [ ] lint gate · [ ] switch test · [ ] prefers-color-scheme
+- **Regression:** [ ] visual snapshot of main views vs. pre-migration (dark)
+- **Documentation:** [ ] token naming convention
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-061
+
+## T-061 — Theme Switcher, Persistence + 2 Extra Themes (R-905)
+- **Description:** Theme picker UI (settings/menu); persist choice in `localStorage`; add ≥2 more themes as data files (high-contrast + one editor palette, e.g. monokai/solarized); WCAG AA contrast audit for all shipped themes; syntax + icon token blocks included per theme.
+- **Reason:** "Multiple themes" as requested — as data files, so adding more never touches components.
+- **Priority:** High · **Complexity:** 2/5 · **Time:** 75 min · **Dependencies:** T-060
+- **Files to Modify:** `public/` (switcher component), `static/themes/high-contrast.css`, `static/themes/<variant>.css`
+- **Affected Modules:** settings UI
+- **Acceptance Criteria:** ≥4 total themes; live switch + persistence across reload; AA contrast documented per theme.
+- **Implementation:** [ ] switcher · [ ] persistence · [ ] 2 theme files · [ ] contrast audit
+- **Testing:** [ ] persistence reload test · [ ] switch restyles code/icons
+- **Regression:** [ ] dark default unchanged for existing users
+- **Documentation:** [ ] "adding a theme" guide
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-062
+
+## T-062 — File-Type Icon System (R-903)
+- **Description:** Single `getFileIcon(path)` mapping module + SVG sprite (open-licensed set) covering: JS, TS, JSX/TSX, Python, HTML, CSS/SCSS, JSON, YAML/TOML, Markdown, Java, C, C++, C#, Go, Rust, PHP, Ruby, SQL, Shell, Dockerfile, env/config, images, lock files + fallback glyph; icon colors from theme tokens.
+- **Reason:** Instant file-type recognition; directly requested.
+- **Priority:** Medium · **Complexity:** 2/5 · **Time:** 90 min · **Dependencies:** T-060
+- **Files to Modify:** `public/js/file_icons.js` (new), `static/icons/sprite.svg` (new)
+- **Affected Modules:** none yet (module + assets only)
+- **Acceptance Criteria:** unit — every listed extension maps to a distinct icon, unknowns hit fallback; sprite loads as one request; icons legible in all shipped themes.
+- **Implementation:** [ ] mapping module · [ ] sprite build · [ ] token-driven colors · [ ] license note
+- **Testing:** [ ] mapping unit matrix · [ ] fallback
+- **Regression:** [ ] n/a (new module)
+- **Documentation:** [ ] icon set license + extension table
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-063
+
+## T-063 — Icons Everywhere Filenames Render (R-903)
+- **Description:** Consume `getFileIcon` in the file tree, editor tabs, `@mention` chips, and (when they exist) diff-panel headers and run-history file lists — one import, no duplicated mappings.
+- **Reason:** Consistency is the point; the same file must look the same everywhere.
+- **Priority:** Medium · **Complexity:** 2/5 · **Time:** 60 min · **Dependencies:** T-062
+- **Files to Modify:** `public/` (tree, tabs, mention components)
+- **Affected Modules:** file tree, tabs, mentions
+- **Acceptance Criteria:** visual snapshot of a fixture project tree containing all covered types; grep proves no second extension→icon mapping exists.
+- **Implementation:** [ ] tree · [ ] tabs · [ ] mentions
+- **Testing:** [ ] snapshot · [ ] single-source grep
+- **Regression:** [ ] tree interactions unchanged
+- **Documentation:** [ ] —
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-064
+
+## T-064 — Syntax Highlighting Engine + Chat/File Views (R-904)
+- **Description:** Integrate one highlighting engine (highlight.js or Shiki — decide and document); apply to fenced code blocks in chat (auto-detect + fence-tag override) and file content views with line numbers; palettes read from theme tokens; streaming output highlighted incrementally (only the appended chunk re-tokenized — no flicker); large files highlighted lazily by viewport.
+- **Reason:** "Line coloring" as requested; the largest readability upgrade.
+- **Priority:** High · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-060
+- **Files to Modify:** `public/` (markdown/code renderers, file viewer), `static/` (engine + grammars)
+- **Affected Modules:** chat renderer, file viewer
+- **Acceptance Criteria:** snapshot renders for all R-903-list languages; streaming test shows no flicker/detached nodes; 5k-line file stays interactive.
+- **Implementation:** [ ] engine + grammars · [ ] chat blocks · [ ] file views + line numbers · [ ] incremental streaming · [ ] lazy large-file path
+- **Testing:** [ ] per-language snapshots · [ ] streaming stability · [ ] perf
+- **Regression:** [ ] plain-text/unknown-language blocks still render
+- **Documentation:** [ ] engine choice rationale
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-065
+
+## T-065 — Diff-Review Panel (R-901 + diff highlighting from R-904)
+- **Description:** Diff panel component rendering `ApprovalRequest` payloads: per-file unified/side-by-side toggle, syntax colors layered under add/remove backgrounds, add/remove counts, collapse/expand, batch **and** per-file accept/reject mapping 1:1 to ApprovalGate WS frames; virtualized rendering for large diffs; keyboard shortcuts.
+- **Reason:** Informed consent needs readable diffs; makes T-011/T-012's gate real to the user.
+- **Priority:** High · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-064, T-012 (frames), T-063 (header icons)
+- **Files to Modify:** `public/` (diff panel component + WS handlers), `tests` (component contract test)
+- **Affected Modules:** approval flow UI
+- **Acceptance Criteria:** contract test — accept/reject (batch + per-file) emit the exact frames the gate expects; golden render of a 5-file mixed request; 3k-line diff interactive.
+- **Implementation:** [ ] diff render · [ ] syntax layer · [ ] accept/reject wiring · [ ] virtualization · [ ] shortcuts
+- **Testing:** [ ] WS contract · [ ] golden render · [ ] perf
+- **Regression:** [ ] auto mode unaffected
+- **Documentation:** [ ] payload schema the panel consumes (pinned)
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-066
+
+## T-066 — Rollback UI + Observability Panel (R-902/R-906)
+- **Description:** (a) Run-history panel: recent applied batches with one-click `rollback_run` / per-file `rollback_file`, confirmation via checkpoint diff (reuses T-065 panel), human-readable conflict reports, expired entries per retention. (b) Collapsible status chip: current `RoutingDecision` (tier/strategy/reason) + `CapacityModel`/breaker state from EventBus frames — read-only, throttled, zero new backend endpoints.
+- **Reason:** Reversibility and explainability users can actually reach; completes the trust loop.
+- **Priority:** Medium · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-054, T-065, T-036/T-038 (events)
+- **Files to Modify:** `public/` (history panel, status chip)
+- **Affected Modules:** run-history UI, status UI
+- **Acceptance Criteria:** E2E — rollback in ≤2 clicks restores bytes; conflict refusal renders the report; synthetic event stream renders routing/breaker state correctly under throttling.
+- **Implementation:** [ ] history panel · [ ] rollback wiring + confirm diff · [ ] status chip · [ ] throttling
+- **Testing:** [ ] rollback E2E · [ ] conflict render · [ ] event-stream render
+- **Regression:** [ ] no WS frame changes (consume-only)
+- **Documentation:** [ ] panel semantics
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** — (track complete)
 
 ---
 
@@ -762,6 +968,10 @@ T-033 + T-016 → T-044 ;  T-024 + T-022 → T-045 ;  T-044+T-038+T-045 → T-04
 T-047 + T-031 → T-048 → T-049
 T-028 → T-050 → T-051
 Phases 1–7 → T-052
+T-012 → T-053 → T-054(+T-016) → {T-058, T-066}
+T-018 → T-055 → T-056(+T-023) ;  T-023 → T-057
+T-041 + T-015 + T-054 → T-058 → T-059(+T-043)
+T-060 → {T-061, T-062 → T-063, T-064 → T-065(+T-012, T-063) → T-066(+T-054, T-036/T-038)}
 ```
 
-**Totals:** 52 tasks · Phase 1: 16 · Phase 2: 10 · Phase 3: 7 · Phase 4: 5 · Phase 5: 5 · Phase 6: 4 · Phase 7: 4 · Phase 8: 1 (spike)
+**Totals:** 66 tasks · Phase 1: 16+2 (T-053/T-054) · Phase 2: 10+3 (T-055–T-057) · Phase 3: 7 · Phase 4: 5 · Phase 5: 5+2 (T-058/T-059) · Phase 6: 4 · Phase 7: 4 · Phase 8: 1 (spike) · Phase 9: 7 (T-060–T-066, parallel UI/UX track)

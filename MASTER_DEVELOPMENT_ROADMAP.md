@@ -4,6 +4,7 @@
 > **Out of scope:** AI providers/models internals, auth, billing, streaming transport, prompt wording.
 > **Source of truth:** Every item below references verified evidence (file + line ranges) from the architectural review.
 > **Numbering:** `R-<phase><nn>`. Complexity scale 1–5. Time estimates assume one senior engineer.
+> **Scope additions (2026-07 review merge):** Edit Safety (checkpoint/rollback) · Code-structural Context (symbol awareness) · Semantic Recall (seeded early) · Agent Feedback Loops · **UI/UX Professional Track (Phase 9)**.
 > **Provenance:** Unified plan — consolidated from four draft plans (2026-07). Base: the most detailed draft (field-table format, full evidence line-refs); enriched with the measurable acceptance gates unique to the later drafts (30-decision routing corpus, 21-agent parity, turn-5 fact retention). Truncated/duplicate drafts discarded.
 
 ---
@@ -215,6 +216,39 @@ Goal: eliminate defects that corrupt state, mutate the workspace without consent
 
 ---
 
+### R-106 — Checkpoint & Rollback: Consent *After* the Write, Too
+
+| Field | Value |
+|---|---|
+| **Priority** | Critical |
+| **Complexity** | 3/5 |
+| **Time Estimate** | 2d |
+| **Dependencies** | R-102, R-104 |
+| **Breaking Changes** | None (additive) |
+| **Affected Modules** | `core/checkpoint.py` (new), `chain/action_applier.py`, `server.py`, WS protocol |
+
+**Problem Statement:** Even with `ApprovalGate` gating consent *before* a write, there is no way to undo a change once it lands — not a partial-run write, not a fully-approved multi-file edit that turns out wrong five minutes later. Competing AI editors treat "undo the agent's last edit" as table stakes; git is not a substitute (target repos aren't guaranteed clean working trees, and users shouldn't need git to recover from an agent mistake).
+
+**Root Cause:** "Safety" was scoped as pre-write consent only; post-write reversibility was never a separate requirement.
+
+**Current Design:** No checkpoint concept; a bad multi-file edit is reverted manually, file by file.
+
+**Target Design:** `CheckpointManager` — before any gate-approved batch applies, snapshot pre-write content of every touched path (content-addressed, deduplicated) into a `CheckpointLog` keyed by `run_id`; record the full before/after diff post-apply. WS gains `rollback_run(run_id)` (refuses with a conflict report if a file was independently modified since — never silently overwrites) and `rollback_file(run_id, path)` for partial undo. Checkpoints follow R-305's `RetentionPolicy`.
+
+**Justification:** The single highest product-trust item in the roadmap — it lets a user say "let the agent touch five files" without fear.
+
+**Benefits:** Every agentic edit becomes a reversible experiment; makes `ApprovalGate`'s `auto` mode genuinely safe because mistakes are recoverable.
+
+**Risks:** Snapshot storage growth — content-addressed dedup + retention bounds it; conflicting external edits — hash-detected and reported.
+
+**Required Tests:** Rollback restores exact pre-run bytes across a 5-file batch; partial `rollback_file` leaves siblings untouched; refusal on independent external modification; retention sweep bounds storage across 50 fixture runs.
+
+**Acceptance Criteria:** Every applied batch has a checkpoint; `rollback_run`/`rollback_file` integration tests green; rollback affordance documented in the WS frame.
+
+**Future Expansion:** Named/pinned checkpoints ("save point before refactor"); checkpoint diff viewer in the Phase 9 UI track (R-902).
+
+---
+
 ## Phase 1 — Definition of Done
 - [ ] Concurrent chain start rejected with structured error (R-101 → R-105).
 - [ ] Project switch leaves **zero** stale references (id()-asserted test).
@@ -222,6 +256,7 @@ Goal: eliminate defects that corrupt state, mutate the workspace without consent
 - [ ] Delegate passes `str` prompts; provider contract test in CI.
 - [ ] No file write occurs without ApprovalGate consent; failed runs write nothing.
 - [ ] `ExecutionRegistry` tracks and cancels all three execution modes.
+- [ ] **Every applied batch has a checkpoint; rollback (full and per-file) tested and reachable from the WS API.**
 - [ ] New `tests/` directory exists with all Phase-1 tests green in CI.
 
 ---
@@ -364,11 +399,79 @@ Goal: extract the three duplicated context-gathering implementations (server inl
 
 ---
 
+### R-205 — SymbolIndex: Symbol-Aware Context (Structural Understanding)
+
+| Field | Value |
+|---|---|
+| **Priority** | High |
+| **Complexity** | 4/5 |
+| **Time Estimate** | 4d |
+| **Dependencies** | R-201 (benefits from R-702's index but can start on a smaller in-memory structure) |
+| **Breaking Changes** | None (additive source) |
+| **Affected Modules** | `context/symbol_index.py` (new), `ContextEngine` |
+
+**Problem Statement:** Every context source matches on **filenames and keywords only**. There is no notion of "this function calls that function" or "this class is defined here and used in these twelve places" — the system cannot answer "who else uses this" without a keyword grep that returns noise. This is the single biggest quality gap versus structural-aware competitors.
+
+**Root Cause:** The codebase was never asked to parse code as code — only as text.
+
+**Current Design:** Regex/keyword matching over raw file text.
+
+**Target Design:** `SymbolIndex` built with `tree-sitter` grammars for the project's dominant languages (start with the 3–4 most common in target repos; add more incrementally): extracts function/class/symbol definitions, references, and import graphs per file; refreshed by the same write-hooks as `ProjectIndex` (R-702). `SymbolSource` (a `ContextSource`) resolves "definition of X", "callers of X", and "file imports" as `high`-tier context items — a strict quality upgrade over keyword matching for the same budget cost.
+
+**Justification:** This is what separates "reads nearby files" from "understands the codebase" — directly determines whether generated edits respect existing call patterns instead of guessing.
+
+**Benefits:** Mentions of a function name resolve to its actual definition and call sites, not every file that happens to contain the string; agent edits are less likely to break unseen call sites.
+
+**Risks:** Parser coverage gaps for less-common languages — `SymbolSource` degrades gracefully to `KeywordSource` behavior for unparsed files, never blocks the request.
+
+**Required Tests:** Golden — "who calls function X" on a fixture project returns the exact call-site set; graceful-degradation test on an unsupported file extension; perf — index build stays under a defined ceiling on a 2k-file fixture.
+
+**Acceptance Criteria:** `SymbolSource` live in `ContextEngine`; degrade-gracefully test green; measurable precision improvement over keyword-only on a "find usages" golden set.
+
+**Future Expansion:** Cross-file refactor-impact analysis; feeds a future "safe rename" agent tool.
+
+---
+
+### R-206 — SemanticSource: Semantic Retrieval, Seeded Early
+
+| Field | Value |
+|---|---|
+| **Priority** | Medium |
+| **Complexity** | 3/5 |
+| **Time Estimate** | 3d |
+| **Dependencies** | R-201, R-203 |
+| **Breaking Changes** | None (additive, behind config flag) |
+| **Affected Modules** | `context/semantic_source.py` (new), `ContextEngine` |
+
+**Problem Statement:** Without any relevance-based recall, context quality is capped by exact-match mentions and keywords; a message like "how did we handle auth last time" has no path to the relevant code or decision at all if the words don't literally match. Parking this capability until Phase 8 means the product ships an entire development cycle without a core quality lever competitors already have.
+
+**Root Cause:** No embedding infrastructure exists; it was scoped as a "nice to have, later" item.
+
+**Current Design:** None.
+
+**Target Design:** A deliberately **small, seeded** version — not the full layered memory system (that remains R-802 in Phase 8, which builds on this foundation): embed file chunks and recent conversation turns via a single pluggable embedding call; `SemanticSource` retrieves top-k relevant items and injects them at `opportunistic` tier only (never displaces `must_have`/`high` content, per R-203's tier rules); retrieval is skipped (not blocking) if the embedding call is slow or fails.
+
+**Justification:** Relevance-based recall is a top-3 quality lever; shipping a minimal version early is far better than shipping none until Phase 8, and the architecture (ContextSource + tiered budget) already supports it with almost no new machinery.
+
+**Benefits:** "How did we do X" style questions get a real answer path from turn 1 of the project, not after 14+ weeks.
+
+**Risks:** Embedding cost/latency — async with a hard timeout and skip-on-timeout; retrieval noise — strict `opportunistic` tier keeps it cheap to be wrong.
+
+**Required Tests:** Retrieval precision on a small fixture (query about an early decision resolves the right chunk); timeout-skip does not block the response; budget-tier compliance (never displaces `must_have`).
+
+**Acceptance Criteria:** `SemanticSource` live behind a config flag (default on, cheap to disable); skip-on-timeout test green.
+
+**Future Expansion:** R-802 (Phase 8) upgrades this seed into the full working/episodic/semantic layered system with provenance and cross-session persistence (R-805).
+
+---
+
 ## Phase 2 — Definition of Done
 - [ ] One `ContextEngine`; server inline block deleted; three call paths converge.
 - [ ] `ContextBundle` hash-dedup live; map_reduce token reduction ≥40% on fixtures.
 - [ ] `ContextBudget` governs every assembled prompt; overflow impossible in tests.
 - [ ] `SafeReader` is the sole model-bound read path; `.env` provably redacted.
+- [ ] **Symbol-aware "find definition / find usages" green on golden fixtures; graceful degradation to keyword matching on unparsed files.**
+- [ ] **Minimal `SemanticSource` live at `opportunistic` tier behind a config flag; skip-on-timeout and budget-compliance tests green.**
 - [ ] Context golden-test suite (fixture project) in CI.
 
 ---
@@ -528,7 +631,7 @@ Goal: replace O(n²) session persistence, give conversation memory an owner, and
 
 **Current Design:** Write-only artifact graveyard.
 
-**Target Design:** `RetentionPolicy` (keep last N runs per project + max age + max bytes) executed by a sweep on registry `finish()` and on startup. Snapshot creation fixed to record actual file hashes (prerequisite for R-601) or skipped entirely when resume is disabled.
+**Target Design:** `RetentionPolicy` (keep last N runs per project + max age + max bytes) executed by a sweep on registry `finish()` and on startup; the same policy governs R-106 checkpoint storage. Snapshot creation fixed to record actual file hashes (prerequisite for R-601) or skipped entirely when resume is disabled.
 
 **Justification:** Honest storage lifecycle; removes a lying artifact.
 
@@ -772,10 +875,44 @@ Goal: unify execution behind one interface, make agent definitions data, and sto
 
 ---
 
+### R-504 — run_command: Terminal/Test Feedback Loop for Agents
+
+| Field | Value |
+|---|---|
+| **Priority** | High |
+| **Complexity** | 3/5 |
+| **Time Estimate** | 3d |
+| **Dependencies** | R-105 (cancellable ticket for long commands), R-501 (Runner protocol), R-106 (mutating commands must be checkpointable) |
+| **Breaking Changes** | None (additive tool) |
+| **Affected Modules** | `chain/agent_tools.py`, `AgentRunner`, agent prompt templates |
+
+**Problem Statement:** Agents propose code changes without any way to verify them. There is no tool for "run the test suite", "run the linter", or "execute this script and read stdout/stderr" — an agent finishes a task believing it succeeded purely because generation completed, not because anything was checked. This is the gap between "writes code" and "writes code that works."
+
+**Root Cause:** `cmd_runner` exists in the codebase for direct user-invoked commands but was never exposed as an agent tool with a feedback path back into the loop.
+
+**Current Design:** `AgentTools` exposes file read/write/search but no execute-and-observe primitive; the agent loop has no "did it actually work" checkpoint.
+
+**Target Design:** A `run_command` agent tool (allowlisted commands per project — test runners, linters, type checkers, build scripts — configurable, never arbitrary shell by default) executing via the existing `cmd_runner`, capturing stdout/stderr/exit code and feeding the result into the next agent iteration as a `high`-tier context item. The agent system prompt makes verification a normal step: for code-editing tasks where a test command is configured, the loop runs it before declaring success. Long-running commands get a `RunTicket`-linked cancellation checkpoint (R-105) and a timeout. Any file changes a command makes (e.g. an autoformatter) route through the same `ApprovalGate`/`CheckpointManager` path as any other agent write (R-104/R-106) — no separate, ungated way for a command to mutate the workspace.
+
+**Justification:** Verification loops are what make autonomous multi-file agent edits trustworthy enough to rely on; without this, every "done" claim from the agent is an unfalsifiable guess.
+
+**Benefits:** Measurable reduction in agent-reported-success-but-actually-broken outcomes; agents self-correct within a run instead of shipping a broken first attempt.
+
+**Risks:** Command execution is a security surface — mitigated by a project-level allowlist (configured, not agent-chosen) and by routing resulting writes through the existing approval/checkpoint machinery; runaway processes — bounded by ticket-linked timeout and cancellation.
+
+**Required Tests:** Allowlist enforcement (non-allowlisted command rejected with a clear error, never silently run); fixture project where an agent's first attempt fails a test and the second iteration, informed by the failure output, passes it; timeout/cancellation of a hung command; command-triggered file writes gated and checkpointed identically to direct agent writes.
+
+**Acceptance Criteria:** `run_command` tool live and allowlist-enforced; fail-then-fix fixture test green; no command-triggered write bypasses `ApprovalGate`/`CheckpointManager`.
+
+**Future Expansion:** Structured test-result parsing (pass/fail counts, failing assertions) as a richer context item; auto-retry budget tied to `ExecutionRegistry`.
+
+---
+
 ## Phase 5 — Definition of Done
 - [ ] Four runners behind one protocol; shared contract suite green; polling loop gone.
 - [ ] Agent fleet defined in manifest; hot-reload works; ROLE_MAP deleted.
 - [ ] Agent iteration token cost flat; knowledge is a bundle view.
+- [ ] **Agents execute allowlisted commands via `run_command` and self-correct from failure output; command-triggered writes remain gated and checkpointed.**
 - [ ] Per-mode parity E2E recorded and green.
 
 ---
@@ -1081,13 +1218,13 @@ Goal: turn the now-clean seams into extension points. Items here are directional
 | **Priority** | Low |
 | **Complexity** | 4/5 |
 | **Time Estimate** | 5d |
-| **Dependencies** | R-302, R-304 |
+| **Dependencies** | R-302, R-304, R-206 |
 | **Breaking Changes** | None (additive recall source) |
 | **Affected Modules** | `memory/` |
 
 **Problem Statement:** After R-304, memory is recency-tiered but has no *relevance* recall — a decision made 80 turns ago about architecture X is invisible unless recent.
 
-**Target Design:** Three layers over the JSONL stream: working (R-302 window), episodic (per-run/task summaries, queryable by time/task), semantic (embedding index over turns+summaries; retrieval injected as a budgeted `ContextBundle` source). Retrieval is a ContextEngine source (R-201 seam), nothing else changes.
+**Target Design:** Builds on and upgrades the minimal `SemanticSource` seeded in R-206. Three layers over the JSONL stream: working (R-302 window), episodic (per-run/task summaries, queryable by time/task), semantic (embedding index over turns+summaries; retrieval injected as a budgeted `ContextBundle` source). Retrieval is a ContextEngine source (R-201 seam), nothing else changes.
 
 **Justification / Benefits:** Long-horizon coherence; "as we decided earlier" actually resolves.
 
@@ -1191,18 +1328,239 @@ Goal: turn the now-clean seams into extension points. Items here are directional
 
 ---
 
+# PHASE 9 — UI/UX Professional Track (parallel, Week 1 onward)
+
+Goal: a professional editor surface worthy of the backend — trustworthy review/rollback surfaces, first-class code presentation (file-type icons, syntax highlighting), and a proper multi-theme system. This is a **parallel frontend workstream**, not a sequential phase: R-905/R-903/R-904 have no backend dependencies and start Week 1; R-901/R-902/R-906 land as their backend counterparts (R-104, R-106, R-402/R-403) ship. Frontend lives in `public/` and `static/`.
+
+---
+
+### R-901 — Diff-Review Panel for ApprovalRequests
+
+| Field | Value |
+|---|---|
+| **Priority** | High |
+| **Complexity** | 3/5 |
+| **Time Estimate** | 4d |
+| **Dependencies** | R-104 (ApprovalRequest payload), R-904 (diff highlighting) |
+| **Breaking Changes** | None (new UI surface) |
+| **Affected Modules** | `public/` (new diff panel component), `static/`, WS message handlers |
+
+**Problem Statement:** `ApprovalGate` (R-104) ships consent as a backend primitive, but the user currently has no readable surface to review what they are consenting to — a wall of raw payload is not informed consent. A gate nobody can read gets clicked through blindly, which defeats its purpose.
+
+**Root Cause:** The original roadmap deliberately scoped UI out; the review correctly flags that R-104's trust value is inert without a review surface.
+
+**Current Design:** Approval decisions (where surfaced at all) render as unformatted text; no per-file granularity.
+
+**Target Design:** A diff-review panel that renders each `ApprovalRequest` as a per-file, side-by-side or unified diff (user-switchable) with syntax highlighting (R-904), file-type icons (R-903), added/removed line counts, and collapse/expand per file. Accept/reject at **both** batch and per-file granularity, mapping 1:1 to the gate's WS protocol. Keyboard shortcuts for accept/reject/next-file.
+
+**Justification:** Informed consent requires readable diffs; this is the surface that makes R-104 real to the user.
+
+**Benefits:** Users approve with confidence; per-file rejection avoids all-or-nothing decisions; review friction drops enough that `interactive` mode stays usable.
+
+**Risks:** Very large diffs freeze the DOM — virtualized rendering + per-file lazy expand; payload/UI drift — a contract test pins the ApprovalRequest schema the panel consumes.
+
+**Required Tests:** Component tests — batch and per-file accept/reject emit the exact WS frames R-104 expects; golden render of a 5-file mixed (add/modify/delete) request; virtualization keeps a 3k-line diff interactive.
+
+**Acceptance Criteria:** Every ApprovalRequest renders as a readable per-file diff; per-file and batch decisions round-trip to the gate correctly in E2E.
+
+**Future Expansion:** Inline comments on diff lines feeding back into the next agent iteration; checkpoint-diff viewing (R-902) reuses this panel.
+
+---
+
+### R-902 — One-Click Rollback UI
+
+| Field | Value |
+|---|---|
+| **Priority** | High |
+| **Complexity** | 2/5 |
+| **Time Estimate** | 2d |
+| **Dependencies** | R-106 (rollback_run/rollback_file WS commands), R-901 (diff panel reuse) |
+| **Breaking Changes** | None (new UI surface) |
+| **Affected Modules** | `public/` (run history + rollback controls), `static/` |
+
+**Problem Statement:** R-106 makes every agent edit reversible at the API level, but reversibility a user cannot see or reach is functionally absent. An undo that requires crafting a WS frame by hand protects nobody.
+
+**Root Cause:** Same UI-out-of-scope decision as R-901.
+
+**Current Design:** No run history surface; no undo affordance anywhere in the UI.
+
+**Target Design:** A run-history strip/panel listing recent applied batches (run id, timestamp, touched files, status). Each entry offers **one-click "Rollback run"** and per-file "Rollback file", confirming with a checkpoint diff (rendered via R-901's panel) before executing. R-106's hash-conflict refusal renders as a clear, human-readable conflict report — never a silent failure. Rollback results (success/partial/refused) surface as toasts plus a persistent entry state.
+
+**Justification:** Completes the trust loop: consent before the write (R-104/R-901), recovery after it (R-106/R-902).
+
+**Benefits:** "Undo the agent's last edit" becomes a visible, obvious action — the table-stakes feature competing editors already have.
+
+**Risks:** Users rolling back the wrong run — the confirmation diff and explicit touched-file list mitigate; stale history after retention sweeps (R-305) — history reflects live checkpoint availability.
+
+**Required Tests:** E2E — apply a 3-file batch, one-click rollback restores bytes; per-file rollback leaves siblings; conflict refusal renders the report; swept checkpoints show as expired, not clickable.
+
+**Acceptance Criteria:** Rollback reachable in ≤2 clicks from the main view; conflict refusals human-readable; E2E green.
+
+**Future Expansion:** Named/pinned checkpoints surfaced as "save points"; timeline scrubbing across multiple runs.
+
+---
+
+### R-903 — File-Type Icon System (All Common Languages)
+
+| Field | Value |
+|---|---|
+| **Priority** | Medium |
+| **Complexity** | 2/5 |
+| **Time Estimate** | 2d |
+| **Dependencies** | R-905 (theme tokens for icon colors) |
+| **Breaking Changes** | None (visual upgrade) |
+| **Affected Modules** | `public/` (file tree, tabs, mention chips, diff panel headers), `static/icons/` (new) |
+
+**Problem Statement:** Files render with generic or no icons; at a glance nothing distinguishes `server.py` from `config.yaml` from `index.html`. Every professional editor signals file type instantly; its absence marks the product as a prototype.
+
+**Root Cause:** Frontend built for function only; no asset pipeline for icons was ever added.
+
+**Current Design:** Plain text file names (or a single generic document glyph) in tree, tabs, and mentions.
+
+**Target Design:** A single `getFileIcon(path)` extension→icon mapping used **everywhere a filename renders** — file tree, editor tabs, `@mention` chips, diff panel headers (R-901), run-history touched-file lists (R-902). Coverage for the most common languages and formats at minimum: JavaScript, TypeScript (+JSX/TSX), Python, HTML, CSS/SCSS, JSON, YAML/TOML, Markdown, Java, C, C++, C#, Go, Rust, PHP, Ruby, SQL, Shell/Bash, Dockerfile, `.env`/config, images, and lock files — with a clean fallback glyph for unknown extensions. Delivered as an SVG sprite or icon-font (no per-icon HTTP requests); colors driven by theme tokens (R-905) so icons remain legible in every theme.
+
+**Justification:** Highest visible-polish-per-effort item in the track; directly requested.
+
+**Benefits:** Instant file-type recognition across the whole UI; consistent identity between tree, tabs, and diffs.
+
+**Risks:** Icon sprawl/inconsistency — one mapping module is the only source of truth; licensing — use an open-licensed icon set (e.g. MIT-licensed dev-icon sets) documented in the repo.
+
+**Required Tests:** Unit — mapping returns the right icon for every listed extension and the fallback for unknowns; visual regression snapshot of the file tree on a fixture project containing all covered types.
+
+**Acceptance Criteria:** All listed languages/formats have distinct icons; identical icon for the same file everywhere it appears; fallback never renders broken.
+
+**Future Expansion:** Per-folder icons (e.g. `tests/`, `node_modules/`); user-overridable icon packs.
+
+---
+
+### R-904 — Syntax Highlighting Everywhere Code Renders
+
+| Field | Value |
+|---|---|
+| **Priority** | High |
+| **Complexity** | 3/5 |
+| **Time Estimate** | 3d |
+| **Dependencies** | R-905 (highlight palettes are theme tokens) |
+| **Breaking Changes** | None (visual upgrade) |
+| **Affected Modules** | `public/` (chat code blocks, editor/viewer, diff panel), `static/` |
+
+**Problem Statement:** Code renders as monochrome text in chat responses, file views, and diffs. Line-level coloring is the baseline expectation of any code tool; without it, reading a 40-line generated function or a multi-file diff is materially slower and more error-prone.
+
+**Root Cause:** No highlighting library was ever integrated; output was treated as plain text.
+
+**Current Design:** Unstyled `<pre>`/plain text for all code surfaces.
+
+**Target Design:** One highlighting engine (e.g. `highlight.js` or Shiki — chosen once, used everywhere) applied consistently to: (1) fenced code blocks in AI chat responses with language auto-detection + fence-tag override; (2) file content views; (3) the diff panel (R-901) with syntax coloring **layered under** add/remove backgrounds; (4) streaming AI output, highlighted incrementally without flicker. Language grammar coverage matches the R-903 icon list (JS/TS, Python, HTML, CSS, JSON, YAML, Markdown, Java, C/C++, C#, Go, Rust, PHP, Ruby, SQL, Shell, etc.). Highlight color palettes are defined as theme tokens (R-905) so every theme ships light- and dark-correct code colors. Line numbers on file views and diffs.
+
+**Justification:** Directly requested ("line coloring"); largest single readability upgrade in the product.
+
+**Benefits:** Faster code review in chat and diffs; professional presentation; consistent colors across every surface.
+
+**Risks:** Highlighting large files blocks the main thread — highlight visible viewport lazily / use a worker; streaming re-highlight flicker — incremental highlighting of only the appended chunk.
+
+**Required Tests:** Snapshot renders per language on fixture snippets (all covered grammars); streaming test — no flicker/detached nodes while tokens append; perf — 5k-line file highlights without blocking interaction; diff panel shows syntax + add/remove layers simultaneously.
+
+**Acceptance Criteria:** All code surfaces highlighted with the same engine and palette; language coverage list green; streaming highlight stable.
+
+**Future Expansion:** Semantic (symbol-aware) highlighting fed by R-205's SymbolIndex; bracket-pair colorization.
+
+---
+
+### R-905 — Multi-Theme System (Design Tokens + Live Switching)
+
+| Field | Value |
+|---|---|
+| **Priority** | High |
+| **Complexity** | 3/5 |
+| **Time Estimate** | 3d |
+| **Dependencies** | None (foundation item — build first) |
+| **Breaking Changes** | Existing hard-coded colors migrated to tokens (visual-only) |
+| **Affected Modules** | `static/` (token stylesheet, theme definitions), `public/` (theme switcher, persistence) |
+
+**Problem Statement:** The UI ships a single hard-coded appearance. No dark/light choice, no user preference, and every color is scattered through the stylesheets — meaning any future visual work (icons, highlighting, diff colors) would hard-code against one palette and make theming impossible later. This is the foundation item the rest of the track builds on.
+
+**Root Cause:** Styling grew ad hoc; no design-token layer was ever introduced.
+
+**Current Design:** Fixed colors inline/scattered across CSS; no `prefers-color-scheme` handling.
+
+**Target Design:** A design-token layer of CSS custom properties (`--bg-primary`, `--text-primary`, `--accent`, `--diff-add-bg`, `--syntax-keyword`, `--icon-*`, etc.) with **every** color in the app consuming tokens — zero hard-coded colors after migration (CI-lintable). Ship at minimum: dark (default), light, plus at least two variants (e.g. high-contrast and a popular editor palette such as monokai/solarized). Theme switching is instant (swap a `data-theme` attribute, no reload), respects `prefers-color-scheme` on first visit, and persists the user's choice (`localStorage`). Syntax palettes (R-904) and icon colors (R-903) are part of each theme definition, so switching restyles code and icons coherently. Themes defined as data (one file per theme) so adding a theme requires no component changes.
+
+**Justification:** Directly requested ("multiple themes"); must land first because icons and highlighting consume its tokens — building them against hard-coded colors would create rework.
+
+**Benefits:** Dark/light parity from day one; adding themes becomes a data-file exercise; all later UI work automatically theme-correct.
+
+**Risks:** Migration misses hard-coded colors — a stylelint/CI grep forbidding raw hex/rgb outside token definitions; FOUC on load — theme attribute set synchronously before first paint.
+
+**Required Tests:** CI lint — no raw color values outside theme files; switch test — toggling `data-theme` restyles code blocks, icons, and diffs with no reload; persistence across reload; `prefers-color-scheme` respected on first visit; contrast audit (WCAG AA) per shipped theme.
+
+**Acceptance Criteria:** ≥4 themes shipped; live switch with persistence; zero hard-coded colors; AA contrast on all themes.
+
+**Future Expansion:** User-defined custom themes (import/export JSON); per-project theme override.
+
+---
+
+### R-906 — Routing & Capacity Observability Panel
+
+| Field | Value |
+|---|---|
+| **Priority** | Medium |
+| **Complexity** | 2/5 |
+| **Time Estimate** | 2d |
+| **Dependencies** | R-402 (RoutingDecision), R-403 (CapacityModel) |
+| **Breaking Changes** | None (new UI surface) |
+| **Affected Modules** | `public/` (status/inspector panel), EventBus WS frames |
+
+**Problem Statement:** When the system routes a request to a given tier/strategy or a circuit breaker trips, the user sees only the *consequence* (slow, degraded, or refused) with no explanation. "Why did it do that" currently has only a log-line answer, invisible to users.
+
+**Root Cause:** RoutingDecision and CapacityModel were designed as internal records with no presentation path.
+
+**Current Design:** No visibility; failures and degradations are silent or generic.
+
+**Target Design:** A compact, collapsible status panel: current `RoutingDecision` per request (tier, strategy, reason — rendered from the structured record R-402 already produces), live `CapacityModel` state (per-provider load, breaker open/closed with reason and retry countdown), fed by existing EventBus events over the single WS adapter — **read-only presentation; no new backend logic**. Non-intrusive: a status chip that expands on click.
+
+**Justification:** Trust also means explainability; this closes the review's "why did it do that" gap with UI, not log-diving.
+
+**Benefits:** Degraded modes become understandable instead of alarming; support/debug conversations get a shared reference surface.
+
+**Risks:** Information overload — collapsed-by-default chip with progressive disclosure; event spam re-renders — throttled updates.
+
+**Required Tests:** Given a synthetic RoutingDecision/CapacityModel event stream, panel renders tier/strategy/reason and breaker states correctly; throttling keeps render count bounded under event bursts; panel absent/inert when features are disabled.
+
+**Acceptance Criteria:** Routing reason and breaker state visible within one click during any run; zero new backend endpoints (EventBus only).
+
+**Future Expansion:** Per-run cost/token telemetry in the same panel; exportable "run report".
+
+---
+
+## Phase 9 — Definition of Done
+- [ ] Theme system live: ≥4 themes (dark, light, high-contrast, +1 variant), instant switch, persisted preference, zero hard-coded colors (CI-enforced), WCAG AA contrast.
+- [ ] File-type icons render for all listed common languages in tree, tabs, mentions, and diff headers; unknown types fall back cleanly.
+- [ ] Syntax highlighting live on chat code blocks, file views, diffs, and streaming output; palettes theme-aware; large-file perf test green.
+- [ ] ApprovalRequest diff-review panel supports batch and per-file accept/reject, round-tripping correctly to ApprovalGate.
+- [ ] One-click rollback (run and per-file) reachable in ≤2 clicks; conflict refusals render human-readable.
+- [ ] Routing/capacity status panel answers "why did it do that" without log access.
+
+---
+
 # Dependency Graph
 
 ```
 R-101 ─┐
-R-103  ├─→ R-102 ─→ R-104, R-105 ─→ R-501 ─→ R-604, R-801
+R-103  ├─→ R-102 ─→ R-104 ─→ R-106 ─┐
+       │                R-105 ──────┼─→ R-501 ─→ R-604, R-801, R-504
        │      └──→ R-201 ─→ R-202 ─→ R-203 ─→ R-304, R-602, R-503
+       │                       ├──→ R-205
+       │                       └──→ R-206 ─→ R-802
 R-301 ─→ R-302 ─→ R-303, R-304, R-802
 R-401 ─→ R-402, R-403 ─→ R-603
 R-601 (independent after Phase 1)
 Phase 7 requires Phases 1–3 complete.
+Phase 5's R-504 requires R-105, R-501, R-106.
+Phase 9 (UI/UX) runs in parallel from Week 1:
+  R-905 (themes) ─→ R-903 (icons) · R-904 (highlighting) ─→ R-901 (diff panel)
+  R-104 ─→ R-901 · R-106 ─→ R-902 (rollback UI) · R-402/R-403 ─→ R-906 (observability)
 ```
 
-**Reading order for a new engineer:** Phase 1 items in order → R-201/R-204 → R-301/R-302 → then by team assignment.
+**Reading order for a new engineer:** Phase 1 items in order (R-101→R-106) → R-201/R-204/R-205 → R-301/R-302 → then by team assignment. Frontend engineers start Phase 9 in parallel from Week 1 (R-905 theme foundation → R-903/R-904 → R-901/R-902 as their backend items land).
 
-**Totals:** 32 R-items across 8 phases · Critical: 5 · High: 10 · Medium: 12 · Low: 5 (Phase 8 items graded Low priority, high leverage).
+**Totals:** 42 R-items across 9 phases · Critical: 6 · High: 16 · Medium: 15 · Low: 5 (Phase 8 items graded Low priority, high leverage; Phase 9 is a parallel frontend track).
