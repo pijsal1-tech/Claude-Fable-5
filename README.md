@@ -83,6 +83,19 @@ pip install flask flask-sock websockets requests
 python server.py --project ./my_project --port 5000
 ```
 
+### إعداد بيئة التطوير (Dev Setup)
+
+```bash
+# تثبيت أدوات التطوير والاختبار
+pip install -r requirements-dev.txt
+
+# تشغيل الفحص الكامل (types + tests)
+./scripts/check.sh
+
+# أو تشغيل الاختبارات فقط
+python -m pytest
+```
+
 ### الاستخدام
 
 ```bash
