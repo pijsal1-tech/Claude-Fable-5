@@ -31,11 +31,11 @@
 - **Files to Modify:** `requirements-dev.txt` (new), `tests/conftest.py` (new), `scripts/check.sh` (new)
 - **Affected Modules:** none (additive)
 - **Acceptance Criteria:** `./scripts/check.sh` exits 0; smoke test collected and green.
-- **Implementation:** [ ] dev deps · [ ] tree · [ ] check.sh · [ ] smoke test
-- **Testing:** [ ] check.sh runs green locally
-- **Regression:** [ ] n/a (additive)
-- **Documentation:** [ ] README dev-setup section
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-002
+- **Implementation:** [x] dev deps · [x] tree · [x] check.sh · [x] smoke test
+- **Testing:** [x] check.sh runs green locally
+- **Regression:** [x] n/a (additive)
+- **Documentation:** [x] README dev-setup section
+- **Completion Status:** ✅ · **Reviewer Notes:** `./scripts/check.sh` exits 0 — pytest: `3 passed in 0.26s` (canary imports server/chain.models/actions.session_manager without starting Flask); mypy runs advisory (5 pre-existing errors in chain/models.py noted, not in scope). Created: requirements-dev.txt, pytest.ini, tests/{conftest.py,unit/test_canary.py,integration/}, scripts/check.sh; README dev-setup added. · **Next Task:** T-002
 
 ## T-002 — FakeProvider + Fixture Project
 - **Description:** Implement `tests/fakes/fake_provider.py` (scriptable responses, call recording, injectable failures/latency) conforming to `providers/base.py`; create `tests/fixtures/sample_project/` (~12 files incl. a dummy `.env` with fake keys for R-204 tests) and a `sample_project` pytest fixture that copies it to tmp.
