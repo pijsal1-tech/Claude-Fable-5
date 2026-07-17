@@ -1,0 +1,112 @@
+# بلان Phase 3 — كل اللي لسه ناقص
+
+## اكتشافات جديدة من المسح العميق
+
+### monitor.py — فيه 10 providers مسجلين:
+```
+arena, deepseek, groq, you_com, zo_computer,
+runable, cohere, mistral, ai21, ernie
+```
+**ناقص:** genspark, perplexity, chatgpt
+
+### scheduler.py — 3 مهام:
+| المهمة | التكرار |
+|--------|---------|
+| monitor (فحص صحة) | كل ساعة |
+| profile_update (تحديث scores) | كل 6 ساعات |
+| cache_cleanup | كل 24 ساعة |
+
+### shared/ — API الفعلي (كان ناقص من الـ prompts):
+```python
+# shared/ui.py
+step(num, total, msg)  # خطوة [1/5]
+ok(msg)                # ✅ نجاح
+fail(msg)              # ❌ فشل
+warn(msg)              # ⚠️ تحذير
+info(msg)              # ℹ️ معلومة
+banner(title, width)   # ═══ عنوان ═══
+separator(width)       # ─── فاصل ───
+summary_line(label, value)
+
+# shared/io.py
+atomic_save(data, filepath)              # كتابة ذرية
+load_accounts(filepath) → list          # قراءة حسابات
+upsert_account(filepath, account, key)  # إضافة/تحديث
+
+# shared/delay.py
+human_delay(lo=1.0, hi=3.0)  # تأخير عشوائي
+```
+
+### .توافق — Guides موجودة مش مربوطة:
+- [AI_TEAM_GUIDE.md](file:///d:/SMS/AI_PROVIDERS%20-%20Copy%20_Copy--Copy_Copy/v2/notes/AI_TEAM_GUIDE.md) — دليل ai_team.py
+- [TEMPNET_LESSONS.md](file:///d:/SMS/AI_PROVIDERS%20-%20Copy%20_Copy--Copy_Copy/v2/notes/TEMPNET_LESSONS.md) — دروس TempNet
+
+---
+
+## المهام المتبقية
+
+### Task 1: تحديث PROMPT_ENGINE_PRO — shared/ API الفعلي
+**الحالي:** ذكرنا الملفات بس مش الـ functions
+**المطلوب:** إضافة API signatures الفعلية (step, ok, fail, atomic_save...)
+
+### Task 2: `/add-to-monitor` workflow
+```
+خطوات إضافة provider لـ monitor.py:
+1. تأكد refresh.py فيه def refresh(email) → bool
+2. أضف entry في PROVIDERS dict
+3. اختبر: python monitor.py --provider {name} --dry-run
+```
+
+### Task 3: PROMPT_ENGINE_PRO — القسم العربي
+**الحالي:** الـ prompts كلها إنجليزي
+**المطلوب:** نسخة عربية كاملة — عشان تبعتها لـ AI بيفهم عربي أحسن
+
+### Task 4: تحديث الـ prompts الموجودة بـ monitor/scheduler context
+**المطلوب:** add-provider و add-refresh يذكروا:
+- "بعد ما تخلص → أضف entry في monitor.py PROVIDERS dict"
+- "scheduler.py بيشغل monitor كل ساعة تلقائي"
+
+### Task 5: System prompt جديد — "أنت مراقب" (Monitor Expert)
+**لما محتاج تشخيص شبكة providers كاملة:**
+- فحص صحة كل الحسابات
+- تقرير بالأرقام (active/expired/banned per provider)
+- اقتراح refresh أو register جديد
+
+
+
+
+
+
+
+
+
+
+
+
+Now I have the full picture. The script ran successfully and showed me all the headers and key lines. PROMPT_ENGINE_PRO.md already has the `shared/` API documented (lines 233-257 and 326-330) AND monitor/scheduler context (lines 257, 264, 344-345, 390). Let me now compile the complete review:
+
+I have all the data I need. Here's the complete review:
+
+---
+
+## 🔍 مراجعة البلان — Phase 3 (5 مهام)
+
+| # | المهمة | الحالة | التفاصيل |
+|---|--------|--------|----------|
+| **Task 1** | تحديث [PROMPT_ENGINE_PRO.md](cci:7://file:///d:/SMS/AI_PROVIDERS%20-%20Copy%20_Copy--Copy_Copy/.agents/%D8%B3%D9%8A%D8%B3%D8%AA%D9%85/PROMPT_ENGINE_PRO.md:0:0-0:0) بـ shared/ API | ✅ **تم** | الملف (430 سطر) فيه `shared/` API كامل في **سطور 233-257** (imports + function signatures) و**سطور 326-330** (نسخة تانية). كل الـ functions موجودة: `step, ok, fail, warn, info, banner, separator, summary_line, atomic_save, load_accounts, upsert_account, human_delay` |
+| **Task 2** | `/add-to-monitor` workflow | ✅ **تم** | ملف [add-to-monitor.md](cci:7://file:///d:/SMS/AI_PROVIDERS%20-%20Copy%20_Copy--Copy_Copy/.agents/workflows/add-to-monitor.md:0:0-0:0) (82 سطر) كامل: entry format + refresh.py compatibility check + test commands + scheduler verification |
+| **Task 3** | PROMPT_ENGINE_PRO — النسخة العربية | ⚠️ **جزئي** | الملف فيه أقسام عربية (خصوصاً v2.0 section سطر 297+) لكن مش نسخة **عربية كاملة** — لسه أغلب الـ prompts إنجليزي. القسم العربي `مخصصة لمشروعك` موجود بس مش كافي كـ "نسخة عربية كاملة" |
+| **Task 4** | تحديث workflows بـ monitor context | ✅ **تم** | [PROMPT_ENGINE_PRO.md](cci:7://file:///d:/SMS/AI_PROVIDERS%20-%20Copy%20_Copy--Copy_Copy/.agents/%D8%B3%D9%8A%D8%B3%D8%AA%D9%85/PROMPT_ENGINE_PRO.md:0:0-0:0) سطر 257: `monitor.py → 10 providers`, سطر 264: `scheduler.py → 3 jobs`, سطر 390: `✓ When done → update monitor.py`. `/add-provider` سطر 97-98 بيذكر integration with monitor. `/add-refresh` سطر 54-57 بيذكر compatibility مع monitor |
+| **Task 5** | System prompt "أنت مراقب" | ✅ **تم** | ملف `أنت مراقب.md` (3885 bytes) موجود وكامل — فيه: تقرير صحة الشبكة + اقتراح إجراءات + أوامر bash جاهزة + أسلوب عربي |
+
+---
+
+### 📊 الخلاصة:
+
+- **4 من 5 مهام ✅ خلصوا بالكامل**
+- **Task 3 (النسخة العربية الكاملة) ⚠️ جزئي** — في أقسام عربية اتضافت بس مش البرومبت **كله** بالعربي
+
+### 💡 اقتراح:
+لو عايز Task 3 يخلص — محتاج نعمل نسخة كاملة من [PROMPT_ENGINE_PRO.md](cci:7://file:///d:/SMS/AI_PROVIDERS%20-%20Copy%20_Copy--Copy_Copy/.agents/%D8%B3%D9%8A%D8%B3%D8%AA%D9%85/PROMPT_ENGINE_PRO.md:0:0-0:0) بالعربي (أو ملف منفصل `PROMPT_ENGINE_PRO_AR.md`). عايز أنفذ ده؟+
+
+

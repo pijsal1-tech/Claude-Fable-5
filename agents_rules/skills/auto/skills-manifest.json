@@ -1,0 +1,60 @@
+{
+  "project": {
+    "enabled": true,
+    "lastGenerated": "2026-03-26T19:42:58.282Z",
+    "observationCount": 315,
+    "skillCount": 0,
+    "domain": "project",
+    "triggerGlobs": [
+      "**/*"
+    ],
+    "description": "Project for AI_PR_PR_PROVIDERS. 32 gotchas, 76 conventions."
+  },
+  "python": {
+    "enabled": true,
+    "lastGenerated": "2026-03-26T19:42:58.283Z",
+    "observationCount": 101,
+    "skillCount": 0,
+    "domain": "python",
+    "triggerGlobs": [
+      "**/*.py"
+    ],
+    "description": "Python for AI_PR_PR_PROVIDERS. 3 gotchas, 19 conventions, 4 fixes."
+  },
+  "config": {
+    "enabled": true,
+    "lastGenerated": "2026-03-26T19:42:58.282Z",
+    "observationCount": 125,
+    "skillCount": 0,
+    "domain": "config",
+    "triggerGlobs": [
+      "**/*.yaml",
+      "**/*.yml",
+      "**/*.json",
+      "**/*.toml"
+    ],
+    "description": "Config for AI_PR_PR_PROVIDERS. 19 conventions, 10 fixes."
+  },
+  "convention": {
+    "enabled": true,
+    "lastGenerated": "2026-03-26T19:42:58.284Z",
+    "observationCount": 0,
+    "skillCount": 10,
+    "domain": "convention",
+    "triggerGlobs": [
+      "**/*"
+    ],
+    "description": "Convention for AI_PR_PR_PROVIDERS. ."
+  },
+  "tool-pattern": {
+    "enabled": true,
+    "lastGenerated": "2026-03-26T19:42:58.285Z",
+    "observationCount": 0,
+    "skillCount": 1,
+    "domain": "tool-pattern",
+    "triggerGlobs": [
+      "**/*"
+    ],
+    "description": "Tool Pattern for AI_PR_PR_PROVIDERS. ."
+  }
+}

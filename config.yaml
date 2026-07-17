@@ -1,0 +1,42 @@
+# ═══════════════════════════════════════════════════════
+#   WebDev AI Editor — Configuration
+# ═══════════════════════════════════════════════════════
+
+# المزود الافتراضي (use_ai | يمكن إضافة gemini, openai مستقبلاً)
+default_provider: "use_ai"
+
+# مسار المشروع (يُحدد يدوياً عند التشغيل)
+project_root: ""
+
+# اللغة (ar = عربي | en = إنجليزي | mix = مزيج)
+language: "mix"
+
+# طلب إذن قبل تنفيذ الأوامر
+auto_execute: false
+
+# نسخ احتياطي قبل أي تعديل
+backup_before_edit: true
+
+# أقصى عدد ملفات يقرأها كسياق
+max_context_files: 15
+
+# إعدادات المزودين
+providers:
+  use_ai:
+    model: "gateway-claude-sonnet-5"
+    ws_timeout: 90
+    request_timeout: 12
+    auto_register: true
+    auto_register_max: 5
+    accounts_file: "accounts_use_ai.json"
+    create_share: true
+
+  # مثال: إضافة Gemini مستقبلاً
+  # gemini:
+  #   api_key: ""
+  #   model: "gemini-2.5-pro"
+
+  # مثال: إضافة OpenAI مستقبلاً
+  # openai:
+  #   api_key: ""
+  #   model: "gpt-4o"

@@ -1,0 +1,137 @@
+[
+  {
+    "name": "Canva AI Video",
+    "url": "https://www.canva.com/features/ai-video-generator/",
+    "domain": "canva.com",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:24.690069+00:00",
+    "last_checked": "2026-07-09T13:24:49.262800+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "CapCut",
+    "url": "https://www.capcut.com",
+    "domain": "capcut.com",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:56.291694+00:00",
+    "last_checked": "2026-07-09T13:25:35.982191+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "Google Veo (AI Studio)",
+    "url": "https://aistudio.google.com",
+    "domain": "aistudio.google.com",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:59.373195+00:00",
+    "last_checked": "2026-07-09T13:25:40.646215+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "Haiper AI",
+    "url": "https://haiper.ai",
+    "domain": "haiper.ai",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:08:02.242177+00:00",
+    "last_checked": "2026-07-09T13:25:45.437368+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "HeyGen",
+    "url": "https://www.heygen.com",
+    "domain": "heygen.com",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:21.952839+00:00",
+    "last_checked": "2026-07-09T13:24:44.340643+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "InVideo AI",
+    "url": "https://invideo.io/ai/",
+    "domain": "invideo.io",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:53.206987+00:00",
+    "last_checked": "2026-07-09T13:25:30.981861+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "Kling AI",
+    "url": "https://klingai.com",
+    "domain": "klingai.com",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:50.138490+00:00",
+    "last_checked": "2026-07-09T13:25:26.112632+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "Luma Dream Machine",
+    "url": "https://lumalabs.ai/dream-machine",
+    "domain": "lumalabs.ai",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:40.330651+00:00",
+    "last_checked": "2026-07-09T13:25:08.153741+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "Magic Hour",
+    "url": "https://magichour.ai/products/text-to-video",
+    "domain": "magichour.ai",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:33.979471+00:00",
+    "last_checked": "2026-07-09T13:24:58.750556+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "MakeShot AI",
+    "url": "https://makeshot.ai",
+    "domain": "makeshot.ai",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:30.765307+00:00",
+    "last_checked": "2026-07-09T13:24:53.779462+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "Pika",
+    "url": "https://pika.art",
+    "domain": "pika.art",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:46.130918+00:00",
+    "last_checked": "2026-07-09T13:25:18.282777+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "Pixverse",
+    "url": "https://pixverse.ai",
+    "domain": "pixverse.ai",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:08:05.045617+00:00",
+    "last_checked": "2026-07-09T13:25:50.021290+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "Runway",
+    "url": "https://runwayml.com",
+    "domain": "runwayml.com",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:43.172024+00:00",
+    "last_checked": "2026-07-09T13:25:13.403170+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "Vivideo",
+    "url": "https://vivideo.ai",
+    "domain": "vivideo.ai",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:27.710804+00:00",
+    "last_checked": "2026-07-08T10:07:27.710804+00:00",
+    "source": "seed"
+  },
+  {
+    "name": "Wireflow",
+    "url": "https://www.wireflow.ai",
+    "domain": "wireflow.ai",
+    "status": "ok",
+    "first_seen": "2026-07-08T10:07:36.996897+00:00",
+    "last_checked": "2026-07-09T13:25:03.190332+00:00",
+    "source": "seed"
+  }
+]

@@ -1,0 +1,84 @@
+# ===================================================
+# factory_rules.yaml — قواعد المصنع المركزية
+# AGENTS.md v2.0 — Micro-Factory Protocol
+# عدّل هذا الملف بدون لمس أي كود
+# ===================================================
+
+# ── شرط التوقف ──────────────────────────────────
+stop_condition:
+  # two_strong_then_collect_all = انتظر 2 من الأقوياء بالتحديد، ثم اجمع الكل (موصى به ✅)
+  # any_two_with_one_strong     = أي 2 + واحد قوي (أسرع بس أقل ضماناً)
+  # all                         = انتظر الكل (أبطأ + أغلى)
+  mode: "two_strong_then_collect_all"
+  min_strong_required: 2  # ← الشرط: 2 من الـ 4 الأقوياء بالتحديد
+
+  # الموديلات القوية (الأساسيون) — لازم يرد واحد منهم على الأقل
+  strong_models:
+    - "Claude-4.6"
+    - "Genspark"
+    - "SeedMini"
+    - "Perplexity"
+
+# ── التوقيت والـ Timeout ─────────────────────────
+timing:
+  tier_timeout:
+    T1: 60      # ثانية — مهام بسيطة
+    T2: 200     # ثانية — مهام متوسطة
+    T3: 400     # ثانية — مهام معمارية
+
+# ── اكتشاف الاكتمال ──────────────────────────────
+completion_detection:
+  # done_file   = كل موديل يكتب ملف .done عند انتهائه (الأآمن ✅)
+  # exit_code   = بمجرد إغلاق الـ process بـ code 0
+  # terminal    = قراءة التيرمينال (هش — لا يُوصى به)
+  method: "done_file"
+  done_filename: ".done"
+  # تحذير: response.md لا يُقرأ إلا بعد وجود .done
+
+# ── السلوك ───────────────────────────────────────
+behavior:
+  auto_fix: false       # ❌ لا إصلاح تلقائي — Antigravity يسأل أولاً
+  auto_select: false    # ❌ لا اختيار تلقائي — المستخدم يختار
+  user_decides: true    # ✅ المستخدم يختار دائماً
+  auto_summary: true    # ✅ يولّد جدول مقارنة تلقائياً عند جمع الردود
+
+# ── طبقات تفعيل الفريق (T-Tier) ─────────────────
+# T1: بسيط — Antigravity وحده (توفير API)
+# T2: متوسط — 4 أساسيين فقط
+# T3: خطير — كل الفريق
+tier_activation:
+  T1: []  # مفيش فريق — Antigravity وحده
+  T2:
+    - "Claude-4.6"
+    - "Genspark"
+    - "SeedMini"
+    - "Perplexity"
+  T3:
+    - "Claude-4.6"
+    - "Genspark"
+    - "SeedMini"
+    - "Perplexity"
+    - "DeepSeek"
+    - "MiMo"
+    - "DeepSeek-R1"
+    - "ChatGAI"
+
+# ── قالب البريف ──────────────────────────────────
+brief_template: |
+  ===== MICRO-FACTORY BRIEF =====
+  المهمة: {task_name}
+  الدالة/الملف: {function_name}
+  النطاق: {scope}
+  المستوى: {tier}
+  التفاصيل:
+  {details}
+  ===== نهاية البريف =====
+
+# ── قيود Antigravity الصارمة ─────────────────────
+# هذه القيود تُرسل كـ System Prompt لـ Antigravity
+antigravity_constraints:
+  - "لا تكتب كوداً نهائياً من نفسك — الكود يأتي من الفريق"
+  - "لو رأيت خطأ أثناء المراجعة: توقف + سأل المستخدم أولاً"
+  - "أي إجراء على الكود يستلزم إذناً مسبقاً"
+  - "عند تعارض الردود: اعرض الخيارات ولا تختر"
+  - "لا رأي شخصي في جودة الكود — قدّم ردود الفريق كما هي"

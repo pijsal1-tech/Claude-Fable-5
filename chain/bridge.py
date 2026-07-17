@@ -1,0 +1,472 @@
+# -*- coding: utf-8 -*-
+"""
+═══════════════════════════════════════════════════════
+  ChainBridge — ربط chain system بـ server.py
+
+  M4: Server Integration
+  - ChainBridge: يحوّل chain events → WebSocket messages
+  - يدير ChainRun lifecycle (start / cancel / status)
+  - يحفظ state في مجلد sessions/
+  - Thread-safe: chain يعمل في thread منفصل
+═══════════════════════════════════════════════════════
+"""
+import json
+import os
+import pathlib
+import threading
+import time
+import uuid
+
+import sys
+_EDITOR_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _EDITOR_DIR not in sys.path:
+    sys.path.insert(0, _EDITOR_DIR)
+
+from providers.base import BaseProvider
+from .models import ChainRun, ChainStep, ExecutionPolicy, ProviderSnapshot, ProjectSnapshot
+from .executor import ChainExecutor, ChainEvent
+from .orchestrator import SmartOrchestrator
+from .agent_loader import AgentLoader
+from .action_applier import ActionApplier
+
+
+# ═══════════════════════════════════════════════════════
+#   Event → WebSocket Message Mapping
+# ═══════════════════════════════════════════════════════
+
+def _event_to_ws_message(event: ChainEvent) -> dict | None:
+    """
+    يحوّل ChainEvent → رسالة WebSocket.
+    يرجع None لو الحدث ما يحتاج إرسال.
+    """
+    etype = event.event_type
+
+    if etype == "run_started":
+        total = event.data.get("total_steps", 0)
+        return {
+            "type": "chain_started",
+            "run_id": event.data.get("run_id", ""),
+            "total_steps": total,
+            "text": f"🔗 بدأ chain ({total} خطوات)...",
+        }
+
+    elif etype == "step_started":
+        return {
+            "type": "chain_step",
+            "step_id": event.step_id,
+            "status": "running",
+            "name": event.data.get("name", ""),
+            "stage": event.data.get("stage", ""),
+            "text": f"⏳ {event.data.get('name', event.step_id)}...",
+        }
+
+    elif etype == "step_completed":
+        return {
+            "type": "chain_step",
+            "step_id": event.step_id,
+            "status": "success",
+            "duration_ms": event.data.get("duration_ms", 0),
+            "result_size": event.data.get("result_size", 0),
+            "text": f"✅ {event.step_id} ({event.data.get('duration_ms', 0)}ms)",
+        }
+
+    elif etype == "step_failed":
+        return {
+            "type": "chain_step",
+            "step_id": event.step_id,
+            "status": "error",
+            "error": event.data.get("error", ""),
+            "text": f"❌ {event.step_id}: {event.data.get('error', '')}",
+        }
+
+    elif etype == "step_skipped":
+        return {
+            "type": "chain_step",
+            "step_id": event.step_id,
+            "status": "skipped",
+            "text": f"⏭️ {event.step_id}: {event.data.get('reason', 'skipped')}",
+        }
+
+    elif etype == "step_retry":
+        return {
+            "type": "chain_retry",
+            "step_id": event.step_id,
+            "attempt": event.data.get("attempt", 0),
+            "error_type": event.data.get("error_type", ""),
+            "text": f"🔄 Retry #{event.data.get('attempt', 0)}: {event.data.get('error_type', '')}",
+        }
+
+    elif etype == "budget_exhausted":
+        return {
+            "type": "chain_warning",
+            "text": "⚠️ الميزانية خلصت — الخطوات المتبقية اتخطت",
+        }
+
+    elif etype == "run_cancelled":
+        return {
+            "type": "chain_cancelled",
+            "reason": event.data.get("reason", ""),
+            "text": f"🛑 Chain ألغي: {event.data.get('reason', '')}",
+        }
+
+    elif etype == "run_finished":
+        status = event.data.get("status", "")
+        budget = event.data.get("budget", {})
+        result = event.data.get("result", None)
+        emoji = "✅" if status == "completed" else "❌"
+        return {
+            "type": "chain_finished",
+            "status": status,
+            "budget": budget,
+            "result": result,
+            "text": f"{emoji} Chain {status} ({budget.get('successful_calls', 0)} calls, "
+                    f"{budget.get('elapsed_seconds', 0):.1f}s)",
+        }
+
+    elif etype == "run_error":
+        return {
+            "type": "chain_error",
+            "error": event.data.get("error", ""),
+            "text": f"💥 Chain error: {event.data.get('error', '')}",
+        }
+
+    return None
+
+
+# ═══════════════════════════════════════════════════════
+#   ChainBridge
+# ═══════════════════════════════════════════════════════
+
+class ChainBridge:
+    """
+    يربط chain system بـ server.py.
+
+    Usage:
+        bridge = ChainBridge(provider)
+        bridge.start_chain(ws, user_request, file_content, file_path)
+        # chain يعمل في thread منفصل
+        # events تُرسل عبر WebSocket
+        bridge.cancel()  # لو المستخدم أراد الإلغاء
+    """
+
+    def __init__(self, provider: BaseProvider,
+                 project_root: str = "",
+                 runs_dir: str | pathlib.Path | None = None,
+                 action_applier: ActionApplier | None = None):
+        """
+        provider: المزود الحالي
+        project_root: مجلد المشروع
+        runs_dir: مجلد حفظ الـ runs (اختياري)
+        """
+        self._provider = provider
+        self._project_root = project_root
+        self._orchestrator = SmartOrchestrator()
+        self._agent_loader = AgentLoader()
+        self._action_applier = action_applier
+
+        if runs_dir:
+            self._runs_dir = pathlib.Path(runs_dir)
+        else:
+            self._runs_dir = pathlib.Path(project_root or ".") / ".ai_runs"
+
+        self._active_run: ChainRun | None = None
+        self._active_thread: threading.Thread | None = None
+        self._lock = threading.RLock()  # RLock: re-entrant (is_running called from start_chain)
+
+    @property
+    def action_applier(self) -> ActionApplier | None:
+        return self._action_applier
+
+    @action_applier.setter
+    def action_applier(self, val: ActionApplier | None):
+        self._action_applier = val
+
+    @property
+    def is_running(self) -> bool:
+        with self._lock:
+            return (self._active_run is not None
+                    and self._active_run.status == "running")
+
+    @property
+    def active_run(self) -> ChainRun | None:
+        return self._active_run
+
+    def start_chain(self, ws_send_fn,
+                    user_request: str,
+                    file_content: str | None = None,
+                    file_path: str = "",
+                    files: dict[str, str] | None = None,
+                    force_strategy: str | None = None) -> str:
+        """
+        يبدأ chain في thread منفصل.
+
+        ws_send_fn: callable(dict) → يرسل JSON عبر WebSocket
+        Returns: run_id
+        """
+        with self._lock:
+            if self.is_running:
+                ws_send_fn({
+                    "type": "chain_error",
+                    "text": "⚠️ في chain نشط حالياً. ألغيه أولاً.",
+                })
+                return ""
+
+        # ── Create run ──
+        run_id = f"run-{uuid.uuid4().hex[:8]}"
+        run = self._orchestrator.create_run(
+            user_request=user_request,
+            files=files,
+            file_content=file_content,
+            file_path=file_path,
+            force_strategy=force_strategy,
+            run_id=run_id,
+        )
+
+        # ── Snapshots ──
+        run.provider_snapshot = ProviderSnapshot(
+            provider_name=self._provider.name,
+            model_name=getattr(self._provider, "model", None),
+            configuration_hash="",
+        )
+        if self._project_root:
+            run.project_snapshot = ProjectSnapshot(
+                project_root=self._project_root,
+                project_id=os.path.basename(self._project_root),
+            )
+
+        # ── Run dir ──
+        run_dir = self._runs_dir / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+        # ── Store ──
+        with self._lock:
+            self._active_run = run
+
+        # ── Event callback ──
+        def on_event(event: ChainEvent):
+            msg = _event_to_ws_message(event)
+            if msg:
+                try:
+                    ws_send_fn(msg)
+                except Exception:
+                    pass
+
+        # ── Execute in thread ──
+        def _run_chain():
+            try:
+                executor = ChainExecutor(
+                    self._provider,
+                    self._agent_loader,
+                    run_dir=str(run_dir),
+                )
+                executor.execute(run, on_event=on_event)
+            finally:
+                if run.status == "completed" and self._action_applier:
+                    result_text = self.get_final_result()
+                    if result_text:
+                        try:
+                            self._action_applier.apply_step(
+                                step_id="mr_execute",
+                                ai_response=result_text,
+                                dry_run=False,
+                            )
+                        except Exception:
+                            pass
+                with self._lock:
+                    self._active_run = None
+
+        thread = threading.Thread(target=_run_chain, daemon=True, name=f"chain-{run_id}")
+        self._active_thread = thread
+        thread.start()
+
+        return run_id
+
+    def cancel(self, reason: str = "User cancelled") -> bool:
+        """إلغاء chain النشط"""
+        with self._lock:
+            if self._active_run and self._active_run.status == "running":
+                self._active_run.cancellation_token.cancel(reason)
+                return True
+        return False
+
+    def get_status(self) -> dict:
+        """حالة chain النشط"""
+        with self._lock:
+            if not self._active_run:
+                return {"active": False}
+
+            run = self._active_run
+            return {
+                "active": True,
+                "run_id": run.run_id,
+                "status": run.status,
+                "steps": [s.to_dict() for s in run.steps],
+                "budget": run.budget.to_dict() if run.budget else {},
+            }
+
+    def get_final_result(self) -> str | None:
+        """يرجع نتيجة آخر خطوة ناجحة"""
+        with self._lock:
+            run = self._active_run
+        if not run:
+            return None
+
+        # Get immutable frozen result
+        frozen = run.get_frozen_result()
+
+        # آخر خطوة execute ناجحة
+        for step in reversed(run.steps):
+            if step.stage == "execute" and step.status == "success":
+                return frozen.get_result(step.id)
+        # أو آخر خطوة ناجحة
+        for step in reversed(run.steps):
+            if step.status == "success":
+                return frozen.get_result(step.id)
+        return None
+
+
+# ═══════════════════════════════════════════════════════
+#   Folder Scanner — قراءة مجلد كامل للـ chain
+# ═══════════════════════════════════════════════════════
+
+# امتدادات نصية آمنة للقراءة
+_TEXT_EXTENSIONS = {
+    ".html", ".htm", ".css", ".scss", ".sass", ".less",
+    ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
+    ".json", ".yaml", ".yml", ".toml",
+    ".py", ".sh", ".bat", ".ps1",
+    ".md", ".txt", ".env", ".gitignore",
+    ".svg", ".xml", ".vue", ".svelte",
+    ".rs", ".go", ".java", ".c", ".cpp", ".h", ".hpp",
+    ".rb", ".php", ".swift", ".kt", ".dart",
+    ".sql", ".graphql", ".proto",
+    ".dockerfile", ".tf", ".hcl",
+}
+
+# مجلدات يجب تجاهلها
+_IGNORE_DIRS = {
+    "node_modules", ".git", "__pycache__", ".next", ".nuxt",
+    "dist", "build", ".cache", ".vscode", ".idea",
+    "venv", ".venv", "env", ".env", ".tox",
+    "target", "bin", "obj", ".gradle",
+    ".ai_runs",  # مجلد الـ chain runs نفسه
+}
+
+# حدود
+_MAX_FILE_SIZE = 200 * 1024   # 200KB per file
+_MAX_TOTAL_SIZE = 2 * 1024 * 1024  # 2MB total
+_MAX_FILES = 50
+
+
+def scan_folder_for_chain(folder_path: str,
+                          max_files: int = _MAX_FILES,
+                          max_file_size: int = _MAX_FILE_SIZE,
+                          max_total_size: int = _MAX_TOTAL_SIZE) -> dict[str, str]:
+    """
+    يقرأ مجلد كامل ويرجع {relative_path: content}.
+
+    - يتجاهل مجلدات node_modules, .git, __pycache__ إلخ
+    - يقرأ ملفات نصية فقط (WEB_EXTENSIONS + لغات برمجة)
+    - حد أقصى 50 ملف / 200KB per file / 2MB total
+    - يرتب الملفات بالأهمية (py/js/ts أولاً)
+
+    Returns:
+        dict: {relative_path: file_content}
+        Empty dict if folder doesn't exist or no files found.
+    """
+    root = pathlib.Path(folder_path).resolve()
+    if not root.is_dir():
+        return {}
+
+    files = {}
+    total_size = 0
+
+    # جمع كل الملفات المؤهلة
+    candidates = []
+    _collect_files(root, root, candidates, max_files * 3)  # جمع أكتر وننقي بعدين
+
+    # ترتيب بالأهمية: كود أولاً، config ثانياً، docs آخراً
+    priority_ext = {".py": 0, ".js": 0, ".ts": 0, ".jsx": 0, ".tsx": 0,
+                    ".vue": 0, ".svelte": 0, ".rs": 0, ".go": 0,
+                    ".html": 1, ".css": 1, ".scss": 1,
+                    ".json": 2, ".yaml": 2, ".yml": 2, ".toml": 2,
+                    ".md": 3, ".txt": 3}
+
+    candidates.sort(key=lambda p: (
+        priority_ext.get(p.suffix.lower(), 2),
+        len(str(p)),  # أقصر paths أولاً (أقرب للـ root)
+    ))
+
+    for file_path in candidates:
+        if len(files) >= max_files:
+            break
+
+        try:
+            size = file_path.stat().st_size
+            if size > max_file_size or size == 0:
+                continue
+            if total_size + size > max_total_size:
+                break
+
+            content = file_path.read_text(encoding="utf-8", errors="replace")
+            rel_path = str(file_path.relative_to(root)).replace("\\", "/")
+            files[rel_path] = content
+            total_size += size
+        except (PermissionError, OSError, UnicodeDecodeError):
+            continue
+
+    return files
+
+
+def _collect_files(root: pathlib.Path, current: pathlib.Path,
+                   result: list, limit: int):
+    """مسح recursive مع تجاهل المجلدات"""
+    if len(result) >= limit:
+        return
+    try:
+        for item in sorted(current.iterdir()):
+            if len(result) >= limit:
+                return
+            if item.is_dir():
+                name = item.name
+                if name in _IGNORE_DIRS or name.startswith("."):
+                    continue
+                _collect_files(root, item, result, limit)
+            elif item.is_file():
+                if item.suffix.lower() in _TEXT_EXTENSIONS:
+                    result.append(item)
+    except PermissionError:
+        pass
+
+
+def get_folder_summary(folder_path: str) -> dict:
+    """
+    ملخص سريع عن مجلد (بدون قراءة المحتوى).
+    """
+    root = pathlib.Path(folder_path).resolve()
+    if not root.is_dir():
+        return {"exists": False}
+
+    files = []
+    _collect_files(root, root, files, 200)
+
+    ext_counts = {}
+    total_size = 0
+    for f in files:
+        ext = f.suffix.lower()
+        ext_counts[ext] = ext_counts.get(ext, 0) + 1
+        try:
+            total_size += f.stat().st_size
+        except OSError:
+            pass
+
+    return {
+        "exists": True,
+        "path": str(root),
+        "name": root.name,
+        "total_files": len(files),
+        "total_size_kb": total_size // 1024,
+        "extensions": dict(sorted(ext_counts.items(), key=lambda x: -x[1])),
+        "can_chain": len(files) > 0,
+    }
+

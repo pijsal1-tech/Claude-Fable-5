@@ -1,0 +1,719 @@
+https://www.genspark.ai/agents?id=cd7a7d78-9bcb-4f02-af74-e5f8fc446238
+
+https://github.com/github/spec-kit
+
+
+
+
+🤖 AI Agents 2026
+Gemini & Spec-Kit
+Agency Agents
+Frameworks
+Coding Tools
+Architecture
+الأسعار
+المصادر
+مارس 2026
+الدليل الشامل: أنظمة وكلاء الذكاء الاصطناعي
+AI Agents, Frameworks & Coding Tools — دليلك الكامل لبناء المستقبل
+
+1. فيديو أحمد نجدي: Gemini 3.1 Pro + Spec-Kit
+تجربة عملية في بيئة Google AntiGravity
+عن الفيديو
+القناة: Ahmed Nagdy (@NagdyWP)
+ الرابط: مشاهدة الفيديو
+المدة: ~14 دقيقة
+ المحتوى: تجربة عملية حصرية لموديل Gemini 3.1 Pro الجديد داخل بيئة AntiGravity مع استخدام Spec-Kit.
+💡 ملخص التجربة
+أحمد نجدي قام بتحويل صفحة Roadmap في تطبيق "Togi" إلى لوحة Kanban. النقاط الأساسية:
+
+Gemini 3.1 Pro متاح حالياً حصرياً داخل AntiGravity.
+الموديل حقق 77% في اختبار ARC-AGI (أذكى وأرخص).
+التركيز: قوة جبارة في الـ Frontend والواجهات.
+الاستراتيجية: التخطيط بموديل ذكي (Pro) والتنفيذ بموديل رخيص.
+🛠️ الأدوات المستخدمة في الفيديو
+Google AntiGravity IDE
+بيئة تطوير مجانية من جوجل مبنية على VS Code.
+
+يدعم Autonomous Agents.
+يتحكم في المتصفح والطرفية (Terminal).
+أوامر باللغة الطبيعية (Natural Language).
+GitHub Spec-Kit
+أداة لتحويل المواصفات إلى كود (Spec-Driven Development).
+
+/speckit.constitution
+تأسيس المبادئ
+/speckit.specify
+كتابة المواصفات
+/speckit.plan
+التخطيط التقني
+/speckit.implement
+تنفيذ الكود
+2. مشروع Agency-Agents
+فريق عمل كامل من الذكاء الاصطناعي (140+ Persona)
+مشروع مفتوح المصدر يوفر شخصيات جاهزة (Prompts) لمهام محددة جداً. يمكن استخدامها مع Cursor, Claude Code, Windsurf.
+🔗 رابط المشروع على GitHub
+
+🛠️ Engineering Division
+23 Agents
+Frontend Dev, Backend Architect, DevOps, Security Engineer, Solidity Dev, QA, SRE, Data Engineer...
+
+🎨 Design Division
+8 Agents
+UI Designer, UX Researcher, Brand Guardian, Image Prompt Engineer, Visual Storyteller...
+
+📈 Marketing & Sales
+35+ Agents
+Growth Hacker, SEO Specialist, Content Creator, Deal Strategist, Sales Engineer, Social Media...
+
+🕹️ Game Dev & Specialized
+40+ Agents
+Unity/Unreal/Godot Experts, Agents Orchestrator, MCP Builder, Academic Researchers...
+
+طريقة الاستخدام (Claude Code)
+cp -r agency-agents/* ~/.claude/agents/
+طريقة الاستخدام (Cursor/Windsurf)
+./scripts/convert.sh
+./scripts/install.sh --tool cursor
+3. البدائل الأقوى: Multi-Agent Frameworks
+مقارنة شاملة لأطر العمل البرمجية لعام 2026
+الإطار (Framework)	Stars ⭐	النوع	الميزة الأساسية	الصعوبة	أفضل استخدام
+LangGraph	24.8k	Graph-based	تحكم كامل في الـ State	صعب	Enterprise Apps
+CrewAI	44.3k	Role-based	سهولة بناء فرق عمل	متوسط	AI Teams
+AutoGen (AG2)	54.6k	Conversational	حل مشاكل معقدة بالحوار	صعب	Research / Coding
+MetaGPT	55k+	SOP-based	محاكاة شركة برمجيات	متوسط	Software Factory
+Smolagents	10k+	Code-centric	خفيف جداً (1k lines)	سهل	Lightweight Tasks
+Dify	129k+	Visual / Low-code	واجهة بصرية للسحب والإفلات	سهل جداً	RAG / Chatbots
+🕸️ LangGraph
+للمشاريع الكبيرة التي تحتاج تحكم دقيق (Human-in-the-loop). تعتمد على الرسم البياني (Nodes/Edges).
+
+مثال: شركات مثل Uber و LinkedIn.
+
+🤝 CrewAI
+الأسرع نمواً. تقوم بتحديد "الدور" و"الهدف" لكل وكيل. ممتاز للأتمتة والبحث.
+
+يدعم 100+ أداة جاهزة.
+
+🏢 MetaGPT
+إذا أردت إنشاء PRD، تصميم نظام، وكتابة كود بضغطة زر. يحاكي تسلسل وظيفي لشركة.
+
+⚡ OpenHands (Autonomous)
+ليس مجرد framework، بل مهندس برمجيات كامل. يفتح المتصفح ويكتب الكود ويصحح الأخطاء.
+
+الموقع الرسمي
+4. أدوات البرمجة بالذكاء الاصطناعي (IDE & Agents)
+الجيل الجديد من المحررات الذكية
+Cursor
+Top Tier
+النوع: IDE كامل (مبني على VS Code)
+
+الأقوى حالياً. يفهم الكود بالكامل (Codebase Awareness) ولديه Tab Completion سحري.
+
+$20/mo
+Windsurf
+النوع: IDE (Cascade Flow)
+
+يتميز بتدفق "Cascade" الذي يفهم سياق المشروع وتعديل ملفات متعددة بذكاء.
+
+متاح مجاناً
+Google AntiGravity
+النوع: Agentic IDE
+
+بيئة العمل الجديدة من جوجل. تدعم Gemini 3.1 Pro والوكلاء المستقلين.
+
+مجاني
+Claude Code
+النوع: CLI Agent
+
+أداة طرفية قوية جداً من Anthropic. تخطط وتنفذ مهام معقدة من سطر الأوامر.
+
+أدوات أخرى تستحق الذكر:
+Aider	CLI مفتوح المصدر، قوي جداً في الـ Git integration.
+SWE-Agent	متخصص في حل GitHub Issues تلقائياً (من جامعة Princeton).
+Manus	وكيل عام يتحكم في الجهاز بالكامل (General Purpose).
+OpenAI Operator	وكيل متصفح لتنفيذ المهام أونلاين.
+5. البنية التحتية المثالية (AI OS)
+كيف تبني نظام تشغيل ذكي متكامل؟
+AI Operating System
+│
+├── Orchestrator Agent (LangGraph / CrewAI) 🧠
+│
+├── Specialist Agents 👥
+│   ├── Research Agents (Deep Research + RAG)
+│   ├── Coding Agents (OpenHands / SWE-Agent)
+│   ├── Testing Agents (Automated QA)
+│   ├── Security Agents (Threat Detection)
+│   └── Design Agents (UI/UX Generation)
+│
+├── Tool Layer 🛠️
+│   ├── Browser (Browser Use / Playwright MCP)
+│   ├── Terminal (Shell Execution)
+│   ├── Python (Code Execution E2B)
+│   ├── APIs (External Services)
+│   └── MCP Servers (Unified Tool Access)
+│
+├── Memory Layer 💾
+│   ├── Short-term (Conversation Context)
+│   ├── Long-term (Vector DB — Chroma/Pinecone)
+│   └── Episodic (Mem0)
+│
+└── Communication Layer 📡
+    ├── MCP (AI ↔ Tools)
+    └── A2A (Agent ↔ Agent)
+                
+📡 بروتوكولات الاتصال
+ MCP (Model Context Protocol): معيار من Anthropic لربط الذكاء الاصطناعي بأي داتا أو أداة (بمثابة USB للـ AI).
+A2A: بروتوكول من جوجل لتواصل الوكلاء مع بعضهم البعض.
+💰 مقارنة التكلفة (للمليون توكن)
+GPT-4o: $2.50 / $10.00
+Claude 3.5 Sonnet: $3.00 / $15.00
+DeepSeek V3: $0.27 / $1.10 الأرخص
+Gemini 3.1 Pro: منافس جداً في السعر والأداء.
+6. GitHub Spec-Kit — الدليل الكامل
+Spec-Driven Development (SDD) — المواصفات القابلة للتنفيذ
+💡 ما هو Spec-Kit؟
+أداة مفتوحة المصدر من GitHub تقلب مفهوم التطوير رأساً على عقب. بدلاً من البدء بالكود مباشرة، أنت تكتب المواصفات (Specs) وهي بدورها تنتج الكود تلقائياً. فكرة Spec-Driven Development (SDD): الـ Specifications تبقى مرجعاً حياً قابلاً للتنفيذ وليست مجرد وثيقة تُرمى في الدُرج.
+
+🔗 الرابط: github.com/github/spec-kit
+
+📋 الأوامر الثمانية الكاملة
+/speckit.constitution
+تأسيس المبادئ
+يحدد المبادئ التوجيهية للمشروع والقرارات التقنية الثابتة. يُنفَّذ مرة واحدة فقط عند بدء المشروع.
+
+/speckit.specify
+كتابة المواصفات
+تُعطيه وصفاً بالنص وهو يحوّله لمواصفة تقنية منظمة (User Stories, Requirements, Acceptance Criteria).
+
+/speckit.clarify
+توضيح الغموض (اختياري)
+يسألك أسئلة لتوضيح أي نقاط غامضة قبل المرور للتخطيط. يساعد في الحصول على نتائج أدق.
+
+/speckit.plan
+التخطيط التقني
+يحلل الكودبيس ويبحث أونلاين عند الحاجة ثم يبني خطة تقنية مفصلة (Architecture, Data Models, APIs).
+
+/speckit.tasks
+تقسيم المهام
+يحوّل الخطة لقائمة مهام واضحة ومرتبة حسب الأولوية. كل مهمة محددة بدقة لأي موديل ينفذها.
+
+/speckit.implement
+تنفيذ الكود
+ينفذ المهام فعلياً بناءً على الخطة. يمكن استخدام موديل أرخص هنا (Flash, GLM, DeepSeek) لتوفير التكلفة.
+
+/speckit.analyze
+تحليل التناسق
+يتأكد من تناسق جميع الملفات والـ Artifacts مع بعضها. يكتشف أي تعارضات أو ثغرات في الخطة.
+
+/speckit.checklist
+قوائم الجودة
+يولد قوائم تفتيش جودة مخصصة للمشروع للتأكد من اكتمال التنفيذ بشكل صحيح.
+
+📦 التثبيت والإعداد
+# تثبيت دائم عبر uv
+uv tool install specify-cli --from git+https://github.com/github/spec-kit.git@vX.Y.Z
+
+# تشغيل مؤقت بدون تثبيت
+uvx --from git+https://github.com/github/spec-kit.git@vX.Y.Z specify init MY_PROJECT
+
+# تهيئة المشروع
+specify init MY_PROJECT
+# أو إذا كنت داخل مجلد المشروع بالفعل
+specify init --here
+
+# تحديث نسخة موجودة
+uv tool upgrade specify-cli
+🔧 الأدوات المدعومة (25+)
+Cursor
+Claude Code
+Windsurf
+GitHub Copilot
+Gemini CLI
+Antigravity (agy)
+Aider
+OpenCode
+Kilo Code
+RooCode
+Kiro CLI
+Amp
+Jules
+Junie
+Qwen Code
+Trae
+Mistral Vibe
+Kimi Code
+🔄 الـ Workflow الكامل
+1. specify init PROJECT_NAME     ← تهيئة المشروع
+         │
+         ▼
+2. /speckit.constitution          ← المبادئ (مرة واحدة)
+         │
+         ▼
+3. /speckit.specify               ← اكتب وصف الفيتشر
+         │
+         ▼
+4. /speckit.clarify (اختياري)     ← يسألك أسئلة توضيحية
+         │
+         ▼
+5. /speckit.plan                  ← يبني الخطة التقنية
+         │
+         ▼
+6. /speckit.tasks                 ← تقسيم لمهام صغيرة
+         │
+         ▼
+7. /speckit.implement             ← ينفذ الكود (بموديل أرخص)
+         │
+         ▼
+8. /speckit.analyze               ← مراجعة التناسق
+         │
+         ▼
+9. Code Review + Merge ✅
+7. تفصيل أطر العمل الرئيسية
+كل Framework في سطور واضحة
+🕸️ LangGraph
+⭐ 24.8k MIT 🔴 صعب
+الفكرة: يمثّل الـ AI workflow كرسم بياني (Directed Graph). كل Node هي وحدة عمل، وكل Edge هي قرار انتقال. يتيح تحكماً كاملاً في كل خطوة.
+
+✅ المميزات:
+
+State Management متقدم جداً
+Human-in-the-loop بسهولة
+Retry Logic تلقائي
+يدعم Python + JavaScript
+أكبر ecosystem في المجال
+❌ العيوب:
+
+منحنى تعلم شديد الحدة
+كود verbose
+Infrastructure يبقى عليك
+🏢 مستخدمو الإنتاج: Klarna (وفّرت $60M)، Uber، Cisco، LinkedIn، BlackRock
+
+🔗 github.com/langchain-ai/langgraph
+
+🤝 CrewAI
+⭐ 44.3k MIT 🟡 متوسط
+الفكرة: تبني "فريق عمل" من الـ Agents. كل Agent له اسم + role + backstory + goal + tools. الـ Framework بيتحكم في التفويض (Delegation) بين الأعضاء.
+
+from crewai import Agent, Task, Crew
+
+researcher = Agent(role="Researcher", goal="Find latest AI news", tools=[search_tool])
+writer = Agent(role="Writer", goal="Write engaging articles")
+
+task = Task(description="Write about AI agents in 2026", agent=writer)
+
+crew = Crew(agents=[researcher, writer], tasks=[task])
+crew.kickoff()
+✅ المميزات:
+
+سهل الفهم والاستخدام
+نما من 0 لـ 50k+ stars في سنة!
+100+ أداة جاهزة
+Streaming tool calls (يناير 2026)
+مجتمع ضخم جداً
+❌ العيوب:
+
+Memory قصيرة المدى فقط
+Python فقط (لا يدعم JS)
+أقل مرونة من LangGraph
+🔗 github.com/crewAIInc/crewAI
+
+🤖 AutoGen / AG2
+⭐ 54.6k مفتوح 🔴 صعب
+الفكرة: من Microsoft. الـ Agents تتكلم مع بعضها عبر message-passing. بتكتب كود وتشغّله وتصلح الأخطاء بنفسها في loop.
+
+✅ المميزات:
+
+قائد في GAIA Benchmark
+يدعم Python + .NET
+Teachability — يتعلم من التصحيحات
+Event-driven Architecture
+ممتاز للـ Data Science
+❌ العيوب:
+
+أصعب framework في الإعداد
+Documentation معقدة
+مجتمع أصغر من CrewAI
+🔗 github.com/microsoft/autogen | github.com/ag2ai/ag2
+
+🏢 MetaGPT
+⭐ 55k+ MIT 🟡 متوسط
+الفكرة: يحاكي شركة software كاملة. تعطيه فكرة بسيطة وهو يبني "شركة افتراضية" تنفذ الفكرة من أول الـ PRD للكود والاختبارات.
+
+CEO (Product Vision)
+    ↓
+Product Manager (PRD Writing)
+    ↓
+System Architect (Technical Design)
+    ↓
+Senior Engineers (Code Writing)
+    ↓
+QA Engineers (Testing)
+    ↓
+📦 Final Product (Code + Tests + Docs)
+🔗 github.com/FoundationAgents/MetaGPT
+
+⚡ smolagents (Hugging Face)
+⭐ 10k+ Apache 🟢 سهل
+الفكرة: من Hugging Face. خفيف جداً (~1000 سطر كود). الـ Agents بتكتب Python Code لتنفيذ المهام بدلاً من JSON Actions — ده بيخليهم أسرع وأذكى في حل المشاكل.
+
+from smolagents import CodeAgent, DuckDuckGoSearchTool, HfApiModel
+
+agent = CodeAgent(tools=[DuckDuckGoSearchTool()], model=HfApiModel())
+agent.run("What are the 5 best AI frameworks in 2026?")
+🔗 github.com/huggingface/smolagents
+
+🎨 Dify — الأشهر على GitHub
+⭐ 129.8k Apache 🟢 سهل جداً
+الفكرة: بناء AI Apps بصرياً بالسحب والإفلات. ممتاز للـ RAG chatbots والـ knowledge assistants بدون كود.
+
+✅ المميزات:
+
+أعلى مشروع في الـ Stars
+Self-hosted عبر Docker
+RAG + ReAct + Vector Search
+لا يحتاج خبرة برمجية
+❌ العيوب:
+
+محدودية في Multi-agent
+Workflows خطية في الغالب
+أقل مرونة للمطورين المتقدمين
+🔗 github.com/langgenius/dify | dify.ai
+
+🦌 DeerFlow (ByteDance)
+⭐ 25k+ 🔥 رقم 1 Trending
+الفكرة: من ByteDance. حقق المرتبة الأولى في GitHub Trending في فبراير 2026. متخصص في بحث ضخم وتدفقات عمل متعددة الوكلاء.
+
+🔗 github.com/bytedance/deerflow
+
+🟦 Mastra (TypeScript)
+⭐ 21.2k MIT 🟡 متوسط
+الفكرة: أول framework بالكامل بـ TypeScript لمطوري JavaScript. Graph-based workflows مع memory. يُستخدم في Replit Agent 3 وMars McLennan (75k موظف).
+
+🔗 github.com/mastra-ai/mastra
+
+8. المهندسون الآليون (Autonomous AI Engineers)
+AI يكتب كوداً حقيقياً ويحل مشاكل برمجية بدون تدخل بشري
+🙌 OpenHands (OpenDevin)
+مفتوح المصدر
+البديل الأقوى مفتوح المصدر لـ Devin. يستقبل الطلب ويخطط ويكتب الكود ويجرب ويصلح. يفتح Terminal + Browser لوحده.
+
+يدعم أي LLM (Claude, GPT, Gemini...)
+Docker-based بيئة عمل آمنة
+واجهة رسومية + CLI
+🔗 GitHub | openhands.dev
+
+🎓 SWE-Agent
+Princeton University
+مصمم خصيصاً لحل GitHub Issues تلقائياً. تعطيه رابط Issue والموديل يكتب الكود ويفتح Pull Request.
+
+متخصص في Bug Fixing
+يستخدم SWE-bench لقياس الأداء
+مفتوح المصدر بالكامل
+🔗 github.com/princeton-nlp/SWE-agent
+
+🤖 Devin
+تجاري
+أول AI software engineer تجاري في التاريخ. من شركة Cognition AI. يتعامل مع مهام برمجية طويلة الأمد.
+
+🔗 devin.ai
+
+🚀 Kiro
+Amazon AWS
+Spec-driven AI IDE من Amazon. يبني المشروع من المواصفات مباشرة.
+
+🔗 kiro.dev
+
+9. وكلاء المتصفح والحاسوب (Browser & Computer Agents)
+AI يتصفح الإنترنت وينفذ مهام حقيقية على شاشتك
+الأداة	النوع	الوصف	المصدر
+OpenAI Operator	تجاري	يتصفح الإنترنت وينفذ مهام معقدة (حجز فنادق، ملء نماذج، تسوق)	OpenAI
+Manus AI	تجاري	وكيل عام يتحكم في الجهاز بالكامل. الأكثر إثارة في 2025	Monica
+Claude Computer Use	API	Claude يرى شاشتك ويتحكم في الماوس والكيبورد زي البشر	Anthropic
+Google Project Mariner	تجريبي	وكيل متصفح Gemini يتنقل في المواقع وينفذ المهام	Google
+Browser Use	مفتوح المصدر	مكتبة Python سهلة الاستخدام لبناء Browser Agents	Community
+Skyvern	مفتوح المصدر	يتعامل مع أي موقع ويب بدون تخصيص مسبق	Skyvern AI
+MultiOn	API	يتصفح المواقع وينفذ مهام معقدة بتعليمات بسيطة	MultiOn
+Amazon Nova Act	AWS	وكيل متصفح من Amazon مدمج مع AWS	Amazon
+10. الذكاء الاصطناعي المحلي (Local AI)
+شغّل الموديلات على جهازك — مجاني وخصوصي
+🦙 Ollama
+الأشهر
+أسهل طريقة لتشغيل LLMs محلياً. كأنك بتستخدم Docker ولكن للموديلات.
+
+ollama pull llama4
+ollama run gemma3
+ollama run deepseek-r2
+ollama.ai
+
+🖥️ LM Studio
+واجهة رسومية جميلة لتحميل وتشغيل الموديلات المحلية. مناسب لغير المبرمجين.
+
+lmstudio.ai
+
+🌐 Open WebUI
+واجهة ويب مفتوحة المصدر تشبه ChatGPT تماماً لكن تشتغل محلياً مع Ollama.
+
+GitHub
+
+⚙️ llama.cpp
+محرك تشغيل مكتوب بـ C++. الأسرع على CPU. بيشتغل على أي جهاز حتى الضعيف.
+
+🚄 vLLM
+للـ Servers. High-throughput serving يتحمل آلاف الطلبات في الثانية.
+
+📱 Anything LLM
+تطبيق سطح مكتب متكامل يجمع بين الـ Local LLMs والـ RAG والـ Agents.
+
+🤗 أفضل الموديلات المفتوحة المصدر
+الموديل	من	المميزات	الحجم
+Llama 4	Meta	الأقوى في الفئة المفتوحة، Multi-modal	8B-405B
+Qwen 3	Alibaba	ممتاز في الكود والعربية، تفكير قوي	0.6B-235B
+DeepSeek V3	DeepSeek	الأرخص، أداء يضاهي GPT-4o	671B MoE
+Gemma 3	Google	خفيف وسريع، مناسب للـ Local	1B-27B
+Mistral Large	Mistral AI	أوروبي، بيدعم أكثر من 80 لغة	متعدد
+Phi-4	Microsoft	صغير ولكن ذكي جداً (4B فقط)	4B-14B
+11. وكلاء الصوت والفيديو (Voice & Creative Agents)
+AI يتكلم، يستمع، ويبدع
+🎙️ ElevenLabs
+أفضل جودة صوت AI. Text-to-Speech + Voice Cloning + Music + Sound Effects.
+
+API + منصة
+📞 Vapi
+منصة لبناء Voice Agents للهاتف. بتبني Call Center بالذكاء الاصطناعي.
+
+تجاري
+🎵 Suno / Udio
+أقوى أدوات توليد الموسيقى الكاملة (مع كلمات وألحان) بالنص.
+
+تجاري
+🎬 Sora 2 / Veo 3
+من OpenAI وGoogle. توليد فيديو احترافي من النص أو الصور.
+
+تجاري
+12. البروتوكولات والمعايير
+اللغة المشتركة بين الـ AI والأدوات
+🔌 MCP — Model Context Protocol
+Anthropic
+"USB للذكاء الاصطناعي"
+
+بروتوكول مفتوح يتيح للـ AI الوصول لأي بيانات أو أداة بطريقة موحدة. بدلاً من كتابة integration لكل خدمة على حدة، تكتب MCP Server مرة واحدة وأي AI يقدر يستخدمه.
+
+يدعمه Claude, Cursor, Windsurf, وغيرهم
+آلاف المجتمعات بنت MCP Servers
+مثال: MCP لـ GitHub، لـ Postgres، لـ Slack، لـ Google Drive
+🔄 A2A — Agent to Agent Protocol
+Google
+"البريد الإلكتروني للوكلاء"
+
+بروتوكول من Google يتيح للـ AI Agents التواصل مع بعضها البعض بغض النظر عن الشركة المصنّعة. يكمّل MCP ولا يعارضه.
+
+Agent discovery — كل agent يعلن عن قدراته
+Task delegation — تفويض المهام بين الوكلاء
+Standard messaging format
+13. مقارنة أسعار الموديلات والأدوات
+استثمر ذكياً في الذكاء الاصطناعي
+الموديل	الشركة	Input / M tokens	Output / M tokens	ملاحظة
+GPT-4o	OpenAI	$2.50	$10.00	الأشهر عالمياً
+o1 / o3	OpenAI	$15.00	$60.00	للمشاكل الصعبة جداً
+Claude 3.5 Sonnet	Anthropic	$3.00	$15.00	الأفضل في الكود
+Claude 3.5 Haiku	Anthropic	$0.80	$4.00	سريع ورخيص للتنفيذ
+Gemini 3.1 Pro	Google	منافس	منافس	الأفضل في Frontend
+Gemini Flash	Google	رخيص جداً	رخيص جداً	للتنفيذ وتوفير التكلفة
+DeepSeek V3	DeepSeek	$0.27	$1.10	الأرخص — أداء ممتاز
+DeepSeek R1	DeepSeek	$0.55	$2.19	Reasoning Model رخيص
+Llama 4 / Qwen 3	Meta / Alibaba	مجاني (Local / Self-hosted)	مفتوح المصدر
+💰 استراتيجية التوفير الذكية (نصيحة أحمد نجدي)
+مرحلة التخطيط (تكلفة عالية تُقبل):
+
+Claude 3.5 Sonnet — للتخطيط المعمّق
+Gemini 3.1 Pro — للـ Frontend والواجهات
+GPT-4o — للتحليل العام
+مرحلة التنفيذ (لازم توفر):
+
+DeepSeek V3 — أداء عالي وسعر رخيص جداً
+Gemini Flash — للمهام المتكررة
+Claude Haiku — للمهام البسيطة
+GLM-4 — للكود الروتيني
+14. قوائم Awesome — كل شيء في مكان واحد
+المراجع الشاملة لعالم AI Agents
+🏆 Awesome AI Agents 2026
+300+ أداة في 20+ فئة — يتحدث شهرياً
+
+Coding Agents (IDE, CLI, Autonomous)
+Agent Frameworks (Multi, Single, Lightweight)
+Browser & Desktop Agents
+Voice Agents
+Creative AI (Image, Video, Music, 3D)
+Task & Workflow Automation
+Customer Support CRM
+Data & Research Agents
+Local & Self-Hosted AI
+Cybersecurity Agents
+🔗 GitHub: awesome-ai-agents-2026
+
+📚 مراجع إضافية
+Awesome AI Agents by e2b-dev
+Awesome Agents by kyrolabs
+Awesome AI Agent Papers 2026
+Top AI GitHub Repos 2026 (ByteByteGo)
+Top 5 Frameworks Honest Guide
+Best Open Source Frameworks (Firecrawl)
+15. جميع المصادر والروابط
+مستودعات GitHub
+Agency Agents (الأصلي)
+GitHub Spec-Kit
+LangGraph
+CrewAI
+AutoGen (Microsoft)
+AG2 (AutoGen Open Source)
+MetaGPT
+OpenHands
+SWE-Agent
+smolagents (HuggingFace)
+Dify
+Mastra
+Google ADK
+OpenAI Agents SDK
+DeerFlow (ByteDance)
+Awesome AI Agents 2026
+فيديوهات تعليمية
+أحمد نجدي: Gemini 3.1 Pro + Spec-Kit + AntiGravity
+Spec-Kit: الدليل الكامل
+Spec-Kit: Setup Series (الجزء 1)
+Google AntiGravity IDE: مراجعة
+MetaGPT Tutorial
+MetaGPT: Build AI Agents
+smolagents: HuggingFace New Framework
+LangGraph vs AutoGen vs CrewAI 2025
+🌐 مواقع مهمة
+Google AntiGravity (الرسمي)
+OpenHands
+CrewAI
+Dify
+Devin AI
+Kiro (Amazon)
+smolagents.org
+smolagents Docs (HuggingFace)
+AntiGravity IDE Info
+Spec-Kit: Microsoft Developer Blog
+💡 نصائح عملية — خلاصة عام 2026
+ابدأ بـ CrewAI لبناء فريق AI سريعاً
+استخدم LangGraph لمشاريع Enterprise
+جرب Spec-Kit مع أي IDE لتنظيم الكود
+تعلم MCP — مستقبل ربط الأدوات
+Google AntiGravity مجاني ورائع للـ Frontend
+خطط بـ Pro، نفذ بـ Flash أو DeepSeek
+جرب OpenHands كمبرمج آلي
+احفظ رابط Awesome AI Agents 2026 للمرجعية
+🤖 الدليل الشامل: AI Agents & Frameworks 2026
+تم تجميع هذا الدليل بالبحث في GitHub، Hugging Face، والإنترنت بناءً على أحدث المصادر — مارس 2026
+
+Agency Agents
+Spec-Kit
+AntiGravity IDE
+LangGraph
+CrewAI
+MetaGPT
+OpenHands
+Awesome AI Agents 2026
+حقوق المحتوى محفوظة لأصحابها الأصليين | القناة: Ahmed Nagdy @NagdyWP
+
+
+
+
+
+
+
+# 🎉 الملف الشامل جاهز!
+
+تم إنشاء **دليل شامل وكامل** فيه كل حاجة ممكنة عن أنظمة وكلاء الذكاء الاصطناعي. 
+
+---
+
+## 📄 الملف الكامل
+
+👉 **[افتح الملف الكامل هنا (ai-agents-guide-2026.html)](https://www.genspark.ai/doc_agent?id=e09147d3-074a-40fd-8700-a79c8ce171e6)**
+
+👉 **[تحميل الملف مباشرة](https://www.genspark.ai/api/files/s/KCTqC4VX)**
+
+---
+
+## 📋 اللي في الملف (1600+ سطر — 15 قسم كامل)
+
+| # | القسم | المحتوى |
+|---|-------|---------|
+| 1 | **فيديو أحمد نجدي** | ملخص كامل — Gemini 3.1 Pro + Spec-Kit + AntiGravity |
+| 2 | **مشروع Agency-Agents** | كل الـ 140+ Agent في كل الأقسام (Engineering, Design, Marketing, Sales, Game Dev...) |
+| 3 | **جدول مقارنة ضخم** | 10+ أطر عمل (LangGraph, CrewAI, AutoGen, MetaGPT, Dify, Mastra, smolagents...) |
+| 4 | **AI Operating System Architecture** | تصميم نظام متكامل من Orchestrator لـ Memory لـ Tools |
+| 5 | **أدوات Coding بالذكاء الاصطناعي** | Cursor, Windsurf, AntiGravity, Claude Code, Aider, Cline... |
+| 6 | **Spec-Kit الكامل** | كل الأوامر + طريقة التثبيت + الـ 25+ أداة المدعومة |
+| 7 | **تفصيل كل Framework** | شرح مفصل مع أكواد لكل إطار عمل |
+| 8 | **المهندسون الآليون** | [OpenHands](https://github.com/All-Hands-AI/OpenHands), [SWE-Agent](https://github.com/princeton-nlp/SWE-agent), Devin, Kiro |
+| 9 | **وكلاء المتصفح** | OpenAI Operator, Manus, Claude Computer Use, Browser Use, Skyvern |
+| 10 | **الذكاء الاصطناعي المحلي** | Ollama, LM Studio, Open WebUI, vLLM |
+| 11 | **وكلاء الصوت والفيديو** | ElevenLabs, Vapi, Suno, Sora 2 |
+| 12 | **البروتوكولات** | MCP + A2A — معايير التواصل الجديدة |
+| 13 | **مقارنة الأسعار** | كل الموديلات + استراتيجية التوفير من الفيديو |
+| 14 | **قوائم Awesome** | [300+ أداة في 20+ فئة](https://github.com/caramaschiHG/awesome-ai-agents-2026) |
+| 15 | **جميع المصادر والروابط** | GitHub + YouTube + مقالات |
+
+---
+
+## 🔥 أهم الحاجات اللي في الملف
+
+### أقوى أطر العمل (بدل Agency-Agents)
+
+| الإطار | ⭐ Stars | الميزة الرئيسية |
+|--------|---------|----------------|
+| [Dify](https://github.com/langgenius/dify) | **129.8k** | No-code agent builder — أشهر مشروع |
+| [AutoGen](https://github.com/microsoft/autogen) | **54.6k** | من Microsoft — agents بتتكلم وتكتب كود |
+| [MetaGPT](https://github.com/FoundationAgents/MetaGPT) | **55k+** | شركة برمجيات AI كاملة |
+| [CrewAI](https://github.com/crewAIInc/crewAI) | **44.3k** | فرق AI بأدوار محددة — الأسرع نمواً |
+| [LangGraph](https://github.com/langchain-ai/langgraph) | **24.8k** | أقوى تحكم — graph-based workflows |
+| [DeerFlow](https://github.com/bytedance/deerflow) | **25k+** | من ByteDance — #1 Trending فبراير 2026 |
+
+[Firecrawl Blog](https://www.firecrawl.dev/blog/best-open-source-agent-frameworks) | [dev.to Guide](https://dev.to/nebulagg/top-5-ai-agent-frameworks-for-2026-honest-guide-13jn)
+
+### أقوى مهندسي البرمجيات الآليين
+
+| الأداة | الوصف |
+|--------|-------|
+| [OpenHands](https://openhands.dev/) | بديل Devin المفتوح — بيكتب ويجرب ويصلح الكود لوحده |
+| [SWE-Agent](https://github.com/princeton-nlp/SWE-agent) | من Princeton — بيحل GitHub Issues تلقائياً |
+
+### أفضل أدوات Spec-Driven Development
+
+| الأداة | الرابط |
+|--------|-------|
+| [Spec-Kit](https://github.com/github/spec-kit) | من GitHub — بيشتغل مع 25+ أداة AI coding |
+| [Google Antigravity](https://antigravity.google/) | IDE مجاني من Google مع Gemini 3.1 Pro |
+
+---
+
+## 🧭 الخطوة الجاية
+
+لو عايز تعدل أو تضيف حاجة في الملف، ادخل هنا:
+👉 **[تعديل الملف](https://www.genspark.ai/agents?id=e09147d3-074a-40fd-8700-a79c8ce171e6)**
+
+أو لو عايز:
+- 📊 **عرض تقديمي (Slides)** من نفس المحتوى
+- 🎙️ **بودكاست** يشرح الموضوع
+- 📋 **جدول Excel** بكل الأدوات والمقارنات
+
+قولي وهعملك أي حاجة! 🚀
+
+
+
+
+
+
+https://www.genspark.ai/api/files/s/KCTqC4VX
+
+
+
+
+https://www.genspark.ai/agents?id=cd7a7d78-9bcb-4f02-af74-e5f8fc446238
+
+
+https://github.com/github/spec-kit

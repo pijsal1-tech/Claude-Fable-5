@@ -1,0 +1,20 @@
+# Git Ignore for WebDev AI Editor
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ai_runs/
+.webdev_backups/
+node_modules/
+.env
+.venv/
+venv/
+ENV/
+*.rar
+*.zip
+*.tar.gz
+accounts_use_ai.json
+keys.txt
+active_team_backup.zip
+editor_v3.rar
+doc_2026-07-12_02-53-55.agents.rar

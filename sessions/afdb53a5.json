@@ -1,0 +1,19 @@
+{
+  "id": "afdb53a5",
+  "project_path": "D:\\projects\\my_ai_editor\\editor_v2",
+  "created_at": "2026-07-08T00:09:21.540225",
+  "updated_at": "2026-07-08T00:15:25.434376",
+  "messages": [
+    {
+      "role": "user",
+      "content": "ماهو ناتج هذا الملف",
+      "timestamp": "2026-07-08T00:10:08.877436"
+    },
+    {
+      "role": "user",
+      "content": "ماهو ناتج الملف",
+      "timestamp": "2026-07-08T00:15:25.433814"
+    }
+  ],
+  "title": "ماهو ناتج هذا الملف"
+}
