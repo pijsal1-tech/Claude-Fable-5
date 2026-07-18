@@ -49,6 +49,7 @@ from chain.agent_loop import AgentLoop
 from chain.agent_tools import AgentTools
 from chain.knowledge import KnowledgeAccumulator
 from core.active_run import ActiveRunHolder
+from core.app_context import AppContext, ProjectHandle
 
 # ════════════════════════════════════════════════════
 # Flask App
@@ -114,6 +115,29 @@ def _make_chain_sender(ws, guard_id):
         if isinstance(msg, dict) and msg.get("type") in ("chain_finished", "chain_error"):
             active_run_holder.release(guard_id)
     return _ws_send
+
+
+# ── AppContext — Composition Root (T-006, R-102) ──
+# Migration note: during R-102 the legacy module globals (fm, cmd_runner,
+# provider, provider_pool, session_mgr, account_budget) remain assigned but
+# are one-way ALIASES of the AppContext fields — both paths see identical
+# objects. T-007 migrates consumers to resolve ctx.project.* at call time;
+# T-008 deletes the private-attribute pokes and the dead aliases.
+ctx: AppContext = None
+
+
+def _build_ctx(project_path: str) -> AppContext:
+    """Build the composition root from the already-constructed globals.
+
+    Called by main() after wiring; kept as a separate function so tests can
+    verify the aliasing (ctx.project.fm IS fm, etc.) without booting Flask.
+    """
+    return AppContext(
+        project=ProjectHandle(root=project_path, fm=fm, cmd_runner=cmd_runner),
+        provider_pool=provider_pool,
+        session_manager=session_mgr,
+        budget=account_budget,
+    )
 chain_bridge: ChainBridge = None   # M5: جسر السلسلة → WebSocket
 delegate_bridge: DelegateBridge = None  # M6: جسر التفويض
 
@@ -596,7 +620,6 @@ def api_run_file():
 # ════════════════════════════════════════════════════
 # WebSocket — AI Streaming
 # ════════════════════════════════════════════════════
-@sock.route("/ws")
 def ws_handler(ws):
     """WebSocket للتواصل الحي مع AI — مع دعم الجلسات والخطط"""
     global chat_history, _backup_done_for_batch, fm, cmd_runner, delegate_bridge
@@ -614,7 +637,9 @@ def ws_handler(ws):
         msg_type = data.get("type", "")
 
         if msg_type == "ping":
-            ws.send(json.dumps({"type": "pong"}))
+            # T-006 (R-102): ctx (composition root) is reachable in the WS
+            # handler; extra field is ignored by the frontend.
+            ws.send(json.dumps({"type": "pong", "ctx": ctx is not None}))
             continue
 
         # ── Agent: المستخدم وافق/رفض أمر terminal ──
@@ -1467,6 +1492,12 @@ def ws_handler(ws):
             pass
 
 
+# Explicit registration (T-006): flask-sock's decorator returns None, which
+# would erase the module-level name and make the handler untestable. Register
+# without the decorator so `server.ws_handler` stays a plain callable.
+sock.route("/ws")(ws_handler)
+
+
 # ── حد أقصى لحجم ملف يقرأه Smart Path (100KB) ──
 MAX_SMART_FILE_SIZE = 100 * 1024
 
@@ -1512,7 +1543,7 @@ def _apply_single_action(action: dict) -> dict:
 # Main
 # ════════════════════════════════════════════════════
 def main():
-    global fm, cmd_runner, provider, session_mgr, chain_bridge
+    global fm, cmd_runner, provider, session_mgr, chain_bridge, ctx
     global provider_pool, account_budget, request_router, action_applier, orchestrator
     global agent_tools
 
@@ -1639,6 +1670,12 @@ def main():
         project_root=project_path,
     )
     print(f"  🤖 Agent System: active")
+
+    # ── AppContext (T-006, R-102) — composition root ──
+    ctx = _build_ctx(project_path)
+    ctx.switch_model(provider)
+    ctx.config.update({"host": args.host, "port": args.port, "provider_id": prov_id})
+    print(f"  🧩 AppContext: composition root active")
 
     print(f"""
 ═══════════════════════════════════════════════════════

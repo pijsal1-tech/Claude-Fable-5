@@ -83,11 +83,11 @@
 - **Files to Modify:** `core/app_context.py` (new), `tests/unit/test_app_context.py`
 - **Affected Modules:** none yet
 - **Acceptance Criteria:** handle-swap atomicity test green; old handle unusable after swap (flag check).
-- **Implementation:** [ ] dataclasses · [ ] atomic swap · [ ] invalidation flag
-- **Testing:** [ ] swap unit tests
-- **Regression:** [ ] suite green
-- **Documentation:** [ ] module docstring w/ wiring diagram
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-006
+- **Implementation:** [x] dataclasses · [x] atomic swap · [x] invalidation flag
+- **Testing:** [x] swap unit tests
+- **Regression:** [x] suite green
+- **Documentation:** [x] module docstring w/ wiring diagram
+- **Completion Status:** ✅ · **Reviewer Notes:** `core/app_context.py` created: `StaleHandleError`, `ProjectHandle` (invalidate()/is_valid/ensure_valid()), `default_handle_factory` (lazy FileManager/CommandRunner), `AppContext` with `active_provider`, atomic `switch_model` (returns old) and `switch_project` (handle built outside lock, swapped under lock, old handle invalidated; `NotADirectoryError` on missing dir leaves state untouched). Module docstring contains wiring diagram. 6 unit tests in `tests/unit/test_app_context.py`: swap id() assertion, StaleHandleError after swap, missing-dir rejection no-swap, switch_model atomicity, 10-thread concurrent switches → final handle valid & all superseded invalidated. pytest: **25 passed**. No consumers wired yet (per spec). · **Next Task:** T-006
 
 ## T-006 — Build AppContext in main() (R-102)
 - **Description:** Construct `AppContext` in `main()`; thread `ctx` into WS handler entry; keep legacy globals temporarily **aliased to ctx fields** (one-way) so both paths see identical objects during migration.
@@ -96,11 +96,11 @@
 - **Files to Modify:** `server.py`
 - **Affected Modules:** startup
 - **Acceptance Criteria:** server boots; legacy paths still function; ctx reachable in handlers.
-- **Implementation:** [ ] construct · [ ] thread ctx · [ ] alias globals
-- **Testing:** [ ] boot smoke test · [ ] handler receives ctx
-- **Regression:** [ ] chat E2E unchanged
-- **Documentation:** [ ] migration note in code
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-007
+- **Implementation:** [x] construct · [x] thread ctx · [x] alias globals
+- **Testing:** [x] boot smoke test · [x] handler receives ctx
+- **Regression:** [x] chat E2E unchanged
+- **Documentation:** [x] migration note in code
+- **Completion Status:** ✅ · **Reviewer Notes:** `server.py`: added `ctx: AppContext = None` global + `_build_ctx(project_path)` (builds AppContext from already-wired globals — testable without Flask); `main()` constructs `ctx`, publishes provider via `ctx.switch_model(provider)`, stores host/port/provider_id in `ctx.config`. Legacy globals kept as one-way aliases (identical objects — asserted with `is` in tests); migration note comment in code. `ws_handler` registered explicitly via `sock.route("/ws")(ws_handler)` because flask-sock's decorator returns None (was erasing the module-level name); `/ws` route confirmed in `app.url_map`. `pong` now carries `ctx` reachability flag. Boot smoke: `python3 server.py --project /tmp/boot_proj --port 5799` → banner shows `🧩 AppContext: composition root active`, Flask serving. 4 new integration tests in `tests/integration/test_app_context_boot.py` (aliasing `is`-identity, provider publication, handler pong ctx=true/false). pytest: **29 passed**. · **Next Task:** T-007
 
 ## T-007 — Migrate Five Stale-Ref Consumers (R-102)
 - **Description:** Convert the five consumers that captured `file_manager`/`context_builder` at init to resolve `ctx.project.fm` **at call time**. One consumer per commit is acceptable; this task tracks all five.
