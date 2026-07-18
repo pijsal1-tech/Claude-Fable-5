@@ -1,0 +1,10 @@
+{
+  "description": "اسم ملف عربي بامتداده — \\w في re يلتقط العربية.",
+  "mentioned_files": [
+    "src/وحدة_المصادقة.py"
+  ],
+  "message": "حدث وحدة_المصادقة.py وأضف تحقق",
+  "project_context": "مسار المشروع: <ROOT>\nعدد الملفات: 12\nالحجم الإجمالي: 2.5 KB\n\nبنية الملفات:\n  - README.md (6 سطر)\n  - config.json (5 سطر)\n  - docs/notes.md (4 سطر)\n  - index.html (12 سطر)\n  - run.sh (3 سطر)\n  - settings.yaml (5 سطر)\n  - src/app.js (9 سطر)\n  - src/auth.py (18 سطر)\n  - src/database.py (12 سطر)\n  - src/utils.js (8 سطر)\n  - src/وحدة_المصادقة.py (3 سطر)\n  - styles/main.css (6 سطر)",
+  "scenario": "arabic_filename",
+  "user_text_with_files": "حدث وحدة_المصادقة.py وأضف تحقق\n\n[✅ تم قراءة 1 ملف من المشروع — المحتوى الفعلي مرفق أدناه]:\n\n📄 **ملف: src/وحدة_المصادقة.py** (129 حرف)\n```\n1: def تحقق_من_المستخدم(اسم, كلمة_السر):\n2:     \"\"\"مصادقة تجريبية للـ fixture.\"\"\"\n3:     return bool(اسم) and len(كلمة_السر) >= 8\n```"
+}

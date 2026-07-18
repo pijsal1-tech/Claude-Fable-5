@@ -245,11 +245,11 @@
 - **Files to Modify:** `tests/goldens/context/*`, capture harness
 - **Affected Modules:** none (read-only capture)
 - **Acceptance Criteria:** 6 goldens stored; harness replays them green against legacy code.
-- **Implementation:** [ ] harness · [ ] 6 scenarios · [ ] goldens committed
-- **Testing:** [ ] replay green on legacy
-- **Regression:** [ ] n/a
-- **Documentation:** [ ] scenario descriptions in goldens dir
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-018
+- **Implementation:** [x] harness · [x] 6 scenarios · [x] goldens committed
+- **Testing:** [x] replay green on legacy
+- **Regression:** [x] n/a
+- **Documentation:** [x] scenario descriptions in goldens dir
+- **Completion Status:** ✅ · **Reviewer Notes:** New `tests/goldens/context/` package. **harness.py** — verbatim port of the legacy inline block (server.py `message` handler: `re.findall` word/subpath extraction → exact-name `rglob(basename)` → stem `rglob(*stem*)` → numbered-content injection header `[✅ تم قراءة N ملف…]` → `fm.get_project_context()`), split into `collect_mentioned_files` / `render_user_text_with_files` / `collect_legacy_context` (returns JSON-serialisable snapshot; absolute roots normalized to `<ROOT>` for machine portability). **Two order-only determinism fixes documented in the docstring**: sorted `rglob` results + sorted set iteration — legacy iterates raw `set`s (hash-random per process) so its *order* was never deterministic; the included-file *set* is identical, goldens pin the sorted order as canonical. All quirks preserved deliberately: lying `MAX_MENTIONED = 100  # حد أقصى 10 ملفات`, no secret-file/size filtering at mention stage, stopwords exactly `('the','and','for','من','في','على')`, >MAX_FILE_SIZE files claimed "read" in the header with silently-skipped content. **6 goldens** vs `sample_project`: mention_only (`config.json` exact), keyword_only (`database`→`src/database.py` stem), mixed (`src/app.js` exact + `auth` stem → 2 files ordered exact-then-stem), no_context (0 files, message byte-identical), huge_file (setup writes ~553KB `src/big_data.js` → mentioned, header claims read, **no content block** — quirk pinned), arabic_filename (setup writes `src/وحدة_المصادقة.py` — regex `\w` matches Arabic → matched & injected). **capture_goldens.py** regenerator (`python3 -m tests.goldens.context.capture_goldens`); double-capture verified **diff-clean (deterministic)**. **test_replay_goldens.py — 10 tests**: 6 parametrized byte-exact replays (fresh fixture copy per test, setup hooks applied) + 4 quirk pins (huge-file no-content, no-context untouched, `<ROOT>`-normalized/no machine paths, exactly-6-scenarios). `tests/goldens/context/README.md` documents every scenario + regeneration warning. Read-only capture — **zero production-code changes**. Evidence: goldens suite 10/10; full suite **174 passed** (164+10); mypy `providers/ chain/ core/` clean (28 files); `./scripts/check.sh` **ALL GREEN**. · **Next Task:** T-018
 
 ## T-018 — ContextEngine + MentionSource (R-201)
 - **Description:** New `context/` package: `ContextEngine`, `ContextItem`, `ContextSource` protocol; implement `MentionSource` with a **single-scan cached** file list per request; **fix the lying constant** (`MAX_MENTIONED = 100 # حد أقصى 10 ملفات`) — set the real intended limit with an honest comment.

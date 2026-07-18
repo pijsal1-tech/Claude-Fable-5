@@ -1,0 +1,11 @@
+{
+  "description": "مسار فرعي صريح + كلمة مفتاحية معًا — المساران يتعاونان.",
+  "mentioned_files": [
+    "src/app.js",
+    "src/auth.py"
+  ],
+  "message": "قارن بين src/app.js و auth بالتفصيل",
+  "project_context": "مسار المشروع: <ROOT>\nعدد الملفات: 11\nالحجم الإجمالي: 2.4 KB\n\nبنية الملفات:\n  - README.md (6 سطر)\n  - config.json (5 سطر)\n  - docs/notes.md (4 سطر)\n  - index.html (12 سطر)\n  - run.sh (3 سطر)\n  - settings.yaml (5 سطر)\n  - src/app.js (9 سطر)\n  - src/auth.py (18 سطر)\n  - src/database.py (12 سطر)\n  - src/utils.js (8 سطر)\n  - styles/main.css (6 سطر)",
+  "scenario": "mixed",
+  "user_text_with_files": "قارن بين src/app.js و auth بالتفصيل\n\n[✅ تم قراءة 2 ملف من المشروع — المحتوى الفعلي مرفق أدناه]:\n\n📄 **ملف: src/app.js** (287 حرف)\n```\n1: // Entry point of the fixture app.\n2: import { formatPrice, applyDiscount } from './utils.js';\n3: \n4: function renderTitle(price) {\n5:   const el = document.getElementById('title');\n6:   el.textContent = 'Total: ' + formatPrice(applyDiscount(price, 10));\n7: }\n8: \n9: renderTitle(100);\n```\n\n📄 **ملف: src/auth.py** (634 حرف)\n```\n 1: \"\"\"Auth module fixture: definitions + callers for SymbolIndex tests.\"\"\"\n 2: import hashlib\n 3: \n 4: \n 5: def hash_password(password: str, salt: str) -> str:\n 6:     return hashlib.sha256((salt + password).encode()).hexdigest()\n 7: \n 8: \n 9: def verify_password(password: str, salt: str, expected: str) -> bool:\n10:     return hash_password(password, salt) == expected\n11: \n12: \n13: class AuthService:\n14:     def __init__(self, salt: str = \"pepper\"):\n15:         self.salt = salt\n16: \n17:     def login(self, user: str, password: str, stored_hash: str) -> bool:\n18:         return verify_password(password, self.salt, stored_hash)\n```"
+}

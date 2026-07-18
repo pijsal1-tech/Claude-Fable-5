@@ -1,0 +1,10 @@
+{
+  "description": "اسم ملف صريح بامتداده — مسار الـ exact-match فقط.",
+  "mentioned_files": [
+    "config.json"
+  ],
+  "message": "اقرأ config.json وقولي ايه المشكلة",
+  "project_context": "مسار المشروع: <ROOT>\nعدد الملفات: 11\nالحجم الإجمالي: 2.4 KB\n\nبنية الملفات:\n  - README.md (6 سطر)\n  - config.json (5 سطر)\n  - docs/notes.md (4 سطر)\n  - index.html (12 سطر)\n  - run.sh (3 سطر)\n  - settings.yaml (5 سطر)\n  - src/app.js (9 سطر)\n  - src/auth.py (18 سطر)\n  - src/database.py (12 سطر)\n  - src/utils.js (8 سطر)\n  - styles/main.css (6 سطر)",
+  "scenario": "mention_only",
+  "user_text_with_files": "اقرأ config.json وقولي ايه المشكلة\n\n[✅ تم قراءة 1 ملف من المشروع — المحتوى الفعلي مرفق أدناه]:\n\n📄 **ملف: config.json** (89 حرف)\n```\n1: {\n2:   \"app_name\": \"sample_project\",\n3:   \"version\": \"1.0.0\",\n4:   \"debug\": false\n5: }\n```"
+}

@@ -1,0 +1,8 @@
+{
+  "description": "رسالة عامة لا تطابق أي ملف — لا حقن، النص كما هو.",
+  "mentioned_files": [],
+  "message": "اشرح لي مفهوم الـ closures في جافاسكريبت",
+  "project_context": "مسار المشروع: <ROOT>\nعدد الملفات: 11\nالحجم الإجمالي: 2.4 KB\n\nبنية الملفات:\n  - README.md (6 سطر)\n  - config.json (5 سطر)\n  - docs/notes.md (4 سطر)\n  - index.html (12 سطر)\n  - run.sh (3 سطر)\n  - settings.yaml (5 سطر)\n  - src/app.js (9 سطر)\n  - src/auth.py (18 سطر)\n  - src/database.py (12 سطر)\n  - src/utils.js (8 سطر)\n  - styles/main.css (6 سطر)",
+  "scenario": "no_context",
+  "user_text_with_files": "اشرح لي مفهوم الـ closures في جافاسكريبت"
+}

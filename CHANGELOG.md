@@ -27,6 +27,26 @@
     fallback path left.
 
 ### Added
+- **R-201 (T-017): legacy context-collection goldens pinned.**
+  Parity net before extracting `server.py`'s inline context block into a
+  `ContextEngine` (R-201). New `tests/goldens/context/`:
+  - `harness.py` — verbatim port of the legacy block (mention regex →
+    exact-name + stem `rglob` searches → numbered-content injection →
+    `get_project_context()`), with two order-only determinism fixes
+    (sorted `rglob` results, sorted set iteration — the legacy *order* is
+    process-random; the included-file *set* is unchanged). All quirks
+    preserved deliberately: the lying `MAX_MENTIONED = 100  # حد أقصى 10
+    ملفات` constant, no secret/size filtering at mention stage, huge
+    files "read" in the header with silently-empty content.
+  - 6 goldens against `tests/fixtures/sample_project/`: `mention_only`,
+    `keyword_only`, `mixed`, `no_context`, `huge_file` (>500KB setup
+    file), `arabic_filename` (Arabic-named setup file). Absolute paths
+    normalized to `<ROOT>` — goldens are machine-portable.
+  - `capture_goldens.py` regenerator (`python3 -m
+    tests.goldens.context.capture_goldens`) + `test_replay_goldens.py`
+    (10: 6 parametrized byte-exact replays + 4 quirk pins). Regeneration
+    verified deterministic (double-capture diff-clean).
+  Suite: **174 passed**. Read-only capture — zero production changes.
 - **R-105 (T-016): WS control surface — `list_runs` / `cancel_run`.**
   Two additive WS message types backed by the `ExecutionRegistry`:
   - `list_runs {}` → `runs_list {runs: [{id, mode, state, started_at,

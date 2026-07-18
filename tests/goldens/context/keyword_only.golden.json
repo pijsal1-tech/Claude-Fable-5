@@ -1,0 +1,10 @@
+{
+  "description": "كلمة مفتاحية بلا امتداد — مسار الـ stem-match المرن.",
+  "mentioned_files": [
+    "src/database.py"
+  ],
+  "message": "فيه مشكلة في database",
+  "project_context": "مسار المشروع: <ROOT>\nعدد الملفات: 11\nالحجم الإجمالي: 2.4 KB\n\nبنية الملفات:\n  - README.md (6 سطر)\n  - config.json (5 سطر)\n  - docs/notes.md (4 سطر)\n  - index.html (12 سطر)\n  - run.sh (3 سطر)\n  - settings.yaml (5 سطر)\n  - src/app.js (9 سطر)\n  - src/auth.py (18 سطر)\n  - src/database.py (12 سطر)\n  - src/utils.js (8 سطر)\n  - styles/main.css (6 سطر)",
+  "scenario": "keyword_only",
+  "user_text_with_files": "فيه مشكلة في database\n\n[✅ تم قراءة 1 ملف من المشروع — المحتوى الفعلي مرفق أدناه]:\n\n📄 **ملف: src/database.py** (332 حرف)\n```\n 1: \"\"\"Database fixture module — imports auth to create a cross-file edge.\"\"\"\n 2: from src.auth import hash_password\n 3: \n 4: USERS = {}\n 5: \n 6: \n 7: def create_user(name: str, password: str) -> None:\n 8:     USERS[name] = hash_password(password, salt=\"pepper\")\n 9: \n10: \n11: def get_user(name: str):\n12:     return USERS.get(name)\n```"
+}
