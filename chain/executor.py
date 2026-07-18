@@ -22,6 +22,7 @@ from .models import (
     ChainRun, ChainStep, ExecutionPolicy, CancellationToken,
     BudgetTracker, ChainCancelled,
 )
+from core.execution import RunTicket
 
 # ── Import providers (sibling package) ──
 import sys
@@ -97,16 +98,33 @@ class ChainExecutor:
         self._agent_loader = agent_loader or AgentLoader()
         self._run_dir = pathlib.Path(run_dir) if run_dir else None
         self._state_lock = threading.Lock()
+        self._ticket: RunTicket | None = None
+
+    def _check_cancelled(self, run: ChainRun) -> None:
+        """T-015 (R-105): نقطة تفتيش موحّدة — تذكرة السجل + token السلسلة.
+
+        إلغاء التذكرة (من WS/سجل التنفيذ) يُترجم إلى token السلسلة ثم
+        يُرفع ChainCancelled — نفس مسار الإلغاء القديم بالضبط، فلا تغيير
+        في السلوك عند عدم تمرير تذكرة.
+        """
+        ticket = self._ticket
+        if ticket is not None and ticket.is_cancelled:
+            run.cancellation_token.cancel(
+                ticket.cancel_reason or "execution ticket cancelled")
+        run.cancellation_token.raise_if_cancelled()
 
     def execute(self, run: ChainRun,
-                on_event: Callable[[ChainEvent], None] | None = None) -> ChainRun:
+                on_event: Callable[[ChainEvent], None] | None = None,
+                ticket: RunTicket | None = None) -> ChainRun:
         """
         ينفذ السلسلة بالكامل.
 
         Returns: ChainRun محدّث بالنتائج والحالات.
 
-        Cancellation: run.cancellation_token.cancel("reason")
+        Cancellation: run.cancellation_token.cancel("reason") — أو إلغاء
+        الـ ticket (T-015, R-105): يُفحص عند حدود الخطوات وقبل كل retry.
         """
+        self._ticket = ticket
         run.transition_to("running")
         run.started_at = time.time()
 
@@ -175,8 +193,8 @@ class ChainExecutor:
         while not run.is_complete() and iteration < max_iterations:
             iteration += 1
 
-            # ── Check cancellation ──
-            run.cancellation_token.raise_if_cancelled()
+            # ── Check cancellation (step boundary — ticket + token) ──
+            self._check_cancelled(run)
 
             # ── Check budget ──
             if run.budget.is_budget_exhausted:
@@ -239,8 +257,8 @@ class ChainExecutor:
         start_time = time.monotonic()
 
         for attempt in range(1 + max_retries):
-            # Check cancellation before each retry
-            run.cancellation_token.raise_if_cancelled()
+            # Check cancellation before each retry (ticket + token)
+            self._check_cancelled(run)
 
             # Reserve budget
             is_retry = attempt > 0

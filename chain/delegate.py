@@ -15,6 +15,13 @@ import json
 from dataclasses import dataclass, field
 from typing import Callable
 
+from core.execution import RunTicket
+
+
+class DelegateCancelled(Exception):
+    """T-015 (R-105): ألغي التفويض عند حد مرحلة (نقطة تفتيش تعاونية)."""
+    pass
+
 # ── تحميل prompts ──
 _PROMPTS_DIR = pathlib.Path(__file__).resolve().parent / "prompts"
 
@@ -219,6 +226,9 @@ class DelegateBridge:
         self._current_run: DelegateRun | None = None
         self._brief_prompt = _load_prompt("delegate_brief.md")
         self._review_prompt = _load_prompt("delegate_review.md")
+        # T-015 (R-105): تذكرة الـ run الحالي — تُحفظ لينهيها land/reject
+        # عندما يحسم المستخدم بعد waiting_approval.
+        self._current_ticket: RunTicket | None = None
     
     @property
     def _provider(self):
@@ -378,13 +388,30 @@ class DelegateBridge:
     
     # ── Full Delegation Loop ──
     
+    @staticmethod
+    def _checkpoint(ticket: "RunTicket | None") -> None:
+        """T-015 (R-105): نقطة تفتيش إلغاء عند حدود المراحل.
+
+        التفويض لم يكن قابلاً للإلغاء إطلاقاً قبل R-105. الآن: حدود المراحل
+        (قبل Brief / Implement / Review وقبل كل rework) هي نقاط التفتيش —
+        لا إجهاض لطلب جارٍ في منتصفه (Phase 1 حسب الخارطة).
+        """
+        if ticket is not None and ticket.is_cancelled:
+            raise DelegateCancelled(
+                ticket.cancel_reason or "delegation cancelled")
+
     def run_delegation(self, user_request: str, files_context: dict[str, str],
                        project_context: str = "",
-                       on_event: Callable | None = None) -> DelegateRun:
+                       on_event: Callable | None = None,
+                       ticket: "RunTicket | None" = None) -> DelegateRun:
         """
         يشغل الدورة الكاملة: Brief → Implement → Review → (wait approval)
         
         ملاحظة: الـ land يحتاج موافقة المستخدم — الدالة تتوقف عند waiting_approval.
+
+        ticket (T-015, R-105): تذكرة التنفيذ — إلغاؤها يُلاحَظ عند حدود
+        المراحل (≥3 نقاط تفتيش) فينتهي الـ run بحالة cancelled ولا يصل
+        أبداً لمرحلة Land.
         """
         import uuid
         
@@ -395,6 +422,7 @@ class DelegateBridge:
             started_at=time.monotonic(),
         )
         self._current_run = run
+        self._current_ticket = ticket
         
         self._emit(on_event, "delegate_started", {
             "run_id": run.run_id,
@@ -403,6 +431,9 @@ class DelegateBridge:
         })
         
         try:
+            # ── Checkpoint #1: قبل Brief ──
+            self._checkpoint(ticket)
+
             # ── Phase 1: Brief ──
             phase = run.get_phase("brief")
             phase.status = "running"
@@ -418,6 +449,9 @@ class DelegateBridge:
                 "brief_length": len(run.brief.raw_brief),
             })
             
+            # ── Checkpoint #2: قبل Implement ──
+            self._checkpoint(ticket)
+
             # ── Phase 2: Implement ──
             run.status = "implementing"
             phase = run.get_phase("implement")
@@ -434,6 +468,9 @@ class DelegateBridge:
                 "touched_files": run.result.touched_files,
             })
             
+            # ── Checkpoint #3: قبل Review ──
+            self._checkpoint(ticket)
+
             # ── Phase 3: Review ──
             run.status = "reviewing"
             phase = run.get_phase("review")
@@ -479,6 +516,9 @@ class DelegateBridge:
                     )
                     run.brief = rework_brief
                     
+                    # ── Checkpoint #4: قبل كل rework iteration ──
+                    self._checkpoint(ticket)
+
                     # Re-implement
                     run.result = self.dispatch(run.brief, on_event)
                     run.verdict = self.review(run.brief, run.result, on_event)
@@ -514,12 +554,26 @@ class DelegateBridge:
                     "verdict": run.verdict.to_dict(),
                 })
             
+        except DelegateCancelled as e:
+            # T-015 (R-105): إلغاء تعاوني عند حد مرحلة — لا Land أبداً
+            run.status = "cancelled"
+            self._emit(on_event, "delegate_cancelled", {
+                "run_id": run.run_id,
+                "reason": str(e),
+            })
         except Exception as e:
             run.status = "failed"
             self._emit(on_event, "delegate_error", {
                 "run_id": run.run_id,
                 "error": str(e),
             })
+        finally:
+            # T-015 (R-105): إنهاء تذكرة السجل — waiting_approval يبقى حيّاً
+            # (المستخدم لم يحسم بعد)؛ الحالات الحاسمة تُنهى بدقة.
+            if ticket is not None and run.status != "waiting_approval":
+                _map = {"rejected": "completed", "landed": "completed",
+                        "cancelled": "cancelled", "failed": "failed"}
+                ticket.finish(_map.get(run.status, "failed"))
         
         return run
     
@@ -550,6 +604,11 @@ class DelegateBridge:
             "implementer_response": run.result.response if run.result else "",
         })
         
+        # T-015 (R-105): المستخدم حسم — أنهِ التذكرة وحرّر خانة المشروع
+        if self._current_ticket is not None:
+            self._current_ticket.finish("completed")
+            self._current_ticket = None
+        
         return True
     
     def reject(self, reason: str = "", on_event: Callable | None = None) -> bool:
@@ -565,6 +624,11 @@ class DelegateBridge:
             "run_id": run.run_id,
             "reason": reason or "رفض المستخدم",
         })
+        
+        # T-015 (R-105): المستخدم حسم بالرفض — أنهِ التذكرة
+        if self._current_ticket is not None:
+            self._current_ticket.finish("completed")
+            self._current_ticket = None
         
         return True
     

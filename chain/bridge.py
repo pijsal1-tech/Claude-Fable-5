@@ -29,6 +29,7 @@ from .orchestrator import SmartOrchestrator
 from .agent_loader import AgentLoader
 from .action_applier import ActionApplier
 from core.approval import ApprovalGate, ApprovalRequest, ProposedAction
+from core.execution import RunTicket
 
 
 # ═══════════════════════════════════════════════════════
@@ -241,11 +242,15 @@ class ChainBridge:
                     file_content: str | None = None,
                     file_path: str = "",
                     files: dict[str, str] | None = None,
-                    force_strategy: str | None = None) -> str:
+                    force_strategy: str | None = None,
+                    ticket: RunTicket | None = None) -> str:
         """
         يبدأ chain في thread منفصل.
 
         ws_send_fn: callable(dict) → يرسل JSON عبر WebSocket
+        ticket: RunTicket (T-015, R-105) — تذكرة التنفيذ من ExecutionRegistry.
+            تُمرّر للمنفّذ (إلغاء التذكرة يوقف السلسلة عند حد الخطوة التالي)
+            وتُنهى هنا في finally بحالة الـ run النهائية.
         Returns: run_id
         """
         with self._lock:
@@ -307,7 +312,7 @@ class ChainBridge:
                     self._agent_loader,
                     run_dir=str(run_dir),
                 )
-                executor.execute(run, on_event=on_event)
+                executor.execute(run, on_event=on_event, ticket=ticket)
             except Exception:
                 pass  # الركض فشل — لا تطبيق، التنظيف في finally
             else:
@@ -317,6 +322,12 @@ class ChainBridge:
                     except Exception:
                         pass  # فشل التطبيق لا يفجّر الـ thread
             finally:
+                # T-015 (R-105): إنهاء تذكرة السجل بالحالة النهائية الفعلية
+                # (تنظيف حالة فقط — لا أي كتابة للـ workspace هنا)
+                if ticket is not None:
+                    final = run.status if run.status in (
+                        "completed", "failed", "cancelled") else "failed"
+                    ticket.finish(final)
                 with self._lock:
                     self._active_run = None
 
