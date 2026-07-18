@@ -109,11 +109,11 @@
 - **Files to Modify:** `chain/bridge.py`, `actions/*` (the five sites)
 - **Affected Modules:** bridge, actions
 - **Acceptance Criteria:** switch-project E2E: file created in A invisible after switch to B; grep — no constructor-captured fm remains.
-- **Implementation:** [ ] site 1 · [ ] site 2 · [ ] site 3 · [ ] site 4 · [ ] site 5
-- **Testing:** [ ] switch E2E green
-- **Regression:** [ ] all action paths E2E
-- **Documentation:** [ ] pattern note: "resolve at call time"
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-008
+- **Implementation:** [x] site 1 · [x] site 2 · [x] site 3 · [x] site 4 · [x] site 5
+- **Testing:** [x] switch E2E green
+- **Regression:** [x] all action paths E2E
+- **Documentation:** [x] pattern note: "resolve at call time"
+- **Completion Status:** ✅ · **Reviewer Notes:** The five sites migrated to resolve-at-call-time properties gated on injected `ctx` (static args stay as ctx-less fallback): (1) `AgentTools.fm`, (2) `AgentTools.cmd`, (3) `AgentTools.project_root` — `AgentLoop._auto_prefetch`'s ContextBuilder inherits via `tools.project_root` per call; (4) `ActionApplier._fm`/`._cmd`; (5) `ChainBridge._project_root`/`._runs_dir`. `main()` now builds `ctx` BEFORE consumers (`_server_handle_factory` with auto_approve=True matches boot wiring) and injects `ctx=` into ChainBridge/ActionApplier/AgentTools; `api_switch_project` calls `ctx.switch_project(abs_path)` to keep the root in sync (full rewrite = T-008). Acceptance grep: `self.fm = file_manager|self._fm = file_manager|self.cmd = command_runner|self._cmd = command_runner|self._project_root = project_root` in `chain/*.py` → **no matches**. Switch E2E green: `tests/integration/test_switch_project_stale_refs.py` (5 tests) — file created in A invisible to AgentTools after switch to B; ActionApplier FILE-block writes land in B not A; ChainBridge `_runs_dir` follows switch; ctx-less legacy path still works. pytest: **34 passed**. Boot smoke: banner + Flask serving OK. Pattern note comments in all three modules. · **Next Task:** T-008
 
 ## T-008 — Rewrite Switch Handlers, Delete Private Pokes (R-102)
 - **Description:** `api_switch_project` becomes `ctx.switch_project(path)` + confirmation frame; `switch_model` uses provider registry API — **delete** the private-attribute pokes (server.py L435–450); remove now-dead legacy global aliases from T-006.

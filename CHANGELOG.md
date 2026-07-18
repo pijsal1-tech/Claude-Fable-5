@@ -13,6 +13,18 @@
   Model/project switching during an active chain still returns HTTP 409,
   now backed by a guard that actually works.
 
+### Fixed
+- **R-102 (T-007):** Killed the stale-reference consumers. `AgentTools`
+  (`fm`/`cmd`/`project_root`), `ActionApplier` (`_fm`/`_cmd`) and
+  `ChainBridge` (`_project_root`/`_runs_dir`) now accept `ctx` and resolve
+  `ctx.project.*` **at call time** via properties — never caching — so a
+  project switch is observed immediately by agents, chain apply, and run
+  storage. `AgentLoop._auto_prefetch` inherits the fix (it reads
+  `tools.project_root` per call). `main()` builds `ctx` BEFORE consumers and
+  injects it; `api_switch_project` calls `ctx.switch_project()` to keep the
+  composition root in sync (full handler rewrite lands in T-008). Static
+  constructor args remain a fallback for ctx-less construction (tests).
+
 ### Added
 - **R-102 (T-005/T-006):** `core/app_context.py` — `AppContext` composition
   root + `ProjectHandle` (atomic swap, stale-handle invalidation via

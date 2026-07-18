@@ -126,6 +126,19 @@ def _make_chain_sender(ws, guard_id):
 ctx: AppContext = None
 
 
+def _server_handle_factory(root: str) -> ProjectHandle:
+    """T-007 (R-102): server flavor of the handle factory.
+
+    Matches main()'s wiring (auto_approve=True) so ctx.switch_project()
+    produces handles identical in behavior to the boot-time ones.
+    """
+    return ProjectHandle(
+        root=root,
+        fm=FileManager(root),
+        cmd_runner=CommandRunner(cwd=root, auto_approve=True),
+    )
+
+
 def _build_ctx(project_path: str) -> AppContext:
     """Build the composition root from the already-constructed globals.
 
@@ -137,6 +150,7 @@ def _build_ctx(project_path: str) -> AppContext:
         provider_pool=provider_pool,
         session_manager=session_mgr,
         budget=account_budget,
+        handle_factory=_server_handle_factory,
     )
 chain_bridge: ChainBridge = None   # M5: جسر السلسلة → WebSocket
 delegate_bridge: DelegateBridge = None  # M6: جسر التفويض
@@ -545,6 +559,11 @@ def api_switch_project():
     try:
         fm = FileManager(abs_path)
         cmd_runner = CommandRunner(cwd=abs_path, auto_approve=True)
+        # T-007 (R-102): keep the composition root in sync so all ctx-based
+        # consumers (AgentTools/ActionApplier/ChainBridge) observe the new
+        # project at their next call. Full handler rewrite lands in T-008.
+        if ctx is not None:
+            ctx.switch_project(abs_path)
         scan = fm.scan_project()
         return jsonify({
             "ok": True,
@@ -1619,10 +1638,17 @@ def main():
 
     provider.initialize()
 
+    # ── AppContext (T-006/T-007, R-102) — composition root, built BEFORE
+    # consumers so they resolve ctx.project.* at call time (never caching).
+    # provider_pool/budget fields are attached below once constructed.
+    ctx = _build_ctx(project_path)
+    ctx.switch_model(provider)
+
     # ── Chain Bridge (M5) ──
     chain_bridge = ChainBridge(
         provider=provider,
         project_root=project_path,
+        ctx=ctx,
     )
     print(f"  🔗 Chain System: active")
 
@@ -1652,10 +1678,13 @@ def main():
         budget=account_budget,
         active_provider_name=prov_id,
     )
+    ctx.provider_pool = provider_pool
+    ctx.budget = account_budget
     action_applier = ActionApplier(
         parser=parser,
         file_manager=fm,
         command_runner=cmd_runner,
+        ctx=ctx,
     )
     if chain_bridge:
         chain_bridge.action_applier = action_applier
@@ -1668,12 +1697,11 @@ def main():
         file_manager=fm,
         command_runner=cmd_runner,
         project_root=project_path,
+        ctx=ctx,
     )
     print(f"  🤖 Agent System: active")
 
-    # ── AppContext (T-006, R-102) — composition root ──
-    ctx = _build_ctx(project_path)
-    ctx.switch_model(provider)
+    # ── AppContext final config (T-006/T-007, R-102) ──
     ctx.config.update({"host": args.host, "port": args.port, "provider_id": prov_id})
     print(f"  🧩 AppContext: composition root active")
 
