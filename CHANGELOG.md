@@ -27,6 +27,37 @@
     fallback path left.
 
 ### Added
+- **R-201 (T-018): `ContextEngine` skeleton + `MentionSource` — first source
+  out of the monolith (unwired yet).** New `context/` package:
+  - `context/engine.py` — `ContextRequest` / `ContextItem` (provenance via
+    `source_kind`; `content=None` = mentioned-without-content, the pinned
+    huge-file quirk) / `ContextBundle` (ordered, first-wins dedupe on
+    `(source_kind, path)`) / `ContextSource` runtime protocol /
+    `ContextEngine.gather()` — builds **one `ProjectScan` per request**
+    (single sorted `rglob("*")` walk) shared by all sources; a broken
+    source is isolated (legacy tolerance), injectable `scan_factory`.
+  - `context/sources/mention.py` — `MentionSource`: legacy mention behavior
+    (exact-name then stem matching, verbatim regexes & stopwords) as
+    in-memory filtering over `scan.files` — **zero per-word `rglob`
+    storms** (legacy was O(files × words) tree walks per message).
+    Equivalence: `rglob(X)` matches file *names*, so filtering the
+    globally-sorted list reproduces `sorted(rglob(X))` exactly — the
+    T-017 golden order. `render_legacy_injection()` reproduces the legacy
+    `user_text_with_files` byte-for-byte for the future wiring.
+  - **Lying constant fixed**: legacy `MAX_MENTIONED = 100  # حد أقصى 10
+    ملفات` → `MAX_MENTIONED_FILES = 10` with an honest comment (all T-017
+    goldens include ≤2 files — no golden affected).
+  - `context/AUTHORING.md` — source-authoring guide stub (no tree walks,
+    provenance, None-content, determinism, honest limits).
+  - `scripts/check.sh` mypy gate extended to `core/ context/`.
+  - Tests: `tests/unit/test_context_engine.py` (15) — all 6 T-017 goldens
+    replayed **byte-exact through the new source**, huge-file None-content,
+    **single-scan-per-gather assertion** (counting factory + 2 sources),
+    no-tree-walk enforcement (rglob monkeypatched to raise), constant
+    fixed + limit enforced, bundle dedupe, broken-source isolation,
+    protocol conformance, legacy term-extraction rules. Suite: **189
+    passed**. Nothing wired into server/chain/agent yet — behavior
+    unchanged everywhere.
 - **R-201 (T-017): legacy context-collection goldens pinned.**
   Parity net before extracting `server.py`'s inline context block into a
   `ContextEngine` (R-201). New `tests/goldens/context/`:
