@@ -122,11 +122,11 @@
 - **Files to Modify:** `server.py`
 - **Affected Modules:** switch handlers
 - **Acceptance Criteria:** no `_underscore` attribute access from handlers (grep); switch E2E green; aliases gone.
-- **Implementation:** [ ] switch_project rewrite · [ ] switch_model rewrite · [ ] delete aliases
-- **Testing:** [ ] both switch E2Es
-- **Regression:** [ ] full suite
-- **Documentation:** [ ] changelog
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-009
+- **Implementation:** [x] switch_project rewrite · [x] switch_model rewrite · [x] delete aliases
+- **Testing:** [x] both switch E2Es
+- **Regression:** [x] full suite
+- **Documentation:** [x] changelog
+- **Completion Status:** ✅ · **Reviewer Notes:** `api_switch_project` = `ctx.switch_project(path)` (atomic swap, old handle invalidated, legacy fm/cmd_runner re-pointed at ctx-owned objects; ctx-less fallback kept for tests). `api_switch_model`: single publication `ctx.switch_model(provider)` — deleted all three pokes: `request_router._active_provider_name` → public `active_provider_name` property on RequestRouter; `delegate_bridge._provider` / `chain_bridge._provider` → call-time `_provider` properties reading `ctx.active_provider` (static fallback for ctx-less). Dead `global provider` re-pointing removed from the handler; remaining direct readers (/api/providers, agent send fallback, stream worker, delegate lazy init) migrated to `server._active_provider()`. WS `detected_dir` switch also via ctx. Acceptance greps: `request_router._|delegate_bridge._|chain_bridge._provider` in server.py → **0**; `_active_provider_name` outside `chain/router.py` → **0**. E2Es green in `tests/integration/test_switch_handlers.py` (5 tests: Flask test-client switch-project 200+handle swap+invalidate, 409 during active run leaves ctx untouched, one `switch_model` updates both bridges with zero pokes, router public property, ctx-less fallback). pytest: **39 passed**. Boot smoke OK. CHANGELOG updated. · **Next Task:** T-009
 
 ## T-009 — Fix Delegate Contract Violation (R-103)
 - **Description:** Add `_to_prompt_history(messages) -> str` in `chain/delegate.py` (role-tagged rendering); convert the three offending call sites (L260, L289, L327) to pass rendered strings to `send()`.

@@ -479,7 +479,10 @@ def api_models():
 @app.route("/api/switch-model", methods=["POST"])
 def api_switch_model():
     """تغيير المزود/النموذج"""
-    global provider, provider_pool, account_budget, request_router
+    # R-102 (T-008): no `global` re-pointing — ctx.switch_model() is the
+    # single publication; every runtime reader resolves _active_provider().
+    # (The dead `provider` alias write was removed; pool/budget/router are
+    # mutated through their public APIs, not reassigned.)
 
     # ── حماية: منع التبديل أثناء chain نشط (R-101) ──
     if active_run_holder.is_active():

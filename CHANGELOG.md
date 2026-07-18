@@ -14,6 +14,20 @@
   now backed by a guard that actually works.
 
 ### Fixed
+- **R-102 (T-008):** Rewrote the switch handlers; deleted all private-attribute
+  pokes. `api_switch_project` now IS `ctx.switch_project(path)` (one atomic
+  swap; old handle invalidated; legacy `fm`/`cmd_runner` globals re-pointed at
+  the ctx-owned objects). `api_switch_model` publishes once via
+  `ctx.switch_model(provider)`: `ChainBridge._provider` and
+  `DelegateBridge._provider` are now call-time properties reading
+  `ctx.active_provider`; `RequestRouter` gained a public
+  `active_provider_name` property (the `_active_provider_name` poke is gone —
+  grep outside its owner returns nothing). New `server._active_provider()`
+  resolves the live provider for the remaining direct readers
+  (/api/providers, agent send fallback, stream worker, delegate lazy init).
+  The dead `global provider` re-pointing in the switch handler was removed.
+  The WS `detected_dir` project switch goes through `ctx.switch_project` too.
+
 - **R-102 (T-007):** Killed the stale-reference consumers. `AgentTools`
   (`fm`/`cmd`/`project_root`), `ActionApplier` (`_fm`/`_cmd`) and
   `ChainBridge` (`_project_root`/`_runs_dir`) now accept `ctx` and resolve
