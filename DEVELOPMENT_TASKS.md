@@ -271,11 +271,11 @@
 - **Files to Modify:** `context/sources/keyword.py`, `context/sources/structure.py`, `server.py`
 - **Affected Modules:** WS message handler
 - **Acceptance Criteria:** all 6 goldens green via engine; L606–758 gone; handler calls one engine method.
-- **Implementation:** [ ] KeywordSource · [ ] StructureSource · [ ] wire · [ ] delete block
-- **Testing:** [ ] full golden suite
-- **Regression:** [ ] chat E2E
-- **Documentation:** [ ] architecture doc: context flow
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-020
+- **Implementation:** [x] KeywordSource · [x] StructureSource · [x] wire · [x] delete block
+- **Testing:** [x] full golden suite
+- **Regression:** [x] chat E2E
+- **Documentation:** [x] architecture doc: context flow
+- **Completion Status:** ✅ · **Reviewer Notes:** **KeywordSource** (`context/sources/keyword.py`, `kind="keyword"`) = stem-match half of legacy (`stem in p.name` ≡ `rglob(f"*{stem}*")`) over the shared scan; **MentionSource narrowed to exact-name only** (stem path moved out); shared numbered-read logic extracted to `build_items()` (failure ⇒ `content=None`, huge-file quirk). **StructureSource** (`context/sources/structure.py`, `kind="structure"`) = one `<project_structure>` item from `FileManager.get_project_context()` verbatim (failure ⇒ `""`). **facade** (`context/facade.py`): `gather_message_context(project_root, user_text) -> MessageContext(mentioned_files, user_text_with_files, project_context)` — composes [Mention → Keyword → Structure], path-dedupe (mention wins) + honest total limit `MAX_MENTIONED_FILES=10`, byte-exact legacy injection via `render_legacy_injection`. **server.py wired:** the ~70-line inline block (mention regex → per-word rglob storms → injection loop → `get_project_context`) **deleted**, replaced by one `gather_message_context(fm.root, user_text)` call + safe fallback (`[]`/raw text/`""`); import added; downstream consumers (`mentioned_files` routing/files_dict, `user_text_with_files` prompts, `project_context`) untouched. Lying constant gone from production. **Acceptance verified:** all 6 T-017 goldens replayed **through the facade** for all 3 fields byte-exact (`test_facade_matches_goldens` — same call the handler makes); `grep` for `rglob|MAX_MENTIONED|stems_to_search|WEB_EXTENSIONS` in server.py code → 0 (structural test `test_inline_block_deleted_from_server` enforces + asserts the single facade call). New unit coverage: mention=exact-only, keyword=stem-only (`database`→`src/database.py`), structure parity vs `get_project_context()`, facade dedupe (file matching both exact+stem appears once, mention wins). `context/ARCHITECTURE.md` created (flow diagram, parity contracts, perf table O(files×words)→1 scan, extraction status: context_builder/_auto_prefetch pending later R-201 tasks). Evidence: `tests/unit/test_context_engine.py` 20/20; full suite **194 passed** (189+5, one golden test renamed/upgraded to facade-level); mypy `providers/ chain/ core/ context/` → `Success: no issues found in 35 source files`; `./scripts/check.sh` **ALL GREEN**. · **Next Task:** T-020
 
 ## T-020 — Converge ContextBuilder + Chain Prefetch (R-201)
 - **Description:** Point the chain executor's context prefetch and the legacy `ContextBuilder` consumers at `ContextEngine`; delete the duplicated file-reading paths.

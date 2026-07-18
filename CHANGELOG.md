@@ -27,6 +27,38 @@
     fallback path left.
 
 ### Added
+- **R-201 (T-019): Keyword + Structure sources; inline context block deleted
+  from `server.py` — the WS handler now calls one engine method.**
+  - `context/sources/keyword.py` — `KeywordSource` (`kind="keyword"`): the
+    flexible stem-match half of the legacy block (`stem in p.name`,
+    ≡ `rglob(f"*{stem}*")`), in-memory over the shared scan.
+    `MentionSource` narrowed to **exact-name only**; shared read logic
+    extracted to `build_items()` (read failure ⇒ `content=None`).
+  - `context/sources/structure.py` — `StructureSource`
+    (`kind="structure"`): one `<project_structure>` item =
+    `FileManager.get_project_context()` verbatim (failure ⇒ `""`,
+    legacy tolerance).
+  - `context/facade.py` — `gather_message_context(project_root,
+    user_text) -> MessageContext(mentioned_files, user_text_with_files,
+    project_context)`: composes [Mention → Keyword → Structure], merges
+    file items with path-dedupe (mention wins) + the honest total limit,
+    renders the byte-exact legacy injection. This is the **single call**
+    the WS handler makes.
+  - **`server.py`: the ~70-line inline block deleted** (mention regex,
+    per-word `rglob` storms, injection loop, `get_project_context`) —
+    replaced by one `gather_message_context()` call with a safe fallback;
+    the lying `MAX_MENTIONED = 100` constant is gone from production.
+    Downstream consumers (`mentioned_files` routing, `user_text_with_files`
+    prompts, `project_context`) untouched.
+  - `context/ARCHITECTURE.md` — context-flow doc (diagram, parity
+    contracts, perf comparison, extraction status).
+  - Tests (`tests/unit/test_context_engine.py` → 20): goldens now replayed
+    **through the facade** for all 3 fields (acceptance), mention=exact-only
+    / keyword=stem-only split, structure parity vs `get_project_context()`,
+    facade dedupe (mention wins over keyword), structural
+    inline-block-deleted check (no `.rglob(`/`MAX_MENTIONED = 100`/
+    `stems_to_search`/`target_files_content` in server.py code lines +
+    facade import & call present). Suite: **194 passed**.
 - **R-201 (T-018): `ContextEngine` skeleton + `MentionSource` — first source
   out of the monolith (unwired yet).** New `context/` package:
   - `context/engine.py` — `ContextRequest` / `ContextItem` (provenance via

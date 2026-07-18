@@ -38,6 +38,7 @@ from providers.genspark import GensparkProvider, GensparkConfig, GENSPARK_MODELS
 from providers.deepseek import DeepSeekProvider, DeepSeekConfig
 from providers.alle_ai import AlleAIProvider, AlleAIConfig
 from providers.base import Message
+from context.facade import gather_message_context
 from chain.bridge import ChainBridge
 from chain.delegate import DelegateBridge
 from chain.orchestrator import SmartOrchestrator
@@ -859,76 +860,20 @@ def ws_handler(ws):
                     ws.send(json.dumps({"type": "error", "text": f"فشل فتح المجلد: {e}"}))
                     continue
 
-            # ── 2. فحص إذا كان هناك اسم ملف مذكور في النص وموجود في المشروع ──
-            mentioned_files = []
-            MAX_MENTIONED = 100  # حد أقصى 10 ملفات
+            # ── 2. جمع السياق — ContextEngine (T-019, R-201) ──
+            # الكتلة المضمّنة القديمة (mention regex → rglob لكل كلمة →
+            # حقن المحتوى → get_project_context) استُخرجت إلى حزمة context/
+            # بمسح نظام ملفات واحد لكل رسالة. الـ parity مضمون بـ goldens
+            # T-017 عبر tests/unit/test_context_engine.py.
             try:
-                import re
-                from actions.file_manager import WEB_EXTENSIONS
-
-                # استخراج الكلمات والمسارات
-                words = re.findall(r'[\w\-/\\]+(?:\.[\w]+)?', user_text)
-                # استخراج مسارات فرعية مثل actions/file_manager.py
-                subpaths = re.findall(r'[\w\-]+/[\w\-]+(?:\.[\w]+)?', user_text)
-
-                exact_names_to_search = set()
-                stems_to_search = set()
-
-                for w in words + subpaths:
-                    if '.' in w:
-                        exact_names_to_search.add(w.replace('\\', '/'))
-                        stem_w = w.split('.')[0].split('/')[-1]
-                    else:
-                        stem_w = w.split('/')[-1]
-
-                    if len(stem_w) >= 3 and not stem_w.isdigit() and stem_w not in ('the', 'and', 'for', 'من', 'في', 'على'):
-                        stems_to_search.add(stem_w)
-
-                # 1. البحث بالاسم الكامل أو المسار الفرعي
-                for name in exact_names_to_search:
-                    basename = name.split('/')[-1] if '/' in name else name
-                    for p in fm.root.rglob(basename):
-                        if p.is_file() and p.suffix in WEB_EXTENSIONS:
-                            rel_path = str(p.relative_to(fm.root)).replace("\\", "/")
-                            if rel_path not in mentioned_files:
-                                mentioned_files.append(rel_path)
-                                if len(mentioned_files) >= MAX_MENTIONED:
-                                    break
-                    if len(mentioned_files) >= MAX_MENTIONED:
-                        break
-
-                # 2. البحث بالـ stem للماتش المرن
-                if len(mentioned_files) < MAX_MENTIONED:
-                    for stem in stems_to_search:
-                        for p in fm.root.rglob(f"*{stem}*"):
-                            if p.is_file() and p.suffix in WEB_EXTENSIONS:
-                                rel_path = str(p.relative_to(fm.root)).replace("\\", "/")
-                                if rel_path not in mentioned_files:
-                                    mentioned_files.append(rel_path)
-                                    if len(mentioned_files) >= MAX_MENTIONED:
-                                        break
-                        if len(mentioned_files) >= MAX_MENTIONED:
-                            break
+                _msg_ctx = gather_message_context(fm.root, user_text)
+                mentioned_files = _msg_ctx.mentioned_files
+                user_text_with_files = _msg_ctx.user_text_with_files
+                project_context = _msg_ctx.project_context
             except Exception:
-                pass
-
-            user_text_with_files = user_text
-            if mentioned_files:
-                target_files_content = f"\n\n[✅ تم قراءة {len(mentioned_files)} ملف من المشروع — المحتوى الفعلي مرفق أدناه]:"
-                for f_path in mentioned_files[:MAX_MENTIONED]:
-                    try:
-                        content = fm.read_file(f_path, with_line_numbers=True)
-                        target_files_content += f"\n\n📄 **ملف: {f_path}** ({len(content)} حرف)\n```\n{content}\n```"
-                    except Exception:
-                        pass
-                user_text_with_files = user_text + target_files_content
-
-            # بناء سياق المشروع
-            project_context = ""
-            try:
-                project_context = fm.get_project_context()
-            except Exception:
-                pass
+                mentioned_files = []
+                user_text_with_files = user_text
+                project_context = ""
 
             # ═══════════════════════════════════════
             # 🧠 Smart Routing — RequestRouter يقرر المسار

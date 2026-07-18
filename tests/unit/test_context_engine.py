@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-"""T-018 (R-201): ContextEngine skeleton + MentionSource.
+"""T-018/T-019 (R-201): ContextEngine + Mention/Keyword/Structure + facade.
 
 المعايير:
-1. mention goldens (T-017) خضراء عبر المصدر الجديد — parity بايت-بايت.
+1. كل goldens T-017 خضراء عبر الـ facade (التركيبة الكاملة) — بايت-بايت
+   للحقول الثلاثة (mentioned_files / user_text_with_files / project_context).
 2. **مسح واحد** لنظام الملفات لكل gather مهما تعددت المصادر.
 3. الثابت الكاذب أُصلح: الحد الحقيقي 10 بتعليق صادق.
+4. T-019: Mention = exact فقط، Keyword = stem فقط، Structure = بنية المشروع.
 """
 from __future__ import annotations
 
@@ -21,12 +23,15 @@ from context.engine import (
     ContextSource,
     ProjectScan,
 )
+from context.facade import gather_message_context
+from context.sources.keyword import KeywordSource
 from context.sources.mention import (
     MAX_MENTIONED_FILES,
     MentionSource,
     extract_search_terms,
     render_legacy_injection,
 )
+from context.sources.structure import STRUCTURE_PATH, StructureSource
 from tests.goldens.context.harness import SCENARIOS
 
 GOLDENS_DIR = (pathlib.Path(__file__).resolve().parents[1]
@@ -38,38 +43,69 @@ def _load_golden(name: str) -> dict:
         (GOLDENS_DIR / f"{name}.golden.json").read_text(encoding="utf-8"))
 
 
-def _gather_mentions(project_root, message):
-    engine = ContextEngine([MentionSource()])
-    return engine.gather(ContextRequest(message=message,
-                                        project_root=project_root))
-
-
-# ═══════════════ 1) parity: goldens عبر المصدر الجديد ═══════════════
+# ═══════ 1) parity: كل goldens T-017 عبر الـ facade (معيار قبول T-019) ═══════
 
 @pytest.mark.parametrize("scenario", sorted(SCENARIOS))
-def test_mention_source_matches_goldens(scenario, sample_project):
-    """كل golden من T-017 يُعاد إنتاجه بايت-بايت عبر MentionSource."""
+def test_facade_matches_goldens(scenario, sample_project):
+    """كل golden من T-017 يُعاد إنتاجه بايت-بايت عبر gather_message_context
+    — نفس النداء الذي يستدعيه معالج WS بعد حذف الكتلة المضمّنة."""
     spec = SCENARIOS[scenario]
     if spec["setup"] is not None:
         spec["setup"](sample_project)
     golden = _load_golden(scenario)
+    root = str(sample_project.resolve())
 
-    bundle = _gather_mentions(sample_project, spec["message"])
+    ctx = gather_message_context(sample_project, spec["message"])
 
-    assert bundle.paths("mention") == golden["mentioned_files"]
-
-    rendered = render_legacy_injection(spec["message"], bundle.items)
-    expected = golden["user_text_with_files"].replace(
-        "<ROOT>", str(sample_project.resolve()))
-    assert rendered == expected
+    assert ctx.mentioned_files == golden["mentioned_files"]
+    assert ctx.user_text_with_files == \
+        golden["user_text_with_files"].replace("<ROOT>", root)
+    assert ctx.project_context == \
+        golden["project_context"].replace("<ROOT>", root)
 
 
 def test_huge_file_item_has_none_content(sample_project):
     """quirk مثبّت: الملف الضخم يُذكر لكن content=None (لا كتلة محتوى)."""
     SCENARIOS["huge_file"]["setup"](sample_project)
-    bundle = _gather_mentions(sample_project, "افتح big_data.js وشوف المشكلة")
+    bundle = ContextEngine([MentionSource()]).gather(ContextRequest(
+        message="افتح big_data.js وشوف المشكلة", project_root=sample_project))
     assert bundle.paths() == ["src/big_data.js"]
     assert bundle.items[0].content is None
+
+
+# ═════════════ T-019: فصل المصادر ═════════════
+
+def test_mention_source_exact_only(sample_project):
+    """T-019: Mention = exact-name فقط — الكلمة بلا امتداد لا تطابق."""
+    bundle = ContextEngine([MentionSource()]).gather(ContextRequest(
+        message="فيه مشكلة في database", project_root=sample_project))
+    assert bundle.paths() == []          # stem انتقل لـ KeywordSource
+
+
+def test_keyword_source_stem_only(sample_project):
+    """T-019: Keyword = stem-match المرن — يلتقط database → src/database.py."""
+    bundle = ContextEngine([KeywordSource()]).gather(ContextRequest(
+        message="فيه مشكلة في database", project_root=sample_project))
+    assert bundle.paths("keyword") == ["src/database.py"]
+    assert bundle.items[0].content is not None
+
+
+def test_structure_source_matches_legacy(sample_project):
+    """T-019: Structure يعيد مخرجات get_project_context حرفيًا."""
+    from actions.file_manager import FileManager
+    bundle = ContextEngine([StructureSource()]).gather(ContextRequest(
+        message="أي حاجة", project_root=sample_project))
+    assert bundle.paths("structure") == [STRUCTURE_PATH]
+    expected = FileManager(str(sample_project)).get_project_context()
+    assert bundle.items[0].content == expected
+
+
+def test_facade_dedupes_mention_over_keyword(sample_project):
+    """ملف يطابق exact وstem معًا يظهر مرة واحدة (mention يكسب)."""
+    ctx = gather_message_context(
+        sample_project, "اقرأ config.json وكمان شوف config عمومًا")
+    assert ctx.mentioned_files.count("config.json") == 1
+    assert ctx.mentioned_files[0] == "config.json"   # exact أولًا
 
 
 # ═══════════════ 2) مسح واحد لكل gather ═══════════════
@@ -171,6 +207,24 @@ def test_engine_isolates_broken_source(sample_project):
 
 def test_mention_source_satisfies_protocol():
     assert isinstance(MentionSource(), ContextSource)
+
+
+def test_inline_block_deleted_from_server():
+    """معيار قبول T-019: كتلة السياق المضمّنة محذوفة من server.py
+    والمعالج يستدعي نداء الـ engine الواحد."""
+    src = (pathlib.Path(__file__).resolve().parents[2]
+           / "server.py").read_text(encoding="utf-8")
+    code_lines = [ln for ln in src.splitlines()
+                  if not ln.lstrip().startswith("#")]
+    code = "\n".join(code_lines)
+    # لا أثر لمنطق الجمع القديم في كودٍ فعلي (التعليقات التوثيقية مسموحة)
+    assert ".rglob(" not in code
+    assert "MAX_MENTIONED = 100" not in code
+    assert "stems_to_search" not in code
+    assert "target_files_content" not in code
+    # المعالج يستدعي الـ facade
+    assert "from context.facade import gather_message_context" in code
+    assert "gather_message_context(fm.root, user_text)" in code
 
 
 def test_extract_search_terms_legacy_rules():
