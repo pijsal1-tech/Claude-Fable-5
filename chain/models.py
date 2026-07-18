@@ -411,8 +411,8 @@ class ChainRun:
             if step.status != "pending":
                 continue
             deps_met = all(
-                self.get_step(dep_id) is not None
-                and self.get_step(dep_id).status == "success"
+                (dep := self.get_step(dep_id)) is not None
+                and dep.status == "success"
                 for dep_id in step.depends_on
             )
             if deps_met:

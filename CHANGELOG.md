@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### Added
+- **R-103 (T-010):** Provider contract enforcement, two layers:
+  1. `tests/contracts/provider_contract.py` — `ProviderContractMixin` with 8
+     signature-level checks (subclasses `BaseProvider`; `send`/`stream`
+     accept `(prompt: str, history=None, system_prompt="")`; `send` returns
+     `str`; `stream` is a generator; `is_available(self)`; non-empty
+     `name`/`description`). Applied to all 6 providers (Genspark, DeepSeek,
+     UseAI, AlleAI, MockProvider, FakeProvider) — 48 contract tests, no
+     provider instantiation needed. Adding a provider = add one 3-line class.
+  2. mypy is now a **gate** in `scripts/check.sh`
+     (`mypy --ignore-missing-imports --follow-imports=silent providers/ chain/`,
+     no `|| true`). Fixed all 95 revealed errors across 13 files — notable:
+     `DelegateRun.get_phase` now raises `KeyError` instead of returning
+     `None` (killed 17 union-attr errors); `ChainRun.budget` is non-Optional
+     (always built in `__post_init__`, killed 7); `genspark.py` dynamic
+     module typed `Any` + spec/loader None guard (killed 40).
+
 ### Fixed
 - **R-101 (T-004):** Deleted the dead `_active_chain_run` module guard in
   `server.py` (it was read at the switch handlers but never assigned, so it

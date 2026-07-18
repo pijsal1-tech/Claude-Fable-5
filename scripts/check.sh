@@ -4,8 +4,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-echo "== mypy (advisory: core modules) =="
-mypy --ignore-missing-imports chain/models.py actions/session_manager.py || true
+# T-010: mypy gate (كان advisory) — يفشل السكريبت لو ظهرت أخطاء types
+# في providers/ أو chain/. عند إضافة provider جديد راجع أيضًا
+# tests/contracts/provider_contract.py (ProviderContractMixin) وأضف صنفه هناك.
+echo "== mypy (gate: providers/ + chain/) =="
+mypy --ignore-missing-imports --follow-imports=silent providers/ chain/
 
 echo "== pytest =="
 python3 -m pytest

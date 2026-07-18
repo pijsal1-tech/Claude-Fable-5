@@ -93,7 +93,7 @@ class AlleAIProvider(BaseProvider):
     def __init__(self, config: AlleAIConfig | None = None):
         self.config: AlleAIConfig = config or AlleAIConfig()
         self._initialized = False
-        self._accounts = []
+        self._accounts: list[dict] = []
 
     def initialize(self) -> bool:
         self._accounts = self._load_accounts()
@@ -171,7 +171,7 @@ class AlleAIProvider(BaseProvider):
             print(f"  🔄 Alle-AI محاولة #{attempt+1}/{max_attempts} بحساب: {email[:25]}...")
 
             token, ok_flag = self._try_account(account)
-            if not ok_flag:
+            if not ok_flag or not token:
                 print(f"  ❌ حساب ميت (login فشل): {email[:25]}")
                 continue
 

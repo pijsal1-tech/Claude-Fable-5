@@ -395,7 +395,7 @@ class SmartOrchestrator:
         # ── Fallback: قطع بالسطور (السلوك الأصلي) ──
         lines = content.split("\n")
         chunks = []
-        current_chunk_lines = []
+        current_chunk_lines: list[str] = []
         current_tokens = 0
 
         for line in lines:

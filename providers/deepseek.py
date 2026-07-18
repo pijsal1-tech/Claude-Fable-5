@@ -10,7 +10,7 @@ import json
 import uuid
 import random
 import time
-from typing import Generator
+from typing import Any, Generator
 
 try:
     import cloudscraper
@@ -56,7 +56,8 @@ class DeepSeekProvider(BaseProvider):
     def __init__(self, config: DeepSeekConfig | None = None):
         self.config: DeepSeekConfig = config or DeepSeekConfig()
         self._initialized = False
-        self._scraper = None
+        # T-010: cloudscraper يحمَّل ديناميكيًّا — Any لأن mypy لا يعرف نوعه
+        self._scraper: Any = None
         self._url = "https://notegpt.io/api/v2/chat/stream"
 
     def initialize(self) -> bool:

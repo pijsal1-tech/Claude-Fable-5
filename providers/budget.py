@@ -125,7 +125,7 @@ class AccountAwareBudget:
         total = sum(per_provider.values())
 
         # أكتر provider عنده حسابات
-        best = max(per_provider, key=per_provider.get, default="") if per_provider else ""
+        best = max(per_provider, key=lambda n: per_provider[n], default="") if per_provider else ""
 
         # أرخص provider (حسب ترتيب التكلفة) — بشرط إنه متاح
         available_providers = [n for n, r in per_provider.items() if r > 0]

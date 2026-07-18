@@ -127,8 +127,8 @@ class AgentTools:
         if start_line > 0 or end_line > 0:
             lines = content.split("\n")
             s = max(0, start_line - 1)
-            e = end_line if end_line > 0 else len(lines)
-            selected = lines[s:e]
+            end_idx = end_line if end_line > 0 else len(lines)
+            selected = lines[s:end_idx]
             # أرقام السطور
             numbered = []
             for i, line in enumerate(selected, start=s + 1):
@@ -147,7 +147,7 @@ class AgentTools:
             return f"❌ مجلد غير موجود: {path}"
         
         depth = min(depth, self._max_dir_depth)
-        lines = []
+        lines: list[str] = []
         self._tree(resolved, "", depth, lines, max_items=200)
         
         if not lines:
@@ -321,7 +321,7 @@ class AgentTools:
     
     # ──── تسجيل الأدوات ────
     
-    _handlers = {
+    _handlers: dict[str, Callable[..., str]] = {
         "read_file": tool_read_file,
         "list_dir": tool_list_dir,
         "search_code": tool_search_code,
@@ -413,7 +413,7 @@ def parse_tool_calls(ai_response: str) -> list[ToolCall]:
 
 
 def _parse_args_body(body: str) -> tuple[dict, str]:
-    args = {}
+    args: dict[str, int | str] = {}
     reason = ""
     for line in body.split("\n"):
         line = line.strip()

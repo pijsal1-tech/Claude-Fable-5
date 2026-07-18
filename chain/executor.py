@@ -16,7 +16,7 @@ import json
 import time
 import pathlib
 import threading
-from typing import Callable
+from typing import Any, Callable
 
 from .models import (
     ChainRun, ChainStep, ExecutionPolicy, CancellationToken,
@@ -343,7 +343,7 @@ class ChainExecutor:
         
         return response
 
-    def _is_safety_refusal(self, text: str, raw_response: any = None) -> bool:
+    def _is_safety_refusal(self, text: str, raw_response: Any = None) -> bool:
         # Check raw_response finish_reason if available
         if raw_response:
             try:

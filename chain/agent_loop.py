@@ -60,8 +60,10 @@ class AgentLoop:
         self._approval_event = threading.Event()
         self._approval_result = False
         self._pending_approval: ToolCall | None = None
+        self._pending_approval_id: str | None = None
+        self._pending_approval_hash: str | None = None
     
-    def run(self, user_request: str, history: list = None,
+    def run(self, user_request: str, history: list | None = None,
             project_context: str = "", run_id: str = "", step_id: str = "") -> str:
         """
         تشغيل الـ Agent Loop.
@@ -375,7 +377,7 @@ reason: سبب تشغيل الأمر
         expires_at = time.time() + 60.0
         
         cwd = self.tools.project_root
-        env = {}
+        env: dict[str, str] = {}
         payload_hash = compute_payload_hash(call.tool, call.args, cwd, env)
         
         self._pending_approval_id = approval_id

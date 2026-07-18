@@ -148,11 +148,11 @@
 - **Files to Modify:** `tests/contracts/`, `scripts/check.sh`, annotation fixes in both packages
 - **Affected Modules:** providers, chain (annotations only)
 - **Acceptance Criteria:** mypy clean on both packages; contract suite green for every provider.
-- **Implementation:** [ ] mixin · [ ] apply to providers · [ ] mypy in check.sh · [ ] fix annotations
-- **Testing:** [ ] contract suite green
-- **Regression:** [ ] suite green
-- **Documentation:** [ ] "adding a provider" doc references mixin
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-011
+- **Implementation:** [x] mixin · [x] apply to providers · [x] mypy in check.sh · [x] fix annotations
+- **Testing:** [x] contract suite green
+- **Regression:** [x] suite green
+- **Documentation:** [x] "adding a provider" doc references mixin
+- **Completion Status:** ✅ · **Reviewer Notes:** `tests/contracts/provider_contract.py` — `ProviderContractMixin` (set `provider_cls`, get 8 signature-level tests: subclasses BaseProvider; `send(self, prompt, history=None, system_prompt="")` names/defaults; `prompt: str`; return `str`; `stream` same params + generator; `is_available(self)`; non-empty `name`/`description`). **No instantiation** — heavy `__init__`s untouched. Applied in `tests/contracts/test_provider_contracts.py` to all 6 providers (Genspark/DeepSeek/UseAI/AlleAI/MockProvider/FakeProvider) → **48 contract tests pass**. "Adding a provider?" guidance lives in the mixin docstring and is referenced from the check.sh comment. mypy gate: `scripts/check.sh` now runs `mypy --ignore-missing-imports --follow-imports=silent providers/ chain/` **without** `|| true` — 95 revealed errors fixed to **0** across 13 files. Key structural fixes (not just annotations): `DelegateRun.get_phase` raises `KeyError` instead of returning `None` (phases always exist post `__post_init__`; −17 union-attr); `ChainRun.budget: BudgetTracker = field(init=False)` built in `__post_init__` (−7); `genspark.py` `_module/_cfg: Any` + spec/loader ImportError guard (−40); rest = var-annotated/Optional-narrowing in executor, agent_loop, agent_tools, bridge, orchestrator, context_builder, models, alle_ai, deepseek, budget. Evidence: `mypy ... providers/ chain/` → `Success: no issues found in 24 source files`; `./scripts/check.sh` → ALL GREEN; pytest → **93 passed**. CHANGELOG entry added under Unreleased/Added. · **Next Task:** T-011
 
 ## T-011 — ApprovalGate Service (R-104)
 - **Description:** New `core/approval.py` — `ApprovalGate` with modes `auto|interactive|deny`; `request(ApprovalRequest) -> Verdict`; interactive mode emits callback (WS wiring later) and blocks with timeout→deny; audit log of every verdict. Unit-tested standalone.

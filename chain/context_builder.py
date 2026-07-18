@@ -235,7 +235,7 @@ class ContextBuilder:
             re.IGNORECASE,
         )
 
-        seen = set()
+        seen: set[str] = set()
         for fp in file_matches:
             fp_clean = fp.replace("\\", "/")
             if fp_clean in seen or len(seen) >= self.max_files:
@@ -474,7 +474,7 @@ class ContextBuilder:
             if entry.is_dir():
                 # عدد الملفات داخله
                 try:
-                    sub_count = sum(1 for _ in entry.iterdir())
+                    sub_count: int | str = sum(1 for _ in entry.iterdir())
                 except Exception:
                     sub_count = "?"
                 lines.append(f"{prefix}📁 {entry.name}/ ({sub_count} items)")

@@ -402,11 +402,11 @@ def scan_folder_for_chain(folder_path: str,
     if not root.is_dir():
         return {}
 
-    files = {}
+    files: dict[str, str] = {}
     total_size = 0
 
     # جمع كل الملفات المؤهلة
-    candidates = []
+    candidates: list[pathlib.Path] = []
     _collect_files(root, root, candidates, max_files * 3)  # جمع أكتر وننقي بعدين
 
     # ترتيب بالأهمية: كود أولاً، config ثانياً، docs آخراً
@@ -471,10 +471,10 @@ def get_folder_summary(folder_path: str) -> dict:
     if not root.is_dir():
         return {"exists": False}
 
-    files = []
+    files: list[pathlib.Path] = []
     _collect_files(root, root, files, 200)
 
-    ext_counts = {}
+    ext_counts: dict[str, int] = {}
     total_size = 0
     for f in files:
         ext = f.suffix.lower()
