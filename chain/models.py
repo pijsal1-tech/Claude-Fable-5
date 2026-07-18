@@ -368,12 +368,13 @@ class ChainRun:
 
     # ── Runtime (not serialized) ──
     cancellation_token: CancellationToken = field(default_factory=CancellationToken)
-    budget: BudgetTracker | None = None
+    # T-010: كان BudgetTracker | None فسبّب 7 أخطاء union-attr في executor.
+    # لا أحد يمرر budget عند الإنشاء — يُبنى دائمًا في __post_init__ من الـ policy.
+    budget: BudgetTracker = field(init=False, repr=False)
     _state_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     def __post_init__(self):
-        if self.budget is None:
-            self.budget = BudgetTracker(self.policy)
+        self.budget = BudgetTracker(self.policy)
 
     def transition_to(self, new_state: str):
         """Thread-safe state transition with validation"""

@@ -160,11 +160,14 @@ class DelegateRun:
                 DelegatePhase(name="land"),
             ]
     
-    def get_phase(self, name: str) -> DelegatePhase | None:
+    def get_phase(self, name: str) -> DelegatePhase:
+        """يرجع المرحلة بالاسم — المراحل تُنشأ دائمًا في __post_init__،
+        لذا الاسم غير الموجود يعتبر خطأ برمجيًا (KeyError) وليس حالة عادية.
+        (T-010: كان يرجع None فسبّب 17 خطأ union-attr في mypy)"""
         for p in self.phases:
             if p.name == name:
                 return p
-        return None
+        raise KeyError(f"مرحلة غير معروفة: {name!r}")
     
     def to_dict(self) -> dict:
         return {

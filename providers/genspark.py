@@ -10,7 +10,7 @@ import sys
 import pathlib
 import importlib.util
 import threading
-from typing import Generator
+from typing import Any, Generator
 
 from .base import BaseProvider, ProviderConfig, Message, ProviderCapabilities
 
@@ -55,6 +55,8 @@ def _load_genspark_module(script_name: str):
         f"genspark_{script_name.replace('.py', '').replace('-', '_')}",
         str(script_path)
     )
+    if spec is None or spec.loader is None:  # T-010: mypy narrow
+        raise ImportError(f"تعذر تحميل spec لسكريبت Genspark: {script_path}")
     mod = importlib.util.module_from_spec(spec)
     # Suppress prints during import
     spec.loader.exec_module(mod)
@@ -96,8 +98,10 @@ class GensparkProvider(BaseProvider):
     def __init__(self, config: GensparkConfig | None = None):
         self.config: GensparkConfig = config or GensparkConfig()
         self._initialized = False
-        self._module = None
-        self._cfg = None
+        # T-010: dynamically-loaded script module — typed Any so mypy
+        # accepts attribute access on it after initialize().
+        self._module: Any = None
+        self._cfg: Any = None
 
     def initialize(self) -> bool:
         try:
@@ -152,7 +156,7 @@ class GensparkProvider(BaseProvider):
         full_prompt += prompt
 
         # تدوير عشوائي — يجرب كل الحسابات
-        skip_emails = set()
+        skip_emails: set[str] = set()
         max_rounds = 2  # جولتين: الأولى كل الحسابات، الثانية بعد auto-register
 
         for round_num in range(max_rounds):
