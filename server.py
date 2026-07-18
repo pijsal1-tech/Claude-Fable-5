@@ -49,7 +49,7 @@ from chain.agent_loop import AgentLoop
 from chain.agent_tools import AgentTools
 from core.approval import ApprovalGate
 from chain.knowledge import KnowledgeAccumulator
-from core.active_run import ActiveRunHolder
+from core.execution import ExecutionRegistry, RunBusyError
 from core.app_context import AppContext, ProjectHandle
 
 # ════════════════════════════════════════════════════
@@ -83,38 +83,39 @@ _backup_done_for_batch = False  # علامة لمنع تكرار الباك-أب
 MAX_SMART_FILE_SIZE = 100 * 1024  # حد أقصى لحجم ملف يقرأه Smart Path (100KB)
 
 # ── Chain System Infrastructure (M0 + M5) ──
-# R-101 (T-004): the old active-chain-run module global was a dead guard —
-# read by the switch handlers but never assigned anywhere, so it never blocked
-# anything. Replaced by the thread-safe ActiveRunHolder below.
-active_run_holder = ActiveRunHolder()
+# R-105 (T-015): ExecutionRegistry supersedes the R-101 interim
+# ActiveRunHolder (deleted). Every dispatch — chain / agent / delegate —
+# registers a RunTicket; the registry enforces the single-run policy and
+# ticket cancellation reaches the loops at their checkpoints.
+execution_registry = ExecutionRegistry()
 
 
-def _begin_chain_guard(send_fn):
-    """R-101: acquire the single-active-run slot or emit a `busy` frame.
+def _begin_run_ticket(kind, send_fn):
+    """T-015 (R-105): register a run of `kind` or emit a `busy` frame.
 
-    Returns the guard id on success, None when another run is active
+    Returns the RunTicket on success, None when another run is active
     (in which case a `busy` frame was already sent via send_fn).
     """
-    guard_id = f"run-guard-{uuid.uuid4().hex[:8]}"
-    if active_run_holder.acquire(guard_id):
-        return guard_id
-    send_fn({
-        "type": "busy",
-        "text": "⚠️ في chain نشط حالياً. ألغيه أولاً أو استنى يخلص.",
-        "active_run": active_run_holder.current(),
-    })
-    return None
+    try:
+        return execution_registry.register(kind)
+    except RunBusyError as e:
+        send_fn({
+            "type": "busy",
+            "text": "⚠️ في run نشط حالياً. ألغيه أولاً أو استنى يخلص.",
+            "active_run": e.active_run_id,
+        })
+        return None
 
 
-def _make_chain_sender(ws, guard_id):
-    """Wrap ws.send: JSON-encode and release the run guard on terminal frames."""
+def _json_sender(ws):
+    """Wrap ws.send: JSON-encode only — ticket lifecycle is owned by the
+    executing bridge (finished with the precise final state in its finally),
+    not by frame sniffing (T-015)."""
     def _ws_send(msg):
         try:
             ws.send(json.dumps(msg, ensure_ascii=False))
         except Exception:
             pass
-        if isinstance(msg, dict) and msg.get("type") in ("chain_finished", "chain_error"):
-            active_run_holder.release(guard_id)
     return _ws_send
 
 
@@ -488,12 +489,13 @@ def api_switch_model():
     # (The dead `provider` alias write was removed; pool/budget/router are
     # mutated through their public APIs, not reassigned.)
 
-    # ── حماية: منع التبديل أثناء chain نشط (R-101) ──
-    if active_run_holder.is_active():
+    # ── حماية: منع التبديل أثناء run نشط (R-101 → R-105) ──
+    _active_runs = execution_registry.list_active()
+    if _active_runs:
         return jsonify({
             "ok": False,
-            "error": "لا يمكن تغيير المزود أثناء تشغيل chain نشط",
-            "chain_run_id": active_run_holder.current()
+            "error": "لا يمكن تغيير المزود أثناء تشغيل run نشط",
+            "chain_run_id": _active_runs[0].run_id
         }), 409
 
     data = request.get_json()
@@ -553,12 +555,13 @@ def api_switch_project():
     """تغيير مسار المشروع"""
     global fm, cmd_runner
 
-    # ── حماية: منع التبديل أثناء chain نشط (R-101) ──
-    if active_run_holder.is_active():
+    # ── حماية: منع التبديل أثناء run نشط (R-101 → R-105) ──
+    _active_runs = execution_registry.list_active()
+    if _active_runs:
         return jsonify({
             "ok": False,
-            "error": "لا يمكن تغيير المشروع أثناء تشغيل chain نشط",
-            "chain_run_id": active_run_holder.current()
+            "error": "لا يمكن تغيير المشروع أثناء تشغيل run نشط",
+            "chain_run_id": _active_runs[0].run_id
         }), 409
 
     data = request.get_json()
@@ -924,12 +927,13 @@ def ws_handler(ws):
 
                     # ── توجيه لـ chain_bridge ──
                     if routing.strategy in ("auto_chain", "full_chain"):
-                        # R-101: single-active-run guard
-                        guard_id = _begin_chain_guard(
+                        # T-015 (R-105): registry ticket — single-run policy
+                        chain_ticket = _begin_run_ticket(
+                            "chain",
                             lambda m: ws.send(json.dumps(m, ensure_ascii=False)))
-                        if guard_id is None:
+                        if chain_ticket is None:
                             continue
-                        _ws_send = _make_chain_sender(ws, guard_id)
+                        _ws_send = _json_sender(ws)
 
                         # حفظ في history
                         chat_history.append(Message(role="user", content=user_text))
@@ -942,9 +946,10 @@ def ws_handler(ws):
                             file_content=file_content_for_routing,
                             files=files_dict,
                             force_strategy=routing.chain_strategy,
+                            ticket=chain_ticket,
                         )
                         if not run_id:
-                            active_run_holder.release(guard_id)
+                            chain_ticket.finish("failed")
                         continue  # الـ chain يتكفل بالرد
 
                     # ── توجيه لـ delegate_bridge ──
@@ -960,12 +965,19 @@ def ws_handler(ws):
                         if session_mgr:
                             session_mgr.append_message("user", user_text)
 
+                        # T-015 (R-105): registry ticket — delegate أصبح قابلاً للإلغاء
+                        delegate_ticket = _begin_run_ticket(
+                            "delegate",
+                            lambda m: ws.send(json.dumps(m, ensure_ascii=False)))
+                        if delegate_ticket is None:
+                            continue
                         files_context = files_dict or {}
                         delegate_bridge.run_delegation(
                             user_request=user_text,
                             files_context=files_context,
                             project_context=project_context,
                             on_event=_delegate_event,
+                            ticket=delegate_ticket,
                         )
                         continue  # الـ delegate يتكفل بالرد
 
@@ -1023,6 +1035,11 @@ def ws_handler(ws):
                     import uuid
                     agent_run_id = f"run-agent-{uuid.uuid4().hex[:8]}"
                     agent_step_id = "step-agent-execute"
+
+                    # T-015 (R-105): registry ticket — agent تحت نفس السجل
+                    agent_ticket = _begin_run_ticket("agent", _agent_ws_send)
+                    if agent_ticket is None:
+                        continue
                     
                     def _run_agent():
                         try:
@@ -1032,6 +1049,7 @@ def ws_handler(ws):
                                 project_context=project_context,
                                 run_id=agent_run_id,
                                 step_id=agent_step_id,
+                                ticket=agent_ticket,
                             )
                         except Exception as e:
                             agent_result["error"] = str(e)
@@ -1384,12 +1402,13 @@ def ws_handler(ws):
                 ws.send(json.dumps({"type": "error", "text": "Chain system غير مفعّل"}))
                 continue
 
-            # R-101: single-active-run guard
-            guard_id = _begin_chain_guard(
+            # T-015 (R-105): registry ticket — single-run policy
+            chain_ticket = _begin_run_ticket(
+                "chain",
                 lambda m: ws.send(json.dumps(m, ensure_ascii=False)))
-            if guard_id is None:
+            if chain_ticket is None:
                 continue
-            _ws_send = _make_chain_sender(ws, guard_id)
+            _ws_send = _json_sender(ws)
 
             run_id = chain_bridge.start_chain(
                 ws_send_fn=_ws_send,
@@ -1398,11 +1417,12 @@ def ws_handler(ws):
                 file_path=file_path,
                 files=files,
                 force_strategy=force_strategy,
+                ticket=chain_ticket,
             )
 
             if not run_id:
                 # start_chain already sent error via _ws_send
-                active_run_holder.release(guard_id)
+                chain_ticket.finish("failed")
 
         elif msg_type == "chain_cancel":
             # إلغاء chain نشط
@@ -1410,9 +1430,10 @@ def ws_handler(ws):
             if chain_bridge:
                 ok = chain_bridge.cancel(reason)
                 if ok:
-                    _cur = active_run_holder.current()
-                    if _cur:
-                        active_run_holder.release(_cur)
+                    # T-015 (R-105): ارفع علم الإلغاء على التذاكر النشطة —
+                    # التذكرة تُنهى بدقة في finally الخاص بالـ bridge
+                    for _t in execution_registry.list_active():
+                        _t.cancel(reason)
                 ws.send(json.dumps({
                     "type": "chain_cancel_result",
                     "ok": ok,

@@ -19,6 +19,7 @@ from chain.agent_tools import (
     SAFE_TOOLS, APPROVAL_TOOLS,
 )
 from core.approval import ApprovalGate, ApprovalRequest, ProposedAction
+from core.execution import RunTicket
 
 
 class AgentLoop:
@@ -64,22 +65,52 @@ class AgentLoop:
         
         self.knowledge = KnowledgeAccumulator()
         self._cancelled = False
+        # T-015 (R-105): تذكرة التنفيذ — إلغاؤها يُلاحَظ في نفس نقاط
+        # تفتيش _cancelled (بداية كل iteration وقبل كل أداة)
+        self._ticket: RunTicket | None = None
         # مرجع الطلب المعلّق لدى البوابة (لـ approve_command/cancel فقط —
         # ليس آلية انتظار مستقلة؛ الانتظار/التحقق كله داخل ApprovalGate)
         self._pending_approval: ToolCall | None = None
         self._pending_approval_id: str | None = None
         self._pending_approval_hash: str | None = None
     
+    def _is_cancelled(self) -> bool:
+        """T-015 (R-105): إلغاء محلي (cancel()) أو إلغاء تذكرة السجل."""
+        if self._cancelled:
+            return True
+        ticket = self._ticket
+        return ticket is not None and ticket.is_cancelled
+
     def run(self, user_request: str, history: list | None = None,
-            project_context: str = "", run_id: str = "", step_id: str = "") -> str:
+            project_context: str = "", run_id: str = "", step_id: str = "",
+            ticket: RunTicket | None = None) -> str:
         """
         تشغيل الـ Agent Loop.
+
+        ticket (T-015, R-105): تذكرة التنفيذ — تُلاحَظ عند بداية كل
+        iteration وقبل كل أداة، وتُنهى هنا قبل العودة (completed/cancelled؛
+        الاستثناءات تُنهى failed ثم تُعاد رميها كما هي).
         
         Returns:
             الرد النهائي من AI (بعد جمع كل المعلومات)
         """
         history = history or []
         self._cancelled = False
+        self._ticket = ticket
+        try:
+            result = self._run_loop(user_request, history, project_context,
+                                    run_id, step_id)
+        except Exception:
+            if ticket is not None:
+                ticket.finish("failed")
+            raise
+        if ticket is not None:
+            ticket.finish("cancelled" if self._is_cancelled() else "completed")
+        return result
+
+    def _run_loop(self, user_request: str, history: list,
+                  project_context: str, run_id: str, step_id: str) -> str:
+        """جسم الحلقة الفعلي (انفصل في T-015 ليتولى run() دورة حياة التذكرة)."""
         
         # ═══════════════════════════════════════
         # 🔍 Phase 0: Auto-Context Injection
@@ -91,7 +122,7 @@ class AgentLoop:
         agent_prompt = self._build_initial_prompt(user_request, project_context)
         
         for iteration in range(self.max_iterations):
-            if self._cancelled:
+            if self._is_cancelled():
                 return "⚠️ تم إلغاء الطلب."
             
             self.knowledge.next_iteration()
@@ -151,7 +182,7 @@ class AgentLoop:
             tool_results_text = []
             
             for call in tool_calls:
-                if self._cancelled:
+                if self._is_cancelled():
                     break
                 
                 # أدوات آمنة → تنفيذ فوري

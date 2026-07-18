@@ -55,13 +55,14 @@ def test_api_switch_project_goes_through_ctx(monkeypatch, tmp_path):
 
 
 def test_api_switch_project_blocked_during_active_run(monkeypatch, tmp_path):
-    from core.active_run import ActiveRunHolder
+    from core.execution import ExecutionRegistry
 
     ctx, proj_a, proj_b = _make_ctx(tmp_path)
     monkeypatch.setattr(server, "ctx", ctx)
-    holder = ActiveRunHolder()
-    assert holder.acquire("run-x")
-    monkeypatch.setattr(server, "active_run_holder", holder)
+    # T-015 (R-105): the guard reads execution_registry.list_active() now
+    reg = ExecutionRegistry()
+    reg.register("chain")
+    monkeypatch.setattr(server, "execution_registry", reg)
 
     client = server.app.test_client()
     resp = client.post("/api/switch-project",

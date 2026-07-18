@@ -1,16 +1,20 @@
 # -*- coding: utf-8 -*-
-"""T-004 (R-101): concurrent chain start is rejected with a `busy` frame.
+"""T-004 (R-101) → T-015 (R-105): concurrent run start rejected with `busy`.
 
-Exercises the guard helpers in server.py directly (no real WS/socket needed):
-- first dispatch acquires the slot
-- second dispatch gets a `busy` frame and no guard id
-- terminal frames (chain_finished / chain_error) release the slot
-- failed start (empty run_id path) releases via explicit release
+Originally exercised ActiveRunHolder + _begin_chain_guard; T-015 deleted the
+holder — the guard is now `_begin_run_ticket` backed by ExecutionRegistry.
+Same guarantees, now for all three kinds:
+- first dispatch gets a ticket
+- second dispatch gets a `busy` frame and no ticket
+- finishing the ticket frees the slot
+- failed start finishes the ticket as `failed` (slot freed)
 """
+import json
+
 import pytest
 
 import server
-from core.active_run import ActiveRunHolder
+from core.execution import ExecutionRegistry
 
 
 class FakeWS:
@@ -23,62 +27,71 @@ class FakeWS:
 
 
 @pytest.fixture(autouse=True)
-def fresh_holder(monkeypatch):
-    """Isolate each test with its own holder instance."""
-    holder = ActiveRunHolder()
-    monkeypatch.setattr(server, "active_run_holder", holder)
-    return holder
+def fresh_registry(monkeypatch):
+    """Isolate each test with its own registry instance."""
+    reg = ExecutionRegistry()
+    monkeypatch.setattr(server, "execution_registry", reg)
+    return reg
 
 
 def _send_via(ws):
-    import json
     return lambda m: ws.send(json.dumps(m, ensure_ascii=False))
 
 
-def test_second_start_gets_busy_frame(fresh_holder):
+def test_second_start_gets_busy_frame(fresh_registry):
     ws1, ws2 = FakeWS(), FakeWS()
 
-    g1 = server._begin_chain_guard(_send_via(ws1))
-    assert g1 is not None
-    assert fresh_holder.current() == g1
+    t1 = server._begin_run_ticket("chain", _send_via(ws1))
+    assert t1 is not None
+    assert fresh_registry.list_active() == [t1]
     assert ws1.sent == []                      # no busy frame for the winner
 
-    g2 = server._begin_chain_guard(_send_via(ws2))
-    assert g2 is None                          # rejected
+    t2 = server._begin_run_ticket("chain", _send_via(ws2))
+    assert t2 is None                          # rejected
     assert len(ws2.sent) == 1
-    import json
     frame = json.loads(ws2.sent[0])
     assert frame["type"] == "busy"
-    assert frame["active_run"] == g1
+    assert frame["active_run"] == t1.run_id
 
 
-def test_terminal_frame_releases_slot(fresh_holder):
+def test_cross_kind_exclusion(fresh_registry):
+    """الاستبعاد يشمل الأنواع الثلاثة — agent لا يبدأ فوق chain نشط."""
+    ws1, ws2 = FakeWS(), FakeWS()
+    t1 = server._begin_run_ticket("chain", _send_via(ws1))
+    assert t1 is not None
+    assert server._begin_run_ticket("agent", _send_via(ws2)) is None
+    assert json.loads(ws2.sent[0])["type"] == "busy"
+
+
+def test_finish_frees_slot(fresh_registry):
     ws = FakeWS()
-    g = server._begin_chain_guard(_send_via(ws))
-    sender = server._make_chain_sender(ws, g)
+    t = server._begin_run_ticket("chain", _send_via(ws))
+    assert fresh_registry.list_active() == [t]
 
-    sender({"type": "chain_step", "text": "working"})
-    assert fresh_holder.is_active()            # non-terminal keeps the slot
-
-    sender({"type": "chain_finished", "text": "done"})
-    assert not fresh_holder.is_active()        # terminal frees it
+    t.finish("completed")                      # terminal frees it
+    assert fresh_registry.list_active() == []
 
     # next run can start immediately
-    assert server._begin_chain_guard(_send_via(ws)) is not None
+    assert server._begin_run_ticket("delegate", _send_via(ws)) is not None
 
 
-def test_chain_error_also_releases(fresh_holder):
+def test_failed_start_release_path(fresh_registry):
+    """Mirrors the `if not run_id: ticket.finish(\"failed\")` branch."""
     ws = FakeWS()
-    g = server._begin_chain_guard(_send_via(ws))
-    server._make_chain_sender(ws, g)({"type": "chain_error", "text": "boom"})
-    assert not fresh_holder.is_active()
-
-
-def test_failed_start_release_path(fresh_holder):
-    """Mirrors the `if not run_id: release(guard_id)` branch in server.py."""
-    ws = FakeWS()
-    g = server._begin_chain_guard(_send_via(ws))
+    t = server._begin_run_ticket("chain", _send_via(ws))
     run_id = ""                                # start_chain refused
     if not run_id:
-        server.active_run_holder.release(g)
-    assert not fresh_holder.is_active()
+        t.finish("failed")
+    assert fresh_registry.list_active() == []
+    assert t.state == "failed"
+
+
+def test_json_sender_encodes_without_lifecycle(fresh_registry):
+    """_json_sender يرسل JSON فقط — لا يمس دورة حياة التذكرة (T-015)."""
+    ws = FakeWS()
+    t = server._begin_run_ticket("chain", _send_via(ws))
+    sender = server._json_sender(ws)
+    sender({"type": "chain_finished", "text": "done"})
+    # frame sent, but ticket lifecycle untouched (bridge owns finish())
+    assert json.loads(ws.sent[-1])["type"] == "chain_finished"
+    assert fresh_registry.list_active() == [t]
