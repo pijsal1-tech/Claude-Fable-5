@@ -22,7 +22,8 @@ ContextEngine.gather(ContextRequest)
         └─► StructureSource kind="structure"  بنية المشروع
                 عنصر واحد <project_structure> = get_project_context()
         ▼
-ContextBundle (مرتّب، first-wins على (source_kind, path))
+ContextBundle (مرتّب، first-wins على (source_kind, path)
+               + T-021: sha256 content-dedupe — الجسد المكرر إحالة)
         ▼
 facade: دمج mention→keyword بـ path-dedupe + حد إجمالي MAX_MENTIONED_FILES=10
         ▼
@@ -63,6 +64,18 @@ MessageContext:
   مسح واحد بالضبط لكل gather).
 - ✅ `AgentLoop._auto_prefetch` — يفوّض للمُكيّف أعلاه (T-020)؛ إطارات
   WS ونقل النتائج للـ Knowledge بلا تغيير (نفس عقد الـ goldens).
-- ⏳ `HistorySource` وميزانية render — R-202/R-203.
+- ✅ `ContextBundle` انتقلت إلى `context/bundle.py` (T-021 / R-202) مع
+  طبقة dedupe ثانية بالمحتوى (sha256): مفتاح الهوية `(source_kind,
+  path)` يرفض المكرر (عقد T-018 بلا تغيير)، ومفتاح المحتوى يقبل
+  الإدخال لكن كـ **reference** (`BundleEntry.is_reference` +
+  `duplicate_of`). `render_prompt_block()` يطبع كل جسد مرة واحدة
+  وملاحظة إحالة للبقية؛ `debug_dump()` يجيب عن «ليه الموديل شاف
+  X؟» (index/source/path/hash/chars/reference — JSON-serializable).
+  الـ facade وgoldens T-017/T-019 لم تتأثر: `items`/`paths` تُظهر
+  الإحالات كعناصر كاملة بمحتواها — الـ renderer وحده من يَلزم
+  بالإزالة. huge-file quirk محفوظ: `content=None` لا يُهَش ولا يكون
+  إحالة.
+- ⏳ توجيه map_reduce عبر الحزمة (≥40% تخفيض) — T-022.
+- ⏳ `HistorySource` وميزانية render — T-023+/R-203.
 
 لكتابة مصدر جديد راجع `context/AUTHORING.md` (القواعد الملزمة).

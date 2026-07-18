@@ -3,6 +3,7 @@
 
 T-018: الهيكل + MentionSource فقط — غير موصولة بعد بأي مسار إنتاجي.
 """
+from context.bundle import BundleEntry, content_hash
 from context.engine import (
     ContextBundle,
     ContextEngine,
@@ -13,10 +14,12 @@ from context.engine import (
 )
 
 __all__ = [
+    "BundleEntry",
     "ContextBundle",
     "ContextEngine",
     "ContextItem",
     "ContextRequest",
     "ContextSource",
     "ProjectScan",
+    "content_hash",
 ]

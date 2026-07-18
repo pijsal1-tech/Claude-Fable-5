@@ -27,6 +27,26 @@
     fallback path left.
 
 ### Added
+- **R-202 (T-021): ContextBundle with sha256 content-dedupe, provenance,
+  and a reference-aware renderer — same file body can never render twice.**
+  New `context/bundle.py`: `ContextBundle` gains a second dedupe layer —
+  the T-018 identity key `(source_kind, path)` still rejects duplicates
+  (first-wins, unchanged), while a content key (`sha256`) accepts new
+  identities carrying an already-seen body as a **reference**
+  (`BundleEntry.is_reference=True` + `duplicate_of=<owner path>`).
+  `render_prompt_block()` emits each body exactly once and an
+  "already attached above" note for references (None-content/huge-file
+  items skipped, never hashed — quirk preserved); `debug_dump()` returns
+  JSON-serializable provenance rows (index/source_kind/path/content_hash/
+  chars/is_reference/duplicate_of) answering "why did the model see X".
+  `context/engine.py` re-exports `ContextItem`/`ContextBundle` from the
+  new module so every existing import path (sources, facade, tests) is
+  untouched; facade surface (`items`/`paths`/`len`) shows references as
+  full items — only the renderer elides, so T-017/T-019 goldens stay
+  byte-exact. 13 new unit tests in `tests/unit/test_context_bundle.py`
+  (acceptance: two sources + same file → one body + one reference;
+  same-content different-paths; renderer golden; provenance dump;
+  engine-integration; frozen entries).
 - **R-201 (T-020): ContextBuilder converged onto ContextEngine — chain
   prefetch now shares the single-scan reading path.**
   `ContextBuilder.gather()` builds **one `ProjectScan`** per request and

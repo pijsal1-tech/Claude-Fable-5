@@ -26,8 +26,18 @@ Wiring diagram (بعد التوصيل في مهام R-201 اللاحقة):
 from __future__ import annotations
 
 import pathlib
-from dataclasses import dataclass, field
-from typing import Callable, Iterable, Protocol, runtime_checkable
+from dataclasses import dataclass
+from typing import Callable, Protocol, runtime_checkable
+
+# T-021 (R-202): نموذج البيانات والحاوية انتقلا إلى context/bundle.py
+# (sha256 content-dedupe + provenance + renderer). يُعاد تصديرهما من هنا
+# للحفاظ على كل مسارات الاستيراد القائمة (المصادر/الـ facade/الاختبارات).
+from context.bundle import (   # noqa: F401  (re-export مقصود)
+    BundleEntry,
+    ContextBundle,
+    ContextItem,
+    content_hash,
+)
 
 
 # ═══════════════════════════ نموذج البيانات ═══════════════════════════
@@ -37,60 +47,6 @@ class ContextRequest:
     """طلب جمع سياق لرسالة واحدة."""
     message: str
     project_root: pathlib.Path
-
-
-@dataclass(frozen=True)
-class ContextItem:
-    """عنصر سياق واحد بمصدر معروف (provenance).
-
-    content=None = العنصر مذكور لكن محتواه غير متاح (مثل ملف أكبر من
-    MAX_FILE_SIZE — راجع quirk الـ huge_file المثبّت في goldens T-017).
-    """
-    source_kind: str
-    path: str
-    content: str | None = None
-
-    @property
-    def key(self) -> tuple[str, str]:
-        return (self.source_kind, self.path)
-
-
-class ContextBundle:
-    """حاوية مرتّبة بلا تكرار — الإضافة الأولى تكسب (first-wins).
-
-    R-202 يوسّعها لاحقًا بـ content-hash dedupe وميزانية render؛
-    في T-018 المفتاح هو (source_kind, path).
-    """
-
-    def __init__(self) -> None:
-        self._items: list[ContextItem] = []
-        self._seen: set[tuple[str, str]] = set()
-
-    def add(self, item: ContextItem) -> bool:
-        """إضافة عنصر. False لو مكرر (لم يُضف)."""
-        if item.key in self._seen:
-            return False
-        self._seen.add(item.key)
-        self._items.append(item)
-        return True
-
-    def extend(self, items: Iterable[ContextItem]) -> int:
-        """إضافة عدة عناصر؛ يرجع عدد ما أُضيف فعلًا."""
-        return sum(1 for it in items if self.add(it))
-
-    @property
-    def items(self) -> list[ContextItem]:
-        return list(self._items)
-
-    def paths(self, source_kind: str | None = None) -> list[str]:
-        """مسارات العناصر بالترتيب — كلها أو لمصدر محدد."""
-        return [
-            it.path for it in self._items
-            if source_kind is None or it.source_kind == source_kind
-        ]
-
-    def __len__(self) -> int:
-        return len(self._items)
 
 
 # ═══════════════════════ المسح الواحد المُخزَّن ═══════════════════════
