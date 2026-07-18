@@ -263,13 +263,31 @@ def build_map_reduce(user_request: str,
         critical=True,
     ))
 
-    # Execute
-    files_block = ""
+    # Execute — T-022 (R-202): كتلة الملفات تمر عبر ContextBundle:
+    # نفس الجسد لا يُضمَّن مرتين أبدًا — الملف المكرر المحتوى يصبح سطر
+    # إحالة بدل نسخة كاملة (أسوأ موقع ازدواج مُقاس في الـ roadmap).
+    bundle = ContextBundle()
     for path, content in files.items():
+        bundle.add(ContextItem(source_kind="map_input", path=path,
+                               content=content))
+
+    files_block = ""
+    dedupe_refs = 0
+    for entry in bundle.entries:
+        if entry.item.content is None:
+            continue
+        if entry.is_reference:
+            dedupe_refs += 1
+            files_block += (
+                f"\n\n📎 ملف: {entry.item.path} — محتواه مطابق تمامًا "
+                f"للملف ({entry.duplicate_of}) المرفق أعلاه، لم يُكرَّر."
+            )
+            continue
+        # نفس صياغة legacy الحرفية للأجساد (أسوار DATA ONLY محفوظة)
         files_block += (
-            f"\n\n📄 ملف: {path}\n"
+            f"\n\n📄 ملف: {entry.item.path}\n"
             f"======== START OF SOURCE CODE ========\n"
-            f"{content}\n"
+            f"{entry.item.content}\n"
             f"======== END OF SOURCE CODE ========"
         )
 
@@ -301,6 +319,8 @@ def build_map_reduce(user_request: str,
         metadata={
             "file_count": len(files),
             "files": list(files.keys()),
+            # T-022: عدد الأجساد المكررة التي أصبحت إحالات (قابلية رصد)
+            "dedupe_refs": dedupe_refs,
         },
     )
 

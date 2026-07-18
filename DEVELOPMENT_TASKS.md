@@ -310,11 +310,11 @@
 - **Files to Modify:** `chain/executor.py` (map_reduce path)
 - **Affected Modules:** map_reduce chains
 - **Acceptance Criteria:** size regression test asserts ≥40% smaller; output quality parity on fixture.
-- **Implementation:** [ ] route through bundle · [ ] size test
-- **Testing:** [ ] ≥40% assertion · [ ] output parity
-- **Regression:** [ ] map_reduce E2E
-- **Documentation:** [ ] measured numbers in Reviewer Notes
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-023
+- **Implementation:** [x] route through bundle · [x] size test
+- **Testing:** [x] ≥40% assertion · [x] output parity
+- **Regression:** [x] map_reduce E2E
+- **Documentation:** [x] measured numbers in Reviewer Notes
+- **Completion Status:** ✅ · **Reviewer Notes:** **Scope note:** the map_reduce files-block lives in `chain/strategies.py::build_map_reduce` (the `mr_execute` step's `prompt_template`), not `chain/executor.py` — the executor only calls `step.build_prompt()`; the fix is at the block's construction site. **Routing:** the `[الملفات الأصلية للتعديل]` block is built through `ContextBundle` (`source_kind="map_input"`): first holder of a body renders verbatim with the legacy fencing (`📄 … START/END OF SOURCE CODE`), any later file whose sha256 matches becomes a one-line `📎 ملف: <path> — محتواه مطابق تمامًا للملف (<owner>) المرفق أعلاه، لم يُكرَّر.` reference. **Never elided:** map steps keep their full per-file bodies and `{previous_context}` dependency results are untouched (R-202 risk clause — asserted by `test_map_steps_untouched_by_dedup`). Observability: `metadata["dedupe_refs"]`. **Measured numbers (fixture: 5 files, 4 exact duplicates of a ~2KB handlers body):** legacy mr_execute prompt **15,387 chars** → bundled **3,635 chars** = **76.4% reduction** (criterion ≥40%, enforced by `test_dedup_reduces_execute_prompt_by_40_percent` which reconstructs the byte-exact legacy formula inline). **Output parity:** unique body appears exactly once (`prompt.count(body)==1`); every path still present (body-owner path ×5 = 1 body + 4 duplicate_of mentions; 4 `لم يُكرَّر` notes); differing contents → zero references, block byte-identical to legacy (`test_no_dedupe_when_contents_differ`). **map_reduce E2E:** full chain (5 map + mr_reduce + mr_execute) through `ChainExecutor` + `FakeProvider` → `run.status=="completed"`, all steps success, and the *actually sent* mr_execute prompt (recorded provider call) contains one body + 4 references. New `tests/unit/test_map_reduce_dedup.py` (7 tests). `context/ARCHITECTURE.md` status updated with the measured numbers. Evidence: full suite **239 passed** (232+7); mypy `providers/ chain/ core/ context/` → clean (36 files); `./scripts/check.sh` **ALL GREEN**. · **Next Task:** T-023
 
 ## T-023 — ContextBudget with Tiers (R-203)
 - **Description:** Implement `ContextBudget` — tiers must_have/high/normal/opportunistic, token estimation (provider tokenizer or chars/4), drop-lowest-first packing, must_have overflow → per-item summarization hook.

@@ -75,7 +75,14 @@ MessageContext:
   الإحالات كعناصر كاملة بمحتواها — الـ renderer وحده من يَلزم
   بالإزالة. huge-file quirk محفوظ: `content=None` لا يُهَش ولا يكون
   إحالة.
-- ⏳ توجيه map_reduce عبر الحزمة (≥40% تخفيض) — T-022.
+- ✅ توجيه map_reduce عبر الحزمة (T-022 / R-202): كتلة `[الملفات
+  الأصلية للتعديل]` في خطوة `mr_execute` (`chain/strategies.py::
+  build_map_reduce`) تُبنى الآن عبر `ContextBundle` — الجسد المكرر يصبح
+  سطر إحالة `📎 … لم يُكرَّر` بدل نسخة كاملة؛ خطوات الـ map تحتفظ
+  بأجسادها كاملة (نتائج الـ dependencies لا تُزال — بند مخاطر R-202).
+  `metadata["dedupe_refs"]` يرصد عدد الإحالات. القياس على fixture
+  الازدواج (5 ملفات، 4 نسخ): **76.4% تخفيض** (15,387 → 3,635 حرف) —
+  اختبار انحدار يفرض ≥40% في `tests/unit/test_map_reduce_dedup.py`.
 - ⏳ `HistorySource` وميزانية render — T-023+/R-203.
 
 لكتابة مصدر جديد راجع `context/AUTHORING.md` (القواعد الملزمة).

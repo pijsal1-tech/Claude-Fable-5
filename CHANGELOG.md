@@ -27,6 +27,23 @@
     fallback path left.
 
 ### Added
+- **R-202 (T-022): map_reduce execute-step routed through ContextBundle —
+  measured 76.4% prompt-size reduction on the duplication fixture.**
+  `build_map_reduce`'s `mr_execute` files-block is now built via
+  `ContextBundle` (`source_kind="map_input"`): each unique body renders
+  once with the verbatim legacy fencing (`START/END OF SOURCE CODE`),
+  duplicate-content files become one-line `📎 … لم يُكرَّر` references
+  naming the body owner — no file disappears, no body repeats. Map steps
+  keep their full per-file bodies and dependency results are never elided
+  (R-202 risk clause). `metadata["dedupe_refs"]` exposes the reference
+  count for observability. Regression suite
+  `tests/unit/test_map_reduce_dedup.py` (7 tests): the literal ≥40%
+  assertion vs. the reconstructed legacy prompt (actual: 76.4%,
+  15,387 → 3,635 chars on a 5-file/4-duplicate fixture), unique body
+  exactly-once, every path still mentioned (4 references), differing
+  contents produce zero dedupe, map steps untouched, metadata count, and
+  a full ChainExecutor E2E over FakeProvider asserting the *sent*
+  mr_execute prompt contains one body + 4 reference notes.
 - **R-202 (T-021): ContextBundle with sha256 content-dedupe, provenance,
   and a reference-aware renderer — same file body can never render twice.**
   New `context/bundle.py`: `ContextBundle` gains a second dedupe layer —
