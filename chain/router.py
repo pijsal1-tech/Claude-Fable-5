@@ -100,6 +100,16 @@ class RequestRouter:
         self._budget = budget
         self._active_provider_name = active_provider_name
 
+    # R-102 (T-008): public API — switch handlers must not poke the private
+    # attribute; they call this property instead.
+    @property
+    def active_provider_name(self) -> str:
+        return self._active_provider_name
+
+    @active_provider_name.setter
+    def active_provider_name(self, name: str):
+        self._active_provider_name = name
+
     def route(self,
               user_request: str,
               file_content: str | None = None,

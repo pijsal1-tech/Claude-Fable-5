@@ -202,17 +202,27 @@ class DelegateBridge:
     - delegate_error: خطأ
     """
     
-    def __init__(self, provider, agent_loader=None):
+    def __init__(self, provider, agent_loader=None, ctx=None):
         """
         provider: أي مزود AI يدعم send()
         agent_loader: AgentLoader (اختياري)
+        ctx: AppContext — لو موجود، المزود يُحلّ وقت الاستدعاء (R-102/T-008)
         """
-        self._provider = provider
+        # R-102 (T-008) — resolve at call time: with ctx set, _provider is a
+        # property reading ctx.active_provider per access; no private pokes.
+        self._ctx = ctx
+        self._static_provider = provider
         self._agent_loader = agent_loader
         self._current_run: DelegateRun | None = None
         self._brief_prompt = _load_prompt("delegate_brief.md")
         self._review_prompt = _load_prompt("delegate_review.md")
     
+    @property
+    def _provider(self):
+        if self._ctx is not None and self._ctx.active_provider is not None:
+            return self._ctx.active_provider
+        return self._static_provider
+
     @property
     def is_active(self) -> bool:
         return self._current_run is not None and self._current_run.status not in (

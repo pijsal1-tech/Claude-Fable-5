@@ -160,7 +160,9 @@ class ChainBridge:
         runs_dir: مجلد حفظ الـ runs (اختياري)
         ctx: AppContext — لو موجود، project_root/runs_dir يُحلّان وقت الاستدعاء (R-102)
         """
-        self._provider = provider
+        # R-102 (T-008): provider also resolves at call time via ctx —
+        # api_switch_model publishes once on the context; no private pokes.
+        self._static_provider = provider
         # R-102 (T-007) — pattern: "resolve at call time". With ctx set,
         # _project_root/_runs_dir are properties reading ctx.project.root per
         # access, so a project switch is observed by the next run. Static
@@ -176,6 +178,12 @@ class ChainBridge:
         self._active_run: ChainRun | None = None
         self._active_thread: threading.Thread | None = None
         self._lock = threading.RLock()  # RLock: re-entrant (is_running called from start_chain)
+
+    @property
+    def _provider(self):
+        if self._ctx is not None and self._ctx.active_provider is not None:
+            return self._ctx.active_provider
+        return self._static_provider
 
     @property
     def _project_root(self) -> str:

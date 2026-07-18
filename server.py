@@ -126,6 +126,17 @@ def _make_chain_sender(ws, guard_id):
 ctx: AppContext = None
 
 
+def _active_provider():
+    """R-102 (T-008): resolve the active provider at call time.
+
+    Reads ctx.active_provider (single source of truth after switch_model);
+    falls back to the legacy module global for ctx-less paths (tests).
+    """
+    if ctx is not None and ctx.active_provider is not None:
+        return ctx.active_provider
+    return provider
+
+
 def _server_handle_factory(root: str) -> ProjectHandle:
     """T-007 (R-102): server flavor of the handle factory.
 
@@ -457,9 +468,10 @@ def api_models():
             "models": ["gateway-claude-sonnet-5", "gateway-claude-sonnet-4-6", "gateway-glm-5-2", "gateway-grok-4-3", "gateway-gpt-5-5"],
         },
     ]
+    _prov = _active_provider()
     current = {
-        "provider": getattr(provider, 'name', 'unknown') if provider else 'none',
-        "model": provider.config.model if provider else '',
+        "provider": getattr(_prov, 'name', 'unknown') if _prov else 'none',
+        "model": _prov.config.model if _prov else '',
     }
     return jsonify({"ok": True, "providers": providers_list, "current": current})
 
@@ -467,7 +479,7 @@ def api_models():
 @app.route("/api/switch-model", methods=["POST"])
 def api_switch_model():
     """تغيير المزود/النموذج"""
-    global provider, provider_pool, account_budget, request_router, delegate_bridge, chain_bridge
+    global provider, provider_pool, account_budget, request_router
 
     # ── حماية: منع التبديل أثناء chain نشط (R-101) ──
     if active_run_holder.is_active():
@@ -502,7 +514,12 @@ def api_switch_model():
 
         provider.initialize()
 
-        # ── تحديث جميع الهياكل المرتبطة بالـ active provider ──
+        # ── R-102 (T-008): single atomic publication — no private pokes.
+        # ChainBridge/DelegateBridge resolve ctx.active_provider at call
+        # time; RequestRouter is updated through its public property.
+        if ctx is not None:
+            ctx.switch_model(provider)
+
         if provider_pool:
             provider_pool.add(prov_id, provider)
             provider_pool.active_name = prov_id
@@ -511,13 +528,7 @@ def api_switch_model():
             account_budget.register(prov_id, provider)
 
         if request_router:
-            request_router._active_provider_name = prov_id
-
-        if delegate_bridge:
-            delegate_bridge._provider = provider
-
-        if chain_bridge:
-            chain_bridge._provider = provider
+            request_router.active_provider_name = prov_id
 
         print(f"✅ تم التغيير: {prov_id} / {model_name}")
         return jsonify({
@@ -557,13 +568,17 @@ def api_switch_project():
             return jsonify({"ok": False, "error": f"فشل إنشاء المجلد: {e}"}), 400
 
     try:
-        fm = FileManager(abs_path)
-        cmd_runner = CommandRunner(cwd=abs_path, auto_approve=True)
-        # T-007 (R-102): keep the composition root in sync so all ctx-based
-        # consumers (AgentTools/ActionApplier/ChainBridge) observe the new
-        # project at their next call. Full handler rewrite lands in T-008.
+        # R-102 (T-008): the switch IS ctx.switch_project() — one atomic
+        # swap; every consumer resolves the new handle at its next call.
+        # Legacy globals are re-pointed at the ctx-owned objects (one-way
+        # aliases) until the remaining direct readers migrate.
         if ctx is not None:
-            ctx.switch_project(abs_path)
+            handle = ctx.switch_project(abs_path)
+            fm = handle.fm
+            cmd_runner = handle.cmd_runner
+        else:  # ctx-less fallback (tests / legacy boot)
+            fm = FileManager(abs_path)
+            cmd_runner = CommandRunner(cwd=abs_path, auto_approve=True)
         scan = fm.scan_project()
         return jsonify({
             "ok": True,
@@ -736,8 +751,14 @@ def ws_handler(ws):
             # ── معالجة مجلد مكتشف: تغيير المشروع ──
             if detected_dir:
                 try:
-                    fm = FileManager(detected_dir)
-                    cmd_runner = CommandRunner(cwd=detected_dir, auto_approve=True)
+                    # R-102 (T-008): switch through the composition root.
+                    if ctx is not None:
+                        _handle = ctx.switch_project(detected_dir)
+                        fm = _handle.fm
+                        cmd_runner = _handle.cmd_runner
+                    else:
+                        fm = FileManager(detected_dir)
+                        cmd_runner = CommandRunner(cwd=detected_dir, auto_approve=True)
                     scan = fm.scan_project()
                     if session_mgr:
                         session_mgr.update_project_path(detected_dir)
@@ -954,7 +975,7 @@ def ws_handler(ws):
                                 prompt_text, hist, sys_prompt
                             )
                             return result
-                        return provider.send(prompt_text, hist, sys_prompt)
+                        return _active_provider().send(prompt_text, hist, sys_prompt)
 
                     agent_loop = AgentLoop(
                         tools=agent_tools,
@@ -1133,7 +1154,7 @@ def ws_handler(ws):
 
                 def _stream_worker():
                     try:
-                        for chunk in provider.stream(prompt, chat_history[:-1], system_prompt):
+                        for chunk in _active_provider().stream(prompt, chat_history[:-1], system_prompt):
                             chunk_queue.put(("chunk", chunk))
                         chunk_queue.put(("done", None))
                     except Exception as e:
@@ -1395,7 +1416,7 @@ def ws_handler(ws):
                 continue
 
             if not delegate_bridge:
-                delegate_bridge = DelegateBridge(provider)
+                delegate_bridge = DelegateBridge(_active_provider(), ctx=ctx)
 
             # جمع ملفات السياق
             files_context = {}
