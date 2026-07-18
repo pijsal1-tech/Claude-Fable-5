@@ -14,6 +14,15 @@
   now backed by a guard that actually works.
 
 ### Fixed
+- **R-103 (T-009):** Fixed the DelegateBridge ↔ provider contract violation:
+  the three delegate call sites (write_brief / dispatch / review) passed
+  `list[Message]` to `send(prompt: str, ...)` — a latent crash on any
+  conforming provider. New `DelegateBridge._to_prompt_history(messages)`
+  renders the list to a string (single user message → verbatim; multiple →
+  role-tagged `[USER]:` / `[ASSISTANT]:` blocks); all three sites now send
+  rendered strings. Proven by a strict-typed FakeProvider (TypeError on
+  non-str prompt) with the rendering pinned as a golden test.
+
 - **R-102 (T-008):** Rewrote the switch handlers; deleted all private-attribute
   pokes. `api_switch_project` now IS `ctx.switch_project(path)` (one atomic
   swap; old handle invalidated; legacy `fm`/`cmd_runner` globals re-pointed at

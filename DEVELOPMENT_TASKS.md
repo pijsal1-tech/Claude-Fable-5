@@ -135,11 +135,11 @@
 - **Files to Modify:** `chain/delegate.py`
 - **Affected Modules:** delegate loop
 - **Acceptance Criteria:** FakeProvider (strict types) passes delegate integration; rendering snapshot pinned as golden.
-- **Implementation:** [ ] helper · [ ] site L260 · [ ] site L289 · [ ] site L327
-- **Testing:** [ ] delegate integration vs FakeProvider · [ ] rendering golden
-- **Regression:** [ ] delegate E2E output sane
-- **Documentation:** [ ] helper docstring w/ format spec
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-010
+- **Implementation:** [x] helper · [x] site L260 · [x] site L289 · [x] site L327
+- **Testing:** [x] delegate integration vs FakeProvider · [x] rendering golden
+- **Regression:** [x] delegate E2E output sane
+- **Documentation:** [x] helper docstring w/ format spec
+- **Completion Status:** ✅ · **Reviewer Notes:** `DelegateBridge._to_prompt_history(messages)` added (staticmethod, docstring carries the format spec): single user message → content verbatim; multiple → role-tagged `[USER]:`/`[ASSISTANT]:` blocks joined by blank line; empty list → ""; missing role → USER. All three offending sites (write_brief/dispatch/review — the `send(messages, ...)` calls) converted to `send(self._to_prompt_history(messages), ...)`; grep `send(messages` in chain/delegate.py → **0**. `tests/integration/test_delegate_contract.py` (6 tests): rendering golden pinned (incl. Arabic multi-message), empty/missing-role edge cases, and full delegate integration (write_brief→dispatch→review) against `StrictFakeProvider` — a FakeProvider subclass raising TypeError on non-str prompt — all calls receive str. pytest: **45 passed**. · **Next Task:** T-010
 
 ## T-010 — ProviderContractTest + mypy Gate (R-103)
 - **Description:** `tests/contracts/provider_contract.py` mixin asserting `send` signature/behavior for any provider; apply to all registered providers; add mypy to `scripts/check.sh` scoped to `chain/` + `providers/`, fix revealed annotations.

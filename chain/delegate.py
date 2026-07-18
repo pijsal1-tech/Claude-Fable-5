@@ -223,6 +223,37 @@ class DelegateBridge:
             return self._ctx.active_provider
         return self._static_provider
 
+    @staticmethod
+    def _to_prompt_history(messages) -> str:
+        """R-103 (T-009): render a message list to the ``send(prompt: str)`` contract.
+
+        Format spec:
+        - Single user message → its content verbatim (no wrapper), matching
+          what providers expect for a plain prompt.
+        - Multiple messages → role-tagged blocks, one per message::
+
+              [USER]:
+              <content>
+
+              [ASSISTANT]:
+              <content>
+
+          joined by a blank line, role uppercased. Unknown/missing role
+          renders as ``[USER]``.
+
+        This replaces passing ``list[Message]`` where ``str`` is required —
+        a latent crash on any contract-conforming provider.
+        """
+        if not messages:
+            return ""
+        if len(messages) == 1 and getattr(messages[0], "role", "user") == "user":
+            return messages[0].content
+        blocks = []
+        for m in messages:
+            role = (getattr(m, "role", "") or "user").upper()
+            blocks.append(f"[{role}]:\n{m.content}")
+        return "\n\n".join(blocks)
+
     @property
     def is_active(self) -> bool:
         return self._current_run is not None and self._current_run.status not in (
@@ -267,7 +298,8 @@ class DelegateBridge:
             system = agent_prompt.content
         
         messages = [Message(role="user", content=prompt)]
-        response = self._provider.send(messages, system_prompt=system)
+        response = self._provider.send(
+            self._to_prompt_history(messages), system_prompt=system)
         
         brief = DelegateBrief(
             task_description=user_request,
@@ -296,7 +328,8 @@ class DelegateBridge:
         
         start = time.monotonic()
         messages = [Message(role="user", content=prompt)]
-        response = self._provider.send(messages, system_prompt=system)
+        response = self._provider.send(
+            self._to_prompt_history(messages), system_prompt=system)
         elapsed = time.monotonic() - start
         
         result = DelegateResult(
@@ -334,7 +367,8 @@ class DelegateBridge:
             system = agent_prompt.content
         
         messages = [Message(role="user", content=prompt)]
-        response = self._provider.send(messages, system_prompt=system)
+        response = self._provider.send(
+            self._to_prompt_history(messages), system_prompt=system)
         
         verdict = self._parse_verdict(response)
         return verdict
