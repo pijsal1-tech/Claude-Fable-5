@@ -1,0 +1,29 @@
+{
+  "description": "اسم ملف صريح → _gather_mentioned_files يقرأه.",
+  "items": [
+    {
+      "content": "❌ ملف غير موجود: config.js",
+      "kind": "file",
+      "size": 0,
+      "source": "config.js",
+      "success": false
+    }
+  ],
+  "message": "اقرأ config.json وقولي ايه المشكلة",
+  "progress_events": [
+    [
+      "file",
+      "config.js",
+      "reading"
+    ]
+  ],
+  "prompt_section": "[✅ تم جمع 0 معلومة تلقائياً من المشروع الفعلي (0 ملفات، 0 مجلدات، 0 بحث)]:\n\n\n\n[تعليمات مهمة]: المعلومات أعلاه مقروءة من الملفات الفعلية في نظام الملفات. أنت تملك وصولاً حقيقياً للمشروع — لا تقل 'مش عارف أوصل للملفات' أو 'ابعتلي الملف'. استخدم المعلومات المرفقة لتحليل الطلب والرد بشكل كامل.",
+  "scenario": "mention_file",
+  "summary": {
+    "dirs": 0,
+    "files": 0,
+    "searches": 0,
+    "success": 0,
+    "total": 1
+  }
+}

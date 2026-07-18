@@ -1,0 +1,15 @@
+{
+  "description": "رسالة لا تطابق شيئًا → نتيجة فارغة وقسم prompt فارغ.",
+  "items": [],
+  "message": "ايه رايك نبدأ نكتب اختبارات اكتر",
+  "progress_events": [],
+  "prompt_section": "",
+  "scenario": "no_context",
+  "summary": {
+    "dirs": 0,
+    "files": 0,
+    "searches": 0,
+    "success": 0,
+    "total": 0
+  }
+}

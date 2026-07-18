@@ -1,0 +1,43 @@
+{
+  "description": "نفس الطلب العام مع requirements.txt → فرع الـ deps يعمل.",
+  "items": [
+    {
+      "content": "📁 docs/ (1 items)\n  📄 notes.md (0.2KB)\n📁 src/ (4 items)\n  📄 app.js (0.3KB)\n  📄 auth.py (0.5KB)\n  📄 database.py (0.3KB)\n  📄 utils.js (0.2KB)\n📁 styles/ (1 items)\n  📄 main.css (0.1KB)\n📄 config.json (0.1KB)\n📄 index.html (0.3KB)\n📄 README.md (0.3KB)\n📄 requirements.txt (0.0KB)\n📄 run.sh (0.1KB)\n📄 settings.yaml (0.1KB)",
+      "kind": "tree",
+      "size": 0,
+      "source": "project_root",
+      "success": true
+    },
+    {
+      "content": "# Sample Project (Test Fixture)\n\nTiny multi-language project used by the test suite:\n- `src/app.js` + `src/utils.js` — JS import/call-site graph\n- `src/auth.py` + `src/database.py` — Python def/caller graph\n- `.env` — FAKE keys for SafeReader (R-204) redaction tests\n",
+      "kind": "file",
+      "size": 267,
+      "source": "README.md",
+      "success": true
+    },
+    {
+      "content": "flask==3.0.0\nrequests>=2.31\n",
+      "kind": "deps",
+      "size": 28,
+      "source": "requirements.txt",
+      "success": true
+    }
+  ],
+  "message": "حلل هيكل المشروع",
+  "progress_events": [
+    [
+      "tree",
+      ".",
+      "scanning"
+    ]
+  ],
+  "prompt_section": "[✅ تم جمع 3 معلومة تلقائياً من المشروع الفعلي (1 ملفات، 0 مجلدات، 0 بحث)]:\n\n\n🌳 [tree: project_root]:\n📁 docs/ (1 items)\n  📄 notes.md (0.2KB)\n📁 src/ (4 items)\n  📄 app.js (0.3KB)\n  📄 auth.py (0.5KB)\n  📄 database.py (0.3KB)\n  📄 utils.js (0.2KB)\n📁 styles/ (1 items)\n  📄 main.css (0.1KB)\n📄 config.json (0.1KB)\n📄 index.html (0.3KB)\n📄 README.md (0.3KB)\n📄 requirements.txt (0.0KB)\n📄 run.sh (0.1KB)\n📄 settings.yaml (0.1KB)\n\n📄 [file: README.md]:\n# Sample Project (Test Fixture)\n\nTiny multi-language project used by the test suite:\n- `src/app.js` + `src/utils.js` — JS import/call-site graph\n- `src/auth.py` + `src/database.py` — Python def/caller graph\n- `.env` — FAKE keys for SafeReader (R-204) redaction tests\n\n\n📦 [deps: requirements.txt]:\nflask==3.0.0\nrequests>=2.31\n\n\n\n[تعليمات مهمة]: المعلومات أعلاه مقروءة من الملفات الفعلية في نظام الملفات. أنت تملك وصولاً حقيقياً للمشروع — لا تقل 'مش عارف أوصل للملفات' أو 'ابعتلي الملف'. استخدم المعلومات المرفقة لتحليل الطلب والرد بشكل كامل.",
+  "scenario": "overview_with_deps",
+  "summary": {
+    "dirs": 0,
+    "files": 1,
+    "searches": 0,
+    "success": 3,
+    "total": 3
+  }
+}

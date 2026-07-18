@@ -1,0 +1,109 @@
+{
+  "description": "مجلد مذكور → listing + قراءة تلقائية لملفات الكود داخله (بترتيب مفروز).",
+  "items": [
+    {
+      "content": "📄 app.js (0.3KB)\n📄 auth.py (0.5KB)\n📄 database.py (0.3KB)\n📄 utils.js (0.2KB)",
+      "kind": "dir",
+      "size": 0,
+      "source": "src",
+      "success": true
+    },
+    {
+      "content": "// Entry point of the fixture app.\nimport { formatPrice, applyDiscount } from './utils.js';\n\nfunction renderTitle(price) {\n  const el = document.getElementById('title');\n  el.textContent = 'Total: ' + formatPrice(applyDiscount(price, 10));\n}\n\nrenderTitle(100);\n",
+      "kind": "file",
+      "size": 261,
+      "source": "src/app.js",
+      "success": true
+    },
+    {
+      "content": "\"\"\"Auth module fixture: definitions + callers for SymbolIndex tests.\"\"\"\nimport hashlib\n\n\ndef hash_password(password: str, salt: str) -> str:\n    return hashlib.sha256((salt + password).encode()).hexdigest()\n\n\ndef verify_password(password: str, salt: str, expected: str) -> bool:\n    return hash_password(password, salt) == expected\n\n\nclass AuthService:\n    def __init__(self, salt: str = \"pepper\"):\n        self.salt = salt\n\n    def login(self, user: str, password: str, stored_hash: str) -> bool:\n        return verify_password(password, self.salt, stored_hash)\n",
+      "kind": "file",
+      "size": 563,
+      "source": "src/auth.py",
+      "success": true
+    },
+    {
+      "content": "\"\"\"Database fixture module — imports auth to create a cross-file edge.\"\"\"\nfrom src.auth import hash_password\n\nUSERS = {}\n\n\ndef create_user(name: str, password: str) -> None:\n    USERS[name] = hash_password(password, salt=\"pepper\")\n\n\ndef get_user(name: str):\n    return USERS.get(name)\n",
+      "kind": "file",
+      "size": 285,
+      "source": "src/database.py",
+      "success": true
+    },
+    {
+      "content": "// Utility helpers used by app.js (call-site fixture for symbol tests).\nexport function formatPrice(amount) {\n  return '$' + amount.toFixed(2);\n}\n\nexport function applyDiscount(amount, percent) {\n  return amount * (1 - percent / 100);\n}\n",
+      "kind": "file",
+      "size": 237,
+      "source": "src/utils.js",
+      "success": true
+    },
+    {
+      "content": "❌ مجلد غير موجود: اعرض",
+      "kind": "dir",
+      "size": 0,
+      "source": "اعرض",
+      "success": false
+    }
+  ],
+  "message": "اعرض مجلد src وحلل الملفات",
+  "progress_events": [
+    [
+      "dir",
+      "src",
+      "listing"
+    ],
+    [
+      "file",
+      "src/app.js",
+      "reading"
+    ],
+    [
+      "file",
+      "src/app.js",
+      "done"
+    ],
+    [
+      "file",
+      "src/auth.py",
+      "reading"
+    ],
+    [
+      "file",
+      "src/auth.py",
+      "done"
+    ],
+    [
+      "file",
+      "src/database.py",
+      "reading"
+    ],
+    [
+      "file",
+      "src/database.py",
+      "done"
+    ],
+    [
+      "file",
+      "src/utils.js",
+      "reading"
+    ],
+    [
+      "file",
+      "src/utils.js",
+      "done"
+    ],
+    [
+      "dir",
+      "اعرض",
+      "listing"
+    ]
+  ],
+  "prompt_section": "[✅ تم جمع 5 معلومة تلقائياً من المشروع الفعلي (4 ملفات، 1 مجلدات، 0 بحث)]:\n\n\n📁 [dir: src]:\n📄 app.js (0.3KB)\n📄 auth.py (0.5KB)\n📄 database.py (0.3KB)\n📄 utils.js (0.2KB)\n\n📄 [file: src/app.js]:\n// Entry point of the fixture app.\nimport { formatPrice, applyDiscount } from './utils.js';\n\nfunction renderTitle(price) {\n  const el = document.getElementById('title');\n  el.textContent = 'Total: ' + formatPrice(applyDiscount(price, 10));\n}\n\nrenderTitle(100);\n\n\n📄 [file: src/auth.py]:\n\"\"\"Auth module fixture: definitions + callers for SymbolIndex tests.\"\"\"\nimport hashlib\n\n\ndef hash_password(password: str, salt: str) -> str:\n    return hashlib.sha256((salt + password).encode()).hexdigest()\n\n\ndef verify_password(password: str, salt: str, expected: str) -> bool:\n    return hash_password(password, salt) == expected\n\n\nclass AuthService:\n    def __init__(self, salt: str = \"pepper\"):\n        self.salt = salt\n\n    def login(self, user: str, password: str, stored_hash: str) -> bool:\n        return verify_password(password, self.salt, stored_hash)\n\n\n📄 [file: src/database.py]:\n\"\"\"Database fixture module — imports auth to create a cross-file edge.\"\"\"\nfrom src.auth import hash_password\n\nUSERS = {}\n\n\ndef create_user(name: str, password: str) -> None:\n    USERS[name] = hash_password(password, salt=\"pepper\")\n\n\ndef get_user(name: str):\n    return USERS.get(name)\n\n\n📄 [file: src/utils.js]:\n// Utility helpers used by app.js (call-site fixture for symbol tests).\nexport function formatPrice(amount) {\n  return '$' + amount.toFixed(2);\n}\n\nexport function applyDiscount(amount, percent) {\n  return amount * (1 - percent / 100);\n}\n\n\n\n[تعليمات مهمة]: المعلومات أعلاه مقروءة من الملفات الفعلية في نظام الملفات. أنت تملك وصولاً حقيقياً للمشروع — لا تقل 'مش عارف أوصل للملفات' أو 'ابعتلي الملف'. استخدم المعلومات المرفقة لتحليل الطلب والرد بشكل كامل.",
+  "scenario": "mention_dir",
+  "summary": {
+    "dirs": 1,
+    "files": 4,
+    "searches": 0,
+    "success": 5,
+    "total": 6
+  }
+}

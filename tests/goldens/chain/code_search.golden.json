@@ -1,0 +1,29 @@
+{
+  "description": "اسم دالة بالعربي → _gather_code_searches يبحث نصيًا.",
+  "items": [
+    {
+      "content": "src/auth.py:5: def hash_password(password: str, salt: str) -> str:\nsrc/auth.py:10: return hash_password(password, salt) == expected\nsrc/database.py:2: from src.auth import hash_password\nsrc/database.py:8: USERS[name] = hash_password(password, salt=\"pepper\")",
+      "kind": "search",
+      "size": 0,
+      "source": "hash_password",
+      "success": true
+    }
+  ],
+  "message": "فين دالة hash_password وامتى بتتنادى",
+  "progress_events": [
+    [
+      "search",
+      "hash_password",
+      "searching"
+    ]
+  ],
+  "prompt_section": "[✅ تم جمع 1 معلومة تلقائياً من المشروع الفعلي (0 ملفات، 0 مجلدات، 1 بحث)]:\n\n\n🔍 [search: hash_password]:\nsrc/auth.py:5: def hash_password(password: str, salt: str) -> str:\nsrc/auth.py:10: return hash_password(password, salt) == expected\nsrc/database.py:2: from src.auth import hash_password\nsrc/database.py:8: USERS[name] = hash_password(password, salt=\"pepper\")\n\n\n[تعليمات مهمة]: المعلومات أعلاه مقروءة من الملفات الفعلية في نظام الملفات. أنت تملك وصولاً حقيقياً للمشروع — لا تقل 'مش عارف أوصل للملفات' أو 'ابعتلي الملف'. استخدم المعلومات المرفقة لتحليل الطلب والرد بشكل كامل.",
+  "scenario": "code_search",
+  "summary": {
+    "dirs": 0,
+    "files": 0,
+    "searches": 1,
+    "success": 1,
+    "total": 1
+  }
+}
