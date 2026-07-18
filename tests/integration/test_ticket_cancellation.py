@@ -58,8 +58,11 @@ def test_chain_ticket_cancel_stops_before_next_step(tmp_path):
     bridge = _make_bridge(tmp_path, provider)
 
     frames: list[dict] = []
+    # "pipeline" تبني ≥3 خطوات فعلية (scout → plan → execute[→ review])
+    # فيوجد checkpoint حقيقي قبل الخطوة الثانية — عكس "full_chain" التي
+    # لا تطابق أي استراتيجية في orchestrator وتسقط إلى direct (خطوة واحدة).
     run_id = bridge.start_chain(frames.append, "اعمل تحليل وخطة كاملة",
-                                force_strategy="full_chain", ticket=ticket)
+                                force_strategy="pipeline", ticket=ticket)
     assert run_id
     time.sleep(0.2)                  # الخطوة 1 بدأت (معلقة في المزود)
 

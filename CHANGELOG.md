@@ -27,6 +27,33 @@
     fallback path left.
 
 ### Added
+- **R-105 (T-015): tickets wired through all three execution modes; `ActiveRunHolder` deleted.**
+  Every dispatch (chain / agent / delegate) now allocates a `RunTicket` from
+  the global `ExecutionRegistry` and cancellation finally *reaches the loops*:
+  - **chain** — `ChainExecutor._check_cancelled(run)` at every step-loop head
+    and before every retry; a cancelled ticket propagates into the run's
+    `CancellationToken` → `ChainCancelled` → run `cancelled`, zero applies.
+  - **agent** — `AgentLoop._is_cancelled()` (local stop flag OR ticket) at
+    every iteration head and before each tool call; `run()` is now a
+    lifecycle wrapper that finishes the ticket (`completed|failed|cancelled`).
+  - **delegate** — **newly cancellable**: `DelegateCancelled` +
+    `_checkpoint(ticket)` at all 4 stage boundaries (before Brief /
+    Implement / Review / each rework); emits a `delegate_cancelled` frame;
+    `waiting_approval` keeps the ticket alive and `land()`/`reject()`
+    finish it.
+  - **Ticket lifecycle is owned by the executing bridges** (`finally`
+    blocks) — the server no longer sniffs terminal WS frames.
+  - ⚠️ **Behavior change:** `core/active_run.py` (`ActiveRunHolder`) is
+    **deleted**; the registry now enforces the single-run policy
+    **across kinds** (an active agent run blocks a chain start and vice
+    versa — previously only chain runs were guarded). The `busy` WS frame
+    now carries `active_run` from the registry; switch-model /
+    switch-project 409 guards use `execution_registry.list_active()`.
+  - Checkpoint placement contract documented in **CONTRIBUTING.md** (new).
+  - Tests: `tests/integration/test_ticket_cancellation.py` (9 — cancel
+    matrix for all 3 modes + uncancelled regressions + structural
+    holder-deletion check); `test_concurrent_run_guard.py` rewritten
+    against the registry (5). Suite: **156 passed**.
 - **R-105 (T-014):** `ExecutionRegistry` + `RunTicket` (`core/execution.py`) —
   the authoritative run-lifecycle record, shipped standalone (unit-tested,
   unwired; all three execution modes adopt tickets in T-015, which then
