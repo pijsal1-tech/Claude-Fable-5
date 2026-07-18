@@ -44,11 +44,11 @@
 - **Files to Modify:** `tests/fakes/fake_provider.py`, `tests/fixtures/sample_project/*`, `tests/conftest.py`
 - **Affected Modules:** none (test-only)
 - **Acceptance Criteria:** FakeProvider passes a basic send/response test; fixture yields isolated tmp copy per test.
-- **Implementation:** [ ] FakeProvider · [ ] fixture project incl. dummy .env · [ ] conftest fixtures
-- **Testing:** [ ] provider unit · [ ] fixture isolation test
-- **Regression:** [ ] n/a
-- **Documentation:** [ ] tests/README.md fixture usage
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-003
+- **Implementation:** [x] FakeProvider · [x] fixture project incl. dummy .env · [x] conftest fixtures
+- **Testing:** [x] provider unit · [x] fixture isolation test
+- **Regression:** [x] n/a
+- **Documentation:** [x] tests/README.md fixture usage
+- **Completion Status:** ✅ · **Reviewer Notes:** pytest: `10 passed` (7 FakeProvider tests: contract conformance, scripted queue+default, call recording, responder callable, fail_next/fail_always, stream chunk reassembly + sample_project isolation test). Fixture project = 12 files incl. dummy `.env` with FAKE keys; `.gitignore` exception `!tests/fixtures/sample_project/.env` added. · **Next Task:** T-003
 
 ## T-003 — ActiveRunHolder Class (R-101)
 - **Description:** New `core/active_run.py` — `ActiveRunHolder` with `acquire(run_id) -> bool`, `release(run_id)`, `current()`, thread-lock protected. Unit tests only; no wiring yet.
@@ -57,11 +57,11 @@
 - **Files to Modify:** `core/active_run.py` (new), `tests/unit/test_active_run.py`
 - **Affected Modules:** none yet
 - **Acceptance Criteria:** acquire/release/double-acquire/foreign-release tests green.
-- **Implementation:** [ ] class · [ ] lock semantics
-- **Testing:** [ ] 4 unit cases green
-- **Regression:** [ ] full suite green
-- **Documentation:** [ ] docstring notes R-105 supersession
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-004
+- **Implementation:** [x] class · [x] lock semantics
+- **Testing:** [x] 4 unit cases green
+- **Regression:** [x] full suite green
+- **Documentation:** [x] docstring notes R-105 supersession
+- **Completion Status:** ✅ · **Reviewer Notes:** pytest: `16 passed` — 6 unit cases (acquire/release, double-acquire rejected, foreign-release no-op, release-when-idle, empty-id ValueError, 20-thread race → exactly one winner). `core/active_run.py` created with `core/__init__.py`; docstring documents the dead `_active_chain_run` guard it replaces (server.py L82/403/470) and R-105 supersession plan (deleted at T-015). · **Next Task:** T-004
 
 ## T-004 — Wire Holder, Delete Dead Guard (R-101)
 - **Description:** Instantiate holder at startup; check `acquire()` **before** chain dispatch; `release()` in run completion path; **delete** `_active_chain_run` (server.py L82, L403, L470). Reject concurrent run with a `busy` WS frame.
