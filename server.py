@@ -14,6 +14,7 @@ import pathlib
 import threading
 import queue
 import time
+import uuid
 # ── إجبار UTF-8 ──
 if hasattr(sys.stdout, "reconfigure"):
     try: sys.stdout.reconfigure(encoding="utf-8")
@@ -47,6 +48,7 @@ from providers.pool import ProviderPool
 from chain.agent_loop import AgentLoop
 from chain.agent_tools import AgentTools
 from chain.knowledge import KnowledgeAccumulator
+from core.active_run import ActiveRunHolder
 
 # ════════════════════════════════════════════════════
 # Flask App
@@ -79,8 +81,39 @@ _backup_done_for_batch = False  # علامة لمنع تكرار الباك-أب
 MAX_SMART_FILE_SIZE = 100 * 1024  # حد أقصى لحجم ملف يقرأه Smart Path (100KB)
 
 # ── Chain System Infrastructure (M0 + M5) ──
-_active_chain_run = None           # ChainRun النشط حالياً (None = مفيش)
-_active_chain_lock = threading.Lock()  # حماية من تبديل الموديل/المشروع أثناء chain
+# R-101 (T-004): the old active-chain-run module global was a dead guard —
+# read by the switch handlers but never assigned anywhere, so it never blocked
+# anything. Replaced by the thread-safe ActiveRunHolder below.
+active_run_holder = ActiveRunHolder()
+
+
+def _begin_chain_guard(send_fn):
+    """R-101: acquire the single-active-run slot or emit a `busy` frame.
+
+    Returns the guard id on success, None when another run is active
+    (in which case a `busy` frame was already sent via send_fn).
+    """
+    guard_id = f"run-guard-{uuid.uuid4().hex[:8]}"
+    if active_run_holder.acquire(guard_id):
+        return guard_id
+    send_fn({
+        "type": "busy",
+        "text": "⚠️ في chain نشط حالياً. ألغيه أولاً أو استنى يخلص.",
+        "active_run": active_run_holder.current(),
+    })
+    return None
+
+
+def _make_chain_sender(ws, guard_id):
+    """Wrap ws.send: JSON-encode and release the run guard on terminal frames."""
+    def _ws_send(msg):
+        try:
+            ws.send(json.dumps(msg, ensure_ascii=False))
+        except Exception:
+            pass
+        if isinstance(msg, dict) and msg.get("type") in ("chain_finished", "chain_error"):
+            active_run_holder.release(guard_id)
+    return _ws_send
 chain_bridge: ChainBridge = None   # M5: جسر السلسلة → WebSocket
 delegate_bridge: DelegateBridge = None  # M6: جسر التفويض
 
@@ -398,14 +431,13 @@ def api_switch_model():
     """تغيير المزود/النموذج"""
     global provider, provider_pool, account_budget, request_router, delegate_bridge, chain_bridge
 
-    # ── حماية: منع التبديل أثناء chain نشط ──
-    with _active_chain_lock:
-        if _active_chain_run is not None:
-            return jsonify({
-                "ok": False,
-                "error": "لا يمكن تغيير المزود أثناء تشغيل chain نشط",
-                "chain_run_id": getattr(_active_chain_run, 'run_id', 'unknown')
-            }), 409
+    # ── حماية: منع التبديل أثناء chain نشط (R-101) ──
+    if active_run_holder.is_active():
+        return jsonify({
+            "ok": False,
+            "error": "لا يمكن تغيير المزود أثناء تشغيل chain نشط",
+            "chain_run_id": active_run_holder.current()
+        }), 409
 
     data = request.get_json()
     prov_id = data.get("provider", "")
@@ -465,14 +497,13 @@ def api_switch_project():
     """تغيير مسار المشروع"""
     global fm, cmd_runner
 
-    # ── حماية: منع التبديل أثناء chain نشط ──
-    with _active_chain_lock:
-        if _active_chain_run is not None:
-            return jsonify({
-                "ok": False,
-                "error": "لا يمكن تغيير المشروع أثناء تشغيل chain نشط",
-                "chain_run_id": getattr(_active_chain_run, 'run_id', 'unknown')
-            }), 409
+    # ── حماية: منع التبديل أثناء chain نشط (R-101) ──
+    if active_run_holder.is_active():
+        return jsonify({
+            "ok": False,
+            "error": "لا يمكن تغيير المشروع أثناء تشغيل chain نشط",
+            "chain_run_id": active_run_holder.current()
+        }), 409
 
     data = request.get_json()
     new_path = data.get("path", "").strip()
@@ -808,24 +839,27 @@ def ws_handler(ws):
 
                     # ── توجيه لـ chain_bridge ──
                     if routing.strategy in ("auto_chain", "full_chain"):
-                        def _ws_send(msg_dict):
-                            try:
-                                ws.send(json.dumps(msg_dict))
-                            except Exception:
-                                pass
+                        # R-101: single-active-run guard
+                        guard_id = _begin_chain_guard(
+                            lambda m: ws.send(json.dumps(m, ensure_ascii=False)))
+                        if guard_id is None:
+                            continue
+                        _ws_send = _make_chain_sender(ws, guard_id)
 
                         # حفظ في history
                         chat_history.append(Message(role="user", content=user_text))
                         if session_mgr:
                             session_mgr.append_message("user", user_text)
 
-                        chain_bridge.start_chain(
+                        run_id = chain_bridge.start_chain(
                             ws_send_fn=_ws_send,
                             user_request=user_text_with_files,
                             file_content=file_content_for_routing,
                             files=files_dict,
                             force_strategy=routing.chain_strategy,
                         )
+                        if not run_id:
+                            active_run_holder.release(guard_id)
                         continue  # الـ chain يتكفل بالرد
 
                     # ── توجيه لـ delegate_bridge ──
@@ -1263,11 +1297,12 @@ def ws_handler(ws):
                 ws.send(json.dumps({"type": "error", "text": "Chain system غير مفعّل"}))
                 continue
 
-            def _ws_send(msg):
-                try:
-                    ws.send(json.dumps(msg, ensure_ascii=False))
-                except Exception:
-                    pass
+            # R-101: single-active-run guard
+            guard_id = _begin_chain_guard(
+                lambda m: ws.send(json.dumps(m, ensure_ascii=False)))
+            if guard_id is None:
+                continue
+            _ws_send = _make_chain_sender(ws, guard_id)
 
             run_id = chain_bridge.start_chain(
                 ws_send_fn=_ws_send,
@@ -1280,13 +1315,17 @@ def ws_handler(ws):
 
             if not run_id:
                 # start_chain already sent error via _ws_send
-                pass
+                active_run_holder.release(guard_id)
 
         elif msg_type == "chain_cancel":
             # إلغاء chain نشط
             reason = data.get("reason", "User cancelled")
             if chain_bridge:
                 ok = chain_bridge.cancel(reason)
+                if ok:
+                    _cur = active_run_holder.current()
+                    if _cur:
+                        active_run_holder.release(_cur)
                 ws.send(json.dumps({
                     "type": "chain_cancel_result",
                     "ok": ok,

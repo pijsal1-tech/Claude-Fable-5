@@ -70,11 +70,11 @@
 - **Files to Modify:** `server.py`
 - **Affected Modules:** chain dispatch path
 - **Acceptance Criteria:** grep for `_active_chain_run` returns nothing; concurrent-run integration test gets `busy`.
-- **Implementation:** [ ] wire · [ ] delete guard · [ ] busy frame
-- **Testing:** [ ] concurrent-run integration test
-- **Regression:** [ ] single-run E2E unchanged
-- **Documentation:** [ ] changelog entry
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-005
+- **Implementation:** [x] wire · [x] delete guard · [x] busy frame
+- **Testing:** [x] concurrent-run integration test
+- **Regression:** [x] single-run E2E unchanged
+- **Documentation:** [x] changelog entry
+- **Completion Status:** ✅ · **Reviewer Notes:** `grep -c "_active_chain_run\|_active_chain_lock" server.py` → **0** (dead guard deleted). Holder wired at both dispatch sites (smart-router path + `chain_message`) via `_begin_chain_guard`/`_make_chain_sender`; slot released on `chain_finished`/`chain_error`/failed-start/`chain_cancel`; switch-model & switch-project 409 checks now use the working holder. pytest: `20 passed` incl. 4 integration tests (second start gets `busy` frame w/ active_run id; terminal frames release; chain_error releases; failed-start release path). `import server` still clean. CHANGELOG.md created with loud behavior note. · **Next Task:** T-005
 
 ## T-005 — AppContext + ProjectHandle Skeleton (R-102)
 - **Description:** New `core/app_context.py` — `ProjectHandle` (path, fm, safe_reader slot, index slot) and `AppContext` (project handle, provider registry, config). `switch_project(path)` swaps the handle atomically. No consumers yet.
