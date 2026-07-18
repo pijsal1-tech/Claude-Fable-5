@@ -61,8 +61,29 @@ def extract_search_terms(message: str) -> tuple[set[str], set[str]]:
     return exact_names, stems
 
 
+def build_items(scan: ProjectScan, paths: list[str],
+                kind: str) -> list[ContextItem]:
+    """قراءة المحتوى المرقّم لكل مسار — فشل القراءة = content=None
+    (huge-file quirk المثبّت). مشترك بين Mention/Keyword (T-019)."""
+    fm = FileManager(str(scan.root))
+    items: list[ContextItem] = []
+    for rel_path in paths:
+        try:
+            content: str | None = fm.read_file(rel_path, with_line_numbers=True)
+        except Exception:
+            content = None
+        items.append(ContextItem(source_kind=kind, path=rel_path,
+                                 content=content))
+    return items
+
+
 class MentionSource:
-    """مصدر الملفات المذكورة — exact-name أولًا ثم stem-match المرن."""
+    """مصدر الملفات المذكورة صراحةً — مسار الـ **exact-name** فقط.
+
+    T-019: مسار الـ stem المرن انتقل إلى ``KeywordSource`` — التركيبة
+    [MentionSource, KeywordSource] بالترتيب + path-dedupe في الـ facade
+    تعيد إنتاج قائمة legacy (exact ثم stem) حرفيًا.
+    """
 
     kind = "mention"
 
@@ -71,11 +92,10 @@ class MentionSource:
 
     def collect(self, request: ContextRequest,
                 scan: ProjectScan) -> list[ContextItem]:
-        exact_names, stems = extract_search_terms(request.message)
+        exact_names, _stems = extract_search_terms(request.message)
 
         mentioned: list[str] = []
-
-        # 1. البحث بالاسم الكامل أو المسار الفرعي (يطابق rglob(basename))
+        # البحث بالاسم الكامل أو المسار الفرعي (يطابق rglob(basename))
         for name in sorted(exact_names):
             basename = name.split('/')[-1] if '/' in name else name
             for p in scan.files:
@@ -88,30 +108,7 @@ class MentionSource:
             if len(mentioned) >= self._max_files:
                 break
 
-        # 2. البحث بالجذع للماتش المرن (يطابق rglob(f"*{stem}*"))
-        if len(mentioned) < self._max_files:
-            for stem in sorted(stems):
-                for p in scan.files:
-                    if stem in p.name and p.suffix in WEB_EXTENSIONS:
-                        rel_path = scan.rel(p)
-                        if rel_path not in mentioned:
-                            mentioned.append(rel_path)
-                            if len(mentioned) >= self._max_files:
-                                break
-                if len(mentioned) >= self._max_files:
-                    break
-
-        # قراءة المحتوى المرقّم — فشل القراءة = content=None (huge-file quirk)
-        fm = FileManager(str(scan.root))
-        items: list[ContextItem] = []
-        for rel_path in mentioned:
-            try:
-                content: str | None = fm.read_file(rel_path, with_line_numbers=True)
-            except Exception:
-                content = None
-            items.append(ContextItem(source_kind=self.kind,
-                                     path=rel_path, content=content))
-        return items
+        return build_items(scan, mentioned, self.kind)
 
 
 def render_legacy_injection(message: str, items: list[ContextItem]) -> str:
