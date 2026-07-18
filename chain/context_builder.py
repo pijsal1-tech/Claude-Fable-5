@@ -3,9 +3,19 @@
 ═══════════════════════════════════════════════════════
   🧠 ContextBuilder — جمع سياق ذكي من المشروع
 
+  ⚠️ DEPRECATION NOTE (T-020 / R-201): هذا الموديول لم يعد مسار
+  قراءة مستقلًا — هو الآن **مُكيّف رقيق (thin adapter) فوق
+  ContextEngine**: كل مشية نظام-ملفات تمر عبر ``ProjectScan``
+  واحد لكل gather (من ``context/engine.py``) — ممنوع إضافة أي
+  ``rglob``/walk جديد هنا. لا تبنِ ميزات سياق جديدة فوق هذا
+  الموديول — أضف مصدرًا في ``context/sources/`` (راجع
+  ``context/AUTHORING.md``). المتبقي هنا هو تحليل الطلب الخاص
+  بمسار الـ chain (مجلدات/شجرة/بحث كود) + قوالب العرض —
+  وسلوكه مثبّت بالـ goldens في ``tests/goldens/chain/``.
+
   موديول مشترك يستخدمه:
-  ├── server.py (الويب) → عبر AgentLoop
-  └── Genspark_sonnet-5.py (CLI) → عبر build_prompt()
+  ├── server.py (الويب) → عبر AgentLoop._auto_prefetch
+  └── gather_context() (CLI shortcut)
 
   يحلل طلب المستخدم ويجمع المعلومات المحتاجة تلقائياً:
   - ملفات مذكورة بالاسم → يقرأها
@@ -21,6 +31,7 @@ import pathlib
 from dataclasses import dataclass, field
 from typing import Optional, Callable
 from chain.path_policy import resolve_workspace_path, is_secret_file
+from context.engine import ProjectScan
 
 
 # ════════════════════════════════════════════════════
@@ -127,6 +138,11 @@ class ContextBuilder:
     """
     يحلل طلب المستخدم ويجمع المعلومات المحتاجة من المشروع.
 
+    ⚠️ T-020: مُكيّف فوق ContextEngine — ``gather()`` ينفّذ
+    ``ProjectScan`` **واحدًا** ويمرره لكل المراحل؛ مسارات القراءة
+    المكررة القديمة (rglob لكل ملف مفقود + rglob("*") لكل بحث)
+    حُذفت. للميزات الجديدة استخدم ``context/sources/`` مباشرة.
+
     يعمل مع أي project_root — لا يحتاج FileManager أو AgentTools.
 
     الاستخدام:
@@ -194,18 +210,22 @@ class ContextBuilder:
         result = ContextResult()
         request_lower = user_request.lower()
 
+        # T-020: مسح نظام-ملفات **واحد** لكل gather (مبدأ ContextEngine)
+        # — كل المراحل تفلتر scan.files في الذاكرة، لا مشيات إضافية.
+        scan = ProjectScan(self.root)
+
         # 1. ملفات مذكورة بالاسم
-        self._gather_mentioned_files(user_request, result)
+        self._gather_mentioned_files(user_request, result, scan)
 
         # 2. مجلدات مذكورة
-        self._gather_mentioned_dirs(user_request, result)
+        self._gather_mentioned_dirs(user_request, result, scan)
 
         # 3. طلب عام → شجرة + README + deps
         if self._is_general_request(request_lower) and result.files_count == 0 and result.dirs_count == 0:
-            self._gather_project_overview(result)
+            self._gather_project_overview(result, scan)
 
         # 4. أنماط بحث كود
-        self._gather_code_searches(user_request, result)
+        self._gather_code_searches(user_request, result, scan)
 
         # ── ملخص ──
         if result.has_context:
@@ -226,7 +246,8 @@ class ContextBuilder:
     # 🔧 عمليات الجمع الفرعية
     # ════════════════════════════════════════
 
-    def _gather_mentioned_files(self, request: str, result: ContextResult):
+    def _gather_mentioned_files(self, request: str, result: ContextResult,
+                                scan: ProjectScan):
         """كشف وقراءة ملفات مذكورة بالاسم في الطلب"""
         ext_pattern = "|".join(self.FILE_EXTS)
         file_matches = re.findall(
@@ -243,7 +264,7 @@ class ContextBuilder:
             seen.add(fp_clean)
 
             self.on_progress("file", fp_clean, "reading")
-            content = self._read_file(fp_clean)
+            content = self._read_file(fp_clean, scan)
             success = content is not None
             result.items.append(ContextItem(
                 kind="file",
@@ -255,7 +276,8 @@ class ContextBuilder:
             if success:
                 self.on_progress("file", fp_clean, "done")
 
-    def _gather_mentioned_dirs(self, request: str, result: ContextResult):
+    def _gather_mentioned_dirs(self, request: str, result: ContextResult,
+                               scan: ProjectScan):
         """كشف وعرض مجلدات مذكورة"""
         dir_matches = re.findall(
             r'(?:مجلد|folder|directory|dir|path)\s*[:\s]*["\']?([/\w\-\\.]+)["\']?',
@@ -297,12 +319,13 @@ class ContextBuilder:
                     dir_path = (self.root / dp_clean).resolve()
                     if dir_path.is_dir():
                         supported_exts = {f".{e}" for e in self.FILE_EXTS}
-                        sub_files = []
-                        # T-020 determinism fix (order-only): iterdir order is
-                        # filesystem-dependent — sorted() يثبّت ترتيب القراءة
-                        for entry in sorted(dir_path.iterdir()):
-                            if entry.is_file() and entry.suffix in supported_exts:
-                                sub_files.append(entry)
+                        # T-020: فلترة المسح المشترك في الذاكرة بدل iterdir —
+                        # scan.files مفروزة عالميًا فملفات نفس الأب تأتي بنفس
+                        # ترتيب sorted(iterdir()) بعد فلترة is_file (عقد الـ goldens).
+                        sub_files = [
+                            p for p in scan.files
+                            if p.parent == dir_path and p.suffix in supported_exts
+                        ]
                         
                         for sf in sub_files:
                             if result.files_count >= self.max_files:
@@ -313,7 +336,7 @@ class ContextBuilder:
                                 continue
                             
                             self.on_progress("file", rel_sf, "reading")
-                            content = self._read_file(rel_sf)
+                            content = self._read_file(rel_sf, scan)
                             if content:
                                 result.items.append(ContextItem(
                                     kind="file",
@@ -326,7 +349,8 @@ class ContextBuilder:
                 except Exception:
                     pass
 
-    def _gather_project_overview(self, result: ContextResult):
+    def _gather_project_overview(self, result: ContextResult,
+                                 scan: ProjectScan):
         """جمع نظرة عامة على المشروع: شجرة + README + dependencies + config"""
 
         # 1. شجرة المشروع
@@ -339,7 +363,7 @@ class ContextBuilder:
 
         # 2. README
         for readme in self.README_NAMES:
-            content = self._read_file(readme)
+            content = self._read_file(readme, scan)
             if content:
                 result.items.append(ContextItem(
                     kind="file", source=readme, content=content, success=True,
@@ -349,7 +373,7 @@ class ContextBuilder:
 
         # 3. Dependencies (package.json, requirements.txt, etc.)
         for dep in self.DEP_FILES:
-            content = self._read_file(dep)
+            content = self._read_file(dep, scan)
             if content:
                 result.items.append(ContextItem(
                     kind="deps", source=dep, content=content, success=True,
@@ -359,7 +383,7 @@ class ContextBuilder:
 
         # 4. Config files
         for cfg in self.CONFIG_FILES:
-            content = self._read_file(cfg)
+            content = self._read_file(cfg, scan)
             if content:
                 result.items.append(ContextItem(
                     kind="file", source=cfg, content=content, success=True,
@@ -367,7 +391,8 @@ class ContextBuilder:
                 ))
                 break  # واحد يكفي
 
-    def _gather_code_searches(self, request: str, result: ContextResult):
+    def _gather_code_searches(self, request: str, result: ContextResult,
+                              scan: ProjectScan):
         """بحث عن أنماط كود مذكورة"""
         # أنماط Python/JS
         search_patterns = re.findall(
@@ -390,7 +415,7 @@ class ContextBuilder:
                 break
 
             self.on_progress("search", pattern, "searching")
-            results = self._search_in_files(pattern, max_results=10)
+            results = self._search_in_files(pattern, scan, max_results=10)
             if results:
                 result.items.append(ContextItem(
                     kind="search", source=pattern, content=results, success=True
@@ -404,15 +429,17 @@ class ContextBuilder:
     # 🔧 عمليات I/O الأساسية
     # ════════════════════════════════════════
 
-    def _read_file(self, rel_path: str) -> Optional[str]:
-        """قراءة ملف من المشروع بأمان"""
+    def _read_file(self, rel_path: str, scan: ProjectScan) -> Optional[str]:
+        """قراءة ملف من المشروع بأمان — البحث الاحتياطي على المسح المشترك"""
         try:
             full = resolve_workspace_path(self.root, rel_path, must_exist=False, allow_symlinks=False)
             if not full.is_file():
-                # محاولة بحث بالاسم
+                # محاولة بحث بالاسم — T-020: فلترة scan.files المفروزة في
+                # الذاكرة بدل rglob(basename) لكل ملف مفقود (نفس المطابقة:
+                # rglob يطابق اسم الملف الأخير؛ وscan.files ملفات فقط —
+                # مرشحات المجلدات كانت تفشل is_file() لاحقًا على أي حال).
                 basename = pathlib.Path(rel_path).name
-                # T-020 determinism fix (order-only): sorted() يثبّت أي مرشح يُختار
-                found = sorted(self.root.rglob(basename))
+                found = [p for p in scan.files if p.name == basename]
                 if found:
                     for candidate in found:
                         try:
@@ -491,8 +518,9 @@ class ContextBuilder:
 
         return "\n".join(lines)
 
-    def _search_in_files(self, query: str, max_results: int = 10) -> Optional[str]:
-        """بحث نصي بسيط في ملفات المشروع"""
+    def _search_in_files(self, query: str, scan: ProjectScan,
+                         max_results: int = 10) -> Optional[str]:
+        """بحث نصي بسيط — T-020: على المسح المشترك بدل rglob لكل بحث"""
         SKIP_DIRS = {
             "__pycache__", ".git", "node_modules", ".venv", "venv",
             "dist", "build", ".next",
@@ -501,10 +529,8 @@ class ContextBuilder:
 
         results = []
         try:
-            # T-020 determinism fix (order-only): sorted() يثبّت ترتيب النتائج
-            for fp in sorted(self.root.rglob("*")):
-                if not fp.is_file():
-                    continue
+            # scan.files مفروزة (ملفات فقط) ≡ sorted(rglob("*")) بعد is_file
+            for fp in scan.files:
                 if fp.suffix not in SEARCH_EXTS:
                     continue
                 # تخطي مجلدات

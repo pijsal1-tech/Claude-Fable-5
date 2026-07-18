@@ -27,6 +27,24 @@
     fallback path left.
 
 ### Added
+- **R-201 (T-020): ContextBuilder converged onto ContextEngine — chain
+  prefetch now shares the single-scan reading path.**
+  `ContextBuilder.gather()` builds **one `ProjectScan`** per request and
+  threads it through all four phases; the duplicated reading paths are
+  deleted (`rglob(basename)` fallback per missing file, `rglob("*")` full
+  scan per code search, per-dir `iterdir` reads → all in-memory filters
+  over `scan.files`). `AgentLoop._auto_prefetch` delegates to the adapter
+  with identical WS frames and Knowledge transfer. Acceptance grep: zero
+  `.rglob(` in `chain/context_builder.py` (only walk left in the chain is
+  `agent_tools.tool_search_files`, a user-invoked tool — out of R-201
+  scope). Behavior pinned **before** the refactor by new chain-prompt
+  goldens (`tests/goldens/chain/`: 6 scenarios × items/progress-events/
+  summary/prompt-section, `<ROOT>`-normalized, deterministic capture) plus
+  structural+behavioral enforcement in
+  `tests/unit/test_context_builder_convergence.py` (no-rglob grep test,
+  exactly-one-scan counter for `gather()`/`gather_context()`, fallback
+  parity). Deprecation note added on the module and class: new context
+  features belong in `context/sources/`, not here.
 - **R-201 (T-019): Keyword + Structure sources; inline context block deleted
   from `server.py` — the WS handler now calls one engine method.**
   - `context/sources/keyword.py` — `KeywordSource` (`kind="keyword"`): the

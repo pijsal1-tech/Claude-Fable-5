@@ -53,8 +53,16 @@ MessageContext:
 ## أين يقف الاستخراج الآن
 
 - ✅ معالج WS (`message`) — يستدعي الـ facade (T-019).
-- ⏳ `chain/context_builder.py` و`AgentLoop._auto_prefetch` ما زالا
-  بمنطقهما الخاص — توحيدهما على الـ engine في مهام R-201 اللاحقة.
+- ✅ `chain/context_builder.py` — مُكيّف رقيق فوق الـ engine (T-020):
+  `gather()` ينفّذ `ProjectScan` **واحدًا** ويمرره لكل المراحل؛ كل
+  مسارات الـ rglob المكررة (fallback القراءة بالاسم + مسح البحث النصي +
+  iterdir المجلدات) حُذفت لصالح فلترة `scan.files` في الذاكرة. سلوكه
+  مثبّت بالـ goldens في `tests/goldens/chain/` (items + progress events
+  + summary + prompt section) وبفرض هيكلي/سلوكي في
+  `tests/unit/test_context_builder_convergence.py` (لا rglob في الملف؛
+  مسح واحد بالضبط لكل gather).
+- ✅ `AgentLoop._auto_prefetch` — يفوّض للمُكيّف أعلاه (T-020)؛ إطارات
+  WS ونقل النتائج للـ Knowledge بلا تغيير (نفس عقد الـ goldens).
 - ⏳ `HistorySource` وميزانية render — R-202/R-203.
 
 لكتابة مصدر جديد راجع `context/AUTHORING.md` (القواعد الملزمة).

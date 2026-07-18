@@ -485,12 +485,16 @@ reason: سبب تشغيل الأمر
             return ""
         return ", ".join(f"{k}={v}" for k, v in args.items())
 
-    # ──── Auto Pre-fetch (via ContextBuilder) ────
+    # ──── Auto Pre-fetch (via ContextBuilder → ContextEngine) ────
     
     def _auto_prefetch(self, user_request: str):
         """
         🔍 جمع معلومات ذاتياً قبل إرسال الـ prompt.
-        يستخدم ContextBuilder المشترك.
+
+        T-020 (R-201): يفوّض لـ ContextBuilder الذي أصبح مُكيّفًا رقيقًا
+        فوق ContextEngine — مسح نظام-ملفات واحد (ProjectScan) لكل طلب.
+        إطارات الـ WS وتحويل النتائج للـ Knowledge مثبّتة سلوكيًا
+        بالـ goldens في tests/goldens/chain/ (progress_events + summary).
         """
         from chain.context_builder import ContextBuilder
         
