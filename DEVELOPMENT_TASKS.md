@@ -226,11 +226,11 @@
 - **Files to Modify:** `server.py`
 - **Affected Modules:** WS protocol (additive)
 - **Acceptance Criteria:** integration test — start run, list shows it, cancel stops it, list shows terminal state.
-- **Implementation:** [ ] list handler · [ ] cancel handler
-- **Testing:** [ ] list/cancel integration
-- **Regression:** [ ] existing frames unchanged
-- **Documentation:** [ ] WS protocol doc updated
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-017
+- **Implementation:** [x] list handler · [x] cancel handler
+- **Testing:** [x] list/cancel integration
+- **Regression:** [x] existing frames unchanged
+- **Documentation:** [x] WS protocol doc updated
+- **Completion Status:** ✅ · **Reviewer Notes:** Two additive WS handlers in `server.py` after `chain_status`, backed by pure frame-builder helpers (testable without a socket): `_list_runs_frame()` → `runs_list {runs: [{id, mode, state, started_at, is_cancelled, cancel_reason, finished_at}]}` from `execution_registry.list_all()` (active **and** terminal — honest history); `_cancel_run_frame(run_id, reason)` → `cancel_run_result {run_id, acknowledged, error?}` — raises the **cooperative** cancel flag via `registry.cancel()` (observed at the run's next T-015 checkpoint; state honestly stays `running` until then; no mid-request abort); unknown/terminal run ⇒ `acknowledged=false, error="not_found"`; empty id ⇒ `error="missing_run_id"`. Existing frames untouched. Tests: `tests/integration/test_ws_run_control.py` — **8** (isolated per-test registry via monkeypatch): list empty/active(field-exact)/includes-terminal; cancel acknowledged (flag+reason set, state still `running`), not_found unknown, not_found on terminal (immutability holds), missing id; **E2E acceptance test**: register ticket → `start_chain(force_strategy="pipeline")` with hung step 1 → `_list_runs_frame` shows `running` → `_cancel_run_frame` acknowledged → release → run stops before step 2 (`ticket.state=="cancelled"`, exactly 1 provider call, `chain_cancelled` frame) → list shows terminal `cancelled` + `finished_at` set + `list_active()==[]`. Evidence: full suite **164 passed** (156+8); mypy `providers/ chain/ core/` → `Success: no issues found in 28 source files`; `./scripts/check.sh` → **ALL GREEN**. README WS protocol tables updated (client: `list_runs`/`cancel_run`; server: `runs_list`/`cancel_run_result`/`busy`). · **Next Task:** T-017
 
 ---
 

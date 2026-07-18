@@ -27,6 +27,25 @@
     fallback path left.
 
 ### Added
+- **R-105 (T-016): WS control surface — `list_runs` / `cancel_run`.**
+  Two additive WS message types backed by the `ExecutionRegistry`:
+  - `list_runs {}` → `runs_list {runs: [{id, mode, state, started_at,
+    is_cancelled, cancel_reason, finished_at}]}` — every run the registry
+    knows, active **and** terminal (honest history for the UI).
+  - `cancel_run {run_id, reason?}` → `cancel_run_result {run_id,
+    acknowledged, error?}` — raises the **cooperative** cancel flag on the
+    target ticket (observed at the run's next T-015 checkpoint; no
+    mid-request abort). `acknowledged=false` + `error="not_found"` for
+    unknown/terminal runs; `error="missing_run_id"` for an empty id.
+  - Implementation: pure frame-builder helpers `_list_runs_frame()` /
+    `_cancel_run_frame()` in `server.py` + two handler branches after
+    `chain_status`. Existing frames untouched (additive protocol change).
+  - Tests: `tests/integration/test_ws_run_control.py` (8) — list empty /
+    active / terminal; cancel acknowledged (flag up, state honestly
+    `running`), not_found (unknown + terminal), missing_run_id; **E2E
+    acceptance**: start pipeline run → list shows `running` → `cancel_run`
+    → stops before next step (1 provider call) → list shows `cancelled`.
+    Suite: **164 passed**. README WS protocol tables updated.
 - **R-105 (T-015): tickets wired through all three execution modes; `ActiveRunHolder` deleted.**
   Every dispatch (chain / agent / delegate) now allocates a `RunTicket` from
   the global `ExecutionRegistry` and cancellation finally *reaches the loops*:

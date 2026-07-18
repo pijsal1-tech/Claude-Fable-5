@@ -269,6 +269,8 @@ npm install express
 | `chain_message` | `{text, folder_path?, file_path?, strategy?}` | تشغيل chain ذكي |
 | `chain_cancel` | `{reason?}` | إلغاء chain نشط |
 | `chain_status` | `{}` | حالة chain النشط |
+| `list_runs` | `{}` | كل الـ runs في السجل (نشطة ومنتهية) |
+| `cancel_run` | `{run_id, reason?}` | إلغاء تعاوني لـ run محدد بمعرّفه |
 | `apply_action` | `{action}` | تطبيق إجراء واحد |
 | `apply_all_actions` | `{actions[]}` | تطبيق كل الإجراءات |
 | `execute_plan` | `{actions[]}` | تنفيذ خطة معتمدة |
@@ -286,6 +288,9 @@ npm install express
 | `chain_step` | تحديث خطوة (running/success/error/skipped) |
 | `chain_finished` | انتهاء chain + budget |
 | `chain_cancelled` | تم إلغاء chain |
+| `runs_list` | `{runs: [{id, mode, state, started_at, is_cancelled, cancel_reason, finished_at}]}` |
+| `cancel_run_result` | `{run_id?, acknowledged, error?}` — error: `not_found` \| `missing_run_id` |
+| `busy` | run نشط بالفعل — يحمل `active_run` بمعرّفه |
 | `folder_scanned` | ملخص مسح المجلد |
 | `project_switched` | تم تبديل المشروع |
 | `error` | رسالة خطأ |

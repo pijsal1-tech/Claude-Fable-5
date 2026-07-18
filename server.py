@@ -119,6 +119,53 @@ def _json_sender(ws):
     return _ws_send
 
 
+def _list_runs_frame():
+    """T-016 (R-105): ``runs_list`` frame — every run the registry knows.
+
+    Each entry: id / mode / state / started_at (per spec) plus the
+    cancellation & finish metadata the UI needs for honest state.
+    """
+    runs = []
+    for _t in execution_registry.list_all():
+        snap = _t.to_dict()
+        runs.append({
+            "id": snap["run_id"],
+            "mode": snap["kind"],
+            "state": snap["state"],
+            "started_at": snap["created_at"],
+            "is_cancelled": snap["is_cancelled"],
+            "cancel_reason": snap["cancel_reason"],
+            "finished_at": snap["finished_at"],
+        })
+    return {"type": "runs_list", "runs": runs}
+
+
+def _cancel_run_frame(run_id, reason=""):
+    """T-016 (R-105): ``cancel_run_result`` frame.
+
+    Raises the cooperative cancel flag on the target ticket — the loop
+    observes it at its next checkpoint (T-015); no mid-request abort.
+    acknowledged=False + error="not_found" for unknown/terminal runs.
+    """
+    run_id = (run_id or "").strip()
+    if not run_id:
+        return {
+            "type": "cancel_run_result",
+            "acknowledged": False,
+            "error": "missing_run_id",
+        }
+    acknowledged = execution_registry.cancel(
+        run_id, reason or "cancelled via cancel_run")
+    frame = {
+        "type": "cancel_run_result",
+        "run_id": run_id,
+        "acknowledged": acknowledged,
+    }
+    if not acknowledged:
+        frame["error"] = "not_found"
+    return frame
+
+
 # ── AppContext — Composition Root (T-006, R-102) ──
 # Migration note: during R-102 the legacy module globals (fm, cmd_runner,
 # provider, provider_pool, session_mgr, account_budget) remain assigned but
@@ -1449,6 +1496,18 @@ def ws_handler(ws):
                 ws.send(json.dumps({"type": "chain_status", **status}))
             else:
                 ws.send(json.dumps({"type": "chain_status", "active": False}))
+
+        # ── T-016 (R-105): Registry control surface ──
+        elif msg_type == "list_runs":
+            # كل الـ runs التي يعرفها السجل (نشطة ومنتهية) — id/mode/state/started_at
+            ws.send(json.dumps(_list_runs_frame(), ensure_ascii=False))
+
+        elif msg_type == "cancel_run":
+            # إلغاء تعاوني لـ run محدد بمعرّفه — acknowledged / not_found
+            ws.send(json.dumps(
+                _cancel_run_frame(data.get("run_id", ""), data.get("reason", "")),
+                ensure_ascii=False,
+            ))
 
         # ── M6: Delegate System ──
         elif msg_type == "delegate_message":
