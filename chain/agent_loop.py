@@ -18,6 +18,7 @@ from chain.agent_tools import (
     AgentTools, ToolCall, parse_tool_calls, has_tool_calls,
     SAFE_TOOLS, APPROVAL_TOOLS,
 )
+from core.approval import ApprovalGate, ApprovalRequest, ProposedAction
 
 
 class AgentLoop:
@@ -48,17 +49,23 @@ class AgentLoop:
         ws_send_fn: Callable | None = None,
         system_prompt: str = "",
         max_iterations: int = 8,
+        approval_gate: ApprovalGate | None = None,
     ):
+        """approval_gate (T-013, R-104): نفس بوابة الموافقة المستخدمة في
+        مسار السلسلة — آلية الموافقة المنفصلة (threading.Event + hash يدوي)
+        حُذفت. بلا بوابة: أوامر run_command تُرفض دائمًا (آمن افتراضيًا —
+        نفس مبدأ T-012: لا بوابة ⇒ لا تنفيذ)."""
         self.tools = tools
         self.send_fn = send_fn
         self.ws_send_fn = ws_send_fn or (lambda x: None)
         self.system_prompt = system_prompt
         self.max_iterations = min(max_iterations, self.MAX_ITERATIONS)
+        self.approval_gate = approval_gate
         
         self.knowledge = KnowledgeAccumulator()
         self._cancelled = False
-        self._approval_event = threading.Event()
-        self._approval_result = False
+        # مرجع الطلب المعلّق لدى البوابة (لـ approve_command/cancel فقط —
+        # ليس آلية انتظار مستقلة؛ الانتظار/التحقق كله داخل ApprovalGate)
         self._pending_approval: ToolCall | None = None
         self._pending_approval_id: str | None = None
         self._pending_approval_hash: str | None = None
@@ -243,19 +250,28 @@ class AgentLoop:
                    self.knowledge.build_context(max_tokens=4000)
     
     def cancel(self):
-        """إلغاء الـ loop"""
+        """إلغاء الـ loop — يفك أي انتظار موافقة معلّق برفضه عبر البوابة"""
         self._cancelled = True
-        self._approval_event.set()  # فك أي انتظار
+        if self.approval_gate is not None and self._pending_approval_id:
+            self.approval_gate.resolve(
+                self._pending_approval_id, False,
+                payload_hash=self._pending_approval_hash or "",
+            )
     
     def approve_command(self, approved: bool, approval_request_id: str = "", payload_hash: str = ""):
-        """استجابة المستخدم لطلب موافقة محدد ومؤمن"""
-        if (hasattr(self, "_pending_approval_id") and self._pending_approval_id == approval_request_id and
-            hasattr(self, "_pending_approval_hash") and self._pending_approval_hash == payload_hash):
-            self._approval_result = approved
-            self._approval_event.set()
-        else:
-            # Reject mismatching responses
-            print(f"Approval validation failed: expected ID={getattr(self, '_pending_approval_id', '')}, got {approval_request_id}")
+        """استجابة المستخدم لطلب موافقة محدد ومؤمن.
+
+        T-013: تفويض كامل لـ ApprovalGate.resolve — نفس التحقق
+        (request_id + payload_hash) لكن بآلية واحدة موحّدة لكل الأوضاع."""
+        if self.approval_gate is None:
+            print("Approval response ignored: no ApprovalGate wired")
+            return
+        matched = self.approval_gate.resolve(
+            approval_request_id, approved, payload_hash=payload_hash
+        )
+        if not matched:
+            # Reject mismatching responses (stale/forged)
+            print(f"Approval validation failed: expected ID={self._pending_approval_id or ''}, got {approval_request_id}")
     
     # ──── بناء Prompts ────
     
@@ -368,53 +384,62 @@ reason: سبب تشغيل الأمر
 """
 
     def _request_approval(self, call: ToolCall, run_id: str = "", step_id: str = "") -> bool:
-        """طلب موافقة المستخدم على تنفيذ أمر"""
-        import uuid
-        import time
-        from chain.agent_tools import compute_payload_hash
-        
-        approval_id = str(uuid.uuid4())
-        expires_at = time.time() + 60.0
-        
-        cwd = self.tools.project_root
-        env: dict[str, str] = {}
-        payload_hash = compute_payload_hash(call.tool, call.args, cwd, env)
-        
-        self._pending_approval_id = approval_id
-        self._pending_approval_hash = payload_hash
-        self._pending_approval = call
-        self._approval_event.clear()
-        self._approval_result = False
-        
-        self.ws_send_fn({
-            "type": "agent_step",
-            "tool": call.tool,
-            "args": call.args,
-            "status": "awaiting_approval",
-            "reason": call.reason,
-            "approval_request_id": approval_id,
-            "run_id": run_id,
-            "step_id": step_id,
-            "payload_hash": payload_hash,
-            "expires_at": expires_at,
-        })
-        
-        # الانتظار حتى موافقة أو رفض المستخدم مع مهلة 60 ثانية
-        success = self._approval_event.wait(timeout=60.0)
-        
-        if not success:
+        """طلب موافقة المستخدم على تنفيذ أمر — عبر ApprovalGate حصرًا (T-013).
+
+        الآلية المنفصلة القديمة (Event + compute_payload_hash يدوي + مهلة 60ث
+        خاصة) حُذفت — الانتظار، التحقق من الـ hash، المهلة، والتدقيق كلها
+        مسؤولية البوابة الموحّدة نفسها التي تخدم مسار السلسلة (T-012).
+        """
+        gate = self.approval_gate
+        if gate is None:
+            # بلا بوابة ⇒ رفض آمن — لا مسار موافقة بديل
             self.knowledge.add_observation(
-                f"انتهت مهلة موافقة المستخدم لتنفيذ: {call.args.get('command', '')}"
+                f"رُفض تلقائيًا (لا ApprovalGate): {call.args.get('command', '')}"
             )
+            return False
+
+        req = ApprovalRequest(
+            actions=[ProposedAction(
+                kind="command",
+                target=str(call.args.get("command", "")),
+                payload=json.dumps(call.args, sort_keys=True, ensure_ascii=False),
+                summary=call.reason or f"run_command: {call.args.get('command', '')}",
+            )],
+            source="agent",
+            run_id=run_id,
+        )
+        self._pending_approval = call
+        self._pending_approval_id = req.request_id
+        self._pending_approval_hash = req.payload_hash
+
+        def _emit(frame: dict) -> None:
+            # نفس إطار الواجهة القديم (agent_step/awaiting_approval) —
+            # لكن id/hash مصدرهما البوابة
+            self.ws_send_fn({
+                "type": "agent_step",
+                "tool": call.tool,
+                "args": call.args,
+                "status": "awaiting_approval",
+                "reason": call.reason,
+                "approval_request_id": frame["request_id"],
+                "run_id": run_id,
+                "step_id": step_id,
+                "payload_hash": frame["payload_hash"],
+                "expires_at": time.time() + gate.timeout_seconds,
+            })
+
+        try:
+            verdict = gate.request(req, on_request=_emit)
+        finally:
             self._pending_approval = None
             self._pending_approval_id = None
             self._pending_approval_hash = None
-            return False
-            
-        self._pending_approval = None
-        self._pending_approval_id = None
-        self._pending_approval_hash = None
-        return self._approval_result
+
+        if not verdict.approved and verdict.reason == "timeout":
+            self.knowledge.add_observation(
+                f"انتهت مهلة موافقة المستخدم لتنفيذ: {call.args.get('command', '')}"
+            )
+        return verdict.approved
 
     def _extract_plain_text(self, ai_response: str) -> str:
         """استخراج النص العادي من رد الـ AI قبل أو بين استدعاءات الأدوات"""

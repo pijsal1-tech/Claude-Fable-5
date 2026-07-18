@@ -1003,6 +1003,8 @@ def ws_handler(ws):
                         ws_send_fn=_agent_ws_send,
                         system_prompt=get_system_prompt(),
                         max_iterations=6,
+                        # T-013 (R-104): نفس بوابة الموافقة الموحدة لكل الأوضاع
+                        approval_gate=approval_gate,
                     )
                     _active_agent_loop = agent_loop
 
