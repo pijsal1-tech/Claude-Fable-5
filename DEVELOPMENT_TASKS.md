@@ -200,11 +200,11 @@
 - **Files to Modify:** `core/execution.py` (new), `tests/unit/test_execution.py`
 - **Affected Modules:** none yet
 - **Acceptance Criteria:** register/cancel/finish lifecycle units green; list reflects live state.
-- **Implementation:** [ ] ticket · [ ] registry · [ ] locking
-- **Testing:** [ ] lifecycle units · [ ] concurrent registration
-- **Regression:** [ ] suite green
-- **Documentation:** [ ] state diagram in docstring
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-015
+- **Implementation:** [x] ticket · [x] registry · [x] locking
+- **Testing:** [x] lifecycle units · [x] concurrent registration
+- **Regression:** [x] suite green
+- **Documentation:** [x] state diagram in docstring
+- **Completion Status:** ✅ · **Reviewer Notes:** New `core/execution.py` (standalone, unwired — T-015 threads tickets through all 3 modes and deletes `ActiveRunHolder`). `RunTicket`: read-only identity (`run_id` uuid4-hex, `kind`∈{chain,agent,delegate}, `project_id`, `created_at`), `state` (`running`→terminal `completed|failed|cancelled`), **cooperative** `cancel(reason)` (raises a `threading.Event` flag + records first-wins reason; run honestly stays `running` and in `list_active()` until the executor observes `is_cancelled` at a checkpoint and calls `finish("cancelled")` — mirrors `CancellationToken` semantics so T-015 adapts w/o behavior change, `core` stays free of `chain` imports), `heartbeat()`, `to_dict()` WS-ready snapshot. `ExecutionRegistry(exclusive_per_project=True, ttl_seconds=None, clock=time.time)`: `register()` (unknown kind→ValueError; busy project→`RunBusyError(project_id, active_run_id)`), `lookup`/`list_active`/`list_all`, `finish(status)` (invalid status→ValueError; terminal states **immutable** — no double-finish/cancel-after-finish/heartbeat-revival; frees project slot atomically), `cancel(run_id, reason)`, `reap_stale()` (running ticket silent > TTL ⇒ force-`failed` + slot freed; no-op w/o TTL). One `threading.Lock` guards every mutation; ticket property reads take the same lock (except `is_cancelled` — Event read). Full ASCII state diagram in module docstring (doc requirement). Tests `tests/unit/test_execution.py` — **22**: lifecycle (register/finish/cancel matrix, invalid kind/status, unknown-run False), terminal immutability, cooperative-cancel honesty, first-reason-wins, lookup/list live-state (acceptance criterion), to_dict, exclusion (busy raises w/ correct ids; different projects coexist; finish frees slot; non-exclusive mode), **16-thread barrier race → exactly 1 winner + 15 `RunBusyError`**, concurrent cancel-vs-finish consistency, heartbeat/TTL reap via injectable `FakeClock` (dead reaped `failed`+slot freed, alive spared), reap-noop w/o TTL, non-positive TTL rejected, `TERMINAL_STATES` contract. Evidence: 22/22; full suite **152 passed** (130+22); mypy providers/chain/core clean (`Success: no issues found in 29 source files`); `./scripts/check.sh` ALL GREEN; CHANGELOG `### Added` R-105 entry. · **Next Task:** T-015
 
 ## T-015 — Tickets in All Three Modes; Delete Holder (R-105)
 - **Description:** Every dispatch (chain/agent/delegate) allocates a ticket; executor polls `is_cancelled` at step boundaries; delegate loop checks per iteration; **delete ActiveRunHolder** (registry enforces the single-run policy now, configurably).

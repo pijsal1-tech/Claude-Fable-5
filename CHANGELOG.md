@@ -27,6 +27,26 @@
     fallback path left.
 
 ### Added
+- **R-105 (T-014):** `ExecutionRegistry` + `RunTicket` (`core/execution.py`) —
+  the authoritative run-lifecycle record, shipped standalone (unit-tested,
+  unwired; all three execution modes adopt tickets in T-015, which then
+  deletes the interim `ActiveRunHolder`). `register(kind, project_id) ->
+  RunTicket` (kinds: chain/agent/delegate) with **per-project mutual
+  exclusion** (configurable; a busy project raises `RunBusyError`, exactly
+  one winner under a concurrent thundering-herd — proven by a 16-thread
+  barrier test); `lookup`/`list_active`/`list_all`; `finish(status)` with
+  terminal states `completed|failed|cancelled` that are **immutable** (no
+  double-finish, no cancel-after-finish, late heartbeats can't revive) and
+  atomically free the project slot; **cooperative** `cancel(reason)` — the
+  flag is raised but the run honestly stays `running` (and listed) until the
+  executor observes it at a checkpoint and finishes itself (mirrors
+  `CancellationToken` semantics so T-015 adapts without behavior change,
+  while `core` stays free of `chain` imports); `heartbeat()` + optional
+  `ttl_seconds` with `reap_stale()` force-failing silent runs so a crashed
+  worker never holds a project slot forever. Single-lock protected,
+  injectable clock, full state diagram in the module docstring,
+  `to_dict()` snapshot ready for the future `list_runs` WS command.
+  22 unit tests (`tests/unit/test_execution.py`).
 - **R-104 (T-013): unified consent — agent mode now goes through the same
   `ApprovalGate` instance as chain mode.** `AgentLoop` accepts an
   `approval_gate` constructor parameter (wired in `server.py` from the same
