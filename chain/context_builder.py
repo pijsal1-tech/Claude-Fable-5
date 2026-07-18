@@ -298,7 +298,9 @@ class ContextBuilder:
                     if dir_path.is_dir():
                         supported_exts = {f".{e}" for e in self.FILE_EXTS}
                         sub_files = []
-                        for entry in dir_path.iterdir():
+                        # T-020 determinism fix (order-only): iterdir order is
+                        # filesystem-dependent — sorted() يثبّت ترتيب القراءة
+                        for entry in sorted(dir_path.iterdir()):
                             if entry.is_file() and entry.suffix in supported_exts:
                                 sub_files.append(entry)
                         
@@ -409,7 +411,8 @@ class ContextBuilder:
             if not full.is_file():
                 # محاولة بحث بالاسم
                 basename = pathlib.Path(rel_path).name
-                found = list(self.root.rglob(basename))
+                # T-020 determinism fix (order-only): sorted() يثبّت أي مرشح يُختار
+                found = sorted(self.root.rglob(basename))
                 if found:
                     for candidate in found:
                         try:
@@ -498,7 +501,8 @@ class ContextBuilder:
 
         results = []
         try:
-            for fp in self.root.rglob("*"):
+            # T-020 determinism fix (order-only): sorted() يثبّت ترتيب النتائج
+            for fp in sorted(self.root.rglob("*")):
                 if not fp.is_file():
                     continue
                 if fp.suffix not in SEARCH_EXTS:
