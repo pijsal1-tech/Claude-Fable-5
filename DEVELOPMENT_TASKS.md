@@ -187,11 +187,11 @@
 - **Files to Modify:** agent flow in `server.py` / agent module
 - **Affected Modules:** agent execution
 - **Acceptance Criteria:** approval matrix E2E green for agent mode; single gate instance serves both modes (assert same audit log).
-- **Implementation:** [ ] route agent writes · [ ] delete ad-hoc apply
-- **Testing:** [ ] agent approval matrix
-- **Regression:** [ ] agent E2E
-- **Documentation:** [ ] docs: unified consent
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-014
+- **Implementation:** [x] route agent writes · [x] delete ad-hoc apply
+- **Testing:** [x] agent approval matrix
+- **Regression:** [x] agent E2E
+- **Documentation:** [x] docs: unified consent
+- **Completion Status:** ✅ · **Reviewer Notes:** `chain/agent_loop.py`: ad-hoc approval machinery **deleted** (own `threading.Event` + manual payload-hash computation + private 60s timeout — structural test asserts `_approval_event`/`_approval_result`/manual-hash-fn are gone from the source). Ctor grew `approval_gate: ApprovalGate | None = None`; `_request_approval(call, run_id, step_id)` now builds `ApprovalRequest(actions=[ProposedAction(kind="command", target=call.args["command"], …)], source="agent", run_id=…)` and blocks on `gate.request(req, on_request=_emit)` — `_emit` preserves the legacy `agent_step`/`awaiting_approval` WS frame shape but `request_id`/`payload_hash`/`expires_at` are sourced from the gate. `approve_command(approved, approval_request_id, payload_hash)` = thin `gate.resolve` wrapper (SHA-256 hash verified → forged/stale hash times out as denial); `cancel()` resolves any pending request as denial so a cancelled run unblocks immediately; **no gate wired ⇒ command safely auto-rejected** (silent-execution fallback deleted). `server.py`: `AgentLoop(..., approval_gate=approval_gate)` — the **same global gate instance** that serves `ChainBridge` (T-012), so `auto_execute: false` ⇒ interactive for both modes and one audit log records both `source="agent"` and `source="chain"`. Tests `tests/integration/test_agent_gated_approvals.py` — **10**: interactive approve (command runs)/reject/timeout (command never runs), deny-mode no-prompt, auto+whitelist runs w/o prompt, gateless auto-reject, forged-hash→timeout-denial, cancel-unblocks-as-denial, single-gate-two-sources shared-audit assertion (acceptance criterion), structural ad-hoc-machinery-deleted grep. Evidence: 10/10; full suite **130 passed** (120+10); mypy providers/chain/core clean (`Success: no issues found in 28 source files`); `./scripts/check.sh` ALL GREEN; CHANGELOG `### Added` T-013 unified-consent entry. · **Next Task:** T-014
 
 ## T-014 — ExecutionRegistry + RunTicket (R-105)
 - **Description:** New `core/execution.py` — `RunTicket` (run_id, mode, cancel(), is_cancelled, state) and `ExecutionRegistry` (register/lookup/list/finish), lock-protected. Standalone + units.

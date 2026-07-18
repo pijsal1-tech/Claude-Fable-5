@@ -27,6 +27,25 @@
     fallback path left.
 
 ### Added
+- **R-104 (T-013): unified consent — agent mode now goes through the same
+  `ApprovalGate` instance as chain mode.** `AgentLoop` accepts an
+  `approval_gate` constructor parameter (wired in `server.py` from the same
+  global gate that serves `ChainBridge`), so `auto_execute: false` means
+  interactive approval for **both** paths and a single audit log records
+  `source="agent"` and `source="chain"` requests side by side. The agent
+  path's separate ad-hoc approval machinery (its own `threading.Event`,
+  manual payload-hash computation, and private 60s timeout) was **deleted**;
+  `_request_approval` builds an `ApprovalRequest` and blocks on
+  `gate.request(...)`, `approve_command` is a thin `gate.resolve` wrapper
+  (with SHA-256 payload-hash verification against stale/forged approvals),
+  and `cancel()` resolves any pending request as a denial so a cancelled run
+  unblocks immediately. Without a gate, commands are safely auto-rejected —
+  no silent execution fallback. Legacy `agent_step`/`awaiting_approval` WS
+  frame shape preserved (ids/hashes now sourced from the gate). Covered by
+  10 integration tests (`tests/integration/test_agent_gated_approvals.py`):
+  approve/reject/timeout matrix, deny-mode, auto-whitelist, no-gate
+  rejection, forged-hash, cancel-unblock, shared-gate audit, and a
+  structural test asserting the ad-hoc machinery is gone.
 - **R-104 (T-011):** `ApprovalGate` service (`core/approval.py`) — the single
   consent checkpoint for workspace mutations, shipped standalone (wired into
   the chain path in T-012). `request(ApprovalRequest) -> Verdict` with three
