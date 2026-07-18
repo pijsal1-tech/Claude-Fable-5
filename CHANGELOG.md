@@ -3,6 +3,22 @@
 ## [Unreleased]
 
 ### Added
+- **R-104 (T-011):** `ApprovalGate` service (`core/approval.py`) — the single
+  consent checkpoint for workspace mutations, shipped standalone (wired into
+  the chain path in T-012). `request(ApprovalRequest) -> Verdict` with three
+  modes: `auto` (approve only whitelisted action kinds — default whitelist is
+  read/format only; non-whitelisted kinds fall back to interactive when a
+  callback is wired, else deny), `interactive` (emits the request via
+  `on_request` callback and blocks until `resolve(request_id, approved,
+  payload_hash)` or `timeout_seconds` → deny), `deny` (kill-switch).
+  `resolve` requires both a matching `request_id` **and** SHA-256
+  `payload_hash` — same anti-stale/forged mechanics as the agent loop.
+  Every verdict (approve/deny/timeout, all paths) lands in an in-memory
+  audit log with source, run_id, action kinds/count, mode, reason,
+  timestamp. 19 unit tests (`tests/unit/test_approval.py`) cover the full
+  mode matrix, timeout→deny, forged-hash rejection, callback-crash safety,
+  and audit completeness.
+
 - **R-103 (T-010):** Provider contract enforcement, two layers:
   1. `tests/contracts/provider_contract.py` — `ProviderContractMixin` with 8
      signature-level checks (subclasses `BaseProvider`; `send`/`stream`

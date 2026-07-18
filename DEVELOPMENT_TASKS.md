@@ -161,11 +161,11 @@
 - **Files to Modify:** `core/approval.py` (new), `tests/unit/test_approval.py`
 - **Affected Modules:** none yet
 - **Acceptance Criteria:** all three modes unit-tested incl. timeout→deny; audit entries complete.
-- **Implementation:** [ ] gate · [ ] three modes · [ ] timeout · [ ] audit log
-- **Testing:** [ ] mode matrix units
-- **Regression:** [ ] suite green
-- **Documentation:** [ ] mode semantics table
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-012
+- **Implementation:** [x] gate · [x] three modes · [x] timeout · [x] audit log
+- **Testing:** [x] mode matrix units
+- **Regression:** [x] suite green
+- **Documentation:** [x] mode semantics table
+- **Completion Status:** ✅ · **Reviewer Notes:** `core/approval.py` (new): `ProposedAction` (kind/target/payload/summary) → `ApprovalRequest` (auto-computes SHA-256 `payload_hash` over canonical sorted-key JSON of actions; rejects empty action list) → `ApprovalGate.request(req) -> Verdict` (never raises — always an explicit, audited verdict). Modes: **deny** = kill-switch; **auto** = approve iff *every* action kind ∈ `auto_whitelist` (default `{read, format}` — writes/deletes/commands never auto-approved by default; one bad kind blocks the whole batch), non-whitelisted → falls back to interactive if `on_request` wired else deny (`non_whitelisted_kind`); **interactive** = emits `req.to_dict()` via `on_request` (WS wiring deferred to T-012+), blocks on `threading.Event` until `resolve(request_id, approved, payload_hash)` or `timeout_seconds` → deny (`timeout`). `resolve` accepts only matching id **and** hash (reuses AgentLoop.approve_command anti-stale/forged model); callback exceptions can't hang the gate. Injectable `clock` for tests. Audit: every path appends `{request_id, source, run_id, payload_hash, action_kinds, action_count, mode, approved, reason, decided_at}`. Mode-semantics table lives in the module docstring. `tests/unit/test_approval.py` — **19 tests**: mode matrix (deny-all; auto whitelist/deny/mixed-batch/fallback-to-interactive), interactive approve/deny/timeout/emit-payload/callback-crash, forged-hash + wrong-id + no-pending rejection, audit completeness/order/timeout-entry. Evidence: 19/19 pass; full suite **112 passed** (93 + 19); mypy `core/approval.py` clean; `./scripts/check.sh` → ALL GREEN. · **Next Task:** T-012
 
 ## T-012 — Chain Apply Through the Gate (R-104)
 - **Description:** In `chain/bridge.py`: `finally` block (L264–276) may only **stage** results; apply happens post-run through `ApprovalGate` respecting `auto_execute`; wire interactive verdict frames into WS; crash mid-chain ⇒ zero partial writes.
