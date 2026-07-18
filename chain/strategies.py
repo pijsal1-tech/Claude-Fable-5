@@ -14,6 +14,7 @@
 """
 from dataclasses import dataclass, field
 from .models import ChainStep, ChainRun, ExecutionPolicy
+from context.bundle import ContextBundle, ContextItem
 
 
 # ═══════════════════════════════════════════════════════
