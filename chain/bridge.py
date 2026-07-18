@@ -28,6 +28,7 @@ from .executor import ChainExecutor, ChainEvent
 from .orchestrator import SmartOrchestrator
 from .agent_loader import AgentLoader
 from .action_applier import ActionApplier
+from core.approval import ApprovalGate, ApprovalRequest, ProposedAction
 
 
 # ═══════════════════════════════════════════════════════
@@ -153,11 +154,15 @@ class ChainBridge:
                  project_root: str = "",
                  runs_dir: str | pathlib.Path | None = None,
                  action_applier: ActionApplier | None = None,
+                 approval_gate: ApprovalGate | None = None,
                  ctx=None):
         """
         provider: المزود الحالي
         project_root: مجلد المشروع
         runs_dir: مجلد حفظ الـ runs (اختياري)
+        approval_gate: ApprovalGate (T-012, R-104) — نقطة الموافقة الوحيدة
+            قبل تطبيق نتائج السلسلة. بدونها **لا تطبيق إطلاقًا** — لا عودة
+            للـ auto-apply الصامت.
         ctx: AppContext — لو موجود، project_root/runs_dir يُحلّان وقت الاستدعاء (R-102)
         """
         # R-102 (T-008): provider also resolves at call time via ctx —
@@ -174,6 +179,7 @@ class ChainBridge:
         self._orchestrator = SmartOrchestrator()
         self._agent_loader = AgentLoader()
         self._action_applier = action_applier
+        self._approval_gate = approval_gate
 
         self._active_run: ChainRun | None = None
         self._active_thread: threading.Thread | None = None
@@ -204,6 +210,21 @@ class ChainBridge:
     @action_applier.setter
     def action_applier(self, val: ActionApplier | None):
         self._action_applier = val
+
+    @property
+    def approval_gate(self) -> ApprovalGate | None:
+        return self._approval_gate
+
+    @approval_gate.setter
+    def approval_gate(self, val: ApprovalGate | None):
+        self._approval_gate = val
+
+    def resolve_approval(self, request_id: str, approved: bool,
+                         payload_hash: str = "") -> bool:
+        """تمرير رد المستخدم (من WS handler) للبوابة (T-012)."""
+        if self._approval_gate is None:
+            return False
+        return self._approval_gate.resolve(request_id, approved, payload_hash)
 
     @property
     def is_running(self) -> bool:
@@ -276,6 +297,9 @@ class ChainBridge:
                     pass
 
         # ── Execute in thread ──
+        # T-012 (R-104): apply خرج من finally إلى مسار النجاح فقط (else)
+        # وصار يمر عبر ApprovalGate. انهيار/فشل منتصف السلسلة ⇒ صفر كتابات.
+        # الـ finally الآن ينظف الـ slot فقط — لا أثر جانبي على workspace.
         def _run_chain():
             try:
                 executor = ChainExecutor(
@@ -284,18 +308,15 @@ class ChainBridge:
                     run_dir=str(run_dir),
                 )
                 executor.execute(run, on_event=on_event)
+            except Exception:
+                pass  # الركض فشل — لا تطبيق، التنظيف في finally
+            else:
+                if run.status == "completed":
+                    try:
+                        self._gated_apply(run, ws_send_fn)
+                    except Exception:
+                        pass  # فشل التطبيق لا يفجّر الـ thread
             finally:
-                if run.status == "completed" and self._action_applier:
-                    result_text = self.get_final_result()
-                    if result_text:
-                        try:
-                            self._action_applier.apply_step(
-                                step_id="mr_execute",
-                                ai_response=result_text,
-                                dry_run=False,
-                            )
-                        except Exception:
-                            pass
                 with self._lock:
                     self._active_run = None
 
