@@ -47,6 +47,7 @@ from providers.budget import AccountAwareBudget
 from providers.pool import ProviderPool
 from chain.agent_loop import AgentLoop
 from chain.agent_tools import AgentTools
+from core.approval import ApprovalGate
 from chain.knowledge import KnowledgeAccumulator
 from core.active_run import ActiveRunHolder
 from core.app_context import AppContext, ProjectHandle
@@ -176,6 +177,9 @@ orchestrator: SmartOrchestrator = None      # تحليل التعقيد
 # ── Agent System ──
 agent_tools: AgentTools = None              # أدوات الـ Agent
 _active_agent_loop: AgentLoop = None        # Agent Loop النشط حالياً
+
+# ── ApprovalGate (T-012, R-104) — نقطة الموافقة الوحيدة قبل أي كتابة ──
+approval_gate: ApprovalGate = None
 
 
 # ════════════════════════════════════════════════════
@@ -686,6 +690,19 @@ def ws_handler(ws):
                 approval_id = data.get("approval_request_id", "")
                 payload_hash = data.get("payload_hash", "")
                 _active_agent_loop.approve_command(approved, approval_id, payload_hash)
+            continue
+
+        # ── Chain: رد المستخدم على إطار chain_approval_request (T-012) ──
+        # السلسلة معلّقة في thread منفصل على gate.request — هذا يفكها.
+        if msg_type == "chain_approval_response":
+            if chain_bridge:
+                matched = chain_bridge.resolve_approval(
+                    request_id=data.get("request_id", ""),
+                    approved=data.get("approved", False),
+                    payload_hash=data.get("payload_hash", ""),
+                )
+                if not matched:
+                    print(f"⚠️ Chain approval غير مطابق: {data.get('request_id', '')}")
             continue
 
         if msg_type == "message":
@@ -1668,10 +1685,30 @@ def main():
     ctx = _build_ctx(project_path)
     ctx.switch_model(provider)
 
+    # ── ApprovalGate (T-012, R-104) ──
+    # auto_execute:false (الافتراضي) ⇒ interactive — كل كتابة تحتاج موافقة صريحة.
+    # auto_execute:true ⇒ auto مع whitelist لأنواع السلسلة (write/edit/command)
+    # — إعادة للسلوك القديم لكن بقرار مسجّل ومن مسار النجاح فقط (لا finally).
+    _auto_execute = False
+    try:
+        import yaml as _yaml
+        with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
+            _auto_execute = bool((_yaml.safe_load(_cf) or {}).get("auto_execute", False))
+    except Exception:
+        pass
+    global approval_gate
+    approval_gate = ApprovalGate(
+        mode="auto" if _auto_execute else "interactive",
+        auto_whitelist={"write", "edit", "command"} if _auto_execute else None,
+        timeout_seconds=120.0,
+    )
+    print(f"  🛡️ ApprovalGate: {approval_gate.mode}")
+
     # ── Chain Bridge (M5) ──
     chain_bridge = ChainBridge(
         provider=provider,
         project_root=project_path,
+        approval_gate=approval_gate,
         ctx=ctx,
     )
     print(f"  🔗 Chain System: active")

@@ -326,6 +326,89 @@ class ChainBridge:
 
         return run_id
 
+    def _gated_apply(self, run: ChainRun, ws_send_fn) -> None:
+        """T-012 (R-104): التطبيق الوحيد لنتائج السلسلة — عبر ApprovalGate فقط.
+
+        يُستدعى حصراً من مسار النجاح (else) في _run_chain — غير قابل
+        للوصول من أي مسار فشل. بدون بوابة: **stage فقط، صفر كتابات**
+        (auto_execute:false يصبح صادقًا — لا عودة للـ auto-apply الصامت).
+        """
+        if self._action_applier is None:
+            return
+
+        # نتيجة الركض من الـ frozen snapshot (لا اعتماد على _active_run)
+        frozen = run.get_frozen_result()
+        result_text = None
+        for step in reversed(run.steps):
+            if step.stage == "execute" and step.status == "success":
+                result_text = frozen.get_result(step.id)
+                break
+        if not result_text:
+            for step in reversed(run.steps):
+                if step.status == "success":
+                    result_text = frozen.get_result(step.id)
+                    break
+        if not result_text:
+            return
+
+        # ما الذي سيُطبق؟ (parse بلا تطبيق)
+        parsed = self._action_applier.get_parsed_actions(result_text)
+        if not parsed:
+            return  # لا أفعال في الرد — لا شيء يحتاج موافقة
+
+        _KIND_MAP = {"create_file": "write", "edit_file": "edit",
+                     "run_command": "command"}
+        actions = [
+            ProposedAction(
+                kind=_KIND_MAP.get(a.get("action", ""), a.get("action", "?")),
+                target=a.get("path", a.get("command", "")),
+                payload=a.get("content", a.get("new_text", "")),
+                summary=f"{a.get('action', '?')}: "
+                        f"{a.get('path', a.get('command', ''))}",
+            )
+            for a in parsed
+        ]
+
+        def _safe_send(msg: dict) -> None:
+            try:
+                ws_send_fn(msg)
+            except Exception:
+                pass
+
+        # بلا بوابة ⇒ stage فقط (الواجهة تعرض الأفعال؛ apply_action اليدوي متاح)
+        if self._approval_gate is None:
+            _safe_send({
+                "type": "chain_actions_staged",
+                "run_id": run.run_id,
+                "actions_count": len(actions),
+                "reason": "no_approval_gate",
+            })
+            return
+
+        req = ApprovalRequest(actions=actions, source="chain",
+                              run_id=run.run_id)
+
+        def _emit_approval_frame(frame: dict) -> None:
+            _safe_send({"type": "chain_approval_request", **frame})
+
+        verdict = self._approval_gate.request(req,
+                                              on_request=_emit_approval_frame)
+        _safe_send({"type": "chain_approval_verdict", **verdict.to_dict()})
+
+        if not verdict.approved:
+            return  # مرفوض/مهلة/deny — صفر كتابات
+
+        apply_result = self._action_applier.apply_step(
+            step_id="mr_execute",
+            ai_response=result_text,
+            dry_run=False,
+        )
+        _safe_send({
+            "type": "chain_apply_result",
+            "run_id": run.run_id,
+            **apply_result.to_dict(),
+        })
+
     def cancel(self, reason: str = "User cancelled") -> bool:
         """إلغاء chain النشط"""
         with self._lock:

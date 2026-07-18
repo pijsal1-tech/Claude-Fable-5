@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### ⚠️ BEHAVIOR CHANGE
+- **R-104 (T-012): chain results no longer auto-write files.**
+  Previously `ChainBridge._run_chain` applied chain output in a `finally`
+  block with **no approval — even on partially-failed runs** — while
+  `config.yaml` claimed `auto_execute: false`. Now:
+  - Apply moved out of `finally` into the **success path only**
+    (`run.status == "completed"`); a crashed/failed/cancelled chain writes
+    **nothing** (`finally` only clears the active-run slot).
+  - Every apply goes through `ApprovalGate` (T-011). With
+    `auto_execute: false` (the default) the gate runs in **interactive**
+    mode: the client receives a `chain_approval_request` WS frame listing
+    the proposed actions and must reply with `chain_approval_response`
+    `{request_id, approved, payload_hash}` within 120s, else **deny**.
+    A `chain_approval_verdict` frame reports the decision either way;
+    `chain_apply_result` follows only on approval.
+  - **Migration:** users who relied on implicit auto-apply must set
+    `auto_execute: true` in `config.yaml` — the gate then runs in `auto`
+    mode whitelisting chain action kinds (`write`/`edit`/`command`),
+    restoring one-shot behavior but from the success path only and with
+    every verdict audit-logged.
+  - A bridge constructed **without** a gate stages only (emits
+    `chain_actions_staged`) and never writes — there is no silent
+    fallback path left.
+
 ### Added
 - **R-104 (T-011):** `ApprovalGate` service (`core/approval.py`) — the single
   consent checkpoint for workspace mutations, shipped standalone (wired into

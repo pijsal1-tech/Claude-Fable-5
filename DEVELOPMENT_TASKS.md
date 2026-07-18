@@ -174,11 +174,11 @@
 - **Files to Modify:** `chain/bridge.py`, `server.py` (verdict frames)
 - **Affected Modules:** bridge, WS protocol (additive frame)
 - **Acceptance Criteria:** `auto_execute:false` E2E shows no writes without accept; crash test leaves tree untouched; no apply reachable from `finally` (grep + test).
-- **Implementation:** [ ] stage-only finally · [ ] gate wiring · [ ] verdict frames
-- **Testing:** [ ] approval matrix E2E (auto/accept/reject/deny) · [ ] crash test
-- **Regression:** [ ] auto mode output identical to legacy
-- **Documentation:** [ ] loud changelog: behavior change
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-013
+- **Implementation:** [x] stage-only finally · [x] gate wiring · [x] verdict frames
+- **Testing:** [x] approval matrix E2E (auto/accept/reject/deny) · [x] crash test
+- **Regression:** [x] auto mode output identical to legacy
+- **Documentation:** [x] loud changelog: behavior change
+- **Completion Status:** ✅ · **Reviewer Notes:** `chain/bridge.py`: apply left `finally` → success path only (`try/except/else/finally`; `else` runs `_gated_apply` iff `run.status=="completed"`; `finally` only clears the slot — zero workspace side-effects). New `_gated_apply(run, ws_send_fn)`: reads the **frozen** result, `get_parsed_actions` (parse, no apply) → `ProposedAction`s (create_file→write, edit_file→edit, run_command→command) → `ApprovalGate.request(req, on_request=…)` emitting `chain_approval_request` on the run's own WS; verdict always broadcast as `chain_approval_verdict`; `apply_step` runs **only** on approval, result as `chain_apply_result`. No gate wired ⇒ `chain_actions_staged` + zero writes (silent fallback deleted). Bridge grew `approval_gate` ctor arg/property + `resolve_approval(id, approved, hash)`. `core/approval.py`: `request/_interactive` accept per-call `on_request` override (bridge routes frames to the requesting socket without mutating shared gate state). `server.py`: builds gate from `config.yaml` `auto_execute` (false→`interactive` 120s; true→`auto` whitelisting write/edit/command — legacy one-shot behavior, from success path only, audited), injects into ChainBridge, WS handler for `chain_approval_response` → `chain_bridge.resolve_approval` (hash-verified; mismatch logged). Tests `tests/integration/test_chain_gated_apply.py` — **8**: full matrix vs real FileManager+ActionApplier on tmp tree (auto writes w/o prompt + `auto_whitelist` verdict; interactive accept writes only after frame — asserts file absent pre-approval; reject/deny/timeout ⇒ zero writes; provider `fail_always` crash ⇒ tree untouched **and** gate never consulted; gateless ⇒ stage-only) + structural grep-test pinning `finally` clean of `apply_step`/`_gated_apply` and apply in `else` only. Acceptance greps: `apply_step` appears once in bridge (inside `_gated_apply`). Evidence: 8/8; full suite **120 passed** (112+8); mypy providers/chain/core clean; `./scripts/check.sh` ALL GREEN; loud ⚠️ BEHAVIOR CHANGE entry atop CHANGELOG with migration note (`auto_execute: true`). · **Next Task:** T-013
 
 ## T-013 — Agent Approvals Through the Gate (R-104)
 - **Description:** Route agent-mode file writes through the same `ApprovalGate` instance; remove the agent path's separate ad-hoc apply logic.

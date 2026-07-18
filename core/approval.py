@@ -176,8 +176,17 @@ class ApprovalGate:
 
     # ──── الواجهة الرئيسية ────
 
-    def request(self, req: ApprovalRequest) -> Verdict:
-        """قرار صريح لكل طلب — لا يرمي أبدًا، يرجع Verdict دائمًا."""
+    def request(self, req: ApprovalRequest,
+                on_request: Callable[[dict], None] | None = None) -> Verdict:
+        """قرار صريح لكل طلب — لا يرمي أبدًا، يرجع Verdict دائمًا.
+
+        Args:
+            on_request: (T-012) قناة إشعار خاصة بهذا الاستدعاء تطغى على
+                self.on_request — تسمح للـ bridge بتوجيه إطار الموافقة إلى
+                WebSocket التشغيلة الحالية دون تحوير حالة البوابة المشتركة.
+        """
+        channel = on_request if on_request is not None else self.on_request
+
         if self.mode == "deny":
             return self._record(req, approved=False, reason="deny_mode")
 
@@ -186,13 +195,13 @@ class ApprovalGate:
             if kinds <= self.auto_whitelist:
                 return self._record(req, approved=True, reason="auto_whitelist")
             # نوع غير معتمد: نسقط للوضع التفاعلي إن وُجدت قناة، وإلا نرفض
-            if self.on_request is None:
+            if channel is None:
                 return self._record(req, approved=False,
                                     reason="non_whitelisted_kind")
-            return self._interactive(req)
+            return self._interactive(req, channel)
 
         # interactive
-        return self._interactive(req)
+        return self._interactive(req, channel)
 
     def resolve(self, request_id: str, approved: bool,
                 payload_hash: str = "") -> bool:
@@ -226,7 +235,10 @@ class ApprovalGate:
 
     # ──── داخلي ────
 
-    def _interactive(self, req: ApprovalRequest) -> Verdict:
+    def _interactive(self, req: ApprovalRequest,
+                     channel: Callable[[dict], None] | None = None) -> Verdict:
+        if channel is None:
+            channel = self.on_request
         with self._lock:
             self._pending_id = req.request_id
             self._pending_hash = req.payload_hash
@@ -234,10 +246,10 @@ class ApprovalGate:
             self._pending_result = False
             self._pending_reason = ""
 
-        # إشعار القناة (WS لاحقًا) — فشل الـ callback لا يعلّق البوابة
-        if self.on_request is not None:
+        # إشعار القناة (WS) — فشل الـ callback لا يعلّق البوابة
+        if channel is not None:
             try:
-                self.on_request(req.to_dict())
+                channel(req.to_dict())
             except Exception:
                 pass
 
