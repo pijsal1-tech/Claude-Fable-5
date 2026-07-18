@@ -60,12 +60,36 @@ class AgentTools:
     """
     
     def __init__(self, file_manager=None, command_runner=None,
-                 project_root: str = "."):
-        self.fm = file_manager
-        self.cmd = command_runner
-        self.project_root = str(project_root)
+                 project_root: str = ".", ctx=None):
+        # R-102 (T-007) — pattern: "resolve at call time".
+        # When ctx (AppContext) is provided, fm/cmd/project_root are
+        # properties resolving ctx.project.* on EVERY access — never cached —
+        # so a project switch is observed immediately. The static values are
+        # only a fallback for ctx-less construction (tests / legacy).
+        self._ctx = ctx
+        self._static_fm = file_manager
+        self._static_cmd = command_runner
+        self._static_root = str(project_root)
         self._max_file_size = 100 * 1024  # 100KB
         self._max_dir_depth = 3
+
+    @property
+    def fm(self):
+        if self._ctx is not None:
+            return self._ctx.project.fm
+        return self._static_fm
+
+    @property
+    def cmd(self):
+        if self._ctx is not None:
+            return self._ctx.project.cmd_runner
+        return self._static_cmd
+
+    @property
+    def project_root(self) -> str:
+        if self._ctx is not None:
+            return str(self._ctx.project.root)
+        return self._static_root
     
     def execute(self, call: ToolCall) -> str:
         """تنفيذ أداة — يرجع النتيجة كنص"""

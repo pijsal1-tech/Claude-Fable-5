@@ -152,26 +152,42 @@ class ChainBridge:
     def __init__(self, provider: BaseProvider,
                  project_root: str = "",
                  runs_dir: str | pathlib.Path | None = None,
-                 action_applier: ActionApplier | None = None):
+                 action_applier: ActionApplier | None = None,
+                 ctx=None):
         """
         provider: المزود الحالي
         project_root: مجلد المشروع
         runs_dir: مجلد حفظ الـ runs (اختياري)
+        ctx: AppContext — لو موجود، project_root/runs_dir يُحلّان وقت الاستدعاء (R-102)
         """
         self._provider = provider
-        self._project_root = project_root
+        # R-102 (T-007) — pattern: "resolve at call time". With ctx set,
+        # _project_root/_runs_dir are properties reading ctx.project.root per
+        # access, so a project switch is observed by the next run. Static
+        # values remain a fallback for ctx-less construction.
+        # (provider stays a plain attribute until T-008 migrates the pokes.)
+        self._ctx = ctx
+        self._static_project_root = project_root
+        self._explicit_runs_dir = pathlib.Path(runs_dir) if runs_dir else None
         self._orchestrator = SmartOrchestrator()
         self._agent_loader = AgentLoader()
         self._action_applier = action_applier
 
-        if runs_dir:
-            self._runs_dir = pathlib.Path(runs_dir)
-        else:
-            self._runs_dir = pathlib.Path(project_root or ".") / ".ai_runs"
-
         self._active_run: ChainRun | None = None
         self._active_thread: threading.Thread | None = None
         self._lock = threading.RLock()  # RLock: re-entrant (is_running called from start_chain)
+
+    @property
+    def _project_root(self) -> str:
+        if self._ctx is not None:
+            return str(self._ctx.project.root)
+        return self._static_project_root
+
+    @property
+    def _runs_dir(self) -> pathlib.Path:
+        if self._explicit_runs_dir is not None:
+            return self._explicit_runs_dir
+        return pathlib.Path(self._project_root or ".") / ".ai_runs"
 
     @property
     def action_applier(self) -> ActionApplier | None:

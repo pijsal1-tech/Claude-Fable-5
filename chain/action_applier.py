@@ -95,7 +95,8 @@ class ActionApplier:
                  file_manager: "FileManager | None" = None,
                  command_runner: "CommandRunner | None" = None,
                  auto_backup: bool = True,
-                 on_action: Callable[[ActionResult], None] | None = None):
+                 on_action: Callable[[ActionResult], None] | None = None,
+                 ctx=None):
         """
         Args:
             parser: ResponseParser لاستخراج FILE/EDIT/CMD
@@ -103,13 +104,30 @@ class ActionApplier:
             command_runner: CommandRunner لتنفيذ الأوامر
             auto_backup: هل يعمل backup تلقائي قبل التعديل
             on_action: callback بعد كل إجراء
+            ctx: AppContext — لو موجود، fm/cmd يُحلّان وقت الاستدعاء (R-102)
         """
         self._parser = parser
-        self._fm = file_manager
-        self._cmd = command_runner
+        # R-102 (T-007) — pattern: "resolve at call time". With ctx set,
+        # _fm/_cmd are properties reading ctx.project.* per access; the
+        # static args remain a fallback for ctx-less construction.
+        self._ctx = ctx
+        self._static_fm = file_manager
+        self._static_cmd = command_runner
         self._auto_backup = auto_backup
         self._on_action = on_action
         self._backup_done = False
+
+    @property
+    def _fm(self):
+        if self._ctx is not None:
+            return self._ctx.project.fm
+        return self._static_fm
+
+    @property
+    def _cmd(self):
+        if self._ctx is not None:
+            return self._ctx.project.cmd_runner
+        return self._static_cmd
 
     def apply_step(self, step_id: str, ai_response: str,
                    dry_run: bool = False) -> ApplyResult:
