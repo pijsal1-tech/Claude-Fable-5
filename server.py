@@ -50,6 +50,16 @@ from providers.capacity import CapacityModel
 from providers.pool import ProviderPool
 from chain.agent_loop import AgentLoop
 from chain.agent_tools import AgentTools
+from core.runner import (
+    EVENT_RUN_FINISHED,
+    EVENT_RUN_OUTPUT,
+    EVENT_RUN_STARTED,
+    RESULT_COMPLETED,
+    RunEvent,
+    RunRequest,
+)
+from runners.chain import ChainRunner
+from runners.direct import DirectRunner
 from core.approval import ApprovalGate
 from chain.knowledge import KnowledgeAccumulator
 from core.execution import ExecutionRegistry, RunBusyError
@@ -94,6 +104,39 @@ MAX_SMART_FILE_SIZE = 100 * 1024  # حد أقصى لحجم ملف يقرأه Sma
 # registers a RunTicket; the registry enforces the single-run policy and
 # ticket cancellation reaches the loops at their checkpoints.
 execution_registry = ExecutionRegistry()
+
+
+def _legacy_dispatch() -> bool:
+    """T-040 (R-501): علم الترحيل — المسار القديم هو الافتراضي.
+
+    ضبط متغير البيئة ``LEGACY_DISPATCH=0`` يفعّل مسار الـ runners
+    (direct + chain). يُقرأ عند كل إرسال — قابل للعكس في الاختبارات
+    دون إعادة تشغيل. دورة الحياة: بعد إثبات المطابقة لكل الأوضاع
+    (T-041) يُحذف العلم والمسارات القديمة معًا — مسار إرسال واحد.
+    """
+    return os.environ.get("LEGACY_DISPATCH", "1") != "0"
+
+
+class _RunnerWSAdapter:
+    """T-040: EventSink يترجم أحداث Runner → إطارات WS القديمة حرفيًا.
+
+    - run_output → ``{"type": "chunk", "text": ...}`` (مسار direct).
+    - أحداث إطارات الجسر (chain_*) → الإطار الأصلي كما كان:
+      ``{"type": <event.type>, **event.data}`` — بايت-بايت.
+    - run_started / run_finished → لا إطار (المسار القديم لا يرسلهما؛
+      إطار ``start`` يُرسل من موقع الإرسال المشترك نفسه).
+    """
+
+    def __init__(self, send_fn):
+        self._send = send_fn
+
+    def emit(self, event: RunEvent) -> None:
+        if event.type in (EVENT_RUN_STARTED, EVENT_RUN_FINISHED):
+            return
+        if event.type == EVENT_RUN_OUTPUT:
+            self._send({"type": "chunk", "text": event.data.get("text", "")})
+            return
+        self._send({"type": event.type, **event.data})
 
 
 def _begin_run_ticket(kind, send_fn):

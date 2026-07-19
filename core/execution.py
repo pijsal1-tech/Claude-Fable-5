@@ -66,7 +66,9 @@ import uuid
 from typing import Callable
 
 # ── الأنواع والحالات المسموحة ──
-VALID_KINDS = ("chain", "agent", "delegate")
+# T-040 (R-501): "direct" انضم — المسار المباشر صار run مسجّلًا
+# بتذكرة عبر DirectRunner (كان الوحيد خارج السجل).
+VALID_KINDS = ("direct", "chain", "agent", "delegate")
 TERMINAL_STATES = ("completed", "failed", "cancelled")
 STATE_RUNNING = "running"
 
