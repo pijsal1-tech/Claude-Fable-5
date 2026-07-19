@@ -83,6 +83,13 @@ MessageContext:
   `metadata["dedupe_refs"]` يرصد عدد الإحالات. القياس على fixture
   الازدواج (5 ملفات، 4 نسخ): **76.4% تخفيض** (15,387 → 3,635 حرف) —
   اختبار انحدار يفرض ≥40% في `tests/unit/test_map_reduce_dedup.py`.
-- ⏳ `HistorySource` وميزانية render — T-023+/R-203.
+- ✅ `ContextBudget` (T-023 / R-203): وحدة `context/budget.py` — أربع
+  طبقات (`must_have`/`high`/`normal`/`opportunistic`)، مقدّر توكنز واحد
+  قابل للاستبدال (افتراضي chars/4)، إسقاط حتمي (الطبقة الأدنى أولًا،
+  الأكبر أولًا) مع تقرير `dropped[]` صريح، هامش أمان 10%، وفيض
+  must_have → خطاف تلخيص لكل عنصر (must_have لا تُسقط أبدًا؛ الفيض
+  المتبقي مرصود عبر `overflowed=True`). **غير موصولة بعد** — استبدال
+  حدود الحروف الثلاثة الفعلي في T-024.
+- ⏳ توصيل الميزانية بمسارات الإنتاج + `HistorySource` — T-024+/R-203.
 
 لكتابة مصدر جديد راجع `context/AUTHORING.md` (القواعد الملزمة).

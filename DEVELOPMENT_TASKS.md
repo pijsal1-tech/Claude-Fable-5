@@ -323,11 +323,11 @@
 - **Files to Modify:** `context/budget.py`, units
 - **Affected Modules:** none wired yet
 - **Acceptance Criteria:** property test — must_have never dropped while opportunistic present; packing determinism test.
-- **Implementation:** [ ] tiers · [ ] estimator · [ ] packer · [ ] overflow hook
-- **Testing:** [ ] property test · [ ] determinism
-- **Regression:** [ ] suite green
-- **Documentation:** [ ] tier semantics table
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-024
+- **Implementation:** [x] tiers · [x] estimator · [x] packer · [x] overflow hook
+- **Testing:** [x] property test · [x] determinism
+- **Regression:** [x] suite green
+- **Documentation:** [x] tier semantics table
+- **Completion Status:** ✅ · **Reviewer Notes:** New `context/budget.py` (standalone — nothing imports it yet; the three `content[:N]` char limits are replaced in T-024, per the "Affected Modules: none wired yet" clause). **API:** `ContextBudget(model_window, reserved_output=0, estimator=None, safety_margin=0.10, summarize_hook=None)`; `budget_tokens = max(0, int((model_window − reserved_output) × (1 − margin)))` — 10% default margin per the R-203 risk clause (estimator inaccuracy). `TokenEstimator` is a runtime `Protocol` (`estimate(text)->int`) so a provider tokenizer can be plugged in; default `CharsPerTokenEstimator` = chars/4 (empty→0, else min 1) — the same legacy guess, centralized. **Packing (`pack(items) -> PackResult`):** deterministic drop loop over `opportunistic → normal → high` (a lower tier is fully exhausted before a higher one is touched), within a tier largest-tokens first, tie → latest-inserted first; every drop is a `DroppedItem(key, tier, tokens, reason)` in the explicit `dropped[]` report. **must_have is never dropped:** on overflow the per-item `SummarizeHook(item, target_tokens)` is tried largest-first (skipped if hook is None / returns None / summary isn't smaller); if still over budget the items are kept and `overflowed=True` is flagged — observed, never silent. Kept items preserve insertion order; `PackResult.to_dict()` is the JSON log summary. Tier semantics table is in the module docstring (Documentation box). **Evidence:** `tests/unit/test_context_budget.py` — 63 tests: seeded property test (20 random mixes with guaranteed must_have+opportunistic anchors: must_have never in `dropped[]`; if `high` was dropped no `normal`/`opportunistic` survives; accounting `total_tokens == Σ estimates(kept)`); determinism (5 seeds × repeated pack + fresh instances → identical `to_dict()`); admission ordering incl. exact drop sequences and tie-breaks; margin math (`(1000−200)×0.9=720`, floor not round, constructor validation errors); estimator unit + pluggable custom; all overflow-hook paths (shrink-to-fit, None, non-smaller ignored, largest-first call order with computed `target`); R-203 oversized-fixture integration (8 items → fits window, `dropped[]` non-empty, both must_have retained). Full suite **302 passed** (239 + 63); mypy gate (`providers/ chain/ core/ context/`) clean; `./scripts/check.sh` **ALL GREEN**. · **Next Task:** T-024
 
 ## T-024 — Replace the Three Char Limits (R-203)
 - **Description:** Delete the three hardcoded `content[:N]` truncations; every prompt path packs via `ContextBudget`; budget limit in config.

@@ -27,6 +27,28 @@
     fallback path left.
 
 ### Added
+- **R-203 (T-023): `ContextBudget` — token-accounted, importance-ordered
+  context packing (built unwired; wiring lands in T-024).**
+  New `context/budget.py`: four tiers
+  (`must_have`/`high`/`normal`/`opportunistic`), pluggable `TokenEstimator`
+  protocol with `CharsPerTokenEstimator` (chars/4) default, deterministic
+  packing that drops lowest tier first / largest item first (tie → latest
+  inserted first) with an explicit `dropped[]` report
+  (`DroppedItem(key, tier, tokens, reason)`), a 10% safety margin on
+  `budget_tokens = (model_window − reserved_output) × (1 − margin)`
+  (R-203 risk clause), and must_have overflow handling via a per-item
+  `SummarizeHook` — must_have items are **never dropped**; if they still
+  exceed the budget after summarization the result is kept and flagged
+  `overflowed=True`. `PackResult.to_dict()` gives a JSON-serializable log
+  summary; kept items preserve insertion order. Tier semantics table lives
+  in the module docstring. Tests: `tests/unit/test_context_budget.py`
+  (63 tests) — seeded property test (must_have never in `dropped[]`, lower
+  tiers fully exhausted before higher ones are touched), packing
+  determinism across repeated calls and fresh instances, admission/drop
+  ordering incl. tie-breaks, margin math (floor, custom margins,
+  constructor validation), estimator behavior, all summarize-hook paths,
+  and the R-203 oversized-fixture integration (fits window, `dropped[]`
+  non-empty, must_have retained). Suite: **302 passed** (239 + 63).
 - **R-202 (T-022): map_reduce execute-step routed through ContextBundle —
   measured 76.4% prompt-size reduction on the duplication fixture.**
   `build_map_reduce`'s `mr_execute` files-block is now built via
