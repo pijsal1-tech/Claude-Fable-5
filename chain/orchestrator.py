@@ -39,6 +39,10 @@ class ComplexityAnalysis:
     cross_file_score: float = 0.0    # علاقات بين الملفات
     request_complexity: float = 0.0  # غموض الطلب
     risk_score: float = 0.0          # مخاطر (auth, DB, security)
+    # T-036 (R-402): الإشارات المطابقة — أي أنماط أشعلت الدرجات
+    # (للتفسير؛ **خارج to_dict عمدًا** — corpus T-034 يثبّت to_dict
+    # بايت-بايت، والسجل ينقلها في RoutingRecord.matched_signals).
+    matched_signals: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def total(self) -> float:
@@ -199,10 +203,14 @@ class SmartOrchestrator:
 
         # ── 4. Request Complexity ──
         request_lower = user_request.lower()
-        complexity_hits = sum(
-            1 for p in _COMPLEX_REQUEST_PATTERNS
+        # T-036: نلتقط الأنماط المطابقة نفسها (للتفسير) — العدّ لم يتغير
+        complexity_matches = [
+            p for p in _COMPLEX_REQUEST_PATTERNS
             if re.search(p, request_lower, re.IGNORECASE)
-        )
+        ]
+        complexity_hits = len(complexity_matches)
+        if complexity_matches:
+            analysis.matched_signals["request_complexity"] = complexity_matches
         if complexity_hits >= 3:
             analysis.request_complexity = 3.0
         elif complexity_hits >= 1:
@@ -211,10 +219,13 @@ class SmartOrchestrator:
             analysis.request_complexity = 1.0
 
         # ── 5. Risk Score ──
-        risk_hits = sum(
-            1 for p in _HIGH_RISK_PATTERNS
+        risk_matches = [
+            p for p in _HIGH_RISK_PATTERNS
             if re.search(p, request_lower, re.IGNORECASE)
-        )
+        ]
+        risk_hits = len(risk_matches)
+        if risk_matches:
+            analysis.matched_signals["risk"] = risk_matches
         # Also check file contents
         if file_content:
             risk_hits += sum(
