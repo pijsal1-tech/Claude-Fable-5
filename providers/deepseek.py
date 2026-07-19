@@ -83,8 +83,11 @@ class DeepSeekProvider(BaseProvider):
         if system_prompt:
             full_prompt = f"{system_prompt}\n\n"
         if history:
+            # T-030 (R-302): القصّة الحرفية [-6:] → سياسة نافذة مسماة
+            from sessions.memory import (
+                POLICY_PROVIDER_HISTORY_FOLD, select_history)
             full_prompt += "[سياق المحادثة السابقة]:\n"
-            for msg in history[-6:]:  # آخر 6 رسائل
+            for msg in select_history(history, POLICY_PROVIDER_HISTORY_FOLD):
                 role_label = "المستخدم" if msg.role == "user" else "المساعد"
                 full_prompt += f"--- {role_label} ---\n{msg.content[:500]}\n\n"
             full_prompt += "[الطلب الحالي]:\n"

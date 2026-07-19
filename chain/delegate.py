@@ -256,7 +256,13 @@ class DelegateBridge:
 
         This replaces passing ``list[Message]`` where ``str`` is required —
         a latent crash on any contract-conforming provider.
+
+        T-030 (R-302): the full-list pass is now an explicit named policy
+        (``POLICY_DELEGATE_RENDER`` = full window) instead of an implicit
+        "just iterate whatever you were handed" — same values, one owner.
         """
+        from sessions.memory import POLICY_DELEGATE_RENDER, select_history
+        messages = select_history(messages, POLICY_DELEGATE_RENDER)
         if not messages:
             return ""
         if len(messages) == 1 and getattr(messages[0], "role", "user") == "user":

@@ -27,6 +27,37 @@
     fallback path left.
 
 ### Added
+- **R-302 (T-030): the three raw-history consumers migrated to named
+  window policies — behavior byte-identical, ownership centralized.**
+  The actual consumer sites (pinned during migration; the initial T-029
+  guess had chat/delegate swapped): (1) the history **fold** inside the
+  three prompt-building providers (`alle_ai`/`deepseek`/`genspark`) was
+  `history[-6:]` → `POLICY_PROVIDER_HISTORY_FOLD`; (2)
+  `chain/knowledge.py::build_context` was `self._observations[-10:]` →
+  `POLICY_KNOWLEDGE_OBSERVATIONS`; (3)
+  `chain/delegate.py::_to_prompt_history` implicitly rendered the full
+  list → explicit `POLICY_DELEGATE_RENDER` (full window). The precise
+  names are aliases of the same `POLICY_DELEGATE`/`POLICY_CHAT`/
+  `POLICY_FULL` objects (asserted `is`-identical), so T-029's frozen
+  surface is untouched. New bridge `sessions.memory.select_history(items,
+  policy)` applies `last_n` semantics to in-memory lists for consumers
+  that still carry raw `list[Message]` (full `ConversationMemory` wiring
+  = T-031+); `token_budget` is explicitly rejected there (whole-turn
+  accounting needs `window()`). **Goldens captured pre-migration by
+  running the legacy slices verbatim** (provider fold on 9 messages,
+  `build_context` on 13 observations, delegate multi/single/empty
+  renders) and committed as literal expected strings — post-migration
+  output matches byte-exact, plus property tests
+  `select_history(xs, last_n=n) == xs[-n:]` across sizes 0..30.
+  **Acceptance grep is now a test**
+  (`TestNoRawHistorySlicing`): no `history[-N:]` /
+  `_observations[-N:]` / `chat_history[-N:]` anywhere in production
+  code outside `sessions/`. Scope note: `chat_history[:-1]` in
+  `server.py` is structural exclusion of the just-appended current
+  message (not a window slice) — stays, documented in the policy map.
+  Evidence: `tests/unit/test_history_consumers.py` — 41 tests. Full
+  suite **489 passed** (448 + 41); mypy gate clean;
+  `./scripts/check.sh` ALL GREEN.
 - **R-302 (T-029): `sessions/memory.py` — `ConversationMemory` facade,
   the single owner of history access on top of the JSONL store.**
   API: `append(role, content, visibility="user", **extra) -> turn_id`

@@ -146,8 +146,11 @@ class GensparkProvider(BaseProvider):
             full_prompt = f"{system_prompt}\n\n"
         # تحويل الـ history لسياق في البرومبت (API مش بيقبل history format خارجي)
         if history and len(history) > 0:
+            # T-030 (R-302): القصّة الحرفية [-6:] → سياسة نافذة مسماة
+            from sessions.memory import (
+                POLICY_PROVIDER_HISTORY_FOLD, select_history)
             full_prompt += "[سياق المحادثة السابقة]:\n"
-            for msg in history[-6:]:  # آخر 6 رسائل
+            for msg in select_history(history, POLICY_PROVIDER_HISTORY_FOLD):
                 role_label = "المستخدم" if msg.role == "user" else "المساعد"
                 # نقطّع المحتوى الطويل عشان ما نستهلكش رصيد كتير
                 content = msg.content[:800] if len(msg.content) > 800 else msg.content

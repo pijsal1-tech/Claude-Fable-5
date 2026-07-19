@@ -165,8 +165,12 @@ class KnowledgeAccumulator:
 
         # ── ملاحظات ── (صغيرة وحاسمة — خلاصة فهم الـ AI المتراكم)
         if self._observations:
+            # T-030 (R-302): القصّة الحرفية [-10:] → سياسة نافذة مسماة
+            from sessions.memory import (
+                POLICY_KNOWLEDGE_OBSERVATIONS, select_history)
             sec = "💡 [ملاحظات سابقة]:\n"
-            for obs in self._observations[-10:]:
+            for obs in select_history(self._observations,
+                                      POLICY_KNOWLEDGE_OBSERVATIONS):
                 sec += f"- {obs}\n"
             candidates.append(BudgetItem(key="observations", text=sec,
                                          tier="high"))

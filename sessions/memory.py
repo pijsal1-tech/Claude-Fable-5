@@ -40,9 +40,28 @@
      ``CharsPerTokenEstimator``؛ المثبتة تُخصم أولًا).
 
 - ``WindowPolicy(last_n=None, token_budget=None, include_agent=False)``
-  سياسات جاهزة تطابق قصّات legacy الثلاث (خريطة T-030):
-  ``POLICY_FULL`` (الكل) · ``POLICY_CHAT`` (آخر 10) ·
-  ``POLICY_DELEGATE`` (آخر 6).
+  سياسات جاهزة تطابق قصّات legacy الثلاث. **خريطة T-030 النهائية**
+  (المواقع الفعلية حُدِّدت أثناء الترحيل — التخمين الأولي في T-029
+  كان معكوسًا):
+
+  =====================  ==========  =========================================
+  السياسة                القيمة       الموقع الفعلي (قبل T-030)
+  =====================  ==========  =========================================
+  ``POLICY_FULL``        الكل         ``chain/delegate.py::_to_prompt_history``
+  ``POLICY_CHAT``        آخر 10       ``chain/knowledge.py`` (``_observations``)
+  ``POLICY_DELEGATE``    آخر 6        طيّ الـ history في المزودين الثلاثة
+                                      (alle_ai / deepseek / genspark)
+  =====================  ==========  =========================================
+
+  الأسماء الدقيقة متاحة كأسماء بديلة لنفس الكائنات:
+  ``POLICY_DELEGATE_RENDER`` / ``POLICY_KNOWLEDGE_OBSERVATIONS`` /
+  ``POLICY_PROVIDER_HISTORY_FOLD``.
+
+- ``select_history(items, policy)`` (جسر T-030): تطبيق سياسة نافذة
+  على قائمة في الذاكرة (رسائل أو نصوص) — للمستهلكين الذين ما زالوا
+  يحملون قوائم خام قبل توصيل ``ConversationMemory`` الكامل (T-031+).
+  ملاحظة نطاق: ``chat_history[:-1]`` في server.py هي استبعاد الرسالة
+  الحالية المكررة (بنيوية)، ليست قصّة نافذة — خارج سياسات T-030.
 
 **الأعقاب (stubs — واجهة مثبتة الآن، تنفيذ لاحق):**
 
@@ -54,10 +73,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Sequence, TypeVar
 
 from context.budget import CharsPerTokenEstimator, TokenEstimator
 from sessions.store import SessionStore, _now_iso
+
+_T = TypeVar("_T")
 
 # أنواع السجلات في التيار — سجل بلا kind هو رسالة (توافق T-027/T-028)
 _KIND_MESSAGE = "message"
@@ -95,10 +116,43 @@ class WindowPolicy:
             raise ValueError("token_budget لا يكون سالبًا")
 
 
-# خريطة سياسات legacy (T-030 يستبدل القصّات بهذه الأسماء):
-POLICY_FULL = WindowPolicy()                    # القائمة كاملة (القوالب)
-POLICY_CHAT = WindowPolicy(last_n=10)           # قصّة [-10:] (معالج WS)
-POLICY_DELEGATE = WindowPolicy(last_n=6)        # قصّة [-6:] (delegate)
+# خريطة سياسات legacy (T-030 استبدل القصّات بهذه الأسماء):
+POLICY_FULL = WindowPolicy()                    # القائمة كاملة
+POLICY_CHAT = WindowPolicy(last_n=10)           # قصّة [-10:]
+POLICY_DELEGATE = WindowPolicy(last_n=6)        # قصّة [-6:]
+
+# T-030: الأسماء الدقيقة بعد تحديد المواقع الفعلية — نفس الكائنات؛
+# أسماء T-029 أعلاه تبقى واجهة مثبتة (اختباراتها تعتمد عليها).
+POLICY_DELEGATE_RENDER = POLICY_FULL            # delegate يرسل القائمة كما هي
+POLICY_KNOWLEDGE_OBSERVATIONS = POLICY_CHAT     # [-10:] في chain/knowledge.py
+POLICY_PROVIDER_HISTORY_FOLD = POLICY_DELEGATE  # [-6:] في المزودين الثلاثة
+
+
+def select_history(items: Sequence[_T], policy: WindowPolicy) -> list[_T]:
+    """تطبيق سياسة نافذة على قائمة في الذاكرة (جسر T-030).
+
+    المستهلكون القدامى يحملون قوائم خام (``list[Message]`` أو
+    ``list[str]``) لا جلسات JSONL — هذه الدالة تعطيهم نفس دلالات
+    ``last_n`` بسياسة مسماة بدل قصّة حرفية متناثرة. عندما يكتمل توصيل
+    ``ConversationMemory`` في المستهلكين (T-031+) تُستبدل بـ
+    ``memory.window(policy)`` نفسها.
+
+    التكافؤ القيمي: ``select_history(xs, WindowPolicy(last_n=n))``
+    ``== xs[-n:]`` حرفيًا (مثبت بالاختبارات) — و``last_n=None`` تعيد
+    نسخة من القائمة كاملة.
+
+    ``token_budget`` يتطلب أدوارًا كاملة بمحتوى — يُرفض هنا صراحة:
+    استخدم ``ConversationMemory.window``.
+    """
+    if policy.token_budget is not None:
+        raise ValueError(
+            "token_budget يتطلب ConversationMemory.window — "
+            "select_history تطبق last_n فقط")
+    if policy.last_n is None:
+        return list(items)
+    if policy.last_n == 0:
+        return []
+    return list(items[-policy.last_n:])
 
 
 # ═══════════════════════ الواجهة ═══════════════════════
