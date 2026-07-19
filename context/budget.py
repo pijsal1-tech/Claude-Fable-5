@@ -22,8 +22,12 @@
 - الإسقاط داخل الطبقة: **الأكبر توكنز أولًا**؛ التعادل → الأحدث إدخالًا
   أولًا (الأقدم أعلى قيمة) — ترتيب حتمي بالكامل.
 - هامش أمان 10% افتراضيًا (بند مخاطر R-203: عدم دقة المقدّر).
-- T-023 يبني الوحدة **بدون توصيل** بأي مسار إنتاجي — الاستبدال الفعلي
-  لحدود الحروف الثلاثة في T-024.
+- T-024 وصّل الوحدة بمسارات البرومبت: ``chain/context_builder.py``
+  (build_prompt_section)، ``chain/knowledge.py`` (build_context)،
+  ``chain/orchestrator.py`` (مقدّر _split_content)، و``build_delegate``
+  في ``chain/strategies.py`` — حدود الحروف الثابتة حُذفت.
+- الضبط من ``config.yaml`` قسم ``context_budget`` عبر ``from_config``
+  (model_window / reserved_output / safety_margin / chunk_token_budget).
 """
 from __future__ import annotations
 
@@ -34,6 +38,10 @@ TIERS: tuple[str, ...] = ("must_have", "high", "normal", "opportunistic")
 _TIER_RANK = {name: i for i, name in enumerate(TIERS)}
 
 DEFAULT_SAFETY_MARGIN = 0.10   # بند مخاطر R-203: هامش 10% لعدم دقة المقدّر
+
+# افتراضيات الضبط (T-024) — تُقرأ من config.yaml قسم context_budget إن وُجد
+DEFAULT_MODEL_WINDOW = 128_000
+DEFAULT_RESERVED_OUTPUT = 8_000
 
 
 # ═══════════════════════════ تقدير التوكنز ═══════════════════════════
@@ -150,6 +158,29 @@ class ContextBudget:
         self.safety_margin = safety_margin
         self.estimator: TokenEstimator = estimator or CharsPerTokenEstimator()
         self.summarize_hook = summarize_hook
+
+    @classmethod
+    def from_config(cls, cfg: dict | None = None, *,
+                    estimator: TokenEstimator | None = None,
+                    summarize_hook: SummarizeHook | None = None,
+                    ) -> "ContextBudget":
+        """بناء ميزانية من dict الضبط (config.yaml) — T-024.
+
+        يقرأ ``cfg["context_budget"]``: ``model_window`` /
+        ``reserved_output`` / ``safety_margin``. أي مفتاح غائب (أو
+        ``cfg=None``) يسقط على الافتراضيات المركزية أعلاه.
+        """
+        section = (cfg or {}).get("context_budget") or {}
+        return cls(
+            model_window=int(section.get("model_window",
+                                         DEFAULT_MODEL_WINDOW)),
+            reserved_output=int(section.get("reserved_output",
+                                            DEFAULT_RESERVED_OUTPUT)),
+            safety_margin=float(section.get("safety_margin",
+                                            DEFAULT_SAFETY_MARGIN)),
+            estimator=estimator,
+            summarize_hook=summarize_hook,
+        )
 
     @property
     def budget_tokens(self) -> int:
