@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
-"""T-040 (R-501): مطابقة الإرسال — legacy vs runners خلف LEGACY_DISPATCH.
+"""T-040/T-041 (R-501): مطابقة الإرسال — المسارات القديمة vs runners.
 
-بنود القبول:
-- العلم: الافتراضي legacy (غياب المتغير أو أي قيمة ≠ "0")؛
-  LEGACY_DISPATCH=0 يفعّل مسار الـ runners.
-- direct: نفس المدخلات ⇒ إطارات chunk متطابقة بايت-بايت بين
-  المسار القديم (stream worker) ومسار DirectRunner + _RunnerWSAdapter.
-- chain: نفس المدخلات ⇒ نفس تسلسل الإطارات ونفس الحقول المستقرة
-  (الحقول الزمنية duration_ms/elapsed تُطبَّع — غير حتمية بطبيعتها).
-- regression: flag=1 لا يغيّر شيئًا — المسار القديم يعمل حرفيًا كما كان
-  (يغطيه بقاء كامل عدة الاختبارات الحالية خضراء + اختبار العلم هنا).
+المسارات القديمة حُذفت من server.py في T-041 — دوال _legacy_*_frames
+هنا إعادة إنتاج حرفية لسلوكها المسجّل (مواصفة تنفيذية)، تثبت أن
+مسار الإرسال الموحّد الوحيد يُنتج نفس الإطارات للواجهة:
+- direct: إطارات chunk متطابقة بايت-بايت مع stream worker المحذوف.
+- chain: نفس تسلسل الإطارات ونفس الحقول المستقرة (الزمن/الميزانية/
+  هوية الـ run تُطبَّع — غير حتمية بطبيعتها).
+- agent (T-041): نفس إطارات AgentLoop + نفس تقطيع الرد النهائي (80)
+  الذي كان يفعله ws_handler بعد حلقة الاستطلاع المحذوفة.
+- delegate (T-041): نفس أحداث الجسر كإطارات حرفية؛ waiting_approval
+  يترك التذكرة حية (نفس دلالة المسار القديم).
 """
 from __future__ import annotations
 
@@ -20,10 +21,17 @@ import threading
 import pytest
 
 import server
+from actions.command_runner import CommandRunner
+from actions.file_manager import FileManager
+from chain.agent_loop import AgentLoop
+from chain.agent_tools import AgentTools
 from chain.bridge import ChainBridge
+from chain.delegate import DelegateBridge
 from core.execution import ExecutionRegistry
 from core.runner import RunRequest
+from runners.agent import AgentRunner
 from runners.chain import ChainRunner
+from runners.delegate import DelegateRunner
 from runners.direct import DirectRunner
 from tests.fakes.fake_provider import FakeProvider
 
@@ -34,22 +42,16 @@ JOIN_TIMEOUT = 15.0
 DIRECT_REPLY = "امسك الرد المباشر الكامل — قطع متعددة تُبث تباعًا."
 
 
-# ═══════════════════ العلم نفسه ═══════════════════
+# ═════════ العلم والسلم القديم: محذوفان (T-041) ═════════
 
-def test_flag_default_is_legacy(monkeypatch):
-    monkeypatch.delenv("LEGACY_DISPATCH", raising=False)
-    assert server._legacy_dispatch() is True
-
-
-def test_flag_zero_enables_runners(monkeypatch):
-    monkeypatch.setenv("LEGACY_DISPATCH", "0")
-    assert server._legacy_dispatch() is False
+def test_legacy_dispatch_flag_deleted():
+    """بند قبول T-041: العلم اختفى — مسار إرسال واحد لا يُعكس."""
+    assert not hasattr(server, "_legacy_dispatch")
 
 
-def test_flag_other_values_stay_legacy(monkeypatch):
-    for val in ("1", "true", "yes", ""):
-        monkeypatch.setenv("LEGACY_DISPATCH", val)
-        assert server._legacy_dispatch() is True, f"قيمة {val!r} يجب أن تبقى legacy"
+def test_runners_map_covers_all_modes():
+    """الخريطة الموحّدة تغطي الأوضاع الأربعة — لا وضع خارج العقد."""
+    assert set(server.RUNNERS) == {"direct", "chain", "agent", "delegate"}
 
 
 # ═══════════════════ direct: مطابقة بايت-بايت ═══════════════════
@@ -233,3 +235,181 @@ def test_chain_parity_provider_failure(tmp_path):
     assert legacy_ticket.state == runner_ticket.state == "failed"
     assert result.status == "failed"
     assert "chain provider dead" in result.error
+
+
+# ═══════════════════ agent: مطابقة الإطارات والتقطيع ═══════════════════
+
+AGENT_REPLY = ("الرد النهائي من الوكيل — نص أطول من قطعة واحدة حتى نثبت "
+               "أن تقطيع الثمانين محرفًا نفسه متطابق حرفيًا لا النص الكلي فقط.")
+
+
+def _make_agent_loop(tmp_path: pathlib.Path, provider, frame_sink):
+    project = tmp_path / "project"
+    project.mkdir(parents=True, exist_ok=True)
+    tools = AgentTools(
+        file_manager=FileManager(str(project)),
+        command_runner=CommandRunner(cwd=str(project), auto_approve=True),
+        project_root=str(project),
+    )
+    return AgentLoop(
+        tools=tools,
+        send_fn=lambda p, h, s: provider.send(p, h, s),
+        ws_send_fn=frame_sink,
+        max_iterations=2,
+    )
+
+
+def _legacy_agent_frames(tmp_path, provider):
+    """إعادة إنتاج حرفية للمسار المحذوف: AgentLoop في thread + حلقة
+    الاستطلاع (تُختزل لـ join لأن لا رسائل واردة هنا) ثم تقطيع الرد 80."""
+    frames: list[dict] = []
+    registry = ExecutionRegistry()
+    ticket = registry.register("agent")
+    loop = _make_agent_loop(tmp_path, provider, frames.append)
+    result_box: list[str] = []
+    t = threading.Thread(
+        target=lambda: result_box.append(loop.run(
+            "نفّذ المهمة", history=[], project_context="",
+            run_id=ticket.run_id, step_id="step-agent-execute",
+            ticket=ticket)),
+        daemon=True)
+    t.start()
+    t.join(timeout=JOIN_TIMEOUT)
+    assert not t.is_alive()
+    full_response = result_box[0]
+    chunk_size = 80
+    for i in range(0, len(full_response), chunk_size):
+        frames.append({"type": "chunk", "text": full_response[i:i + chunk_size]})
+    return frames, full_response, ticket
+
+
+def _runner_agent_frames(tmp_path, provider):
+    """مسار T-041: AgentRunner + _RunnerWSAdapter."""
+    frames: list[dict] = []
+    registry = ExecutionRegistry()
+    ticket = registry.register("agent")
+    sink = server._RunnerWSAdapter(frames.append)
+    runner = AgentRunner(
+        lambda frame_sink: _make_agent_loop(tmp_path, provider, frame_sink))
+    result = runner.run(
+        RunRequest(mode="agent", message="نفّذ المهمة",
+                   context={"history": [], "project_context": ""}),
+        ticket, sink)
+    return frames, result.text, ticket, result
+
+
+def test_agent_parity_success(tmp_path):
+    """نجاح: نفس إطارات الحلقة ونفس تقطيع الرد النهائي (80) حرفيًا."""
+    legacy_frames, legacy_text, legacy_ticket = _legacy_agent_frames(
+        tmp_path / "legacy", FakeProvider(default_response=AGENT_REPLY))
+    runner_frames, runner_text, runner_ticket, result = _runner_agent_frames(
+        tmp_path / "runner", FakeProvider(default_response=AGENT_REPLY))
+
+    assert runner_frames == legacy_frames
+    assert runner_text == legacy_text == AGENT_REPLY
+    assert legacy_ticket.state == runner_ticket.state == "completed"
+    assert result.status == "completed"
+    # أكثر من قطعة chunk فعلاً — المطابقة على التقطيع لا النص فقط
+    assert sum(1 for f in legacy_frames if f["type"] == "chunk") > 1
+
+
+def test_agent_parity_cancellation(tmp_path):
+    """إلغاء التذكرة قبل أول iteration ⇒ كلا المسارين cancelled."""
+    def run_cancelled(builder):
+        registry = ExecutionRegistry()
+        ticket = registry.register("agent")
+        ticket.cancel("مطابقة إلغاء")
+        return builder(ticket)
+
+    # المسار القديم: الحلقة نفسها ترصد الإلغاء وتُنهي التذكرة cancelled
+    def legacy(ticket):
+        loop = _make_agent_loop(tmp_path / "legacy",
+                                FakeProvider(default_response=AGENT_REPLY),
+                                lambda f: None)
+        loop.run("نفّذ", ticket=ticket)
+        return ticket.state
+
+    # مسار الـ runner: نقطة تفتيش الإلغاء قبل بناء الحلقة أصلًا
+    def runner(ticket):
+        r = AgentRunner(lambda fs: _make_agent_loop(
+            tmp_path / "runner",
+            FakeProvider(default_response=AGENT_REPLY), fs))
+        result = r.run(RunRequest(mode="agent", message="نفّذ"),
+                       ticket, server._RunnerWSAdapter(lambda m: None))
+        assert result.status == "cancelled"
+        return ticket.state
+
+    assert run_cancelled(legacy) == run_cancelled(runner) == "cancelled"
+
+
+# ═══════════════════ delegate: مطابقة أحداث الجسر ═══════════════════
+
+DELEGATE_SCRIPT = ["<brief>خطة العمل</brief>", "تم التنفيذ بنجاح",
+                   "[VERDICT]: APPROVE\n[SUMMARY]: ممتاز"]
+
+
+def _legacy_delegate_frames(provider, request_text):
+    """المسار المحذوف: run_delegation مباشرة + إطارات {"type": et, **ed}."""
+    bridge = DelegateBridge(provider)
+    registry = ExecutionRegistry()
+    ticket = registry.register("delegate")
+    frames: list[dict] = []
+    run = bridge.run_delegation(
+        request_text, {"a.py": "x = 1"},
+        on_event=lambda et, ed: frames.append({"type": et, **ed}),
+        ticket=ticket)
+    return frames, run, ticket, bridge
+
+
+def _runner_delegate_frames(provider, request_text):
+    """مسار T-041: DelegateRunner + _RunnerWSAdapter فوق جسر مطابق."""
+    bridge = DelegateBridge(provider)
+    registry = ExecutionRegistry()
+    ticket = registry.register("delegate")
+    frames: list[dict] = []
+    sink = server._RunnerWSAdapter(frames.append)
+    result = DelegateRunner(bridge).run(
+        RunRequest(mode="delegate", message=request_text,
+                   context={"files": {"a.py": "x = 1"}}),
+        ticket, sink)
+    return frames, result, ticket, bridge
+
+
+def test_delegate_parity_waiting_approval(tmp_path):
+    """دورة كاملة حتى waiting_approval: نفس الأحداث، وكلا التذكرتين
+    تبقيان حيتين (المستخدم لم يحسم) ثم land يُنهيهما completed."""
+    legacy_frames, legacy_run, legacy_ticket, legacy_bridge = \
+        _legacy_delegate_frames(FakeProvider(responses=list(DELEGATE_SCRIPT)),
+                                "نفّذ مهمة")
+    runner_frames, result, runner_ticket, runner_bridge = \
+        _runner_delegate_frames(FakeProvider(responses=list(DELEGATE_SCRIPT)),
+                                "نفّذ مهمة")
+
+    assert [_normalize(f) for f in runner_frames] == \
+           [_normalize(f) for f in legacy_frames]
+    assert legacy_run.status == "waiting_approval"
+    assert result.status == "completed"          # تسليم — الأحداث أُغلقت
+    # نفس الدلالة: التذكرة حية حتى يحسم المستخدم
+    assert legacy_ticket.state == runner_ticket.state == "running"
+    assert legacy_bridge.land() is runner_bridge.land() is True
+    assert legacy_ticket.state == runner_ticket.state == "completed"
+
+
+def test_delegate_parity_provider_failure(tmp_path):
+    """فشل المزود في Brief: نفس أحداث delegate_error وكلا التذكرتين failed."""
+    def failing():
+        p = FakeProvider()
+        p.fail_always = RuntimeError("delegate provider dead")
+        return p
+
+    legacy_frames, legacy_run, legacy_ticket, _ = \
+        _legacy_delegate_frames(failing(), "نفّذ مهمة")
+    runner_frames, result, runner_ticket, _ = \
+        _runner_delegate_frames(failing(), "نفّذ مهمة")
+
+    assert [_normalize(f) for f in runner_frames] == \
+           [_normalize(f) for f in legacy_frames]
+    assert legacy_run.status == "failed"
+    assert result.status == "failed"
+    assert "delegate provider dead" in result.error
+    assert legacy_ticket.state == runner_ticket.state == "failed"
