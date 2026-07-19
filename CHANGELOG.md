@@ -27,6 +27,33 @@
     fallback path left.
 
 ### Added
+- **R-204 (T-025): `context/safe_reader.py` — the sanctioned file-read
+  gateway for model-bound content.**
+  Pipeline: denylist (path-based, decided **before** touching disk) →
+  `resolve_workspace_path` containment/symlink check → size cap
+  (whole-file reject at 200KB, never a partial read) → read → entropy
+  sniff. Denylist = `chain/path_policy.is_secret_file` **plus** a
+  `*.env`-suffix rule (`production.env` was uncovered by the shared
+  policy — `.env.example` stays allowed) plus extensible
+  `extra_deny_names`/`extra_deny_extensions` (widen-only, no narrowing
+  hook by design). Sniff = 6 known-key regexes (private-key block, AWS
+  `AKIA…`, GitHub `gh?_…`, OpenAI `sk-…`, Slack `xox…`, Google `AIza…`)
+  then a secret-assignment heuristic gated on Shannon entropy ≥ 3.5,
+  with a maximal-token lookahead guard so quantifier backtracking can't
+  flag function calls (`get_password_from_vault()` is not a secret).
+  Any denial or sniff hit yields the fixed stub
+  `«redacted: secret file»` via `SafeReadResult.prompt_text` — the
+  secret value never enters a prompt. Scanner boundary hardened in
+  `chain/bridge.py`: `.env` removed from `_TEXT_EXTENSIONS` and
+  `_collect_files` now skips `is_secret_file` paths, so `server.pem` /
+  `id_rsa` are excluded even where extension logic would admit them.
+  Security note + override procedure (rename to `.env.example` / move
+  the value / widen-only extras) documented in the module docstring.
+  Routing *all* context reads through SafeReader is T-026.
+  Evidence: `tests/unit/test_safe_reader.py` — 42 tests (denylist
+  matrix, redaction incl. deny-without-disk-touch and no-partial-read,
+  entropy sniff units, scanner-boundary E2E). Full suite **368 passed**
+  (326 + 42); mypy clean; `./scripts/check.sh` ALL GREEN.
 - **R-203 (T-024): all prompt paths pack via `ContextBudget` — the three
   ad-hoc char limits are gone.**
   Site 1 `chain/context_builder.py`: `build_prompt_section` no longer

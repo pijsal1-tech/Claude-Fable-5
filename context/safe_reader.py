@@ -74,7 +74,10 @@ _SECRET_ASSIGNMENT = re.compile(
     r"access[_-]?key|auth)\w*"
     r"\s*[=:]\s*[\"']?"
     r"(?P<value>[A-Za-z0-9+/_.=-]{16,})"
-    r"(?!\()"   # ليس استدعاء دالة — get_password_from_vault() ليس سرًا
+    # حارس أقصى (maximal-token): يمنع الرجوع الخلفي في {16,} من إيجاد
+    # مطابقة أقصر — لا يجوز أن يلي القيمة أي حرف من فئتها ولا "(".
+    # get_password_from_vault() ليس سرًا.
+    r"(?![A-Za-z0-9+/_.=(-])"
 )
 
 _SNIFF_SCAN_LIMIT = 64 * 1024   # نفحص أول 64KB فقط — كافٍ وحتمي
