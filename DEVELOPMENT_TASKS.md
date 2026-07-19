@@ -362,11 +362,11 @@
 - **Files to Modify:** `context/sources/*`, `scripts/check.sh`
 - **Affected Modules:** context sources
 - **Acceptance Criteria:** CI grep green; `.env` unreachable via mention, keyword, and structure paths (3 tests).
-- **Implementation:** [ ] route sources · [ ] CI grep
-- **Testing:** [ ] 3-path redaction tests
-- **Regression:** [ ] golden suite
-- **Documentation:** [ ] boundary rule in CONTRIBUTING
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-027
+- **Implementation:** [x] route sources · [x] CI grep
+- **Testing:** [x] 3-path redaction tests
+- **Regression:** [x] golden suite
+- **Documentation:** [x] boundary rule in CONTRIBUTING
+- **Completion Status:** ✅ · **Reviewer Notes:** **Routing:** the single shared read helper `context/sources/mention.py::build_items` (used by both MentionSource and KeywordSource — StructureSource needs no routing: it delegates to `FileManager.get_project_context`, whose `_walk` already skips `is_secret_file` paths and never reads file *content* into the summary) now constructs `SafeReader(scan.root, max_file_size=MAX_FILE_SIZE)` instead of calling `FileManager.read_file`. **Parity preserved deliberately:** (1) `max_file_size` pinned to legacy's `MAX_FILE_SIZE` (500KB, imported from `actions/file_manager`) — NOT SafeReader's 200KB default — so the pinned huge-file quirk (`content=None`, silent skip in injection) replays byte-exact; (2) line numbering extracted as `_number_lines`, a byte-exact clone of `FileManager.read_file`'s `{i+1:>{width}}: ` format; (3) result mapping: `redacted=True` → stub passes through **verbatim and un-line-numbered** (a stub is not file content); `ok=False` (not_found/too_large/policy/read_error) → `content=None` = legacy's silent tolerance; normal → numbered content. T-017 context goldens replay green **without regeneration**. **CI grep gate (`scripts/check.sh`):** any `open(`/`.read_text(`/`.read_bytes(` in `context/` outside `safe_reader.py` fails the build (allowlisted: the `reader.read_text(` gateway call itself); mirrored as `TestBoundaryGrep` in pytest so the boundary holds even for contributors running plain `pytest`. **Acceptance (3-path redaction, `tests/unit/test_safe_reader_routing.py`):** fixture with `.env` (AKIA value) + `secrets.env` (assignment value) → mention path (exact name `secrets.env`) returns the stub and never the value; keyword path (stem `secrets`) same; structure path never lists `.env` and leaks nothing; bonus: bare `.env` is unreachable via extraction regex + suffix logic entirely. Regression: normal file arrives numbered exactly as legacy (`1: def main():`), missing file stays `content=None`, huge file (>500KB) stays `content=None` with no partial read. **Scope note:** `chain/`-side readers (agent `read_file` tool, `chain/bridge.py` scanner) already had their T-025 boundary (extension removal + `is_secret_file` filter + `path_policy` in `_resolve`); the spec's Files-to-Modify for T-026 is `context/sources/*` + `scripts/check.sh` only. Evidence: 9 new tests. Full suite **377 passed** (368 + 9); mypy gate clean; boundary grep green; `./scripts/check.sh` **ALL GREEN**. · **Next Task:** T-027
 
 ---
 

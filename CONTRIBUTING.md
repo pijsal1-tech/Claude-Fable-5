@@ -52,3 +52,25 @@ while any chain/agent/delegate run is active, a second dispatch of *any*
 kind receives `RunBusyError` and the client gets a `busy` frame carrying
 the active run id. Do not add per-mode guards; the registry is the single
 source of truth.
+
+## SafeReader Boundary Rule (R-204 / T-026)
+
+All **model-bound file content** inside the `context/` package is read
+through exactly one gateway: `context/safe_reader.py::SafeReader`. A
+boundary bypassed anywhere is not a boundary.
+
+- **Never** call `open(...)`, `Path.read_text(...)` or
+  `Path.read_bytes(...)` in `context/` outside `safe_reader.py`. CI
+  enforces this with a grep gate in `scripts/check.sh` (mirrored by
+  `tests/unit/test_safe_reader_routing.py::TestBoundaryGrep` so plain
+  `pytest` catches it too).
+- A new context source gets file content by constructing
+  `SafeReader(scan.root)` (or reusing `build_items` in
+  `context/sources/mention.py`) and consuming `SafeReadResult`:
+  `redacted=True` → pass the stub through **verbatim** (never re-read,
+  never line-number it); `ok=False` → treat as absent (`content=None`),
+  same silent-skip tolerance legacy had.
+- There is deliberately **no read-anyway flag**. If a legitimate file is
+  denied, the override procedure is documented in the `safe_reader.py`
+  module docstring (rename to `.env.example`, move the value, or widen —
+  never narrow — the deny extras).

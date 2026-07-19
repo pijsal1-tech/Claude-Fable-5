@@ -27,6 +27,30 @@
     fallback path left.
 
 ### Added
+- **R-204 (T-026): every context-bound file read routed through
+  `SafeReader` + CI boundary grep.**
+  `context/sources/mention.py::build_items` (the single read helper
+  shared by Mention/Keyword — Structure delegates to `FileManager`'s
+  scan, which already skips `is_secret_file` paths and never reads
+  content into the summary) no longer calls `FileManager.read_file`; it
+  constructs `SafeReader(scan.root, max_file_size=MAX_FILE_SIZE)` —
+  keeping legacy's exact 500KB cap so the pinned huge-file quirk stays
+  byte-identical — and maps `SafeReadResult`: redacted → the stub
+  passes through **verbatim, un-line-numbered**; `ok=False`
+  (missing/huge/policy) → `content=None`, legacy's silent-skip;
+  normal → line-numbered via `_number_lines`, a byte-exact clone of
+  `FileManager.read_file`'s numbering (T-017 goldens replay green
+  without regeneration). **Boundary enforcement:** `scripts/check.sh`
+  gains a grep gate — any `open(`/`.read_text(`/`.read_bytes(` in
+  `context/` outside `safe_reader.py` fails CI; mirrored as a pytest
+  (`TestBoundaryGrep`) so plain `pytest` catches it too. Boundary rule
+  documented in `CONTRIBUTING.md` (how a new source must consume
+  `SafeReadResult`; no read-anyway flag exists). Acceptance: `.env`
+  value unreachable via all three paths — mention (exact-name),
+  keyword (stem), structure (never listed) — plus bare-`.env`
+  unreachability. Evidence: `tests/unit/test_safe_reader_routing.py` —
+  9 tests. Full suite **377 passed** (368 + 9); mypy clean; boundary
+  grep green; `./scripts/check.sh` ALL GREEN.
 - **R-204 (T-025): `context/safe_reader.py` — the sanctioned file-read
   gateway for model-bound content.**
   Pipeline: denylist (path-based, decided **before** touching disk) →
