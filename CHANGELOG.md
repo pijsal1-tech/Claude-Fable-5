@@ -27,6 +27,27 @@
     fallback path left.
 
 ### Added
+- **R-501 (T-040): Direct + Chain runners behind the `LEGACY_DISPATCH`
+  flag.** `runners/direct.py` (`DirectRunner`: one provider stream call
+  emitted as `run_output` chunks, cancellation checked between chunks)
+  and `runners/chain.py` (`ChainRunner`: wraps the existing `ChainBridge`
+  — orchestrator/executor/gated-apply untouched — re-emitting its WS
+  frames as free events and translating the terminal state to a
+  `RunResult`). Both follow the authoring guide and pass the full
+  `RunnerContractMixin` suite. Dispatch: `server.py` gains
+  `_legacy_dispatch()` (env `LEGACY_DISPATCH`, default **legacy**;
+  `=0` activates the runner path) and `_RunnerWSAdapter` (EventSink →
+  legacy WS frames byte-for-byte: `run_output`→`chunk`, chain frames
+  pass through under their original names, lifecycle events silent).
+  `"direct"` joined `VALID_KINDS` — the direct path now registers a
+  ticket like every other mode. Flag lifecycle: after per-mode parity
+  is proven for all four modes (T-041) the flag and the legacy paths
+  are deleted together — one dispatch path. Parity E2E in
+  `tests/integration/test_dispatch_parity.py`: direct success/failure
+  frames byte-identical; chain frame sequences identical modulo
+  nondeterministic fields (timings/budget/run_id); flag semantics
+  pinned (default + `"0"` + other values). 26 new tests
+  (734 total, +1 pre-existing skip).
 - **R-501 (T-039): Runner protocol + shared contract harness +
   EchoRunner reference — the unified execution contract exists and is
   provably testable before any real runner migrates.** New

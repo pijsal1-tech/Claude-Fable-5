@@ -1068,6 +1068,31 @@ def ws_handler(ws):
                         if session_mgr:
                             session_mgr.append_message("user", user_text)
 
+                        if not _legacy_dispatch():
+                            # T-040 (R-501): مسار runner — نفس الجسر، نفس
+                            # الإطارات (عبر _RunnerWSAdapter)، نفس التذكرة.
+                            # الـ runner يعمل في thread حتى تبقى حلقة WS
+                            # مستقبِلة (chain_approval_response تصل للبوابة).
+                            _chain_req = RunRequest(
+                                mode="chain",
+                                message=user_text_with_files,
+                                context={
+                                    "file_content": file_content_for_routing,
+                                    "files": files_dict,
+                                },
+                                metadata={
+                                    "force_strategy": routing.chain_strategy,
+                                },
+                            )
+                            _chain_sink = _RunnerWSAdapter(_ws_send)
+                            threading.Thread(
+                                target=ChainRunner(chain_bridge).run,
+                                args=(_chain_req, chain_ticket, _chain_sink),
+                                daemon=True,
+                                name=f"runner-chain-{chain_ticket.run_id}",
+                            ).start()
+                            continue  # الـ runner يتكفل بالرد
+
                         run_id = chain_bridge.start_chain(
                             ws_send_fn=_ws_send,
                             user_request=user_text_with_files,
@@ -1315,43 +1340,70 @@ def ws_handler(ws):
             ws.send(json.dumps({"type": "start"}))
 
             full_response = ""
-            try:
-                import queue
+            if not _legacy_dispatch():
+                # T-040 (R-501): مسار runner — نفس النداء (stream) ونفس
+                # إطارات chunk/error عبر _RunnerWSAdapter؛ التذكرة تُسجَّل
+                # بنوع "direct" (كان الوضع الوحيد خارج السجل).
+                direct_ticket = _begin_run_ticket("direct", _json_sender(ws))
+                if direct_ticket is None:
+                    continue
+                _direct_req = RunRequest(
+                    mode="direct",
+                    message=prompt,
+                    system_prompt=system_prompt,
+                    context={"history": chat_history[:-1]},
+                )
+                _direct_sink = _RunnerWSAdapter(_json_sender(ws))
+                _direct_result = DirectRunner(
+                    lambda p, h, s: _active_provider().stream(p, h, s)
+                ).run(_direct_req, direct_ticket, _direct_sink)
+                # مطابقة المسار القديم حرفيًا: الفشل يرسل إطار error ثم
+                # يُكمل للتحليل بالنص الجزئي (لا continue) — نفس ما يفعله
+                # فرع "error" في حلقة القديم بعد break.
+                full_response = _direct_result.text
+                if _direct_result.status != RESULT_COMPLETED:
+                    ws.send(json.dumps({
+                        "type": "error",
+                        "text": _direct_result.error or "الرد لم يكتمل",
+                    }))
+            else:
+                try:
+                    import queue
 
-                chunk_queue = queue.Queue()
+                    chunk_queue = queue.Queue()
 
-                def _stream_worker():
-                    try:
-                        for chunk in _active_provider().stream(prompt, chat_history[:-1], system_prompt):
-                            chunk_queue.put(("chunk", chunk))
-                        chunk_queue.put(("done", None))
-                    except Exception as e:
-                        chunk_queue.put(("error", str(e)))
+                    def _stream_worker():
+                        try:
+                            for chunk in _active_provider().stream(prompt, chat_history[:-1], system_prompt):
+                                chunk_queue.put(("chunk", chunk))
+                            chunk_queue.put(("done", None))
+                        except Exception as e:
+                            chunk_queue.put(("error", str(e)))
 
-                t = threading.Thread(target=_stream_worker, daemon=True)
-                t.start()
+                    t = threading.Thread(target=_stream_worker, daemon=True)
+                    t.start()
 
-                # استقبال chunks من الـ thread (مهلة طويلة لأن الـ provider بيعيد المحاولة تلقائياً)
-                timeout_secs = 600
-                while True:
-                    try:
-                        msg_type, payload = chunk_queue.get(timeout=timeout_secs)
-                    except queue.Empty:
-                        ws.send(json.dumps({"type": "error", "text": "انتهت المهلة — لم يرد AI"}))
-                        break
+                    # استقبال chunks من الـ thread (مهلة طويلة لأن الـ provider بيعيد المحاولة تلقائياً)
+                    timeout_secs = 600
+                    while True:
+                        try:
+                            msg_type, payload = chunk_queue.get(timeout=timeout_secs)
+                        except queue.Empty:
+                            ws.send(json.dumps({"type": "error", "text": "انتهت المهلة — لم يرد AI"}))
+                            break
 
-                    if msg_type == "chunk":
-                        full_response += payload
-                        ws.send(json.dumps({"type": "chunk", "text": payload}))
-                    elif msg_type == "done":
-                        break
-                    elif msg_type == "error":
-                        ws.send(json.dumps({"type": "error", "text": payload}))
-                        break
+                        if msg_type == "chunk":
+                            full_response += payload
+                            ws.send(json.dumps({"type": "chunk", "text": payload}))
+                        elif msg_type == "done":
+                            break
+                        elif msg_type == "error":
+                            ws.send(json.dumps({"type": "error", "text": payload}))
+                            break
 
-            except Exception as e:
-                ws.send(json.dumps({"type": "error", "text": str(e)}))
-                continue
+                except Exception as e:
+                    ws.send(json.dumps({"type": "error", "text": str(e)}))
+                    continue
 
             # تحليل الرد
             chat_history.append(Message(role="assistant", content=full_response))
