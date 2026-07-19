@@ -88,8 +88,14 @@ MessageContext:
   قابل للاستبدال (افتراضي chars/4)، إسقاط حتمي (الطبقة الأدنى أولًا،
   الأكبر أولًا) مع تقرير `dropped[]` صريح، هامش أمان 10%، وفيض
   must_have → خطاف تلخيص لكل عنصر (must_have لا تُسقط أبدًا؛ الفيض
-  المتبقي مرصود عبر `overflowed=True`). **غير موصولة بعد** — استبدال
-  حدود الحروف الثلاثة الفعلي في T-024.
-- ⏳ توصيل الميزانية بمسارات الإنتاج + `HistorySource` — T-024+/R-203.
+  المتبقي مرصود عبر `overflowed=True`).
+- ✅ توصيل الميزانية بمسارات البرومبت (T-024 / R-203): حدود الحروف
+  الثلاثة حُذفت — `build_prompt_section` (context_builder) و
+  `build_context` (knowledge) يحزمان عبر `pack()` (عنصر كامل أو إسقاط
+  مرصود بالأهمية)، و`_split_content` (orchestrator) يقدّر عبر
+  `CharsPerTokenEstimator` المركزي، و`build_delegate` (strategies)
+  يحزم الملفات كاملة بدل `[:2000]`. الضبط من `config.yaml` قسم
+  `context_budget` عبر `ContextBudget.from_config`.
+- ⏳ `HistorySource` — لاحقًا (R-304 يبني على نفس محرك القبول).
 
 لكتابة مصدر جديد راجع `context/AUTHORING.md` (القواعد الملزمة).

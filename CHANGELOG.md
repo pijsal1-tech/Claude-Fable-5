@@ -27,6 +27,39 @@
     fallback path left.
 
 ### Added
+- **R-203 (T-024): all prompt paths pack via `ContextBudget` — the three
+  ad-hoc char limits are gone.**
+  Site 1 `chain/context_builder.py`: `build_prompt_section` no longer
+  slices items (`per_item_max`) nor stops at a char wall (`max_total`
+  break) — items are packed whole-or-dropped by tier
+  (`TIER_BY_KIND`: mentioned files = high; dirs/search/deps = normal;
+  tree/info = opportunistic) with an observable
+  `... (أُسقط N عنصر سياق — ميزانية التوكنز: …)` note; `max_total` stays
+  as a legacy-compatible knob (chars → tokens via the central chars/4
+  estimator) and an explicit `budget=` override is accepted.
+  Site 2 `chain/knowledge.py`: `build_context` drops `content[:2000]`,
+  `[:500]`, `[:300]` and the final `max_tokens*4` cut — sections become
+  `BudgetItem`s (read files & observations/errors = high, dirs/search/
+  commands = normal), packed within `max_tokens`; no mid-content cuts.
+  Site 3 `chain/orchestrator.py`: `_split_content`'s scattered `len//4`
+  guesses now go through the single pluggable `CharsPerTokenEstimator`
+  (splitting keeps all content, so it stays outside `pack()` by design).
+  Bonus: `build_delegate` (`chain/strategies.py`) `content[:2000]` per
+  file → whole-file packing at high tier with a named-drops note.
+  Config knob: new `context_budget:` section in `config.yaml`
+  (`model_window`/`reserved_output`/`safety_margin`) read by the new
+  `ContextBudget.from_config()` (defaults 128k/8k/0.10 when absent).
+  Deliberately out of scope (documented): `agent_tools.py` read-size cap
+  (SafeReader territory, R-204/T-025), `orchestrator.py` risk-regex
+  scan slices (analysis-only, never prompt-bound), and the
+  `context/bundle.py` renderer cap (T-021 goldens contract).
+  Tests: `tests/unit/test_budget_wiring.py` (24) — per-site no-mid-cut +
+  tier-drop-order + explicit-budget override, delegate whole-file /
+  drop-note behavior, `from_config` incl. parsing the repo's real
+  `config.yaml`, and the oversized-project E2E (mentioned file intact,
+  packed section within token budget, drop observed). Chain goldens
+  replay byte-exact unchanged (fixtures fit the budget — verified, no
+  golden bytes touched). Suite: **326 passed** (302 + 24).
 - **R-203 (T-023): `ContextBudget` — token-accounted, importance-ordered
   context packing (built unwired; wiring lands in T-024).**
   New `context/budget.py`: four tiers
