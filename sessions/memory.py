@@ -1,0 +1,233 @@
+# -*- coding: utf-8 -*-
+"""ConversationMemory (R-302 / T-029): المالك الواحد للوصول إلى التاريخ.
+
+المشكلة: "أي تاريخ يراه الموديل" يُقرَّر ad-hoc عند كل موقع نداء —
+معالج WS يقصّ ``[-10:]``، والـ delegate يقصّ ``[-6:]``، والقوالب تحقن
+القائمة كاملة. لا مكوّن يملك دلالات ذاكرة المحادثة.
+
+هنا: كل تاريخ متجه للموديل يمر من ``window(policy)`` — سياسة واحدة
+مسماة قابلة للضبط بدل ثلاث قصّات متناثرة (توصيل المستهلكين = T-030).
+
+═══════════════════════ وثيقة الـ API ═══════════════════════
+
+**البنية:** ``ConversationMemory(store, session_id, estimator=None)``
+فوق ``SessionStore`` (سجل JSONL ملحق-فقط من T-027) — الذاكرة لا تملك
+ملفات ولا تخزينًا خاصًا؛ السجل هو مصدر الحقيقة الوحيد، وكل حالة
+(بما فيها التثبيت) مشتقة منه بإعادة التشغيل.
+
+**التسجيل:**
+
+- ``append(role, content, visibility="user", **extra) -> int``
+  يلحق دورًا ويعيد ``turn_id`` (فهرس تسلسلي ثابت داخل الجلسة).
+  ``visibility="agent"`` يوسم أدوار الأدوات (روح R-302: الـ agent يسجل
+  في نفس التيار) — تُستبعد من النوافذ الافتراضية وتبقى قابلة للتشغيل.
+  ``**extra`` حقول إضافية تُحفظ حرفيًا في السجل (توسعة R-802).
+
+- ``pin(turn_id)`` / ``unpin(turn_id)``
+  تثبيت دور ليقفز فوق أي تقليم نافذة (تعليمات يجب ألا تسقط).
+  يُسجَّل كسجل علامة ملحق (``kind="pin"``) — لا تعديل في مكانه أبدًا؛
+  حالة التثبيت الفعالة = آخر علامة لكل ``turn_id`` عند إعادة التشغيل.
+
+**القراءة:**
+
+- ``window(policy) -> list[Turn]``
+  الأدوار المتجهة للموديل وفق سياسة مسماة، **بترتيب السجل دائمًا**:
+  1. فلترة الرؤية (``include_agent``).
+  2. الأدوار المثبتة تدخل النافذة أولًا (تنجو من أي تقليم).
+  3. ``last_n``: آخر N أدوار غير مثبتة.
+  4. ``token_budget``: من الأحدث للأقدم، الدور يدخل كاملًا أو يسقط
+     كاملًا (whole-or-drop — نفس مبدأ R-203، وبنفس المقدّر المركزي
+     ``CharsPerTokenEstimator``؛ المثبتة تُخصم أولًا).
+
+- ``WindowPolicy(last_n=None, token_budget=None, include_agent=False)``
+  سياسات جاهزة تطابق قصّات legacy الثلاث (خريطة T-030):
+  ``POLICY_FULL`` (الكل) · ``POLICY_CHAT`` (آخر 10) ·
+  ``POLICY_DELEGATE`` (آخر 6).
+
+**الأعقاب (stubs — واجهة مثبتة الآن، تنفيذ لاحق):**
+
+- ``summary() -> str | None``: يعيد ``None`` دائمًا (لا ملخص بعد) —
+  R-304 يوصّل التلخيص كاستراتيجية نافذة.
+- ``search(query, limit=5) -> list[Turn]``: تعيد ``[]`` دائمًا —
+  R-802 يوصّل الاسترجاع الدلالي.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Optional
+
+from context.budget import CharsPerTokenEstimator, TokenEstimator
+from sessions.store import SessionStore, _now_iso
+
+# أنواع السجلات في التيار — سجل بلا kind هو رسالة (توافق T-027/T-028)
+_KIND_MESSAGE = "message"
+_KIND_PIN = "pin"
+
+
+# ═══════════════════════ نموذج البيانات ═══════════════════════
+
+@dataclass(frozen=True)
+class Turn:
+    """دور واحد في المحادثة كما تراه النوافذ."""
+    turn_id: int          # فهرس تسلسلي ثابت داخل الجلسة (ترتيب السجل)
+    role: str
+    content: str
+    ts: str = ""
+    visibility: str = "user"    # "user" | "agent" (أدوار الأدوات)
+    pinned: bool = False
+
+
+@dataclass(frozen=True)
+class WindowPolicy:
+    """سياسة نافذة مسماة — القيم None = بلا حد من هذا النوع.
+
+    ``last_n`` و``token_budget`` قابلان للتركيب: يُطبَّق ``last_n``
+    أولًا ثم تُشذَّب النتيجة بالميزانية.
+    """
+    last_n: Optional[int] = None
+    token_budget: Optional[int] = None
+    include_agent: bool = False
+
+    def __post_init__(self) -> None:
+        if self.last_n is not None and self.last_n < 0:
+            raise ValueError("last_n لا يكون سالبًا")
+        if self.token_budget is not None and self.token_budget < 0:
+            raise ValueError("token_budget لا يكون سالبًا")
+
+
+# خريطة سياسات legacy (T-030 يستبدل القصّات بهذه الأسماء):
+POLICY_FULL = WindowPolicy()                    # القائمة كاملة (القوالب)
+POLICY_CHAT = WindowPolicy(last_n=10)           # قصّة [-10:] (معالج WS)
+POLICY_DELEGATE = WindowPolicy(last_n=6)        # قصّة [-6:] (delegate)
+
+
+# ═══════════════════════ الواجهة ═══════════════════════
+
+class ConversationMemory:
+    """المالك الواحد لدلالات ذاكرة المحادثة — راجع docstring الوحدة."""
+
+    def __init__(self, store: SessionStore, session_id: str,
+                 estimator: TokenEstimator | None = None) -> None:
+        self._store = store
+        self._session_id = session_id
+        self._estimator = estimator or CharsPerTokenEstimator()
+        # كاش عدّاد الأدوار — يُملأ كسولاً من السجل ثم يُزاد محليًّا،
+        # فيبقى append بلا إعادة تشغيل للسجل (لا ننقض O(1) لـ T-027)
+        self._turn_count: Optional[int] = None
+
+    # ── التسجيل ──
+
+    def append(self, role: str, content: str,
+               visibility: str = "user", **extra: Any) -> int:
+        """إلحاق دور — يعيد turn_id الثابت (فهرس السجل التسلسلي)."""
+        if visibility not in ("user", "agent"):
+            raise ValueError(f"visibility غير معروفة: {visibility!r}")
+        turn_id = self._next_turn_id()
+        record: dict[str, Any] = dict(extra)
+        record.update({
+            "kind": _KIND_MESSAGE,
+            "role": role,
+            "content": content,
+            "visibility": visibility,
+        })
+        record.setdefault("ts", _now_iso())
+        self._store.append_record(self._session_id, record)
+        self._turn_count = turn_id + 1
+        return turn_id
+
+    def pin(self, turn_id: int) -> None:
+        """تثبيت دور — علامة ملحقة، الحالة الفعالة تُشتق عند القراءة."""
+        self._append_pin_marker(turn_id, pinned=True)
+
+    def unpin(self, turn_id: int) -> None:
+        self._append_pin_marker(turn_id, pinned=False)
+
+    def _append_pin_marker(self, turn_id: int, pinned: bool) -> None:
+        if turn_id < 0 or turn_id >= self._next_turn_id():
+            raise ValueError(f"turn_id غير موجود: {turn_id}")
+        self._store.append_record(self._session_id, {
+            "kind": _KIND_PIN, "turn": turn_id, "pinned": pinned,
+        })
+
+    # ── القراءة ──
+
+    def turns(self) -> list[Turn]:
+        """كل الأدوار بترتيب السجل مع حالة تثبيت فعالة — بلا نافذة."""
+        turns: list[Turn] = []
+        pin_state: dict[int, bool] = {}
+        for rec in self._store.replay(self._session_id).records:
+            kind = rec.get("kind", _KIND_MESSAGE)
+            if kind == _KIND_PIN:
+                pin_state[int(rec.get("turn", -1))] = bool(
+                    rec.get("pinned", True))
+            elif kind == _KIND_MESSAGE:
+                turns.append(Turn(
+                    turn_id=len(turns),
+                    role=str(rec.get("role", "")),
+                    content=str(rec.get("content", "")),
+                    ts=str(rec.get("ts", "")),
+                    visibility=str(rec.get("visibility", "user")),
+                ))
+            # أنواع مستقبلية (R-802) تُتخطى بأمان
+        if pin_state:
+            turns = [
+                Turn(t.turn_id, t.role, t.content, t.ts, t.visibility,
+                     pinned=pin_state.get(t.turn_id, False))
+                for t in turns
+            ]
+        return turns
+
+    def window(self, policy: WindowPolicy = POLICY_FULL) -> list[Turn]:
+        """الأدوار المتجهة للموديل وفق السياسة — بترتيب السجل دائمًا."""
+        visible = [t for t in self.turns()
+                   if policy.include_agent or t.visibility == "user"]
+
+        pinned = [t for t in visible if t.pinned]
+        unpinned = [t for t in visible if not t.pinned]
+
+        # last_n على غير المثبت — المثبت ينجو خارج العدّ
+        if policy.last_n is not None:
+            unpinned = unpinned[len(unpinned) - min(
+                policy.last_n, len(unpinned)):]
+
+        selected = {t.turn_id for t in pinned} | {
+            t.turn_id for t in unpinned}
+
+        # token_budget: المثبت يُخصم أولًا، ثم من الأحدث للأقدم
+        # whole-or-drop (مبدأ R-203، بالمقدّر المركزي نفسه)
+        if policy.token_budget is not None:
+            remaining = policy.token_budget
+            kept: set[int] = set()
+            for t in pinned:   # المثبت دائمًا داخل — يُخصم لا يُقصى
+                remaining -= self._estimator.estimate(t.content)
+                kept.add(t.turn_id)
+            for t in reversed(unpinned):
+                cost = self._estimator.estimate(t.content)
+                if cost <= remaining:
+                    remaining -= cost
+                    kept.add(t.turn_id)
+                # لا break: دور أقدم أصغر قد يسع الميزانية المتبقية —
+                # لكن الترتيب النهائي ترتيب السجل، فلا خلط
+            selected &= kept
+
+        return [t for t in visible if t.turn_id in selected]
+
+    # ── الأعقاب (واجهة مثبتة — تنفيذ لاحق) ──
+
+    def summary(self) -> Optional[str]:
+        """ملخص المحادثة — stub: لا تلخيص بعد (R-304 يوصّله)."""
+        return None
+
+    def search(self, query: str, limit: int = 5) -> list[Turn]:
+        """استرجاع دلالي — stub: لا فهرس بعد (R-802 يوصّله)."""
+        return []
+
+    # ── داخلي ──
+
+    def _next_turn_id(self) -> int:
+        """turn_id التالي = عدد سجلات الرسائل — يُحسب مرة ثم يُكاش."""
+        if self._turn_count is None:
+            self._turn_count = sum(
+                1 for rec in self._store.replay(self._session_id).records
+                if rec.get("kind", _KIND_MESSAGE) == _KIND_MESSAGE)
+        return self._turn_count
