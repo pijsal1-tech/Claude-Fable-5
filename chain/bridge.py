@@ -30,6 +30,7 @@ from .agent_loader import AgentLoader
 from .action_applier import ActionApplier
 from core.approval import ApprovalGate, ApprovalRequest, ProposedAction
 from core.execution import RunTicket
+from .path_policy import is_secret_file  # T-025 (R-204): فلتر حدود الماسح
 
 
 # ═══════════════════════════════════════════════════════
@@ -469,12 +470,16 @@ class ChainBridge:
 # ═══════════════════════════════════════════════════════
 
 # امتدادات نصية آمنة للقراءة
+# T-025 (R-204): ".env" حُذفت — كانت تقرأ مفاتيح حية داخل سياق
+# السلسلة وتشحنها لمزودي موديلات طرف ثالث. الأسرار تُحجب أيضًا
+# بفلتر is_secret_file في _collect_files (تحته) — راجع
+# context/safe_reader.py للسياسة الكاملة وإجراء التجاوز.
 _TEXT_EXTENSIONS = {
     ".html", ".htm", ".css", ".scss", ".sass", ".less",
     ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
     ".json", ".yaml", ".yml", ".toml",
     ".py", ".sh", ".bat", ".ps1",
-    ".md", ".txt", ".env", ".gitignore",
+    ".md", ".txt", ".gitignore",
     ".svg", ".xml", ".vue", ".svelte",
     ".rs", ".go", ".java", ".c", ".cpp", ".h", ".hpp",
     ".rb", ".php", ".swift", ".kt", ".dart",
@@ -573,6 +578,11 @@ def _collect_files(root: pathlib.Path, current: pathlib.Path,
                 _collect_files(root, item, result, limit)
             elif item.is_file():
                 if item.suffix.lower() in _TEXT_EXTENSIONS:
+                    # T-025 (R-204): فلتر الأسرار عند الحدود — ملف سري
+                    # لا يدخل قائمة المرشحين أصلًا (مثل keys.pem
+                    # أو credentials.json رغم أن امتدادهما مسموح).
+                    if is_secret_file(item):
+                        continue
                     result.append(item)
     except PermissionError:
         pass
