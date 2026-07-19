@@ -517,11 +517,11 @@
 - **Files to Modify:** provider pool module
 - **Affected Modules:** provider selection
 - **Acceptance Criteria:** state-machine unit covers all transitions; FakeProvider scripted-failure recovery integration green; `reset_failures` gone (grep).
-- **Implementation:** [ ] breaker · [ ] transitions · [ ] cooldown cap · [ ] delete reset_failures
-- **Testing:** [ ] transition matrix · [ ] recovery integration
-- **Regression:** [ ] healthy-provider path unchanged
-- **Documentation:** [ ] breaker states diagram
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-038
+- **Implementation:** [x] breaker · [x] transitions · [x] cooldown cap · [x] delete reset_failures
+- **Testing:** [x] transition matrix · [x] recovery integration
+- **Regression:** [x] healthy-provider path unchanged
+- **Documentation:** [x] breaker states diagram
+- **Completion Status:** ✅ · **Reviewer Notes:** `providers/pool.py`: `BreakerState` StrEnum (ASCII transition diagram in docstring = the "breaker states diagram" box) + `CircuitBreaker(failure_threshold=3, cooldown_base_s=30, cooldown_cap_s=600, clock=time.monotonic, jitter_fn=None)` — state computed **lazily from timestamps** (no timers/threads): `_opened_at is None→CLOSED`, `elapsed<cooldown→OPEN`, else `HALF_OPEN`; probe failure in HALF_OPEN trips immediately with doubled cooldown `min(base·2^(trips−1), cap)`; success fully heals backoff (`trip_count=0`). Clock injectable for deterministic tests; `jitter_fn` hook deliberately off by default (roadmap's jitter mitigation available in prod via e.g. `random.random`). `ProviderPool(breaker_factory=...)` keeps one breaker per provider (add/remove lifecycle), records success/failure in both `send_with_fallback` + `stream_with_fallback`, `_get_available()` via `breaker.available()`, `get_pool_status()` keeps legacy `failed_recently` key (True⇔not CLOSED) + new `breaker` snapshot dict. **`reset_failures()` and `_failed_names` deleted** — grep gate in test asserts zero production references (`def reset_failures|reset_failures(|self._failed_names` → returncode 1). 29 new tests in `tests/unit/test_circuit_breaker.py` (fake clock `now=[0.0]`): 9 transition-matrix, 4 exponential/cap/jitter, 4 ctor+to_dict, 5 FakeProvider recovery integration through the pool (excluded while OPEN with **zero call attempts**, reused after cooldown without restart; failed probe doubles cooldown; stream path too; all-open raises + `get_best` legacy fallback preserved), 4 healthy-path regression (fallback order, get_best/get_cheapest, status contract keys, remove cleans breaker), 1 grep gate. `./scripts/check.sh` → mypy Success (44 files) + 3 grep gates + **677 passed, 1 skipped** — ALL GREEN (648→677 = +29). Wire contract untouched (status dict only gained additive `breaker` key). CHANGELOG entry added above R-402. · **Next Task:** T-038
 
 ## T-038 — CapacityModel; Remove MIN_ACCOUNTS (R-403)
 - **Description:** `CapacityModel` computes availability from live pool + breaker states; **remove hardcoded `MIN_ACCOUNTS` arithmetic**; UI budget numbers derive from the model with `estimated` flags.

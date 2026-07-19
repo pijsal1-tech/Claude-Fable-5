@@ -27,6 +27,36 @@
     fallback path left.
 
 ### Added
+- **R-403 (T-037): circuit breaker per provider — the permanent
+  `_failed_names` blacklist (a provider stayed dead until restart) is
+  replaced by a real closed→open→half-open breaker.** New in
+  `providers/pool.py`: `BreakerState` StrEnum (with an ASCII transition
+  diagram in the docstring) and `CircuitBreaker` — state is computed
+  lazily from timestamps (no timers/threads): 3 consecutive failures
+  trip it OPEN, the cooldown grows exponentially per trip
+  (`min(30s · 2^(trips−1), 600s)`, cap configurable), and once the
+  cooldown elapses the breaker turns HALF_OPEN allowing a single probe:
+  probe success → CLOSED with the backoff fully healed; probe failure →
+  OPEN again immediately with a doubled cooldown. The clock is
+  injectable (`clock=time.monotonic` by default) so tests advance time
+  deterministically, and an optional `jitter_fn` hook exists for
+  production thundering-herd mitigation (deliberately off by default
+  for determinism). `ProviderPool` now takes a `breaker_factory`,
+  keeps one breaker per provider (created in `add`, dropped in
+  `remove`), records success/failure in both `send_with_fallback` and
+  `stream_with_fallback`, filters `_get_available()` through
+  `breaker.available()`, and enriches `get_pool_status()` with a
+  `breaker` snapshot while keeping the legacy `failed_recently` key
+  (`True` ⇔ breaker not CLOSED). **The never-called `reset_failures()`
+  is deleted** — the breaker owns the failure lifecycle now
+  (cooldown → probe → automatic recovery, no restart needed). 29 new
+  tests in `tests/unit/test_circuit_breaker.py`: full transition
+  matrix with a fake clock, exponential-cap sequence checks,
+  FakeProvider recovery integration through the pool (excluded while
+  OPEN with zero call attempts, reused after cooldown), healthy-path
+  regression (fallback order / get_best / status contract unchanged),
+  and a grep gate asserting `reset_failures` / `self._failed_names`
+  are gone from production code.
 - **R-402 (T-036): explainable routing — every decision now carries a
   complete record, and the magic thresholds moved to config.** New
   `chain/routing_config.py`: frozen `RoutingThresholds` (the three
