@@ -27,6 +27,43 @@
     fallback path left.
 
 ### Added
+- **R-601 (T-044): Crash resume wired — `can_resume`/`load_state`
+  get their first production callers.** 🆕 `chain/resume.py`:
+  `scan_resumable(runs_dir)` (startup + on-demand scan for
+  interrupted runs — `state.json` in a non-terminal state:
+  `running` = mid-run kill, `failed` = retryable stop);
+  `check_drift(project_snapshot, project_root)` re-hashes the
+  files pinned by the run's real content hashes (T-033/R-305,
+  same sha256 as `_build_project_snapshot`) against the current
+  disk and returns a `DriftReport` (matched/changed/missing);
+  `rebuild_run(state)` reconstructs an executable `ChainRun` —
+  `success` steps keep their status + results (never re-executed:
+  `get_ready_steps` only schedules the remainder = exactly-once),
+  non-success steps reset to `pending`, fresh budget from policy.
+  `chain/bridge.py`: launch path factored into `_launch_run`
+  (shared by `start_chain` and resume — same events, same gated
+  apply, same ticket lifecycle); new `resume_run(run_id, ws_send,
+  ticket)` (busy-guard → can_resume → load_state → **drift check:
+  any changed/missing file ⇒ refusal frame `chain_resume_refused`
+  with the full drift report, zero provider calls, state left
+  intact for discard** → rebuild → launch), `discard_run(run_id)`
+  (deletes the run dir — `can_resume` false afterwards),
+  `list_resumable()`. `chain/models.py`: `to_state_dict` now
+  carries `prompt_template` per step (UI-facing `to_dict`
+  unchanged) — without it resumed steps would run with empty
+  prompts. `server.py`: WS `resume_scan` / `resume_run` /
+  `discard_run` handlers (resume goes through `_begin_run_ticket`
+  like any chain; refusal releases the ticket) + startup scan
+  after bridge construction (informational — decisions stay with
+  the user over WS). Resume runbook = `chain/resume.py` module
+  docstring. Evidence: `tests/integration/test_crash_resume.py`
+  (23): kill-after-step-2-of-5 E2E (resume executes steps 3–5
+  **exactly once** — provider call_count == 3, results of 1–2
+  preserved verbatim; also the literal-kill variant with state
+  stuck on `running`), drift refusal ×4 (changed / missing /
+  clean-pass / empty-snapshot), discard ×3, startup scan ×5
+  (ignores completed runs + junk), rebuild round-trip ×5,
+  ticket-final-state + busy-guard.
 - **R-503 (T-043): Knowledge as ContextBundle view; delta prompts —
   agent-loop token burn flattened.** `chain/knowledge.py`: the raw
   stores (`_files_read`/`_dirs_listed`/`_searches`/`_commands`)
