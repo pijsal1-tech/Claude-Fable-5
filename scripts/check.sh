@@ -7,8 +7,9 @@ cd "$(dirname "$0")/.."
 # T-010: mypy gate (كان advisory) — يفشل السكريبت لو ظهرت أخطاء types
 # في providers/ أو chain/. عند إضافة provider جديد راجع أيضًا
 # tests/contracts/provider_contract.py (ProviderContractMixin) وأضف صنفه هناك.
-echo "== mypy (gate: providers/ + chain/ + core/ + context/) =="
-mypy --ignore-missing-imports --follow-imports=silent providers/ chain/ core/ context/
+# T-027 (R-301): sessions/ انضمت للبوابة — وحدة إنتاجية جديدة.
+echo "== mypy (gate: providers/ + chain/ + core/ + context/ + sessions/) =="
+mypy --ignore-missing-imports --follow-imports=silent providers/ chain/ core/ context/ sessions/
 
 # T-026 (R-204): حدود SafeReader — ممنوع أي قراءة خام لمحتوى ملفات داخل
 # context/ خارج safe_reader.py. حدود مُلتفّ عليها في مكان واحد ليست حدودًا.

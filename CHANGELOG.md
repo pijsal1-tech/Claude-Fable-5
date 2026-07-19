@@ -27,6 +27,33 @@
     fallback path left.
 
 ### Added
+- **R-301 (T-027): `sessions/store.py` — append-only JSONL session
+  store; kills the O(n²) rewrite-per-message.**
+  On-disk format (spec in the module docstring): `session_<id>.jsonl`
+  (one JSON object per line, append-only, **the source of truth**) +
+  `session_<id>.meta.json` sidecar (mutable header: title / project
+  binding / counters — **derived, rebuildable**, written only on header
+  change, never per message). `append_record`/`append_message` are O(1):
+  open-append-write one line, no read, no rewrite; configurable
+  `fsync="always"|"never"` per store (meta replaces atomically without
+  fsync — it is derived and cheap to rebuild). **Torn-write recovery:**
+  a crash produces at most one torn final line — reads (`replay`/`tail`)
+  skip it and report `torn_tail=True`; the first append on an existing
+  file truncates back to the last intact `\n` before appending, so two
+  records can never fuse. Corruption **mid**-log is not a crash pattern
+  and raises `CorruptLogError` loudly. `tail(n)` reads backwards in 64KB
+  blocks — the recent-window load for R-304 never scans the whole file.
+  `rebuild_meta()` heals any data/meta drift from the log (the R-301
+  risk clause); a missing or corrupt sidecar rebuilds automatically on
+  first `read_meta`. `sessions/` added to the mypy gate. Nothing is
+  wired yet — `actions/session_manager.py` untouched; migration +
+  gitignore land in T-028. Acceptance evidence: benchmark 1k appends
+  p95 < 5ms (with `fsync="never"` — fsync latency belongs to the disk,
+  the claim under test is constant-cost appends) plus a growth test
+  (mean of last 100 appends ≤ 3× first 100 at 10× history). Evidence:
+  `tests/unit/test_session_store.py` — 26 tests. Full suite
+  **403 passed** (377 + 26); mypy clean (40 files);
+  `./scripts/check.sh` ALL GREEN.
 - **R-204 (T-026): every context-bound file read routed through
   `SafeReader` + CI boundary grep.**
   `context/sources/mention.py::build_items` (the single read helper
