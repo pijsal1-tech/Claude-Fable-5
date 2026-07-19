@@ -1,0 +1,534 @@
+{
+  "count": 30,
+  "entries": {
+    "builder_delegate_brief_implement_review_land": {
+      "decision": {
+        "step_ids": [
+          "dlg_brief",
+          "dlg_implement",
+          "dlg_review",
+          "dlg_land"
+        ],
+        "step_stages": [
+          "plan",
+          "execute",
+          "review",
+          "execute"
+        ],
+        "strategy_name": "delegate"
+      },
+      "layer": "builder_delegate"
+    },
+    "orch_chunk_chain_large_single_file": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 0.0,
+          "recommended_strategy": "chunk_chain",
+          "request_complexity": 0.0,
+          "risk_score": 0.0,
+          "size_score": 6.0,
+          "total": 6.0
+        },
+        "step_ids": [
+          "chunk_0",
+          "chunk_1",
+          "chunk_2",
+          "cc_plan",
+          "cc_execute"
+        ],
+        "step_stages": [
+          "analyze",
+          "analyze",
+          "analyze",
+          "plan",
+          "execute"
+        ],
+        "strategy_name": "chunk_chain"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_context_window_folds_files": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 1.5,
+          "recommended_strategy": "context_window",
+          "request_complexity": 0.0,
+          "risk_score": 0.0,
+          "size_score": 1.0,
+          "total": 2.5
+        },
+        "step_ids": [
+          "cw_analyze",
+          "cw_execute"
+        ],
+        "step_stages": [
+          "analyze",
+          "execute"
+        ],
+        "strategy_name": "context_window"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_context_window_single_file": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 0.0,
+          "recommended_strategy": "context_window",
+          "request_complexity": 1.0,
+          "risk_score": 0.0,
+          "size_score": 2.0,
+          "total": 3.0
+        },
+        "step_ids": [
+          "cw_analyze",
+          "cw_execute"
+        ],
+        "step_stages": [
+          "analyze",
+          "execute"
+        ],
+        "strategy_name": "context_window"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_direct_wraps_file_content": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 0.0,
+          "recommended_strategy": "direct",
+          "request_complexity": 0.0,
+          "risk_score": 0.0,
+          "size_score": 0.5,
+          "total": 0.5
+        },
+        "step_ids": [
+          "direct"
+        ],
+        "step_stages": [
+          "execute"
+        ],
+        "strategy_name": "direct"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_direct_wraps_files_dict": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 0.0,
+          "recommended_strategy": "direct",
+          "request_complexity": 0.0,
+          "risk_score": 0.0,
+          "size_score": 1.0,
+          "total": 1.0
+        },
+        "step_ids": [
+          "direct"
+        ],
+        "step_stages": [
+          "execute"
+        ],
+        "strategy_name": "direct"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_forced_context_window": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 0.0,
+          "recommended_strategy": "direct",
+          "request_complexity": 0.0,
+          "risk_score": 0.0,
+          "size_score": 0.5,
+          "total": 0.5
+        },
+        "step_ids": [
+          "cw_analyze",
+          "cw_execute"
+        ],
+        "step_stages": [
+          "analyze",
+          "execute"
+        ],
+        "strategy_name": "context_window"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_forced_delegate_falls_back_to_direct": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 0.0,
+          "recommended_strategy": "direct",
+          "request_complexity": 0.0,
+          "risk_score": 0.0,
+          "size_score": 0.5,
+          "total": 0.5
+        },
+        "step_ids": [
+          "direct"
+        ],
+        "step_stages": [
+          "execute"
+        ],
+        "strategy_name": "direct"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_forced_map_reduce": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 0.0,
+          "recommended_strategy": "direct",
+          "request_complexity": 0.0,
+          "risk_score": 0.0,
+          "size_score": 1.0,
+          "total": 1.0
+        },
+        "step_ids": [
+          "map_0",
+          "mr_reduce",
+          "mr_execute"
+        ],
+        "step_stages": [
+          "analyze",
+          "plan",
+          "execute"
+        ],
+        "strategy_name": "map_reduce"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_map_reduce_many_small_files": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 3.0,
+          "recommended_strategy": "map_reduce",
+          "request_complexity": 0.0,
+          "risk_score": 0.0,
+          "size_score": 1.0,
+          "total": 4.0
+        },
+        "step_ids": [
+          "map_0",
+          "map_1",
+          "map_2",
+          "map_3",
+          "mr_reduce",
+          "mr_execute"
+        ],
+        "step_stages": [
+          "analyze",
+          "analyze",
+          "analyze",
+          "analyze",
+          "plan",
+          "execute"
+        ],
+        "strategy_name": "map_reduce"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_map_reduce_two_medium_files": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 1.5,
+          "recommended_strategy": "map_reduce",
+          "request_complexity": 0.0,
+          "risk_score": 0.0,
+          "size_score": 5.0,
+          "total": 6.5
+        },
+        "step_ids": [
+          "map_0",
+          "map_1",
+          "mr_reduce",
+          "mr_execute"
+        ],
+        "step_stages": [
+          "analyze",
+          "analyze",
+          "plan",
+          "execute"
+        ],
+        "strategy_name": "map_reduce"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_pipeline_no_review": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 0.0,
+          "recommended_strategy": "pipeline",
+          "request_complexity": 3.0,
+          "risk_score": 0.5,
+          "size_score": 6.0,
+          "total": 9.5
+        },
+        "step_ids": [
+          "pl_scout",
+          "pl_plan",
+          "pl_execute"
+        ],
+        "step_stages": [
+          "analyze",
+          "plan",
+          "execute"
+        ],
+        "strategy_name": "pipeline"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_pipeline_with_review_on_risk": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 0.0,
+          "recommended_strategy": "pipeline",
+          "request_complexity": 3.0,
+          "risk_score": 3.0,
+          "size_score": 6.0,
+          "total": 12.0
+        },
+        "step_ids": [
+          "pl_scout",
+          "pl_plan",
+          "pl_execute",
+          "pl_review"
+        ],
+        "step_stages": [
+          "analyze",
+          "plan",
+          "execute",
+          "review"
+        ],
+        "strategy_name": "pipeline"
+      },
+      "layer": "orchestrator"
+    },
+    "orch_trivial_direct_no_context": {
+      "decision": {
+        "complexity": {
+          "cross_file_score": 0.0,
+          "file_count_score": 0.0,
+          "recommended_strategy": "direct",
+          "request_complexity": 0.0,
+          "risk_score": 0.0,
+          "size_score": 0.0,
+          "total": 0.0
+        },
+        "step_ids": [
+          "direct"
+        ],
+        "step_stages": [
+          "execute"
+        ],
+        "strategy_name": "direct"
+      },
+      "layer": "orchestrator"
+    },
+    "router_auto_chain_downgrades_to_direct_flagged": {
+      "decision": {
+        "chain_strategy": null,
+        "complexity_score": 3.0,
+        "downgrade_reason": "الحسابات المتاحة (1) أقل من المطلوب (2) — تم تنزيل الاستراتيجية لـ direct",
+        "downgraded": true,
+        "max_steps": 1,
+        "provider_name": "use_ai",
+        "strategy": "direct"
+      },
+      "layer": "router"
+    },
+    "router_borderline_auto_chain_below_full_threshold": {
+      "decision": {
+        "chain_strategy": "context_window",
+        "complexity_score": 4.0,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 3,
+        "provider_name": "use_ai",
+        "strategy": "auto_chain"
+      },
+      "layer": "router"
+    },
+    "router_chat_mode_always_direct": {
+      "decision": {
+        "chain_strategy": null,
+        "complexity_score": 0.0,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 1,
+        "provider_name": "use_ai",
+        "strategy": "direct"
+      },
+      "layer": "router"
+    },
+    "router_delegate_downgrades_to_full_chain": {
+      "decision": {
+        "chain_strategy": "pipeline",
+        "complexity_score": 9.5,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 3,
+        "provider_name": "use_ai",
+        "strategy": "full_chain"
+      },
+      "layer": "router"
+    },
+    "router_delegate_pins_pipeline_chain_strategy": {
+      "decision": {
+        "chain_strategy": "pipeline",
+        "complexity_score": 12.0,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 4,
+        "provider_name": "use_ai",
+        "strategy": "delegate"
+      },
+      "layer": "router"
+    },
+    "router_forced_auto_chain_affordable": {
+      "decision": {
+        "chain_strategy": "direct",
+        "complexity_score": 0.0,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 2,
+        "provider_name": "use_ai",
+        "strategy": "auto_chain"
+      },
+      "layer": "router"
+    },
+    "router_forced_delegate_affordable": {
+      "decision": {
+        "chain_strategy": "direct",
+        "complexity_score": 0.0,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 4,
+        "provider_name": "use_ai",
+        "strategy": "delegate"
+      },
+      "layer": "router"
+    },
+    "router_forced_delegate_unaffordable_downgrades": {
+      "decision": {
+        "chain_strategy": null,
+        "complexity_score": 0.0,
+        "downgrade_reason": "طلبت delegate لكن الحسابات (2) أقل من المطلوب (4)",
+        "downgraded": true,
+        "max_steps": 1,
+        "provider_name": "use_ai",
+        "strategy": "direct"
+      },
+      "layer": "router"
+    },
+    "router_forced_direct": {
+      "decision": {
+        "chain_strategy": null,
+        "complexity_score": 3.5,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 1,
+        "provider_name": "use_ai",
+        "strategy": "direct"
+      },
+      "layer": "router"
+    },
+    "router_forced_full_chain_affordable": {
+      "decision": {
+        "chain_strategy": "direct",
+        "complexity_score": 0.0,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 3,
+        "provider_name": "use_ai",
+        "strategy": "full_chain"
+      },
+      "layer": "router"
+    },
+    "router_forced_unknown_string_passes_through": {
+      "decision": {
+        "chain_strategy": "direct",
+        "complexity_score": 0.0,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 1,
+        "provider_name": "use_ai",
+        "strategy": "banana"
+      },
+      "layer": "router"
+    },
+    "router_full_chain_downgrades_to_auto_chain": {
+      "decision": {
+        "chain_strategy": "context_window",
+        "complexity_score": 5.5,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 2,
+        "provider_name": "use_ai",
+        "strategy": "auto_chain"
+      },
+      "layer": "router"
+    },
+    "router_high_score_full_chain": {
+      "decision": {
+        "chain_strategy": "chunk_chain",
+        "complexity_score": 5.5,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 4,
+        "provider_name": "use_ai",
+        "strategy": "full_chain"
+      },
+      "layer": "router"
+    },
+    "router_low_score_direct": {
+      "decision": {
+        "chain_strategy": null,
+        "complexity_score": 0.0,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 1,
+        "provider_name": "use_ai",
+        "strategy": "direct"
+      },
+      "layer": "router"
+    },
+    "router_mid_score_auto_chain": {
+      "decision": {
+        "chain_strategy": "context_window",
+        "complexity_score": 3.0,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 3,
+        "provider_name": "use_ai",
+        "strategy": "auto_chain"
+      },
+      "layer": "router"
+    },
+    "router_very_high_score_delegate": {
+      "decision": {
+        "chain_strategy": "pipeline",
+        "complexity_score": 9.5,
+        "downgrade_reason": "",
+        "downgraded": false,
+        "max_steps": 4,
+        "provider_name": "use_ai",
+        "strategy": "delegate"
+      },
+      "layer": "router"
+    }
+  },
+  "format": 1,
+  "task": "T-034 (R-401) — golden corpus of 30 real routing decisions"
+}

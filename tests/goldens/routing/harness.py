@@ -121,11 +121,13 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         layer="router", budget=ONE, mode="build",
         request=_LONG_REQ, file_content=_lines(500),
     ),
-    "router_full_chain_upgrades_direct_chain_strategy": dict(
-        # score يقع في نطاق full_chain لكن recommended=direct؟ غير ممكن
-        # رياضيًّا (نفس الـ score) — يُلتقط أقرب مسار: recommended هنا
-        # chunk_chain والـ upgrade-minimum لا يعمل. القيمة التوثيقية:
-        # chain_strategy يتبع recommended_strategy لا مفردة الراوتر.
+    "router_borderline_auto_chain_below_full_threshold": dict(
+        # حدّي: ملف 3900 سطر (score حجم = 4.0) بطلب خفيف بلا أنماط —
+        # المجموع 4.0 يبقى داخل نطاق auto_chain (≤5.0) رغم ضخامة الملف.
+        # ملاحظة توثيقية: مسار «upgrade recommended=direct → context_window»
+        # داخل فرع full_chain **غير قابل للوصول** رياضيًّا (نفس الـ score
+        # يقرر النطاقين)، لذا لا سيناريو له — chain_strategy يتبع
+        # recommended_strategy دائمًا.
         layer="router", budget=PLENTY, mode="build",
         request="tidy this large file", file_content=_lines(3900),
     ),

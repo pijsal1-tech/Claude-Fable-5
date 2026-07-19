@@ -27,6 +27,33 @@
     fallback path left.
 
 ### Added
+- **R-401 (T-034): golden corpus of 30 real routing decisions — the
+  pre-refactor behavioral baseline for the vocabulary unification.**
+  New `tests/goldens/routing/` package: `harness.py` runs 30
+  deterministic scenarios against the **real, untouched** production
+  code (`RequestRouter.route`, `SmartOrchestrator.select_strategy`,
+  `build_delegate`) with fixed budgets and generated file content —
+  the "instrumentation" lives entirely inside `tests/`, so the
+  acceptance clause *instrumentation removed* holds by construction
+  (nothing was ever added to production). `capture_corpus.py`
+  (module-runnable) freezes the results into
+  `routing_corpus.golden.json` — 16 router + 13 orchestrator +
+  1 delegate-builder decisions. Coverage: all **4 router** strategy
+  strings (`direct`/`auto_chain`/`full_chain`/`delegate` — natural,
+  forced, and budget-downgraded) and all **6 orchestrator** strategy
+  strings (5 via `select_strategy`, `delegate` via the builder path).
+  The corpus honestly records three current quirks the refactor must
+  reckon with: (a) `select_strategy(force_strategy="delegate")` falls
+  through `else` into a **silent** direct fallback; (b) an unknown
+  `force_strategy` string passes through **verbatim** into
+  `RoutingDecision.strategy`; (c) the budget downgrade
+  delegate→full_chain does **not** set `downgraded=True` (the flag
+  only fires on the final drop to direct). Replay + coverage-matrix
+  guard in `tests/unit/test_routing_corpus.py` (38 tests): every
+  scenario re-run must dict-equal its golden entry ("corpus replays
+  on legacy"), and the vocabulary/downgrade/misroute matrix is
+  asserted explicitly — after T-035 this file must stay green with
+  the golden untouched, byte for byte.
 - **R-305 (T-033): truthful snapshots + run-artifact retention —
   vacuous validation and the write-only artifact graveyard both
   closed.** `chain/bridge.py`: `ProjectSnapshot` was created with an
