@@ -55,10 +55,13 @@ from core.runner import (
     EVENT_RUN_OUTPUT,
     EVENT_RUN_STARTED,
     RESULT_COMPLETED,
+    RESULT_FAILED,
     RunEvent,
     RunRequest,
 )
+from runners.agent import AgentRunner
 from runners.chain import ChainRunner
+from runners.delegate import DelegateRunner
 from runners.direct import DirectRunner
 from core.approval import ApprovalGate
 from chain.knowledge import KnowledgeAccumulator
@@ -106,24 +109,13 @@ MAX_SMART_FILE_SIZE = 100 * 1024  # حد أقصى لحجم ملف يقرأه Sma
 execution_registry = ExecutionRegistry()
 
 
-def _legacy_dispatch() -> bool:
-    """T-040 (R-501): علم الترحيل — المسار القديم هو الافتراضي.
-
-    ضبط متغير البيئة ``LEGACY_DISPATCH=0`` يفعّل مسار الـ runners
-    (direct + chain). يُقرأ عند كل إرسال — قابل للعكس في الاختبارات
-    دون إعادة تشغيل. دورة الحياة: بعد إثبات المطابقة لكل الأوضاع
-    (T-041) يُحذف العلم والمسارات القديمة معًا — مسار إرسال واحد.
-    """
-    return os.environ.get("LEGACY_DISPATCH", "1") != "0"
-
-
 class _RunnerWSAdapter:
-    """T-040: EventSink يترجم أحداث Runner → إطارات WS القديمة حرفيًا.
+    """T-040/T-041: EventSink يترجم أحداث Runner → إطارات WS حرفيًا.
 
-    - run_output → ``{"type": "chunk", "text": ...}`` (مسار direct).
-    - أحداث إطارات الجسر (chain_*) → الإطار الأصلي كما كان:
-      ``{"type": <event.type>, **event.data}`` — بايت-بايت.
-    - run_started / run_finished → لا إطار (المسار القديم لا يرسلهما؛
+    - run_output → ``{"type": "chunk", "text": ...}`` (رد direct/agent).
+    - أحداث الإطارات الحرة (chain_* / agent_* / delegate_*) → الإطار
+      الأصلي كما كان: ``{"type": <event.type>, **event.data}`` — بايت-بايت.
+    - run_started / run_finished → لا إطار (الواجهة لا تعرفهما؛
       إطار ``start`` يُرسل من موقع الإرسال المشترك نفسه).
     """
 
@@ -137,6 +129,20 @@ class _RunnerWSAdapter:
             self._send({"type": "chunk", "text": event.data.get("text", "")})
             return
         self._send({"type": event.type, **event.data})
+
+
+# T-041 (R-501): مسار إرسال واحد — علم LEGACY_DISPATCH والسلم القديم
+# (stream-worker المباشر، start_chain المباشر، حلقة استطلاع الـ Agent)
+# حُذفوا جميعًا. كل وضع يُرسل عبر runner موحّد يجتاز RunnerContractMixin.
+# القيم مصانع لأن كل runner يُبنى بسياق طلبه (جسر/مزوّد/إغلاقات WS)؛
+# الإرسال دائمًا: ``RUNNERS[strategy](**deps).run(request, ticket, sink)``.
+RUNNERS = {
+    "direct": lambda **d: DirectRunner(d["stream_fn"]),
+    "chain": lambda **d: ChainRunner(d["bridge"]),
+    "agent": lambda **d: AgentRunner(d["loop_factory"],
+                                     on_loop=d.get("on_loop")),
+    "delegate": lambda **d: DelegateRunner(d["bridge"]),
+}
 
 
 def _begin_run_ticket(kind, send_fn):
@@ -869,6 +875,15 @@ def ws_handler(ws):
                 _active_agent_loop.approve_command(approved, approval_id, payload_hash)
             continue
 
+        # ── Agent: إلغاء من المستخدم (T-041: كان يُلتقط داخل حلقة
+        # الاستطلاع المحذوفة — الآن يصل مباشرة لأن الـ Agent يعمل في
+        # thread عامل وحلقة WS الرئيسية حرة دائمًا) ──
+        if msg_type == "cancel_agent":
+            if _active_agent_loop:
+                _active_agent_loop.cancel()
+                print("    🛑 Agent cancelled by user")
+            continue
+
         # ── Chain: رد المستخدم على إطار chain_approval_request (T-012) ──
         # السلسلة معلّقة في thread منفصل على gate.request — هذا يفكها.
         if msg_type == "chain_approval_response":
@@ -1068,50 +1083,36 @@ def ws_handler(ws):
                         if session_mgr:
                             session_mgr.append_message("user", user_text)
 
-                        if not _legacy_dispatch():
-                            # T-040 (R-501): مسار runner — نفس الجسر، نفس
-                            # الإطارات (عبر _RunnerWSAdapter)، نفس التذكرة.
-                            # الـ runner يعمل في thread حتى تبقى حلقة WS
-                            # مستقبِلة (chain_approval_response تصل للبوابة).
-                            _chain_req = RunRequest(
-                                mode="chain",
-                                message=user_text_with_files,
-                                context={
-                                    "file_content": file_content_for_routing,
-                                    "files": files_dict,
-                                },
-                                metadata={
-                                    "force_strategy": routing.chain_strategy,
-                                },
-                            )
-                            _chain_sink = _RunnerWSAdapter(_ws_send)
-                            threading.Thread(
-                                target=ChainRunner(chain_bridge).run,
-                                args=(_chain_req, chain_ticket, _chain_sink),
-                                daemon=True,
-                                name=f"runner-chain-{chain_ticket.run_id}",
-                            ).start()
-                            continue  # الـ runner يتكفل بالرد
-
-                        run_id = chain_bridge.start_chain(
-                            ws_send_fn=_ws_send,
-                            user_request=user_text_with_files,
-                            file_content=file_content_for_routing,
-                            files=files_dict,
-                            force_strategy=routing.chain_strategy,
-                            ticket=chain_ticket,
+                        # T-041 (R-501): المسار الوحيد — runner فوق نفس
+                        # الجسر، نفس الإطارات (عبر _RunnerWSAdapter)، نفس
+                        # التذكرة. الـ runner يعمل في thread حتى تبقى حلقة
+                        # WS مستقبِلة (chain_approval_response تصل للبوابة).
+                        _chain_req = RunRequest(
+                            mode="chain",
+                            message=user_text_with_files,
+                            context={
+                                "file_content": file_content_for_routing,
+                                "files": files_dict,
+                            },
+                            metadata={
+                                "force_strategy": routing.chain_strategy,
+                            },
                         )
-                        if not run_id:
-                            chain_ticket.finish("failed")
-                        continue  # الـ chain يتكفل بالرد
+                        threading.Thread(
+                            target=RUNNERS["chain"](bridge=chain_bridge).run,
+                            args=(_chain_req, chain_ticket,
+                                  _RunnerWSAdapter(_ws_send)),
+                            daemon=True,
+                            name=f"runner-chain-{chain_ticket.run_id}",
+                        ).start()
+                        continue  # الـ runner يتكفل بالرد
 
                     # ── توجيه لـ delegate_bridge ──
                     if routing_tier is RoutingTier.DELEGATE and delegate_bridge:
-                        def _delegate_event(event_type, event_data):
-                            try:
-                                ws.send(json.dumps({"type": event_type, **event_data}))
-                            except Exception:
-                                pass
+                        # T-041: إطارات {"type": et, **ed} تُبنى الآن داخل
+                        # _RunnerWSAdapter من أحداث DelegateRunner الحرة —
+                        # هنا الإرسال الخام فقط (نفس الحماية من WS مقفول).
+                        _delegate_event_frame = _json_sender(ws)
 
                         # حفظ في history
                         chat_history.append(Message(role="user", content=user_text))
@@ -1124,13 +1125,21 @@ def ws_handler(ws):
                             lambda m: ws.send(json.dumps(m, ensure_ascii=False)))
                         if delegate_ticket is None:
                             continue
-                        files_context = files_dict or {}
-                        delegate_bridge.run_delegation(
-                            user_request=user_text,
-                            files_context=files_context,
-                            project_context=project_context,
-                            on_event=_delegate_event,
-                            ticket=delegate_ticket,
+                        # T-041 (R-501): عبر DelegateRunner — نفس الجسر ونفس
+                        # الأحداث (تصل الواجهة حرفيًا عبر _RunnerWSAdapter).
+                        # نداء متزامن كما كان: run_delegation يعود عند
+                        # waiting_approval — لا انتظار مستخدم داخل النداء.
+                        RUNNERS["delegate"](bridge=delegate_bridge).run(
+                            RunRequest(
+                                mode="delegate",
+                                message=user_text,
+                                context={
+                                    "files": files_dict or {},
+                                    "project_context": project_context,
+                                },
+                            ),
+                            delegate_ticket,
+                            _RunnerWSAdapter(_delegate_event_frame),
                         )
                         continue  # الـ delegate يتكفل بالرد
 
