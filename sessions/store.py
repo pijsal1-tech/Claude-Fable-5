@@ -24,8 +24,12 @@ load-كامل → append → إعادة كتابة كاملة مع fsync **لك�
 2) ``session_<id>.meta.json`` — **رأس الجلسة المتغيّر (sidecar) — مشتق،
    قابل لإعادة البناء، ليس مصدر حقيقة.**
    - كائن JSON واحد:
-     ``{"format": 1, "id", "title", "project_path", "created_at",
-        "updated_at", "message_count"}``
+     ``{"format": 1, "id", "title", "project_path", "project_id",
+        "created_at", "updated_at", "message_count"}``
+   - ``project_id`` (R-303 / T-031): بصمة المشروع — ``sha256`` لمسار
+     الجذر المحلول (أول 12 hex). تُختم عند الإنشاء وتتحدّث مع
+     ``set_project_path``؛ الجلسات القديمة بلا بصمة تُقرأ كغير مرتبطة
+     (``""``) — توافق خلفي كامل.
    - يُكتب فقط عند **تغيّر الرأس**: الإنشاء، أول عنوان (أول رسالة user)،
      ``set_project_path``، أو ``flush_meta()`` صراحةً — لا يُعاد كتابته
      لكل رسالة (وإلا عدنا لنمط rewrite-per-message الذي نقتله).
@@ -49,6 +53,7 @@ load-كامل → append → إعادة كتابة كاملة مع fsync **لك�
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
@@ -74,6 +79,60 @@ def _now_iso() -> str:
     return datetime.now().isoformat()
 
 
+# ═══════════════════ ربط الجلسة بالمشروع (R-303 / T-031) ═══════════════════
+
+def project_fingerprint(project_path: str) -> str:
+    """بصمة مشروع مستقرة: sha256 لمسار الجذر المحلول (أول 12 hex).
+
+    الحلّ عبر ``Path.resolve()`` يوحّد المسارات النسبية/الشرطة الزائدة/
+    الوصلات الرمزية — نفس المشروع يعطي نفس البصمة مهما كُتب المسار.
+    مسار فارغ = لا بصمة (جلسة غير مرتبطة).
+    """
+    if not project_path:
+        return ""
+    resolved = str(pathlib.Path(project_path).resolve())
+    return hashlib.sha256(resolved.encode("utf-8")).hexdigest()[:12]
+
+
+BINDING_POLICIES = ("warn", "fork", "block")
+
+
+@dataclass(frozen=True)
+class BindingCheck:
+    """نتيجة فحص ربط الجلسة بالمشروع عند التبديل.
+
+    ``action`` هو القرار النهائي الذي يطيعه المعالج:
+    ``"none"`` (لا تعارض — جلسة غير مرتبطة أو نفس المشروع) أو إحدى
+    السياسات الثلاث عند عدم التطابق: ``"warn"`` (بانر سياق — السلوك
+    القديم يستمر صراحة)، ``"fork"`` (جلسة جديدة مرتبطة بالمشروع
+    الجديد)، ``"block"`` (رفض التبديل).
+    """
+    bound: bool     # هل الجلسة مرتبطة بمشروع أصلًا؟
+    match: bool     # هل المشروع الجديد هو نفسه المرتبط؟
+    policy: str     # السياسة المطبقة (warn | fork | block)
+    action: str     # none | warn | fork | block
+
+
+def check_project_binding(bound_project_id: str, new_project_path: str,
+                          policy: str) -> BindingCheck:
+    """فحص الربط: بصمة الجلسة المختومة ضد المشروع المستهدف.
+
+    جلسة غير مرتبطة (بصمة فارغة — تشمل جلسات legacy قبل T-031)
+    أو تطابق البصمتين ⇐ ``action="none"`` (التبديل صامت).
+    عدم التطابق ⇐ ``action=policy``. سياسة غير معروفة ⇐ ``ValueError``
+    (بصوت عالٍ — خطأ إعداد لا يُبتلع).
+    """
+    if policy not in BINDING_POLICIES:
+        raise ValueError(
+            f"سياسة ربط غير معروفة: {policy!r} — المتاح: {BINDING_POLICIES}")
+    if not bound_project_id:
+        return BindingCheck(bound=False, match=True, policy=policy,
+                            action="none")
+    match = bound_project_id == project_fingerprint(new_project_path)
+    return BindingCheck(bound=True, match=match, policy=policy,
+                        action="none" if match else policy)
+
+
 # ═══════════════════ نموذج البيانات ═══════════════════
 
 @dataclass
@@ -82,6 +141,7 @@ class SessionMeta:
     id: str
     title: str = ""
     project_path: str = ""
+    project_id: str = ""     # R-303 (T-031): بصمة المشروع — فارغة = غير مرتبطة
     created_at: str = ""
     updated_at: str = ""
     message_count: int = 0
@@ -92,6 +152,7 @@ class SessionMeta:
             "id": self.id,
             "title": self.title,
             "project_path": self.project_path,
+            "project_id": self.project_id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "message_count": self.message_count,
@@ -103,6 +164,7 @@ class SessionMeta:
             id=str(data.get("id", "")),
             title=str(data.get("title", "")),
             project_path=str(data.get("project_path", "")),
+            project_id=str(data.get("project_id", "")),
             created_at=str(data.get("created_at", "")),
             updated_at=str(data.get("updated_at", "")),
             message_count=int(data.get("message_count", 0)),
@@ -147,6 +209,7 @@ class SessionStore:
         session_id = uuid.uuid4().hex[:8]
         now = _now_iso()
         meta = SessionMeta(id=session_id, project_path=project_path,
+                           project_id=project_fingerprint(project_path),
                            created_at=now, updated_at=now)
         self.data_path(session_id).touch()
         self._meta_cache[session_id] = meta
@@ -299,6 +362,7 @@ class SessionStore:
         """تغيّر رأسي ⇒ كتابة فورية للـ sidecar."""
         meta = self._load_meta(session_id)
         meta.project_path = project_path
+        meta.project_id = project_fingerprint(project_path)   # R-303
         meta.updated_at = _now_iso()
         self._write_meta(meta)
 
@@ -344,6 +408,7 @@ class SessionStore:
             id=session_id,
             title=title,
             project_path=old.project_path if old else "",
+            project_id=old.project_id if old else "",   # R-303: تُحفظ
             created_at=(old.created_at if old and old.created_at
                         else (replayed.records[0].get("ts", "")
                               if replayed.records else _now_iso())),
