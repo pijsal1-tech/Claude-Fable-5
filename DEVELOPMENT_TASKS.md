@@ -530,11 +530,11 @@
 - **Files to Modify:** capacity module, status frames
 - **Affected Modules:** capacity reporting
 - **Acceptance Criteria:** `MIN_ACCOUNTS` gone (grep); capacity property tests; status frame numbers traceable to model state.
-- **Implementation:** [ ] model · [ ] remove constant · [ ] estimated flags
-- **Testing:** [ ] property tests · [ ] status frame integration
-- **Regression:** [ ] status E2E
-- **Documentation:** [ ] capacity semantics doc
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-039
+- **Implementation:** [x] model · [x] remove constant · [x] estimated flags
+- **Testing:** [x] property tests · [x] status frame integration
+- **Regression:** [x] status E2E
+- **Documentation:** [x] capacity semantics doc
+- **Completion Status:** ✅ · **Reviewer Notes:** 🆕 `providers/capacity.py`: frozen `ProviderCapacity` (name/healthy/breaker_state/raw remaining_calls/estimated; `effective_calls`=0 لغير الصحي أو المجهول) + frozen `CapacityReport` (`total_available` = مجموع مساهمات الأصحاء فقط، `healthy_count`، علم `estimated` على مستوى التقرير = أي مزود **مساهم** تقديري — المفتوح مساهمته صفر بالتعريف فلا يلوّث العلم) + `CapacityModel(pool).report()` نقي (بلا side effects، يقرأ `get_pool_status()` العلني فقط، لا وصول لحقول خاصة). **دلالات estimated موثّقة في docstring الموديول** (= capacity semantics doc): `remaining_calls<0` = فشل الاستعلام نفسه؛ `>= UNLIMITED_SENTINEL (999)` = افتراض BaseProvider «الخيال المعلن» → تخمين لا قياس؛ الأرقام الدقيقة (use_ai override) غير معلَّمة. مزود قاطعه (T-037) OPEN يساهم بصفر مهما ادّعى عدّاده الخام (الخام محفوظ في التقرير للتتبع)، والتعافي عبر القاطع يعيد مساهمته تلقائياً بلا restart. server.py: بانر الإقلاع الآن `💰 Capacity: N calls · M healthy providers (تقديري?)` من الموديل بدل مجموع الميزانية الخام + مسار جديد `GET /api/capacity` يرجع `report().to_dict()` حرفياً (503 قبل الإقلاع) — كل رقم UI قابل للتتبع لحالة الموديل. حساب `MIN_ACCOUNTS` الصلب: زال فعلياً منذ T-036 (عتبات config) — T-038 يثبّته ببوابة grep داخل الاختبارات (كود الإنتاج نظيف؛ check.sh يفحص `MIN_ACCOUNTS_` أصلاً). ملاحظة نطاق صادقة: استهلاك الراوتر لـ `CapacityReport` بدل عدّ الحسابات الخام جزء لاحق من R-403 (خارج ملفات T-038 المحددة «capacity module, status frames» — عقد corpus T-034 يظل بايت-بايت). 13 اختباراً في `tests/unit/test_capacity_model.py`: خصائص السعة (جمع الأصحاء فقط، OPEN→0 مع حفظ الخام، التعافي يعيد السعة، فشل الاستعلام→0+estimated، sentinel→estimated، تقديرية غير الصحي لا تلوّث، pool فارغ/None، نقاء+تساوٍ قيمي، **monotonicity**: مزيد من الفشل لا يزيد السعة أبداً)، تكامل `/api/capacity` عبر Flask test client (الجسم == `report().to_dict()` حرفياً + مسار 503)، وبوابة grep لـ MIN_ACCOUNTS. `./scripts/check.sh` → mypy Success (45 ملفاً) + 4 بوابات grep + **690 passed, 1 skipped** — ALL GREEN (677→690 = +13). CHANGELOG أعلى بند T-037. · **Next Task:** T-039
 
 ---
 

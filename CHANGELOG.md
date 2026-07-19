@@ -27,6 +27,39 @@
     fallback path left.
 
 ### Added
+- **R-403 (T-038): CapacityModel — capacity numbers derived from live
+  pool + breaker state instead of account-count fiction.** New
+  `providers/capacity.py`: frozen `ProviderCapacity` (name, healthy,
+  breaker_state, raw `remaining_calls`, `estimated` flag;
+  `effective_calls` property = 0 for unhealthy or unknown) and frozen
+  `CapacityReport` (`total_available` = sum of healthy effective
+  contributions only; `healthy_count`; report-level `estimated` = any
+  *contributing* provider is estimated — an OPEN provider contributes 0
+  by definition so its estimate cannot taint the flag).
+  `CapacityModel(pool).report()` is pure (no side effects, no external
+  calls) and reads only the public `get_pool_status()` — a provider
+  whose T-037 breaker is OPEN contributes zero regardless of what its
+  raw counter claims; recovery through the breaker restores its
+  contribution automatically. **Estimated semantics documented in the
+  module docstring** (the capacity-semantics doc): `remaining_calls < 0`
+  = the query itself failed (contribute 0, flag estimated);
+  `>= UNLIMITED_SENTINEL (999)` = BaseProvider's declared-fiction
+  default, flagged as a guess, not a measurement; precise overrides
+  stay unflagged. Server: boot banner now prints
+  `Capacity: N calls · M healthy providers (تقديري?)` from the model
+  (replacing the raw budget sum), and new `GET /api/capacity` returns
+  `report().to_dict()` verbatim (503 before boot) so every UI number is
+  traceable to model state. Hardcoded `MIN_ACCOUNTS` arithmetic: gone
+  since T-036 (config-sourced thresholds) — T-038 pins that with a grep
+  gate test so the constants cannot return. 13 new tests in
+  `tests/unit/test_capacity_model.py`: capacity property tests
+  (healthy-only sum, OPEN→0 with raw number preserved for tracing,
+  breaker recovery restores capacity without restart, query failure →
+  0 + estimated, sentinel → estimated, unhealthy estimate doesn't taint
+  the flag, empty/None pool, purity/value-equality, monotonicity —
+  extra failures never increase capacity), `/api/capacity` Flask
+  integration (body == `report().to_dict()` byte-for-byte + 503 path),
+  and the MIN_ACCOUNTS grep gate.
 - **R-403 (T-037): circuit breaker per provider — the permanent
   `_failed_names` blacklist (a provider stayed dead until restart) is
   replaced by a real closed→open→half-open breaker.** New in

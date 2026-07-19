@@ -376,7 +376,7 @@ def api_cwd():
 def api_capacity():
     """T-038 (R-403): سعة صادقة — أرقام الـ UI مشتقة من CapacityModel
     (حالة pool + قواطع T-037 الحية)، مع أعلام estimated للتخمينات؛
-    لا حساب MIN_ACCOUNTS ثابت — كل رقم قابل للتتبع لحالة الموديل."""
+    لا ثوابت حدود حسابات صلبة — كل رقم قابل للتتبع لحالة الموديل."""
     if capacity_model is None:
         return jsonify({"ok": False,
                         "error": "capacity model غير مهيأ بعد"}), 503
