@@ -1815,6 +1815,25 @@ def main():
     )
     print(f"  🔗 Chain System: active")
 
+    # ── Retention GC pass (T-033, R-305) ──
+    # مسح artifacts الـ runs عند الإقلاع حسب config.retention —
+    # dry-run افتراضيًّا (تسجيل فقط، لا حذف) حتى يفعّله المستخدم.
+    try:
+        from sessions.retention import policy_from_config, sweep
+        import yaml as _yaml
+        with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
+            _retention_cfg = (_yaml.safe_load(_cf) or {}).get("retention")
+        _rp = policy_from_config(_retention_cfg)
+        if project_path:
+            _report = sweep(pathlib.Path(project_path) / ".ai_runs", _rp,
+                            log=print)
+            _mode = "dry-run" if _report.dry_run else "live"
+            print(f"  🧹 Retention ({_mode}): "
+                  f"{len(_report.kept)} باقٍ / {len(_report.deleted)} "
+                  f"{'مرشح للحذف' if _report.dry_run else 'محذوف'}")
+    except Exception as _exc:
+        print(f"  ⚠️ Retention sweep skipped: {_exc}")
+
     # ── Smart Request Pipeline ──
     provider_pool = ProviderPool()
     provider_pool.add(prov_id, provider)

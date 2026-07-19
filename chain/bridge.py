@@ -10,6 +10,7 @@
   - Thread-safe: chain يعمل في thread منفصل
 ═══════════════════════════════════════════════════════
 """
+import hashlib
 import json
 import os
 import pathlib
@@ -31,6 +32,37 @@ from .action_applier import ActionApplier
 from core.approval import ApprovalGate, ApprovalRequest, ProposedAction
 from core.execution import RunTicket
 from .path_policy import is_secret_file  # T-025 (R-204): فلتر حدود الماسح
+
+
+def _build_project_snapshot(project_root: str,
+                            files: dict[str, str] | None,
+                            file_path: str = "",
+                            file_content: str = "") -> ProjectSnapshot | None:
+    """R-305 (T-033): لقطة مشروع صادقة — بصمات محتوى حقيقية أو لا لقطة.
+
+    العقد (قبول R-305): اللقطة إما غير فارغة أو غائبة — أبدًا
+    ليست موجودة-وفارغة (الـ artifact الكاذب القديم: خريطة
+    ``relevant_file_hashes`` فارغة دائمًا). البصمات = ``sha256``
+    لمحتوى الملفات التي يلمسها الـ run (ما مُرّر لـ ``start_chain``
+    من ملفات مذكورة/مجموعة) — المحتوى في الذاكرة أصلًا، فلا
+    قراءة قرص إضافية ولا سباق مع تعديلات لاحقة (متطلب R-601).
+    """
+    if not project_root:
+        return None
+    hashes: dict[str, str] = {}
+    for rel_path, content in (files or {}).items():
+        hashes[rel_path] = hashlib.sha256(
+            content.encode("utf-8", errors="replace")).hexdigest()
+    if file_path and file_content:
+        hashes.setdefault(file_path, hashlib.sha256(
+            file_content.encode("utf-8", errors="replace")).hexdigest())
+    if not hashes:
+        return None   # لا ملفات ملموسة ⇒ لا لقطة — ليس لقطة فارغة كاذبة
+    return ProjectSnapshot(
+        project_root=project_root,
+        project_id=os.path.basename(project_root),
+        relevant_file_hashes=hashes,
+    )
 
 
 # ═══════════════════════════════════════════════════════
@@ -279,11 +311,10 @@ class ChainBridge:
             model_name=getattr(self._provider, "model", None),
             configuration_hash="",
         )
-        if self._project_root:
-            run.project_snapshot = ProjectSnapshot(
-                project_root=self._project_root,
-                project_id=os.path.basename(self._project_root),
-            )
+        # R-305 (T-033): بصمات محتوى حقيقية أو لا لقطة إطلاقًا —
+        # اللقطة الموجودة-والفارغة كانت تحققًا أجوف (راجع الخارطة).
+        run.project_snapshot = _build_project_snapshot(
+            self._project_root, files, file_path or "", file_content or "")
 
         # ── Run dir ──
         run_dir = self._runs_dir / run_id

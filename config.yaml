@@ -40,6 +40,19 @@ session_binding:
   warn_only: true
   policy: "warn"
 
+# استبقاء artifacts الـ runs (T-033 / R-305) — مسح GC عند الإقلاع على
+# مجلد .ai_runs داخل المشروع. الحدود المعلّقة (~) = غير مفعّلة.
+#   max_count:    أحدث N من الـ runs تبقى (المثبتات لا تُحسب من N).
+#   max_age_days: ما تجاوز هذا العمر يُحذف حتى لو داخل العدد.
+#   pinned:       أسماء runs تنجو دائمًا (مثال: ["run-ab12cd34"]).
+#   dry_run: true (الافتراضي الآمن) = تسجيل ما كان سيُحذف دون حذف
+#            فعلي — اجعله false لتفعيل الحذف الحقيقي.
+retention:
+  max_count: ~
+  max_age_days: ~
+  pinned: []
+  dry_run: true
+
 # إعدادات المزودين
 providers:
   use_ai:

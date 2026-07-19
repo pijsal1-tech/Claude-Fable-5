@@ -27,6 +27,43 @@
     fallback path left.
 
 ### Added
+- **R-305 (T-033): truthful snapshots + run-artifact retention —
+  vacuous validation and the write-only artifact graveyard both
+  closed.** `chain/bridge.py`: `ProjectSnapshot` was created with an
+  **always-empty** `relevant_file_hashes` map — an artifact that
+  claimed to capture project state and captured nothing. New
+  `_build_project_snapshot(project_root, files, file_path,
+  file_content)` computes real `sha256` content hashes for the files
+  the run actually touches (the ones passed into `start_chain` —
+  already in memory, so no extra disk reads and no race with later
+  edits), and enforces the R-305 acceptance contract: **snapshots are
+  non-empty or absent — never empty-but-present** (no touched files ⇒
+  `project_snapshot = None`). New `sessions/retention.py`:
+  `RetentionPolicy(max_count, max_age_days, pinned, dry_run=True)`
+  with a pure decision core `plan_sweep(entries, policy) → (kept,
+  deleted)` (matrix-testable, no I/O) and `sweep(runs_dir, policy)`
+  executing it against `.ai_runs/run-*`. Keep semantics: **pinned
+  always survives** (above both limits, and doesn't consume the count
+  budget), newest `max_count` unpinned entries stay, anything older
+  than `max_age_days` drops even within count; a limit of `None` is
+  disabled and the all-defaults policy is a full no-op (pre-T-033
+  behavior). The sweep is idempotent, tolerates entries vanishing
+  mid-scan, and reports honestly (a failed delete goes back to
+  `kept`). First release ships **dry-run by default** (R-305 risk
+  clause): the startup GC pass wired into `server.py` boot logs what
+  *would* be deleted and touches nothing until the user sets
+  `retention.dry_run: false` in the new `config.yaml` `retention`
+  section (`max_count` / `max_age_days` / `pinned` / `dry_run`,
+  documented inline; `policy_from_config` is loud on a malformed
+  section, defaults safely on a missing one). Tests
+  (`tests/unit/test_retention.py`, 22): real-hash snapshot assertions
+  incl. the never-empty-but-present contract and files-over-file_path
+  precedence; the policy matrix (no-limits no-op, count keeps newest,
+  count=0, age-within-count, combined limits, pinned above both,
+  pinned outside count budget); on-disk sweeps (dry-run logs and
+  deletes nothing, live delete with pinned survival, idempotence,
+  missing dir, default-policy regression no-op); config parsing
+  (safe defaults, full parse, null limits, loud failure).
 - **R-304 (T-032): tiered windowing + async summarizer — graceful
   degradation between "full history" and "amnesia".**
   `sessions/memory.py` gains `tiered_window(TieredPolicy) →
