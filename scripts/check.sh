@@ -25,6 +25,24 @@ if [ -n "$violations" ]; then
 fi
 echo "boundary clean"
 
+# T-035 (R-401): مفردات التوجيه موحّدة في core/strategy.py — ممنوع أي
+# مقارنة نصية حرة لأسماء الاستراتيجيات في كود الإنتاج (المقارنات عبر
+# أعضاء RouteLabel/ExecutionStrategy فقط؛ ‎.value مسموح للسلك/الحدود).
+echo "== strategy vocabulary grep (no free-string strategy comparisons) =="
+strategy_violations=$(grep -rn \
+  -e '== "direct"' -e '== "auto_chain"' -e '== "full_chain"' \
+  -e '== "delegate"' -e '== "context_window"' -e '== "chunk_chain"' \
+  -e '== "map_reduce"' -e '== "pipeline"' \
+  -e 'in ("auto_chain"' -e "in ('auto_chain'" \
+  --include='*.py' chain/ core/ providers/ context/ sessions/ server.py \
+  || true)
+if [ -n "$strategy_violations" ]; then
+  echo "strategy vocabulary violation — free-string comparison found:"
+  echo "$strategy_violations"
+  exit 1
+fi
+echo "vocabulary clean"
+
 echo "== pytest =="
 python3 -m pytest
 

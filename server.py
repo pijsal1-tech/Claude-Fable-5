@@ -43,6 +43,7 @@ from chain.bridge import ChainBridge
 from chain.delegate import DelegateBridge
 from chain.orchestrator import SmartOrchestrator
 from chain.router import RequestRouter
+from core.strategy import RoutingTier
 from chain.action_applier import ActionApplier
 from providers.budget import AccountAwareBudget
 from providers.pool import ProviderPool
@@ -981,7 +982,10 @@ def ws_handler(ws):
                     )
 
                     # ── إبلاغ المستخدم بالقرار ──
-                    if routing.strategy != "direct":
+                    # T-035 (R-401): الفصل على الطبقة (tier) لا النص —
+                    # الترجمة label→tier تعيش في RoutingDecision.tier وحدها.
+                    routing_tier = routing.tier
+                    if routing_tier is not RoutingTier.DIRECT:
                         ws.send(json.dumps({
                             "type": "chain_started",
                             "text": (
@@ -993,7 +997,7 @@ def ws_handler(ws):
                         }))
 
                     # ── توجيه لـ chain_bridge ──
-                    if routing.strategy in ("auto_chain", "full_chain"):
+                    if routing_tier is RoutingTier.CHAINED:
                         # T-015 (R-105): registry ticket — single-run policy
                         chain_ticket = _begin_run_ticket(
                             "chain",
@@ -1020,7 +1024,7 @@ def ws_handler(ws):
                         continue  # الـ chain يتكفل بالرد
 
                     # ── توجيه لـ delegate_bridge ──
-                    if routing.strategy == "delegate" and delegate_bridge:
+                    if routing_tier is RoutingTier.DELEGATE and delegate_bridge:
                         def _delegate_event(event_type, event_data):
                             try:
                                 ws.send(json.dumps({"type": event_type, **event_data}))

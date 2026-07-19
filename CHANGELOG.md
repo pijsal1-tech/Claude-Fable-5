@@ -27,6 +27,37 @@
     fallback path left.
 
 ### Added
+- **R-401 (T-035): unified routing vocabulary — the 6-vs-4 strategy
+  drift is over.** New `core/strategy.py` is the single source of
+  truth: `RoutingTier` (direct/chained/delegate — the router's
+  how-much-effort layer), `ExecutionStrategy` (the six builders — the
+  orchestrator's which-builder layer), `RouteLabel` (the four
+  historical wire strings for `RoutingDecision.strategy`, frozen
+  byte-for-byte for the T-034 corpus and WS clients, with a `.tier`
+  property replacing server.py's string conditionals), and
+  `STRATEGY_TABLE: dict[ExecutionStrategy, StrategySpec]` — one row
+  per strategy (tier + builder + one-line doc); adding a strategy is
+  now one enum member + one table row, and an import-time
+  completeness check plus `assert_never` in every dispatch make a
+  missing branch a **loud** mypy/runtime failure instead of a silent
+  misroute. Swaps: `ComplexityAnalysis.recommended` returns the enum
+  (the old `recommended_strategy` str property delegates to it —
+  wire/`to_dict` unchanged); `select_strategy` dispatches on enum
+  members via `ExecutionStrategy.parse` (unknown/`"delegate"` force
+  strings still fall to direct — the corpus-pinned quirk, now an
+  **explicit** branch, not an else-swallow); router's ideal/budget
+  cascade and `_forced_route` compare `RouteLabel` members (unknown
+  forced strings still pass through verbatim — corpus-pinned);
+  `server.py` dispatches on `routing.tier` instead of
+  `strategy in ("auto_chain", "full_chain")` / `== "delegate"`.
+  `check.sh` gained a vocabulary grep gate: zero free-string strategy
+  comparisons in production code (`.value` allowed at wire
+  boundaries). Parity proof: all 30 T-034 golden decisions replay
+  identically with the golden file untouched; plus 23 new tests in
+  `tests/unit/test_strategy_table.py` (table completeness ×5,
+  tier↔strategy matrix + `RouteLabel.tier` + decision-tier incl. the
+  unknown-string→direct dispatch, `parse` roundtrips/junk ×7,
+  exhaustiveness + grep gate ×5).
 - **R-401 (T-034): golden corpus of 30 real routing decisions — the
   pre-refactor behavioral baseline for the vocabulary unification.**
   New `tests/goldens/routing/` package: `harness.py` runs 30
