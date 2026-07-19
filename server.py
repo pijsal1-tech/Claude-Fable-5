@@ -1859,10 +1859,19 @@ def main():
 
     account_budget = AccountAwareBudget(provider_pool.all_providers)
     orchestrator = SmartOrchestrator()
+    # T-036 (R-402): عتبات التوجيه من config.routing — صاخبة على schema
+    # مكسورة (لا نبتلع الخطأ: عتبات خاطئة صامتة أسوأ من فشل إقلاع واضح)؛
+    # قسم مفقود فقط = الافتراضات التاريخية.
+    from chain.routing_config import thresholds_from_config
+    import yaml as _yaml
+    with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
+        _routing_cfg = (_yaml.safe_load(_cf) or {}).get("routing")
+    routing_thresholds = thresholds_from_config(_routing_cfg)
     request_router = RequestRouter(
         orchestrator=orchestrator,
         budget=account_budget,
         active_provider_name=prov_id,
+        thresholds=routing_thresholds,
     )
     ctx.provider_pool = provider_pool
     ctx.budget = account_budget

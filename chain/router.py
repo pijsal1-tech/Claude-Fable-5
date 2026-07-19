@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING, assert_never
 
 from core.strategy import ExecutionStrategy, RouteLabel, RoutingTier
 
+from .routing_config import RoutingRecord, RoutingThresholds
+
 if TYPE_CHECKING:
     from chain.orchestrator import SmartOrchestrator, ComplexityAnalysis
     from providers.budget import AccountAwareBudget, BudgetSnapshot
@@ -40,6 +42,9 @@ class RoutingDecision:
     downgraded: bool = False           # هل تم تنزيل التعقيد بسبب نقص حسابات؟
     downgrade_reason: str = ""         # سبب التنزيل
     complexity_score: float = 0.0      # النتيجة الأصلية للتعقيد
+    # T-036 (R-402): سجل القرار الكامل — خارج to_dict عمدًا (السلك
+    # وcorpus T-034 محفوظان بايت-بايت)؛ للقراءة: decision.record.to_dict()
+    record: RoutingRecord | None = field(default=None, compare=False)
 
     def to_dict(self) -> dict:
         return {
@@ -70,16 +75,9 @@ class RoutingDecision:
 #   Strategy Thresholds
 # ═══════════════════════════════════════════════════════
 
-# حدود التعقيد لاختيار الاستراتيجية
-DIRECT_THRESHOLD = 2.0        # ≤ 2.0 → direct
-AUTO_CHAIN_THRESHOLD = 5.0    # 2.1 - 5.0 → auto_chain (2-3 steps)
-FULL_CHAIN_THRESHOLD = 8.0    # 5.1 - 8.0 → full_chain (3-4 steps)
-# > 8.0 → delegate (brief + implement + review)
-
-# الحد الأدنى من الحسابات لكل استراتيجية
-MIN_ACCOUNTS_AUTO_CHAIN = 2
-MIN_ACCOUNTS_FULL_CHAIN = 3
-MIN_ACCOUNTS_DELEGATE = 4
+# T-036 (R-402): الأرقام السحرية انتقلت إلى chain/routing_config.py
+# (RoutingThresholds) وتُقرأ من قسم routing: في config.yaml — هنا لا
+# توجد عتبات مضمّنة (بوابة grep في check.sh تفرض ذلك).
 
 
 # ═══════════════════════════════════════════════════════
@@ -110,10 +108,13 @@ class RequestRouter:
     def __init__(self,
                  orchestrator: "SmartOrchestrator",
                  budget: "AccountAwareBudget",
-                 active_provider_name: str = ""):
+                 active_provider_name: str = "",
+                 thresholds: RoutingThresholds | None = None):
         self._orchestrator = orchestrator
         self._budget = budget
         self._active_provider_name = active_provider_name
+        # T-036 (R-402): العتبات محقونة — الافتراضات = القيم التاريخية
+        self._thresholds = thresholds or RoutingThresholds()
 
     # R-102 (T-008): public API — switch handlers must not poke the private
     # attribute; they call this property instead.
@@ -157,33 +158,83 @@ class RequestRouter:
 
         # ── 3. اختيار أعلى استراتيجية ممكنة (أو فرض واحدة) ──
         if force_strategy:
-            return self._forced_route(
+            decision = self._forced_route(
                 force_strategy, score, analysis, budget_snapshot
             )
+            return self._attach_record(
+                decision, mode=mode, forced=force_strategy,
+                analysis=analysis, ideal=decision.strategy,
+                budget=budget_snapshot)
 
         # ── Mode Override: chat mode = always direct ──
         if mode == "chat":
-            return RoutingDecision(
+            decision = RoutingDecision(
                 strategy=RouteLabel.DIRECT.value,
                 provider_name=self._select_provider(budget_snapshot, 1),
                 max_steps=1,
                 complexity_score=score,
             )
+            return self._attach_record(
+                decision, mode=mode, forced=None, analysis=analysis,
+                ideal=RouteLabel.DIRECT.value, budget=budget_snapshot)
 
         # ── 4. التوجيه بناءً على التعقيد + الحسابات ──
         ideal = self._ideal_strategy(score, analysis)
         decision = self._apply_budget_constraints(ideal, score, analysis, budget_snapshot)
 
+        return self._attach_record(
+            decision, mode=mode, forced=None, analysis=analysis,
+            ideal=ideal.value, budget=budget_snapshot)
+
+    # ═══ T-036 (R-402): بناء السجل — كل المسارات تمر من هنا ═══
+
+    def _attach_record(self, decision: RoutingDecision, *,
+                       mode: str, forced: str | None,
+                       analysis: "ComplexityAnalysis",
+                       ideal: str,
+                       budget: "BudgetSnapshot") -> RoutingDecision:
+        """يبني RoutingRecord ويعلّقه — الإجابة الكاملة على «لماذا؟».
+
+        مسار التنزيل يُستنتج من (ideal → final) عبر سلّم الطبقات —
+        أصدق من علم downgraded الذي لا يُرفع إلا عند السقوط حتى direct
+        (quirk مثبَّت في corpus T-034 — السجل يوثّقه بدل أن يغيّره).
+        """
+        ladder = [RouteLabel.DELEGATE.value, RouteLabel.FULL_CHAIN.value,
+                  RouteLabel.AUTO_CHAIN.value, RouteLabel.DIRECT.value]
+        downgrade_path: list[str] = []
+        if (ideal != decision.strategy
+                and ideal in ladder and decision.strategy in ladder):
+            i, j = ladder.index(ideal), ladder.index(decision.strategy)
+            if j > i:  # نزل فعليًّا (لا مسار للفرض غير المعروف — يمر حرفيًّا)
+                downgrade_path = ladder[i:j + 1]
+
+        scores = analysis.to_dict()
+        scores.pop("recommended_strategy", None)  # ليس درجة
+
+        decision.record = RoutingRecord(
+            mode=mode,
+            forced=forced,
+            scores=scores,
+            matched_signals=dict(analysis.matched_signals),
+            ideal=ideal,
+            final=decision.strategy,
+            tier=decision.tier.value,
+            downgrade_path=downgrade_path,
+            budget_total=budget.total_available,
+            thresholds=self._thresholds.to_dict(),
+            config_version=self._thresholds.version,
+        )
         return decision
 
     def _ideal_strategy(self, score: float,
                         analysis: "ComplexityAnalysis") -> RouteLabel:
-        """الاستراتيجية المثالية بدون قيود حسابات — عضو enum (T-035)"""
-        if score <= DIRECT_THRESHOLD:
+        """الاستراتيجية المثالية بدون قيود حسابات — عتبات config (T-036)"""
+        th = self._thresholds
+        if score <= th.direct_max:
             return RouteLabel.DIRECT
-        elif score <= AUTO_CHAIN_THRESHOLD:
+        elif score <= th.auto_chain_max:
             return RouteLabel.AUTO_CHAIN
-        elif score <= FULL_CHAIN_THRESHOLD:
+        elif score <= th.full_chain_max:
             return RouteLabel.FULL_CHAIN
         else:
             return RouteLabel.DELEGATE
@@ -211,25 +262,27 @@ class RequestRouter:
 
         # ── Delegate → يحتاج ≥ 4 حسابات (وإلا يسقط لسلسلة full_chain) ──
         if ideal is RouteLabel.DELEGATE:
-            if budget.can_afford(MIN_ACCOUNTS_DELEGATE):
+            need = self._thresholds.min_accounts_delegate
+            if budget.can_afford(need):
                 return RoutingDecision(
                     strategy=RouteLabel.DELEGATE.value,
-                    provider_name=budget.best_provider_for(MIN_ACCOUNTS_DELEGATE),
+                    provider_name=budget.best_provider_for(need),
                     chain_strategy=ExecutionStrategy.PIPELINE.value,
-                    max_steps=MIN_ACCOUNTS_DELEGATE,
+                    max_steps=need,
                     complexity_score=score,
                 )
             # Downgrade → يواصل لفحص full_chain أدناه
 
         # ── Full Chain → يحتاج ≥ 3 حسابات (delegate المنزَّل يمر من هنا) ──
         if ideal is RouteLabel.DELEGATE or ideal is RouteLabel.FULL_CHAIN:
-            if budget.can_afford(MIN_ACCOUNTS_FULL_CHAIN):
+            if budget.can_afford(self._thresholds.min_accounts_full_chain):
                 chain_strat = analysis.recommended
                 if chain_strat is ExecutionStrategy.DIRECT:
                     chain_strat = ExecutionStrategy.CONTEXT_WINDOW  # upgrade minimum
                 return RoutingDecision(
                     strategy=RouteLabel.FULL_CHAIN.value,
-                    provider_name=budget.best_provider_for(MIN_ACCOUNTS_FULL_CHAIN),
+                    provider_name=budget.best_provider_for(
+                        self._thresholds.min_accounts_full_chain),
                     chain_strategy=chain_strat.value,
                     max_steps=min(4, budget.total_available),
                     complexity_score=score,
@@ -240,10 +293,11 @@ class RequestRouter:
         if (ideal is RouteLabel.DELEGATE
                 or ideal is RouteLabel.FULL_CHAIN
                 or ideal is RouteLabel.AUTO_CHAIN):
-            if budget.can_afford(MIN_ACCOUNTS_AUTO_CHAIN):
+            if budget.can_afford(self._thresholds.min_accounts_auto_chain):
                 return RoutingDecision(
                     strategy=RouteLabel.AUTO_CHAIN.value,
-                    provider_name=budget.best_provider_for(MIN_ACCOUNTS_AUTO_CHAIN),
+                    provider_name=budget.best_provider_for(
+                        self._thresholds.min_accounts_auto_chain),
                     chain_strategy=ExecutionStrategy.CONTEXT_WINDOW.value,
                     max_steps=min(3, budget.total_available),
                     complexity_score=score,
@@ -256,7 +310,8 @@ class RequestRouter:
                 downgraded=True,
                 downgrade_reason=(
                     f"الحسابات المتاحة ({budget.total_available}) أقل من "
-                    f"المطلوب ({MIN_ACCOUNTS_AUTO_CHAIN}) — تم تنزيل الاستراتيجية لـ direct"
+                    f"المطلوب ({self._thresholds.min_accounts_auto_chain}) "
+                    f"— تم تنزيل الاستراتيجية لـ direct"
                 ),
                 complexity_score=score,
             )
@@ -284,10 +339,11 @@ class RequestRouter:
                 complexity_score=score,
             )
 
+        th = self._thresholds
         steps_needed = {
-            RouteLabel.AUTO_CHAIN: 2,
-            RouteLabel.FULL_CHAIN: 3,
-            RouteLabel.DELEGATE: 4,
+            RouteLabel.AUTO_CHAIN: th.min_accounts_auto_chain,
+            RouteLabel.FULL_CHAIN: th.min_accounts_full_chain,
+            RouteLabel.DELEGATE: th.min_accounts_delegate,
         }.get(label, 1) if label is not None else 1
 
         can_afford = budget.can_afford(steps_needed)

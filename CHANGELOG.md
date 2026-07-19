@@ -27,6 +27,44 @@
     fallback path left.
 
 ### Added
+- **R-402 (T-036): explainable routing — every decision now carries a
+  complete record, and the magic thresholds moved to config.** New
+  `chain/routing_config.py`: frozen `RoutingThresholds` (the three
+  score cut-offs 2.0/5.0/8.0 + the three account minimums 2/3/4 +
+  `version`) with invariant validation in `__post_init__` (strictly
+  ascending thresholds, non-decreasing account minimums ≥ 1);
+  `thresholds_from_config` reads the new `config.yaml` `routing:`
+  section with strict schema rejection — unknown key, wrong type
+  (bools rejected explicitly), broken ordering, or a non-mapping
+  section all raise loud `ValueError`s at boot; a missing section
+  yields the historical defaults byte-for-byte. `RoutingRecord`
+  answers "why did it pick full_chain?": mode, forced string, all 5
+  raw dimension scores + total, **matched signals** (which regex
+  patterns actually fired — `analyze_complexity` now collects them
+  into `ComplexityAnalysis.matched_signals`, additive field outside
+  `to_dict`), ideal vs final strategy, tier, step-by-step
+  `downgrade_path` (honest where the `downgraded` flag is not — the
+  silent delegate→full_chain budget drop now shows as
+  `["delegate", "full_chain"]`), budget total, applied thresholds,
+  and config version. Router: thresholds are injected
+  (`RequestRouter(..., thresholds=)`), the module-level constants are
+  **gone** (a new `check.sh` grep gate forbids reintroducing them),
+  and every routing path — chat-mode, natural, budget-downgraded,
+  forced — funnels through `_attach_record`. Wire contract intact:
+  `RoutingDecision.to_dict()` and `ComplexityAnalysis.to_dict()`
+  unchanged (the record lives in `decision.record`, `compare=False`)
+  — all 30 T-034 golden decisions still replay identically.
+  `server.py` boot reads the section and fails loudly on a broken
+  one; `config.yaml` documents each knob with a tuning guide
+  (semantics, ordering constraints, when to bump `version`).
+  23 tests in `tests/unit/test_routing_record.py`: record
+  completeness on all four paths + downgrade-path honesty + wire-dict
+  purity, schema acceptance/rejection matrix ×11 (defaults, partial
+  fill, int→float promotion, unknown keys, type errors, broken
+  orderings, thresholds actually rerouting), and the R-402
+  **monotonicity property**: on an ascending-complexity input ladder
+  with ample budget, a higher score never routes to a lighter tier —
+  budget downgrade being the only, always-recorded exception.
 - **R-401 (T-035): unified routing vocabulary — the 6-vs-4 strategy
   drift is over.** New `core/strategy.py` is the single source of
   truth: `RoutingTier` (direct/chained/delegate — the router's

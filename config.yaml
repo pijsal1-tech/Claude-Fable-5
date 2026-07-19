@@ -53,6 +53,32 @@ retention:
   pinned: []
   dry_run: true
 
+# عتبات التوجيه (T-036 / R-402) — RequestRouter يقرأ هذا القسم عبر
+# thresholds_from_config (تحقق صارم: مفتاح مجهول/نوع خاطئ/ترتيب مكسور
+# = فشل صاخب عند الإقلاع). القيم أدناه هي الافتراضات التاريخية —
+# القسم كله اختياري وحذفه = نفس السلوك.
+#
+# دليل الضبط (threshold tuning guide):
+#   score = مجموع 5 أبعاد تعقيد (حجم + عدد ملفات + علاقات + غموض + مخاطر)
+#   direct_max:     score ≤ هذا → direct (رد واحد). ارفعه لتقليل السلاسل
+#                   على الطلبات البسيطة؛ أنزله لمزيد من التحليل المبكر.
+#   auto_chain_max: score ≤ هذا → auto_chain (2-3 خطوات).
+#   full_chain_max: score ≤ هذا → full_chain (3-4 خطوات)؛ ما فوقه delegate.
+#   الشرط: direct_max < auto_chain_max < full_chain_max (يُفحص عند الإقلاع).
+#   min_accounts_*: أدنى حسابات متاحة لكل مسار — عند النقص يحدث downgrade
+#                   تدريجي (delegate→full_chain→auto_chain→direct).
+#   الشرط: auto_chain ≤ full_chain ≤ delegate، وكلها ≥ 1.
+#   version: رقم إصدار تُختم به سجلات RoutingRecord — ارفعه عند أي تغيير
+#            حتى تُميَّز القرارات المسجلة قبل الضبط وبعده.
+routing:
+  direct_max: 2.0
+  auto_chain_max: 5.0
+  full_chain_max: 8.0
+  min_accounts_auto_chain: 2
+  min_accounts_full_chain: 3
+  min_accounts_delegate: 4
+  version: 1
+
 # إعدادات المزودين
 providers:
   use_ai:

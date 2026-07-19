@@ -43,6 +43,21 @@ if [ -n "$strategy_violations" ]; then
 fi
 echo "vocabulary clean"
 
+# T-036 (R-402): العتبات مصدرها config فقط — ممنوع إعادة إدخال ثوابت
+# العتبات المضمّنة في الراوتر (RoutingThresholds هي المصدر الوحيد).
+echo "== routing thresholds grep (no inline threshold constants) =="
+threshold_violations=$(grep -rn \
+  -e 'DIRECT_THRESHOLD' -e 'AUTO_CHAIN_THRESHOLD' \
+  -e 'FULL_CHAIN_THRESHOLD' -e 'MIN_ACCOUNTS_' \
+  --include='*.py' chain/ core/ providers/ context/ sessions/ server.py \
+  || true)
+if [ -n "$threshold_violations" ]; then
+  echo "inline routing threshold constant found — use config routing: section:"
+  echo "$threshold_violations"
+  exit 1
+fi
+echo "thresholds clean"
+
 echo "== pytest =="
 python3 -m pytest
 
