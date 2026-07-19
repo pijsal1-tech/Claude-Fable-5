@@ -12,6 +12,9 @@
 import re
 import uuid
 from dataclasses import dataclass, field
+from typing import assert_never
+
+from core.strategy import ExecutionStrategy, RoutingTier, STRATEGY_TABLE
 
 from .strategies import (
     StrategyResult,
@@ -44,23 +47,28 @@ class ComplexityAnalysis:
                 self.risk_score)
 
     @property
-    def recommended_strategy(self) -> str:
-        """الاستراتيجية المقترحة بناءً على الـ score"""
+    def recommended(self) -> ExecutionStrategy:
+        """T-035 (R-401): الاستراتيجية المقترحة — عضو enum لا نص حر."""
         score = self.total
         if score <= 2.0:
-            return "direct"
+            return ExecutionStrategy.DIRECT
         elif score <= 4.0:
             # ملفات متعددة (4+) مع تعقيد متوسط → map_reduce أفضل من context_window
             if self.file_count_score >= 3.0:
-                return "map_reduce"
-            return "context_window"
+                return ExecutionStrategy.MAP_REDUCE
+            return ExecutionStrategy.CONTEXT_WINDOW
         elif score <= 7.0:
             # أي ملفات متعددة (2+) → map_reduce بدل chunk_chain
             if self.file_count_score >= 1.5:
-                return "map_reduce"
-            return "chunk_chain"
+                return ExecutionStrategy.MAP_REDUCE
+            return ExecutionStrategy.CHUNK_CHAIN
         else:
-            return "pipeline"
+            return ExecutionStrategy.PIPELINE
+
+    @property
+    def recommended_strategy(self) -> str:
+        """مفردات السلك (to_dict / corpus T-034) — قيمة الـ enum نصًّا."""
+        return self.recommended.value
 
     def to_dict(self) -> dict:
         return {
@@ -243,9 +251,17 @@ class SmartOrchestrator:
             user_request, files, file_content, file_path
         )
 
-        strategy = force_strategy or analysis.recommended_strategy
+        # T-035 (R-401): نقطة العبور الوحيدة نص→enum. النص المجهول
+        # (ومنه "delegate" — غير موصول هنا؛ مساره DelegateBridge) يسقط
+        # لـ direct — نفس سلوك else القديم، لكنه الآن **صريح** ومثبَّت
+        # في corpus T-034 (orch_forced_delegate_falls_back_to_direct).
+        strategy = (ExecutionStrategy.parse(force_strategy)
+                    if force_strategy else analysis.recommended)
 
-        if strategy == "direct":
+        if strategy is None or strategy is ExecutionStrategy.DELEGATE:
+            result = build_direct(user_request)
+
+        elif strategy is ExecutionStrategy.DIRECT:
             context = ""
             if file_content:
                 context = (
@@ -265,7 +281,7 @@ class SmartOrchestrator:
                 context = "\n\n".join(parts)
             result = build_direct(user_request, context)
 
-        elif strategy == "context_window":
+        elif strategy is ExecutionStrategy.CONTEXT_WINDOW:
             if files and not file_content:
                 parts = []
                 for fpath, fcontent in files.items():
@@ -283,7 +299,7 @@ class SmartOrchestrator:
                 file_path,
             )
 
-        elif strategy == "chunk_chain":
+        elif strategy is ExecutionStrategy.CHUNK_CHAIN:
             if files and not file_content:
                 parts = []
                 for fpath, fcontent in files.items():
@@ -298,10 +314,10 @@ class SmartOrchestrator:
             chunks = self._split_content(file_content or "", self.TOKEN_BUDGET)
             result = build_chunk_chain(user_request, chunks, file_path)
 
-        elif strategy == "map_reduce":
+        elif strategy is ExecutionStrategy.MAP_REDUCE:
             result = build_map_reduce(user_request, files or {})
 
-        elif strategy == "pipeline":
+        elif strategy is ExecutionStrategy.PIPELINE:
             context = ""
             if file_content:
                 context = (
@@ -324,8 +340,9 @@ class SmartOrchestrator:
             result = build_pipeline(user_request, context, include_review)
 
         else:
-            # Fallback to direct
-            result = build_direct(user_request)
+            # T-035: استنفاد إلزامي — عضو enum جديد بلا فرع = خطأ types
+            # عند mypy وانفجار صريح وقت التشغيل، لا fallback صامت.
+            assert_never(strategy)
 
         # إضافة metadata التحليل
         result.metadata["complexity"] = analysis.to_dict()

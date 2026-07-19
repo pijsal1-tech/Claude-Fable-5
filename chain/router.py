@@ -16,7 +16,9 @@
 ═══════════════════════════════════════════════════════
 """
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
+
+from core.strategy import ExecutionStrategy, RouteLabel, RoutingTier
 
 if TYPE_CHECKING:
     from chain.orchestrator import SmartOrchestrator, ComplexityAnalysis
@@ -31,9 +33,9 @@ if TYPE_CHECKING:
 @dataclass
 class RoutingDecision:
     """نتيجة قرار التوجيه"""
-    strategy: str                      # direct | auto_chain | full_chain | delegate
+    strategy: str                      # مفردات السلك — RouteLabel قيمًا (T-035)
     provider_name: str = ""            # اسم الـ provider المختار
-    chain_strategy: str | None = None  # context_window | chunk_chain | map_reduce | pipeline
+    chain_strategy: str | None = None  # قيمة ExecutionStrategy للأوركستريتور
     max_steps: int = 1                 # أقصى عدد خطوات مسموح
     downgraded: bool = False           # هل تم تنزيل التعقيد بسبب نقص حسابات؟
     downgrade_reason: str = ""         # سبب التنزيل
@@ -49,6 +51,19 @@ class RoutingDecision:
             "downgrade_reason": self.downgrade_reason,
             "complexity_score": self.complexity_score,
         }
+
+    @property
+    def tier(self) -> "RoutingTier":
+        """T-035 (R-401): طبقة التوجيه — نقطة الفصل الوحيدة للمرسِل.
+
+        كانت شرطين نصيين في server.py. النص المجهول (ممرّر حرفيًّا
+        من force_strategy — quirk مثبَّت في corpus T-034) يُرسَل direct،
+        وهو نفس سلوك الإرسال القديم (لا يطابق أي شرط → المسار العادي).
+        """
+        label = RouteLabel.parse(self.strategy)
+        if label is None:
+            return RoutingTier.DIRECT
+        return label.tier
 
 
 # ═══════════════════════════════════════════════════════
@@ -84,11 +99,11 @@ class RequestRouter:
     الاستخدام:
         router = RequestRouter(orchestrator, budget)
         decision = router.route("أنشئ API كامل مع auth", file_content, files, "build")
-        if decision.strategy == "direct":
+        if decision.tier is RoutingTier.DIRECT:
             # المسار العادي
-        elif decision.strategy in ("auto_chain", "full_chain"):
+        elif decision.tier is RoutingTier.CHAINED:
             # chain_bridge.start_chain(...)
-        elif decision.strategy == "delegate":
+        elif decision.tier is RoutingTier.DELEGATE:
             # delegate_bridge.run_delegation(...)
     """
 
@@ -149,7 +164,7 @@ class RequestRouter:
         # ── Mode Override: chat mode = always direct ──
         if mode == "chat":
             return RoutingDecision(
-                strategy="direct",
+                strategy=RouteLabel.DIRECT.value,
                 provider_name=self._select_provider(budget_snapshot, 1),
                 max_steps=1,
                 complexity_score=score,
@@ -162,75 +177,80 @@ class RequestRouter:
         return decision
 
     def _ideal_strategy(self, score: float,
-                        analysis: "ComplexityAnalysis") -> str:
-        """الاستراتيجية المثالية بدون قيود حسابات"""
+                        analysis: "ComplexityAnalysis") -> RouteLabel:
+        """الاستراتيجية المثالية بدون قيود حسابات — عضو enum (T-035)"""
         if score <= DIRECT_THRESHOLD:
-            return "direct"
+            return RouteLabel.DIRECT
         elif score <= AUTO_CHAIN_THRESHOLD:
-            return "auto_chain"
+            return RouteLabel.AUTO_CHAIN
         elif score <= FULL_CHAIN_THRESHOLD:
-            return "full_chain"
+            return RouteLabel.FULL_CHAIN
         else:
-            return "delegate"
+            return RouteLabel.DELEGATE
 
     def _apply_budget_constraints(self,
-                                  ideal: str,
+                                  ideal: RouteLabel,
                                   score: float,
                                   analysis: "ComplexityAnalysis",
                                   budget: "BudgetSnapshot") -> RoutingDecision:
-        """يطبق قيود الحسابات — يعمل downgrade لو لازم"""
+        """يطبق قيود الحسابات — يعمل downgrade لو لازم.
+
+        T-035 (R-401): السلسلة على أعضاء RouteLabel بدل النصوص الحرة؛
+        فرع else الأخير أصبح assert_never — عضو جديد بلا معالجة =
+        خطأ types عند mypy، لا fallback صامت.
+        """
 
         # ── Direct → لا يحتاج أكثر من حساب واحد ──
-        if ideal == "direct":
+        if ideal is RouteLabel.DIRECT:
             return RoutingDecision(
-                strategy="direct",
+                strategy=RouteLabel.DIRECT.value,
                 provider_name=self._select_provider(budget, 1),
                 max_steps=1,
                 complexity_score=score,
             )
 
-        # ── Delegate → يحتاج ≥ 4 حسابات ──
-        if ideal == "delegate":
+        # ── Delegate → يحتاج ≥ 4 حسابات (وإلا يسقط لسلسلة full_chain) ──
+        if ideal is RouteLabel.DELEGATE:
             if budget.can_afford(MIN_ACCOUNTS_DELEGATE):
                 return RoutingDecision(
-                    strategy="delegate",
+                    strategy=RouteLabel.DELEGATE.value,
                     provider_name=budget.best_provider_for(MIN_ACCOUNTS_DELEGATE),
-                    chain_strategy="pipeline",
+                    chain_strategy=ExecutionStrategy.PIPELINE.value,
                     max_steps=MIN_ACCOUNTS_DELEGATE,
                     complexity_score=score,
                 )
-            # Downgrade → full_chain
-            ideal = "full_chain"
+            # Downgrade → يواصل لفحص full_chain أدناه
 
-        # ── Full Chain → يحتاج ≥ 3 حسابات ──
-        if ideal == "full_chain":
+        # ── Full Chain → يحتاج ≥ 3 حسابات (delegate المنزَّل يمر من هنا) ──
+        if ideal is RouteLabel.DELEGATE or ideal is RouteLabel.FULL_CHAIN:
             if budget.can_afford(MIN_ACCOUNTS_FULL_CHAIN):
-                chain_strat = analysis.recommended_strategy
-                if chain_strat == "direct":
-                    chain_strat = "context_window"  # upgrade minimum
+                chain_strat = analysis.recommended
+                if chain_strat is ExecutionStrategy.DIRECT:
+                    chain_strat = ExecutionStrategy.CONTEXT_WINDOW  # upgrade minimum
                 return RoutingDecision(
-                    strategy="full_chain",
+                    strategy=RouteLabel.FULL_CHAIN.value,
                     provider_name=budget.best_provider_for(MIN_ACCOUNTS_FULL_CHAIN),
-                    chain_strategy=chain_strat,
+                    chain_strategy=chain_strat.value,
                     max_steps=min(4, budget.total_available),
                     complexity_score=score,
                 )
-            # Downgrade → auto_chain
-            ideal = "auto_chain"
+            # Downgrade → يواصل لفحص auto_chain أدناه
 
-        # ── Auto Chain → يحتاج ≥ 2 حسابات ──
-        if ideal == "auto_chain":
+        # ── Auto Chain → يحتاج ≥ 2 حسابات (نهاية السلسلة قبل direct) ──
+        if (ideal is RouteLabel.DELEGATE
+                or ideal is RouteLabel.FULL_CHAIN
+                or ideal is RouteLabel.AUTO_CHAIN):
             if budget.can_afford(MIN_ACCOUNTS_AUTO_CHAIN):
                 return RoutingDecision(
-                    strategy="auto_chain",
+                    strategy=RouteLabel.AUTO_CHAIN.value,
                     provider_name=budget.best_provider_for(MIN_ACCOUNTS_AUTO_CHAIN),
-                    chain_strategy="context_window",
+                    chain_strategy=ExecutionStrategy.CONTEXT_WINDOW.value,
                     max_steps=min(3, budget.total_available),
                     complexity_score=score,
                 )
             # Downgrade → direct
             return RoutingDecision(
-                strategy="direct",
+                strategy=RouteLabel.DIRECT.value,
                 provider_name=self._select_provider(budget, 1),
                 max_steps=1,
                 downgraded=True,
@@ -241,31 +261,34 @@ class RequestRouter:
                 complexity_score=score,
             )
 
-        # Fallback
-        return RoutingDecision(
-            strategy="direct",
-            provider_name=self._select_provider(budget, 1),
-            max_steps=1,
-            complexity_score=score,
-        )
+        # T-035: استنفاد إلزامي — كل أعضاء RouteLabel عولجوا أعلاه
+        # (mypy يضيّق ideal إلى Never هنا؛ عضو جديد بلا فرع = خطأ types)
+        assert_never(ideal)
 
     def _forced_route(self, force: str, score: float,
                       analysis: "ComplexityAnalysis",
                       budget: "BudgetSnapshot") -> RoutingDecision:
-        """فرض استراتيجية معينة"""
-        if force == "direct":
+        """فرض استراتيجية معينة.
+
+        T-035: المقارنات عبر RouteLabel.parse — لكن النص المجهول لا
+        يزال يمر حرفيًّا في strategy (quirk مثبَّت في corpus T-034
+        — router_forced_unknown_string_passes_through؛ إصلاحه قرار
+        سلوكي لاحق خارج نطاق توحيد المفردات هذا).
+        """
+        label = RouteLabel.parse(force)
+        if label is RouteLabel.DIRECT:
             return RoutingDecision(
-                strategy="direct",
+                strategy=RouteLabel.DIRECT.value,
                 provider_name=self._select_provider(budget, 1),
                 max_steps=1,
                 complexity_score=score,
             )
 
         steps_needed = {
-            "auto_chain": 2,
-            "full_chain": 3,
-            "delegate": 4,
-        }.get(force, 1)
+            RouteLabel.AUTO_CHAIN: 2,
+            RouteLabel.FULL_CHAIN: 3,
+            RouteLabel.DELEGATE: 4,
+        }.get(label, 1) if label is not None else 1
 
         can_afford = budget.can_afford(steps_needed)
         if can_afford:
@@ -279,7 +302,7 @@ class RequestRouter:
         else:
             # فرض مطلوب لكن مفيش حسابات كفاية
             return RoutingDecision(
-                strategy="direct",
+                strategy=RouteLabel.DIRECT.value,
                 provider_name=self._select_provider(budget, 1),
                 max_steps=1,
                 downgraded=True,
