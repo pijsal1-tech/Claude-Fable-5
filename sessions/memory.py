@@ -63,17 +63,56 @@
   ملاحظة نطاق: ``chat_history[:-1]`` في server.py هي استبعاد الرسالة
   الحالية المكررة (بنيوية)، ليست قصّة نافذة — خارج سياسات T-030.
 
-**الأعقاب (stubs — واجهة مثبتة الآن، تنفيذ لاحق):**
+**النافذة الطبقية (R-304 / T-032):**
 
-- ``summary() -> str | None``: يعيد ``None`` دائمًا (لا ملخص بعد) —
-  R-304 يوصّل التلخيص كاستراتيجية نافذة.
+- ``tiered_window(TieredPolicy) -> TieredWindow``
+  نافذة تحت ``ContextBudget`` بثلاث طبقات — مخطط الطبقات::
+
+      ┌──────────── token_budget ────────────┐
+      │ 📌 المثبت — حرفي دائمًا (يُخصم لا يُقصى) │
+      │ 📋 ملخص الشريحة الوسطى — موسوم كملخص  │
+      │ 💬 الأدوار الحديثة حرفيًّا — شريط متصل من  │
+      │    الأحدث، أرضية ``recent_floor`` لا تُنتهك │
+      └───────────────────────────────────────┘
+        أقدم … [مُلخَّص] [مقصوص إن لزم] [حديث حرفي] … أحدث
+
+  الفروق عن ``window(token_budget)``: الشريط الحديث **متصل**
+  (يتوقف عند أول دور لا يسع — لا فجوات أمام الملخص)، والأرضية
+  تتفوق على الميزانية (بند مخاطر R-304: النافذة الحرفية لا
+  تنكمش تحت الأرضية أبدًا). الملخص يدخل النافذة فقط إذا كان
+  يغطي أدوارًا أُسقطت فعلًا (الجلسات القصيرة لا تتغير — رجعية).
+  ``TieredWindow.degraded`` صادقة: أدوار أُسقطت بلا تغطية ملخص =
+  قصّة صريحة (التدهور المنصوص).
+
+- **الملخص artifact في التيار نفسه** (سجل ``kind="summary"`` بحقول
+  ``text``/``covers_until``/``ts``) — السجل مصدر الحقيقة الوحيد
+  (مبدأ T-029)، والملخصات قابلة للتدقيق في سجل الجلسة (منفعة
+  R-304 المنصوصة). الملخص الفعال = آخر سجل ملخص عند التشغيل.
+  ``covers_until`` حصري: يغطي الأدوار ``[0, covers_until)``.
+
+- ``update_summary(summarizer, upto=None)`` النواة المتزامنة —
+  تلخّص الشريحة الجديدة تراكميًّا (الملخص السابق يُمرر للـ
+  summarizer) وتلحق الـ artifact. تفشل بصوت عالٍ (للمستدعي
+  المباشر/الاختبارات).
+- ``maybe_update_summary_async(summarizer, every_n=10)`` خطّاف المسار
+  الساخن: إن نمت الشريحة غير المغطاة ≥ ``every_n`` دورًا يُطلق
+  خيط خلفي ديمون ويعود فورًا — **لا ينتظر التلخيص أبدًا ولا
+  يرفع استثناءً** (فشل الخيط يُسجّل في ``last_summary_error``
+  والنافذة تتدهور لقصّة صريحة). طلب واحد في الرحلة (inflight
+  dedup). ``wait_for_summary(timeout)`` للاختبارات والإغلاق النظيف.
+
+**الأعقاب:**
+
+- ``summary() -> str | None``: نص آخر ملخص مخزن أو ``None``
+  (كان stub دائم-None قبل T-032).
 - ``search(query, limit=5) -> list[Turn]``: تعيد ``[]`` دائمًا —
   R-802 يوصّل الاسترجاع الدلالي.
 """
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence, TypeVar
+from typing import Any, Callable, Optional, Sequence, TypeVar
 
 from context.budget import CharsPerTokenEstimator, TokenEstimator
 from sessions.store import SessionStore, _now_iso
@@ -83,6 +122,15 @@ _T = TypeVar("_T")
 # أنواع السجلات في التيار — سجل بلا kind هو رسالة (توافق T-027/T-028)
 _KIND_MESSAGE = "message"
 _KIND_PIN = "pin"
+_KIND_SUMMARY = "summary"   # R-304 (T-032): artifact ملخص في التيار
+
+# وسم الملخص في الـ prompt — بند مخاطر R-304: الملخصات تُوسم
+# كملخصات دائمًا (درء انجراف/هلوسة الملخص بالتصريح لا بالإخفاء).
+SUMMARY_LABEL = "📋 [ملخص المحادثة الأقدم — مُولَّد آليًّا وقد يفوته تفصيل]"
+
+# ملخّص: دالة (أدوار الشريحة الجديدة, نص الملخص السابق أو None)
+# → نص الملخص الجديد المدمج. التراكم مسؤولية الملخّص نفسه.
+Summarizer = Callable[[Sequence["Turn"], Optional[str]], str]
 
 
 # ═══════════════════════ نموذج البيانات ═══════════════════════
@@ -128,6 +176,52 @@ POLICY_KNOWLEDGE_OBSERVATIONS = POLICY_CHAT     # [-10:] في chain/knowledge.py
 POLICY_PROVIDER_HISTORY_FOLD = POLICY_DELEGATE  # [-6:] في المزودين الثلاثة
 
 
+# ══════════════ النافذة الطبقية (R-304 / T-032) ══════════════
+
+@dataclass(frozen=True)
+class SummaryArtifact:
+    """ملخص مخزن في تيار الجلسة — يغطي الأدوار ``[0, covers_until)``."""
+    text: str
+    covers_until: int
+    ts: str = ""
+
+
+@dataclass(frozen=True)
+class TieredPolicy:
+    """سياسة النافذة الطبقية — راجع مخطط الطبقات في docstring الوحدة.
+
+    ``recent_floor``: أدنى عدد أدوار حديثة تدخل حرفيًّا مهما ضاقت
+    الميزانية (النافذة الحرفية لا تنكمش تحت الأرضية — R-304).
+    """
+    token_budget: int
+    recent_floor: int = 4
+    include_agent: bool = False
+
+    def __post_init__(self) -> None:
+        if self.token_budget < 0:
+            raise ValueError("token_budget لا يكون سالبًا")
+        if self.recent_floor < 1:
+            raise ValueError("recent_floor ≥ 1 — النافذة الحرفية لا تُعدَم")
+
+
+@dataclass(frozen=True)
+class TieredWindow:
+    """ناتج ``tiered_window`` — ملخص (إن دخل) + أدوار حرفية بترتيب السجل.
+
+    ``degraded``: أدوار أُسقطت دون أن يغطيها ملخص — قصّة صريحة
+    (مسار التدهور المنصوص عند غياب/تأخر/فشل الملخّص).
+    """
+    summary: Optional[SummaryArtifact]
+    turns: list[Turn]
+    degraded: bool = False
+
+    def summary_block(self) -> str:
+        """كتلة الملخص الموسومة للـ prompt — "" إن لم يدخل ملخص."""
+        if self.summary is None:
+            return ""
+        return f"{SUMMARY_LABEL}:\n{self.summary.text}"
+
+
 def select_history(items: Sequence[_T], policy: WindowPolicy) -> list[_T]:
     """تطبيق سياسة نافذة على قائمة في الذاكرة (جسر T-030).
 
@@ -168,6 +262,10 @@ class ConversationMemory:
         # كاش عدّاد الأدوار — يُملأ كسولاً من السجل ثم يُزاد محليًّا،
         # فيبقى append بلا إعادة تشغيل للسجل (لا ننقض O(1) لـ T-027)
         self._turn_count: Optional[int] = None
+        # R-304 (T-032): حالة الملخّص الخلفي — طلب واحد في الرحلة
+        self._summary_lock = threading.Lock()
+        self._summary_thread: Optional[threading.Thread] = None
+        self.last_summary_error: Optional[BaseException] = None
 
     # ── التسجيل ──
 
