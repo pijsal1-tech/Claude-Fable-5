@@ -1171,16 +1171,10 @@ def ws_handler(ws):
                             return result
                         return _active_provider().send(prompt_text, hist, sys_prompt)
 
-                    agent_loop = AgentLoop(
-                        tools=agent_tools,
-                        send_fn=_agent_send_fn,
-                        ws_send_fn=_agent_ws_send,
-                        system_prompt=get_system_prompt(),
-                        max_iterations=6,
-                        # T-013 (R-104): نفس بوابة الموافقة الموحدة لكل الأوضاع
-                        approval_gate=approval_gate,
-                    )
-                    _active_agent_loop = agent_loop
+                    # T-041 (R-501): AgentRunner في thread عامل — حلقة الـ WS
+                    # الرئيسية تبقى حرة دائمًا، فرسائل agent_approval_response
+                    # وcancel_agent تصل من المستوى الأعلى مباشرة (حلقة
+                    # الاستطلاع القديمة workaround حُذفت بالكامل).
 
                     # حفظ في history
                     chat_history.append(Message(role="user", content=user_text))
@@ -1191,101 +1185,66 @@ def ws_handler(ws):
                     ws.send(json.dumps({"type": "start"}))
                     print(f"  🤖 Agent Loop started (mode={mode})")
 
-                    # تشغيل Agent Loop في thread منفصل
-                    agent_result = {"response": None, "error": None}
-
-                    import uuid
-                    agent_run_id = f"run-agent-{uuid.uuid4().hex[:8]}"
-                    agent_step_id = "step-agent-execute"
-
                     # T-015 (R-105): registry ticket — agent تحت نفس السجل
                     agent_ticket = _begin_run_ticket("agent", _agent_ws_send)
                     if agent_ticket is None:
                         continue
-                    
+
+                    def _agent_loop_factory(frame_sink):
+                        """يبني AgentLoop لهذا الطلب — الإطارات عبر sink الـ runner."""
+                        return AgentLoop(
+                            tools=agent_tools,
+                            send_fn=_agent_send_fn,
+                            ws_send_fn=frame_sink,
+                            system_prompt=get_system_prompt(),
+                            max_iterations=6,
+                            # T-013 (R-104): نفس بوابة الموافقة الموحدة لكل الأوضاع
+                            approval_gate=approval_gate,
+                        )
+
+                    def _publish_agent_loop(loop):
+                        """ينشر الحلقة النشطة — الموافقات/الإلغاء من مستوى WS الأعلى."""
+                        global _active_agent_loop
+                        _active_agent_loop = loop
+
+                    _agent_req = RunRequest(
+                        mode="agent",
+                        message=user_text_with_files,
+                        context={
+                            "history": chat_history[:-1],
+                            "project_context": project_context,
+                        },
+                    )
+                    _agent_runner = RUNNERS["agent"](
+                        loop_factory=_agent_loop_factory,
+                        on_loop=_publish_agent_loop,
+                    )
+                    _agent_sink = _RunnerWSAdapter(_agent_ws_send)
+
                     def _run_agent():
+                        global _active_agent_loop
                         try:
-                            agent_result["response"] = agent_loop.run(
-                                user_request=user_text_with_files,
-                                history=chat_history[:-1],
-                                project_context=project_context,
-                                run_id=agent_run_id,
-                                step_id=agent_step_id,
-                                ticket=agent_ticket,
-                            )
-                        except Exception as e:
-                            agent_result["error"] = str(e)
-                            import traceback
-                            traceback.print_exc()
+                            result = _agent_runner.run(
+                                _agent_req, agent_ticket, _agent_sink)
+                        finally:
+                            _active_agent_loop = None
 
-                    t = threading.Thread(target=_run_agent, daemon=True)
-                    t.start()
+                        if result.status == RESULT_FAILED:
+                            print(f"  ❌ Agent Loop error: {result.error}")
+                            _agent_ws_send({"type": "error", "text": result.error})
+                            _agent_ws_send({"type": "done", "options": []})
+                            return
 
-                    # ── Polling loop: نستقبل رسائل WS أثناء تشغيل الـ Agent ──
-                    # بدل t.join() اللي هيقفل الـ WS loop ويسبب deadlock
-                    # لو الـ Agent طلب موافقة (_approval_event.wait)
-                    _agent_start = time.time()
-                    _agent_timeout = 600  # 10 دقائق حد أقصى
+                        full_response = result.text or ""
+                        print(f"  ✅ Agent Loop done — {len(full_response)} chars")
 
-                    while t.is_alive():
-                        # نحاول نستقبل رسالة بـ timeout قصير
-                        try:
-                            raw_inner = ws.receive(timeout=0.3)
-                            if raw_inner:
-                                inner_data = json.loads(raw_inner)
-                                inner_type = inner_data.get("type", "")
+                        if not full_response:
+                            _agent_ws_send({"type": "error", "text": "لم يتم الحصول على رد من الـ AI"})
+                            _agent_ws_send({"type": "done", "options": []})
+                            return
 
-                                if inner_type == "agent_approval_response":
-                                    if _active_agent_loop:
-                                        approved = inner_data.get("approved", False)
-                                        approval_id = inner_data.get("approval_request_id", "")
-                                        payload_hash = inner_data.get("payload_hash", "")
-                                        _active_agent_loop.approve_command(approved, approval_id, payload_hash)
-                                        print(f"    {'✅' if approved else '❌'} Agent approval: {approved}")
-
-                                elif inner_type == "cancel_agent":
-                                    if _active_agent_loop:
-                                        _active_agent_loop.cancel()
-                                        print("    🛑 Agent cancelled by user")
-
-                                elif inner_type == "ping":
-                                    ws.send(json.dumps({"type": "pong"}))
-
-                        except Exception:
-                            pass  # timeout أو خطأ — نكمل
-
-                        # فحص timeout كلي
-                        if time.time() - _agent_start > _agent_timeout:
-                            if _active_agent_loop:
-                                _active_agent_loop.cancel()
-                            print("  ⏰ Agent Loop timeout!")
-                            break
-
-                    t.join(timeout=5)  # cleanup
-
-                    _active_agent_loop = None
-
-                    if agent_result["error"]:
-                        print(f"  ❌ Agent Loop error: {agent_result['error']}")
-                        ws.send(json.dumps({"type": "error", "text": agent_result["error"]}))
-                        ws.send(json.dumps({"type": "done", "options": []}))
-                        continue
-
-                    full_response = agent_result["response"] or ""
-                    print(f"  ✅ Agent Loop done — {len(full_response)} chars")
-
-                    if not full_response:
-                        ws.send(json.dumps({"type": "error", "text": "لم يتم الحصول على رد من الـ AI"}))
-                        ws.send(json.dumps({"type": "done", "options": []}))
-                        continue
-
-                    # إرسال الرد النهائي كـ chunks
-                    try:
-                        chunk_size = 80
-                        for i in range(0, len(full_response), chunk_size):
-                            ws.send(json.dumps({"type": "chunk", "text": full_response[i:i+chunk_size]}))
-
-                        # تحليل الرد
+                        # الرد نفسه وصل الواجهة كـ chunks من الـ runner —
+                        # هنا الحفظ + التحليل + إطار plan/done الختامي فقط.
                         chat_history.append(Message(role="assistant", content=full_response))
                         if session_mgr:
                             session_mgr.append_message("assistant", full_response)
@@ -1300,28 +1259,27 @@ def ws_handler(ws):
                             actions.append({"action": "run_command", "command": cb.command})
 
                         options = [opt.text for opt in parsed.options] if hasattr(parsed, 'options') and parsed.options else []
-                        _backup_done_for_batch = False
 
                         if actions:
-                            ws.send(json.dumps({
+                            _agent_ws_send({
                                 "type": "plan",
                                 "actions": actions,
                                 "options": options,
                                 "summary": parsed.summary(),
-                            }))
+                            })
                         else:
-                            ws.send(json.dumps({
+                            _agent_ws_send({
                                 "type": "done",
                                 "options": options,
-                            }))
-                    except Exception as ws_err:
-                        # الـ WS اتقفل أثناء إرسال الرد — نحفظ في الـ history على الأقل
-                        print(f"  ⚠️ WS closed during response send: {ws_err}")
-                        if full_response and not any(m.content == full_response for m in chat_history if m.role == "assistant"):
-                            chat_history.append(Message(role="assistant", content=full_response))
-                            if session_mgr:
-                                session_mgr.append_message("assistant", full_response)
-                    continue
+                            })
+
+                    _backup_done_for_batch = False
+                    threading.Thread(
+                        target=_run_agent,
+                        daemon=True,
+                        name=f"runner-agent-{agent_ticket.run_id}",
+                    ).start()
+                    continue  # الـ runner يتكفل بالرد
 
                 except Exception as e:
                     _active_agent_loop = None
@@ -1348,71 +1306,30 @@ def ws_handler(ws):
             # إرسال بداية
             ws.send(json.dumps({"type": "start"}))
 
-            full_response = ""
-            if not _legacy_dispatch():
-                # T-040 (R-501): مسار runner — نفس النداء (stream) ونفس
-                # إطارات chunk/error عبر _RunnerWSAdapter؛ التذكرة تُسجَّل
-                # بنوع "direct" (كان الوضع الوحيد خارج السجل).
-                direct_ticket = _begin_run_ticket("direct", _json_sender(ws))
-                if direct_ticket is None:
-                    continue
-                _direct_req = RunRequest(
-                    mode="direct",
-                    message=prompt,
-                    system_prompt=system_prompt,
-                    context={"history": chat_history[:-1]},
-                )
-                _direct_sink = _RunnerWSAdapter(_json_sender(ws))
-                _direct_result = DirectRunner(
-                    lambda p, h, s: _active_provider().stream(p, h, s)
-                ).run(_direct_req, direct_ticket, _direct_sink)
-                # مطابقة المسار القديم حرفيًا: الفشل يرسل إطار error ثم
-                # يُكمل للتحليل بالنص الجزئي (لا continue) — نفس ما يفعله
-                # فرع "error" في حلقة القديم بعد break.
-                full_response = _direct_result.text
-                if _direct_result.status != RESULT_COMPLETED:
-                    ws.send(json.dumps({
-                        "type": "error",
-                        "text": _direct_result.error or "الرد لم يكتمل",
-                    }))
-            else:
-                try:
-                    import queue
-
-                    chunk_queue = queue.Queue()
-
-                    def _stream_worker():
-                        try:
-                            for chunk in _active_provider().stream(prompt, chat_history[:-1], system_prompt):
-                                chunk_queue.put(("chunk", chunk))
-                            chunk_queue.put(("done", None))
-                        except Exception as e:
-                            chunk_queue.put(("error", str(e)))
-
-                    t = threading.Thread(target=_stream_worker, daemon=True)
-                    t.start()
-
-                    # استقبال chunks من الـ thread (مهلة طويلة لأن الـ provider بيعيد المحاولة تلقائياً)
-                    timeout_secs = 600
-                    while True:
-                        try:
-                            msg_type, payload = chunk_queue.get(timeout=timeout_secs)
-                        except queue.Empty:
-                            ws.send(json.dumps({"type": "error", "text": "انتهت المهلة — لم يرد AI"}))
-                            break
-
-                        if msg_type == "chunk":
-                            full_response += payload
-                            ws.send(json.dumps({"type": "chunk", "text": payload}))
-                        elif msg_type == "done":
-                            break
-                        elif msg_type == "error":
-                            ws.send(json.dumps({"type": "error", "text": payload}))
-                            break
-
-                except Exception as e:
-                    ws.send(json.dumps({"type": "error", "text": str(e)}))
-                    continue
+            # T-041 (R-501): المسار الوحيد — DirectRunner (نفس النداء stream
+            # ونفس إطارات chunk/error عبر _RunnerWSAdapter؛ التذكرة بنوع
+            # "direct"). المطابقة مع stream-worker المحذوف مثبتة في
+            # tests/integration/test_dispatch_parity.py (بايت-بايت).
+            direct_ticket = _begin_run_ticket("direct", _json_sender(ws))
+            if direct_ticket is None:
+                continue
+            _direct_req = RunRequest(
+                mode="direct",
+                message=prompt,
+                system_prompt=system_prompt,
+                context={"history": chat_history[:-1]},
+            )
+            _direct_result = RUNNERS["direct"](
+                stream_fn=lambda p, h, s: _active_provider().stream(p, h, s)
+            ).run(_direct_req, direct_ticket, _RunnerWSAdapter(_json_sender(ws)))
+            # دلالة المسار القديم حرفيًا: الفشل يرسل إطار error ثم يُكمل
+            # للتحليل بالنص الجزئي (لا continue) — نفس فرع "error" القديم.
+            full_response = _direct_result.text
+            if _direct_result.status != RESULT_COMPLETED:
+                ws.send(json.dumps({
+                    "type": "error",
+                    "text": _direct_result.error or "الرد لم يكتمل",
+                }))
 
             # تحليل الرد
             chat_history.append(Message(role="assistant", content=full_response))
@@ -1681,35 +1598,30 @@ def ws_handler(ws):
             except Exception:
                 pass
 
-            def delegate_event_handler(event_type, event_data):
-                try:
-                    ws.send(json.dumps({
-                        "type": event_type,
-                        **event_data,
-                    }))
-                except Exception:
-                    pass
+            # T-041 (R-501): نفس مسار الإرسال الموحّد — DelegateRunner فوق
+            # الجسر (كان النداء المباشر هنا بلا تذكرة — الآن التفويض من هذا
+            # المدخل أيضًا تحت سياسة الـ run الواحد وقابل للإلغاء).
+            delegate_msg_ticket = _begin_run_ticket("delegate", _json_sender(ws))
+            if delegate_msg_ticket is None:
+                continue
 
-            # تشغيل في thread منفصل
-            def run_delegate():
-                try:
-                    delegate_bridge.run_delegation(
-                        user_request=user_text,
-                        files_context=files_context,
-                        project_context=project_context,
-                        on_event=delegate_event_handler,
-                    )
-                except Exception as e:
-                    try:
-                        ws.send(json.dumps({
-                            "type": "delegate_error",
-                            "error": str(e),
-                        }))
-                    except Exception:
-                        pass
-
-            t = threading.Thread(target=run_delegate, daemon=True)
-            t.start()
+            threading.Thread(
+                target=RUNNERS["delegate"](bridge=delegate_bridge).run,
+                args=(
+                    RunRequest(
+                        mode="delegate",
+                        message=user_text,
+                        context={
+                            "files": files_context,
+                            "project_context": project_context,
+                        },
+                    ),
+                    delegate_msg_ticket,
+                    _RunnerWSAdapter(_json_sender(ws)),
+                ),
+                daemon=True,
+                name=f"runner-delegate-{delegate_msg_ticket.run_id}",
+            ).start()
 
         elif msg_type == "delegate_approve":
             # المستخدم وافق على التعديلات

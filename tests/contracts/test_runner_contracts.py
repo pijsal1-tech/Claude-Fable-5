@@ -10,9 +10,16 @@ from __future__ import annotations
 
 import tempfile
 
+from actions.command_runner import CommandRunner
+from actions.file_manager import FileManager
+from chain.agent_loop import AgentLoop
+from chain.agent_tools import AgentTools
 from chain.bridge import ChainBridge
+from chain.delegate import DelegateBridge
 from core.runner import EventStream, Runner, RunResult
+from runners.agent import AgentRunner
 from runners.chain import ChainRunner
+from runners.delegate import DelegateRunner
 from runners.direct import DirectRunner
 from tests.contracts.runner_contract import CollectingSink, RunnerContractMixin
 from tests.fakes.echo_runner import EchoRunner
@@ -58,6 +65,62 @@ class TestChainRunnerContract(RunnerContractMixin):
         return ChainRunner(bridge, force_strategy="direct",
                            join_timeout_s=15.0,
                            cancel_after_start=cancel_after_start)
+
+
+class TestAgentRunnerContract(RunnerContractMixin):
+    """T-041: AgentRunner فوق AgentLoop حقيقي (أدوات على مشروع مؤقت).
+
+    رد المزود بلا tool calls ⇒ الحلقة تعود من أول iteration —
+    أسرع مسار يمر بالحلقة الحقيقية كاملة (auto_prefetch + إرسال).
+    الفشل يُزرع في loop_factory (عطل بناء الحلقة/العدة): أعطال
+    المزود نفسها لا تصلح هنا لأن AgentLoop يلتهمها عمدًا — يعيد
+    المحاولة ثم يرد بنص fallback (سلوك مقصود مثبّت). المهم للعقد:
+    الاستثناء لا يهرب — يُترجم RunResult(failed) (بند 4).
+    """
+
+    def make_runner(self, *, fail_with=None, cancel_after_start=None):
+        provider = FakeProvider(default_response="الرد النهائي للوكيل")
+        tmp = tempfile.mkdtemp(prefix="agent-contract-")
+
+        def _loop_factory(frame_sink):
+            if fail_with is not None:
+                raise fail_with
+            tools = AgentTools(
+                file_manager=FileManager(tmp),
+                command_runner=CommandRunner(cwd=tmp, auto_approve=True),
+                project_root=tmp,
+            )
+            return AgentLoop(
+                tools=tools,
+                send_fn=lambda p, h, s: provider.send(p, h, s),
+                ws_send_fn=frame_sink,
+                max_iterations=2,
+            )
+
+        return AgentRunner(_loop_factory,
+                           cancel_after_start=cancel_after_start)
+
+
+class TestDelegateRunnerContract(RunnerContractMixin):
+    """T-041: DelegateRunner فوق DelegateBridge حقيقي.
+
+    المزود مبرمج على دورة كاملة تنتهي rejected (حكم REJECT من
+    المراجع) — حالة **حاسمة** تُنهي التذكرة completed (القرار سُجّل)،
+    فتجتاز بند «التذكرة == النتيجة». مسار waiting_approval (تذكرة
+    حية عمدًا) خارج العدة — مثبّت في test_ticket_cancellation.py
+    وtest_dispatch_parity.py.
+    """
+
+    # دورة brief → implement → review(REJECT) — نهاية حاسمة بلا rework
+    _SCRIPT = ["<brief>خطة</brief>", "تم التنفيذ",
+               "[VERDICT]: REJECT\n[SUMMARY]: مرفوض"]
+
+    def make_runner(self, *, fail_with=None, cancel_after_start=None):
+        provider = FakeProvider(responses=list(self._SCRIPT))
+        if fail_with is not None:
+            provider.fail_always = fail_with
+        return DelegateRunner(DelegateBridge(provider),
+                              cancel_after_start=cancel_after_start)
 
 
 # ═══════════════ عقود إضافية خاصة بالبنية التحتية ═══════════════
