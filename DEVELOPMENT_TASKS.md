@@ -601,11 +601,11 @@
 - **Files to Modify:** knowledge module, agent loop prompt build
 - **Affected Modules:** agent iterations
 - **Acceptance Criteria:** cost curve flat within 15%; iteration-1 finding retained at iteration 8; dedup unit green.
-- **Implementation:** [ ] bundle-backed · [ ] delta render · [ ] core summary
-- **Testing:** [ ] cost curve · [ ] retention · [ ] dedup
-- **Regression:** [ ] agent output quality parity on fixture
-- **Documentation:** [ ] measured curve in Reviewer Notes
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-044
+- **Implementation:** [x] bundle-backed · [x] delta render · [x] core summary
+- **Testing:** [x] cost curve · [x] retention · [x] dedup
+- **Regression:** [x] agent output quality parity on fixture
+- **Documentation:** [x] measured curve in Reviewer Notes
+- **Completion Status:** ✅ (2026-07-19) · **Reviewer Notes:** `chain/knowledge.py` — raw stores (`_files_read`/`_dirs_listed`/`_searches`/`_commands`) **deleted**; `KnowledgeAccumulator` is now a view over `ContextBundle` with **hash-dedup on insert**: same path + unchanged content = swallowed (no new entry); same body under another path = bundle reference (body rendered once + referral note); same path with new content = explicit `@rN` revision. `auto_*` prefetch results, previously unclassified (invisible to context), now register like everything else. New `build_iteration_context(max_tokens, recent_k=3)` = **delta prompt**: unsent items verbatim, sent items one compressed reference line `path (hash8)`, **recent-k floor** (latest k always verbatim — recall protection), stable core (observations via POLICY_KNOWLEDGE_OBSERVATIONS + errors) attached every send; **budget-dropped items are not marked sent** (re-render full next round). `build_context` kept as the stateless full view (first-send/final dump) with legacy section shapes verbatim — T-024 budget-wiring + T-030 policy + T-017 goldens pass unchanged. `chain/agent_loop.py`: initial/followup/final prompt builders → `build_iteration_context` (O(iterations×corpus) re-injection gone). **Measured curve** (8 iters, ~500-token file/iter, recent_k=1): delta = `[513, 534, 540, 546, 552, 558, 564, 570]` tokens; legacy full view = `[513, 1021, 1529, 2037, 2545, 3053, 3561, 4069]`; steady-state flatness **max/min = 1.067** (acceptance ≤1.15) ; iteration-8 cost **−86%** (4069→570). 🆕 `tests/unit/test_knowledge_bundle.py` (21): dedup ×4 (swallow/reference/revision/summary-counts), delta ×7 (first-verbatim-then-reference, hash in ref line, recent-k floor, new-item-full, budget-drop-not-marked-sent, stable-core-always, clear-resets), retention ×2 (iter-1 finding referenced by name+hash at iter-8, no body re-injection; iter-1 observation verbatim at 8), cost curve ×3 (flat ≤15% gate; executable doc that stateless full view grows >4×; R-503 literal "no full-content re-injection after first send"), full-view parity ×5 (stateless; unaffected by sends; all 4 section kinds; empty; `_files_read` removal pin). Regression: agent gated approvals + dispatch parity + runner contracts + prefetch goldens green (fixture output parity — goldens byte-stable). check.sh ALL GREEN: **824 passed, 1 skipped** (pre-existing), mypy Success. · **Next Task:** T-044
 
 ---
 

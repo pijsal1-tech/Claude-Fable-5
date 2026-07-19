@@ -27,6 +27,40 @@
     fallback path left.
 
 ### Added
+- **R-503 (T-043): Knowledge as ContextBundle view; delta prompts —
+  agent-loop token burn flattened.** `chain/knowledge.py`: the raw
+  stores (`_files_read`/`_dirs_listed`/`_searches`/`_commands`)
+  are **deleted** — `KnowledgeAccumulator` is now a view over a
+  `ContextBundle`: every tool result registers an item with
+  **hash-dedup on insert** (re-reading the same path with unchanged
+  content is swallowed entirely; the same body under another path is
+  recorded as a reference and rendered once + one referral note; same
+  path with *new* content becomes an explicit `@rN` revision so edits
+  are visible). Auto-prefetch results (`auto_*` tools), previously
+  unclassified and thus invisible to the context, now register like
+  everything else. New **`build_iteration_context(max_tokens,
+  recent_k=3)`**: per-iteration prompts carry the **delta** — unsent
+  items verbatim, previously-sent items as one compressed reference
+  line (`path (hash8)`), with a **recent-k floor** (latest k items
+  always verbatim) and the stable core (observations/errors — small
+  and decisive) attached to every send; items dropped by the token
+  budget are *not* marked sent and re-render in full next round.
+  `build_context` remains as the **stateless full view** (first-send /
+  final user-facing dump) with the exact legacy section shapes —
+  the T-024 budget-wiring tests and T-017 goldens pass unchanged.
+  `chain/agent_loop.py`: all three prompt builders (initial /
+  followup / final) switched to `build_iteration_context` — the
+  O(iterations × corpus) full re-injection is gone. **Measured curve**
+  (8 iterations, one ~500-token file read per iteration):
+  delta `[513, 534, 540, 546, 552, 558, 564, 570]` tokens vs legacy
+  full `[513, 1021, …, 4069]` — steady-state flatness **1.067×**
+  (gate ≤1.15×), iteration-8 cost **−86%**. Tests:
+  `tests/unit/test_knowledge_bundle.py` (21) — insert-dedup ×4, delta
+  rendering ×7 (incl. budget-drop re-render + clear reset), retention
+  (iteration-1 finding referenced by name+hash at iteration 8;
+  observations verbatim throughout), token-cost curve (flat ≤15% +
+  executable documentation that the stateless full view grows >4×),
+  and full-view parity ×5 (incl. `_files_read` removal pin).
 - **R-502 (T-042): Agent manifest — fleet definitions as data; ROLE_MAP
   deleted.** New `agents_rules/manifest.yaml` describes all 21 agents
   (`role → {file, stage, name, description, capabilities, tier,
