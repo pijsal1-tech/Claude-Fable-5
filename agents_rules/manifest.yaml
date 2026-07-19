@@ -1,0 +1,190 @@
+# ═══════════════════════════════════════════════════════
+#   Agent Manifest — R-502 (T-042)
+#
+#   تعريفات الأسطول كبيانات — بديل ROLE_MAP/ROLE_STAGE_MAP
+#   المحذوفين من chain/agent_loader.py.
+#
+#   Schema (validated by AgentLoader — أخطاء البنية تُرفض
+#   برسالة تحمل رقم السطر):
+#
+#   version: 1                     # مطلوب — العدد الصحيح 1
+#   agents:                        # مطلوب — mapping غير فارغ
+#     <role_id>:                   # معرّف الدور (مفتاح فريد)
+#       file: <path>               # مطلوب — مسار نسبي من agents_rules/
+#                                  #   (path traversal مرفوض عند التحميل)
+#       stage: <stage>             # مطلوب — واحد من:
+#                                  #   analyze | plan | execute | review | meta
+#       name: <str>                # اختياري — اسم عرض
+#       description: <str>         # اختياري — وصف الدور
+#       capabilities: [<str>, …]   # اختياري — قائمة قدرات
+#       tier: <str>                # اختياري — core | specialist
+#       fallback: base             # اختياري — القيمة الوحيدة "base":
+#                                  #   عند غياب الملف يُستخدم
+#                                  #   chain/prompts/base_<stage>.md.
+#                                  #   بدون هذا الإعلان: ملف مفقود =
+#                                  #   خطأ صاخب (لا fallback صامت).
+#
+#   Hot-reload: اللودر يعيد بناء السجل تلقائيًا عند تغيّر
+#   mtime لهذا الملف (تبديل ذرّي — تعديل مكسور أثناء التشغيل
+#   يُبقي السجل القديم ويسجّل الخطأ). ملفات الـ prompts نفسها
+#   مفتاح كاشها (path, mtime) — تعديل ملف وكيل يسري فورًا.
+# ═══════════════════════════════════════════════════════
+version: 1
+
+agents:
+  # ── Analyzers (stage: analyze) ──
+  code_analyzer:
+    file: سيستم/أنت محلل جودة.md
+    stage: analyze
+    name: محلل جودة الكود
+    description: يحلل الكود ويستخرج الرموز والعلاقات والمشاكل المحتملة.
+    capabilities: [static-analysis, symbols, smells]
+    tier: core
+  bug_analyzer:
+    file: سيستم/أنت مراجع أخطاء.md
+    stage: analyze
+    name: مراجع أخطاء
+    description: يتتبع الأخطاء المنطقية ومصادر الأعطال.
+    capabilities: [bug-hunting, root-cause]
+    tier: specialist
+  api_analyzer:
+    file: سيستم/أنت محلل API Flow.md
+    stage: analyze
+    name: محلل API Flow
+    description: يحلل تدفقات الـ API والعقود بين الخدمات.
+    capabilities: [api-flow, contracts]
+    tier: specialist
+  security_analyzer:
+    file: سيستم/أنت مهندس أمان.md
+    stage: analyze
+    name: مهندس أمان
+    description: يفحص الثغرات وأسطح الهجوم وممارسات الأمان.
+    capabilities: [security, threat-modeling]
+    tier: specialist
+  perf_analyzer:
+    file: سيستم/أنت محلل أداء.md
+    stage: analyze
+    name: محلل أداء
+    description: يرصد الاختناقات وتكاليف الزمن والذاكرة.
+    capabilities: [profiling, complexity]
+    tier: specialist
+  deep_debugger:
+    file: سيستم/أنت محقق أخطاء عميق.md
+    stage: analyze
+    name: محقق أخطاء عميق
+    description: تحقيق جنائي في الأعطال الغامضة متعددة الطبقات.
+    capabilities: [forensics, tracing]
+    tier: specialist
+  request_analyzer:
+    file: سيستم/أنت محلل طلبات.md
+    stage: analyze
+    name: محلل طلبات
+    description: يفكك طلب المستخدم إلى متطلبات قابلة للتنفيذ.
+    capabilities: [requirements, scoping]
+    tier: core
+  quality_guard:
+    file: سيستم/أنت حارس الجودة.md
+    stage: analyze
+    name: حارس الجودة
+    description: بوابة جودة تمنع مرور الشيفرة دون المعايير.
+    capabilities: [quality-gate, standards]
+    tier: core
+
+  # ── Planners (stage: plan) ──
+  planner:
+    file: سيستم/أنت مخطط.md
+    stage: plan
+    name: مخطط
+    description: يحوّل التحليل إلى خطة تعديل محددة الملفات والأسطر.
+    capabilities: [planning, decomposition]
+    tier: core
+  architect:
+    file: سيستم/أنت مهندس معماري.md
+    stage: plan
+    name: مهندس معماري
+    description: قرارات بنيوية وتصميم واجهات بين الوحدات.
+    capabilities: [architecture, interfaces]
+    tier: specialist
+
+  # ── Executors (stage: execute) ──
+  executor:
+    file: MICRO_WORKER_SYSTEM_PROMPT.md
+    stage: execute
+    name: منفّذ
+    description: ينفّذ خطوة واحدة ويعيد الكود بصيغة EDIT blocks.
+    capabilities: [code-edit, micro-tasks]
+    tier: core
+  backend_dev:
+    file: هندسة-تطبيقات/أنت مهندس Backend.md
+    stage: execute
+    name: مهندس Backend
+    description: تنفيذ متخصص لمنطق الخادم وقواعد البيانات.
+    capabilities: [backend, apis, db]
+    tier: specialist
+  frontend_dev:
+    file: هندسة-تطبيقات/أنت مطور Frontend.md
+    stage: execute
+    name: مطور Frontend
+    description: تنفيذ متخصص للواجهات والتفاعل.
+    capabilities: [frontend, ui]
+    tier: specialist
+
+  # ── Reviewers (stage: review) ──
+  code_reviewer:
+    file: هندسة-تطبيقات/أنت مراجع الكود الآمن.md
+    stage: review
+    name: مراجع الكود الآمن
+    description: مراجعة أمنية وجودة بصيغة verdict منظمة.
+    capabilities: [code-review, security-review]
+    tier: core
+  quality_reviewer:
+    file: سيستم/أنت محلل جودة.md
+    stage: review
+    name: مراجع جودة
+    description: مراجعة جودة نهائية (يشارك ملف محلل الجودة).
+    capabilities: [quality-review]
+    tier: core
+  vibe_reviewer:
+    file: سيستم/أنت مراجع Vibe.md
+    stage: review
+    name: مراجع Vibe
+    description: مراجعة اتساق الأسلوب والروح العامة للكود.
+    capabilities: [style, consistency]
+    tier: specialist
+  evidence_reviewer:
+    file: سيستم/أنت فاحص بأدلة.md
+    stage: review
+    name: فاحص بأدلة
+    description: كل ملاحظة مراجعة يجب أن تحمل دليلًا قابلًا للتحقق.
+    capabilities: [evidence, verification]
+    tier: specialist
+  compat_reviewer:
+    file: سيستم/أنت مراجع توافق.md
+    stage: review
+    name: مراجع توافق
+    description: يفحص كسر التوافق الخلفي وواجهات الاستهلاك.
+    capabilities: [compatibility, breaking-changes]
+    tier: specialist
+
+  # ── Meta ──
+  orchestrator:
+    file: سيستم/أنت مدير الأوركسترا.md
+    stage: meta
+    name: مدير الأوركسترا
+    description: ينسّق السلاسل ويوزّع الخطوات على الأدوار.
+    capabilities: [orchestration]
+    tier: core
+  review_manager:
+    file: سيستم/أنت مدير المراجعة.md
+    stage: meta
+    name: مدير المراجعة
+    description: يدير جولات المراجعة ويجمّع الأحكام.
+    capabilities: [review-management]
+    tier: core
+  team_manager:
+    file: سيستم/أنت مدير فريق.md
+    stage: meta
+    name: مدير فريق
+    description: قرارات تفويض وتوزيع مهام على الفريق.
+    capabilities: [delegation, coordination]
+    tier: core
