@@ -562,11 +562,11 @@
 - **Files to Modify:** `runners/direct.py`, `runners/chain.py`, `server.py` dispatch
 - **Affected Modules:** dispatch (flagged)
 - **Acceptance Criteria:** both pass contract harness; parity E2E identical outputs both flag values.
-- **Implementation:** [ ] DirectRunner · [ ] ChainRunner · [ ] flag dispatch
-- **Testing:** [ ] harness ×2 · [ ] parity E2E
-- **Regression:** [ ] flag=1 byte-identical to legacy
-- **Documentation:** [ ] flag lifecycle note
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-041
+- **Implementation:** [x] DirectRunner · [x] ChainRunner · [x] flag dispatch
+- **Testing:** [x] harness ×2 · [x] parity E2E
+- **Regression:** [x] flag=1 byte-identical to legacy
+- **Documentation:** [x] flag lifecycle note
+- **Completion Status:** ✅ (2026-07-19) · **Reviewer Notes:** `runners/` package created (`direct.py` + `chain.py` + `__init__.py` carrying the flag-lifecycle doc). `DirectRunner(stream_fn)` wraps the provider stream call (cancellation checked between chunks); `ChainRunner(bridge)` wraps the real `ChainBridge` — orchestrator/executor/gated-apply untouched — re-emitting bridge frames as free events and deriving `RunResult` from `chain_finished`/`chain_cancelled`/error frames. Both pass the full `RunnerContractMixin`. `server.py`: `_legacy_dispatch()` reads env `LEGACY_DISPATCH` per message (default **legacy**; `=0` → runner path) + `_RunnerWSAdapter` (events → legacy WS frames byte-for-byte: `run_output`→`chunk`, chain frames pass through, lifecycle silent). `"direct"` joined `VALID_KINDS` — the direct path now holds a registry ticket like every other mode. Parity E2E `tests/integration/test_dispatch_parity.py` (8 tests): direct success/failure byte-identical; chain sequences identical modulo nondeterministic fields (timings/budget/run_id); flag semantics pinned (default/`"0"`/other). flag=1 regression = entire pre-existing suite untouched + flag tests. check.sh ALL GREEN: 734 passed, 1 skipped (pre-existing), mypy Success. · **Next Task:** T-041
 
 ## T-041 — Agent + Delegate Runners; Delete Polling Loop + Flag (R-501)
 - **Description:** Implement `AgentRunner` and `DelegateRunner`; **delete the agent WS polling workaround (server.py L920–965)**; remove `LEGACY_DISPATCH` and the legacy ladder — dispatch is `RUNNERS[strategy].run(...)`.
