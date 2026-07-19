@@ -317,7 +317,10 @@ class AgentLoop:
             parts.append(f"\n[سياق المشروع]:\n{project_context}")
         
         # ═══ المعرفة المُجمّعة تلقائياً (pre-fetch) ═══
-        knowledge_ctx = self.knowledge.build_context(max_tokens=8000)
+        # T-043 (R-503): الإرسال الأول أيضًا delta — يعلّم ما أُرسل
+        # فلا يُعاد حقنه في الجولات التالية (قبلها: build_context بلا
+        # حالة ⇒ كل جولة تعيد الجسد كاملًا = O(iterations × corpus))
+        knowledge_ctx = self.knowledge.build_iteration_context(max_tokens=8000)
         if knowledge_ctx:
             parts.append(
                 f"\n[✅ تم جمع المعلومات التالية تلقائياً من المشروع الفعلي]:\n"
@@ -342,8 +345,10 @@ class AgentLoop:
         
         parts.append(f"[طلب المستخدم الأصلي]:\n{user_request}")
         
-        # المعرفة التراكمية
-        knowledge_ctx = self.knowledge.build_context(max_tokens=6000)
+        # المعرفة التراكمية — delta فقط (T-043 / R-503):
+        # الجديد verbatim، وما سبق إرساله سطر إحالة (تاريخ المحادثة
+        # لدى الموديل يحفظ الأجساد السابقة) — تكلفة الجولة مسطّحة
+        knowledge_ctx = self.knowledge.build_iteration_context(max_tokens=6000)
         if knowledge_ctx:
             parts.append(f"\n[المعرفة المجمعة حتى الآن]:\n{knowledge_ctx}")
         
@@ -363,8 +368,8 @@ class AgentLoop:
     
     def _build_final_prompt(self, user_request: str,
                              project_context: str) -> str:
-        """Prompt نهائي — أجب بالمعرفة الموجودة"""
-        knowledge_ctx = self.knowledge.build_context(max_tokens=6000)
+        """Prompt نهائي — أجب بالمعرفة الموجودة (delta كذلك — T-043)"""
+        knowledge_ctx = self.knowledge.build_iteration_context(max_tokens=6000)
         
         return (
             f"[طلب المستخدم]:\n{user_request}\n\n"
