@@ -154,7 +154,7 @@ class RunnerContractMixin:
                 < sink.types.index(EVENT_APPROVAL_VERDICT)
                 < sink.types.index(EVENT_ACTION_APPLIED))
         # القرار مسجَّل في audit البوابة (نقطة القرار الوحيدة)
-        assert gate.audit_entries()[-1]["verdict"]["approved"] is True
+        assert gate.audit_entries()[-1]["approved"] is True
 
     def test_approval_denied_does_not_apply(self):
         gate = ApprovalGate(mode="deny")

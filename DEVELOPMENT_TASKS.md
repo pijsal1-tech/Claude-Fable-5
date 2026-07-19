@@ -549,11 +549,11 @@
 - **Files to Modify:** `core/runner.py` (new), `tests/contracts/runner_contract.py`, `tests/fakes/echo_runner.py`
 - **Affected Modules:** none wired yet
 - **Acceptance Criteria:** EchoRunner passes full harness; harness reusable via mixin.
-- **Implementation:** [ ] protocol · [ ] harness · [ ] EchoRunner
-- **Testing:** [ ] harness green on Echo
-- **Regression:** [ ] suite green
-- **Documentation:** [ ] runner-authoring guide
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-040
+- **Implementation:** [x] protocol · [x] harness · [x] EchoRunner
+- **Testing:** [x] harness green on Echo
+- **Regression:** [x] suite green
+- **Documentation:** [x] runner-authoring guide
+- **Completion Status:** ✅ · **Reviewer Notes:** 🆕 `core/runner.py`: frozen `RunRequest` (mode/message/context/`proposed_actions`/بوابة موافقة **لكل طلب** لا لكل runner — لا globals) + frozen `RunEvent` (type/run_id/seq/data) + frozen `RunResult` (completed/failed/cancelled = `TERMINAL_STATES` حرفيًا؛ status مجهول يرفض في `__post_init__`) + `EventSink`/`Runner` بروتوكولات `runtime_checkable` + `EventStream` (يختم run_id وseq متصاعدًا من 0؛ emit قبل started/بعد finished/تكرار دورة الحياة/أحداث دورة الحياة عبر القناة الحرة = RuntimeError صاخب — لا أحداث شبحية). **دليل تأليف الـ Runner** في docstring الموديول: 5 التزامات (أحداث جيدة التشكيل، إلغاء تعاوني عبر checkpoints على `ticket.is_cancelled`، الموافقة عبر البوابة حصريًا + لا بوابة ⇒ رفض آمن نمط T-012/T-013، لا استثناءات تهرب — الأعطال تصبح `RunResult(failed)`، التذكرة تُنهى بنفس status النتيجة قبل العودة). 🆕 `tests/contracts/runner_contract.py`: `RunnerContractMixin` (ورِث + عرّف `make_runner` — نمط T-010) يقود الـ runner عبر `ExecutionRegistry` **حقيقي**: تشكيل الأحداث (started أولًا/finished أخيرًا/seq بلا فجوات/run_id موحّد/reason==status)، نجاح، فشل مزروع → نتيجة لا استثناء، إلغاء عبر hook حتمي بعد البداية، مصفوفة موافقة (auto يطبّق بترتيب request→verdict→applied + audit البوابة؛ deny ⇒ صفر تطبيق؛ بلا بوابة ⇒ رفض آمن)، وtickets==results parametrized. 🆕 `tests/fakes/echo_runner.py`: `EchoRunner` المرجعي — أصغر runner يجتاز العدة كاملة (hooks اختبارية: `fail_with`/`cancel_after_start`). **لا توصيل بعد عمدًا** — server.py لم يُمسّ؛ الـ runners الحقيقية خلف علم LEGACY_DISPATCH في T-040. 18 اختبارًا في `tests/contracts/test_runner_contracts.py` (9 عدة على Echo + 3 شكل البروتوكول + 6 ضمانات EventStream). إصلاح واحد بعد أول تشغيل: قراءة audit البوابة كانت تفترض مفتاح `verdict` متداخلًا — بنية `_record` الفعلية مسطّحة (`entry["approved"]`). `./scripts/check.sh` → mypy Success (46 ملفًا) + 4 بوابات grep + **708 passed, 1 skipped** — ALL GREEN (690→708 = +18). · **Next Task:** T-040
 
 ## T-040 — Direct + Chain Runners Behind LEGACY_DISPATCH Flag (R-501)
 - **Description:** Implement `DirectRunner` and `ChainRunner` wrapping existing logic; dispatch selects runner path when `LEGACY_DISPATCH=0`; record per-mode parity E2E (legacy vs runner output).

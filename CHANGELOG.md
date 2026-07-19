@@ -27,6 +27,41 @@
     fallback path left.
 
 ### Added
+- **R-501 (T-039): Runner protocol + shared contract harness +
+  EchoRunner reference — the unified execution contract exists and is
+  provably testable before any real runner migrates.** New
+  `core/runner.py`: frozen `RunRequest` (mode, message, context,
+  `proposed_actions`, per-request `approval_gate` — no globals), frozen
+  `RunEvent` (type/run_id/seq/data), frozen `RunResult`
+  (completed/failed/cancelled — matching `TERMINAL_STATES`, unknown
+  status rejected in `__post_init__`), `EventSink` +
+  `runtime_checkable Runner` Protocols, and `EventStream` — a
+  well-formedness enforcer that stamps run_id + monotonic seq and makes
+  protocol violations loud (`emit` before `started()` / after
+  `finished()` / duplicate lifecycle / lifecycle events through the
+  free channel all raise RuntimeError — no ghost events). The
+  **runner-authoring guide** lives in the module docstring: 5
+  obligations (well-formed events, cooperative cancellation via
+  `ticket.is_cancelled` checkpoints, approval exclusively through the
+  gate with no-gate ⇒ safe reject, no exceptions escape — failures
+  become `RunResult(failed)`, ticket finished with the result's status
+  before returning). New `tests/contracts/runner_contract.py`:
+  `RunnerContractMixin` (subclass + define `make_runner`, same pattern
+  as T-010's provider mixin) driving a real runner through a real
+  `ExecutionRegistry`: event well-formedness (started first, finished
+  last, gapless seq, uniform run_id, finish reason == result status),
+  success, planted-crash → failed result not exception, cancellation
+  honored via deterministic post-start hook, approval matrix
+  (auto-approve applies with request→verdict→applied ordering + gate
+  audit; deny ⇒ zero application; no gate ⇒ safe reject), and
+  ticket-state == result-status parametrized. New
+  `tests/fakes/echo_runner.py`: `EchoRunner` — the smallest runner
+  passing the full harness, with `fail_with` / `cancel_after_start`
+  test hooks; copy its structure when authoring real runners (T-040+).
+  Nothing is wired yet by design — server.py untouched; the real
+  runners land behind the LEGACY_DISPATCH flag in T-040. 18 new tests
+  in `tests/contracts/test_runner_contracts.py` (9 harness on Echo + 3
+  protocol shape + 6 EventStream guarantees).
 - **R-403 (T-038): CapacityModel — capacity numbers derived from live
   pool + breaker state instead of account-count fiction.** New
   `providers/capacity.py`: frozen `ProviderCapacity` (name, healthy,
