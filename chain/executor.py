@@ -125,6 +125,21 @@ class ChainExecutor:
         الـ ticket (T-015, R-105): يُفحص عند حدود الخطوات وقبل كل retry.
         """
         self._ticket = ticket
+
+        # ── تحقق وقت الخطة (T-045, R-602): context_policy مجهولة ⇒ فشل
+        # فوري قبل أي استدعاء مزود — لا اكتشاف متأخر منتصف السلسلة.
+        from .models import canonical_context_policy
+        try:
+            for _step in run.steps:
+                canonical_context_policy(_step.context_policy)
+        except ValueError as e:
+            run.transition_to("failed")
+            self._emit(run, on_event, ChainEvent("run_error", data={
+                "error": f"ValueError: {e}",
+            }))
+            self._save_state(run)
+            return run
+
         run.transition_to("running")
         run.started_at = time.time()
 
@@ -243,13 +258,19 @@ class ChainExecutor:
             "agent_role": step.agent_role,
         }))
 
-        # ── Build prompt ──
+        # ── Build prompt (T-045, R-602: context_policy enforced) ──
         agent_prompt = self._agent_loader.load(step.agent_role)
         dependency_results = {
             dep_id: run.results.get(dep_id, "")
             for dep_id in step.depends_on
         }
-        user_prompt = step.build_prompt(dependency_results)
+        dependency_meta = {
+            dep_id: {"name": dep.name, "status": dep.status}
+            for dep_id in step.depends_on
+            if (dep := run.get_step(dep_id)) is not None
+        }
+        user_prompt = step.build_prompt(dependency_results,
+                                        dependency_meta=dependency_meta)
 
         # ── Retry loop ──
         last_error = None

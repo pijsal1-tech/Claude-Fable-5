@@ -17,7 +17,63 @@ import time
 import hashlib
 import json
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any
+
+
+# ═══════════════════════════════════════════════════════
+#   Context Policy — T-045 (R-602)
+# ═══════════════════════════════════════════════════════
+# سياسة حقن نتائج التبعيات في برومبت الخطوة. كانت معلنة في الموديل
+# ومتجاهلة تمامًا في التنفيذ (حقل ديكوري) — الآن تُفرض في build_prompt
+# وتُتحقق وقت الخطة (قيمة مجهولة = فشل فوري قبل أي استدعاء مزود).
+
+_CONTEXT_POLICY_ALIASES = {
+    "full": "full",
+    "selective": "full",     # الافتراضي القديم — تكافؤ حرفي مع السلوك القديم
+    "summary": "summary",
+    "summaries": "summary",  # التهجئة القديمة في تعليق الموديل
+    "minimal": "minimal",
+}
+
+#: ميزانية ملخص كل تبعية في وضع summary (بالتوكنز — مقدّر T-024 المركزي)
+SUMMARY_TOKENS_PER_DEP = 256
+
+
+def canonical_context_policy(value: str) -> str:
+    """يرجع الوضع القانوني (full | summary | minimal) أو يرفع ValueError.
+
+    fail fast (R-602): قيمة مجهولة ترفض وقت الخطة — لا تجاهل صامت.
+    """
+    try:
+        return _CONTEXT_POLICY_ALIASES[value]
+    except KeyError:
+        raise ValueError(
+            f"Unknown context_policy: {value!r} — "
+            f"valid: {sorted(set(_CONTEXT_POLICY_ALIASES))}") from None
+
+
+@lru_cache(maxsize=128)
+def summarize_for_context(text: str,
+                          max_tokens: int = SUMMARY_TOKENS_PER_DEP) -> str:
+    """ملخص استخلاصي حتمي محدود الميزانية (رأس 70% + ذيل 30%).
+
+    - ضمن الميزانية ⇒ النص حرفيًّا (لا تشويه مجاني).
+    - فوقها ⇒ رأس + علامة حذف صريحة + ذيل. حتمي بالكامل (لا استدعاء
+      مزود) ⇒ قابل للـ golden، و``lru_cache`` = التخزين لكل ناتج خطوة.
+    - المحاسبة عبر المقدّر المركزي (T-024/R-203) لا تخمينات محلية.
+    """
+    from context.budget import CharsPerTokenEstimator
+    est = CharsPerTokenEstimator()
+    if est.estimate(text) <= max_tokens:
+        return text
+    max_chars = max_tokens * 4
+    head_n = int(max_chars * 0.7)
+    tail_n = max_chars - head_n
+    omitted = len(text) - head_n - tail_n
+    return (f"{text[:head_n]}\n"
+            f"… [{omitted} chars omitted — summary mode] …\n"
+            f"{text[-tail_n:]}")
 
 
 # ═══════════════════════════════════════════════════════
@@ -185,7 +241,7 @@ class ChainStep:
     agent_role: str                  # code_analyzer | planner | executor...
     prompt_template: str = ""
     depends_on: list[str] = field(default_factory=list)
-    context_policy: str = "selective"  # summaries | full | selective
+    context_policy: str = "selective"  # full | summary | minimal (+aliases)
     critical: bool = True
     result: str = ""
     status: str = "pending"          # pending | running | success | error | skipped
@@ -193,12 +249,33 @@ class ChainStep:
     duration_ms: int = 0
     provider_calls: int = 0          # عدد الاستدعاءات (مع retries)
 
-    def build_prompt(self, dependency_results: dict[str, str]) -> str:
-        """بناء البرومبت مع حقن نتائج الخطوات المطلوبة فقط"""
+    def build_prompt(self, dependency_results: dict[str, str],
+                     dependency_meta: dict[str, dict] | None = None) -> str:
+        """بناء البرومبت مع حقن نتائج التبعيات **حسب context_policy** (T-045).
+
+        - ``full`` (والاسم القديم ``selective``): النتائج حرفيًّا —
+          تكافؤ بايت-ببايت مع السلوك القديم غير المشروط.
+        - ``summary`` (و``summaries``): ملخص حتمي محدود الميزانية لكل
+          تبعية (``summarize_for_context`` — مُخزَّن lru لكل ناتج).
+        - ``minimal``: العناوين والحالات فقط — صفر محتوى نتائج.
+          ``dependency_meta`` (من المنفّذ): {dep_id: {"name","status"}}.
+
+        قيمة مجهولة ⇒ ValueError (fail fast — يلتقطها تحقق وقت الخطة).
+        """
+        mode = canonical_context_policy(self.context_policy)
+
         context = ""
         for dep_id in self.depends_on:
-            if dep_id in dependency_results:
-                context += f"\n\n[Result from {dep_id}]:\n{dependency_results[dep_id]}"
+            if mode == "minimal":
+                meta = (dependency_meta or {}).get(dep_id, {})
+                name = meta.get("name", dep_id)
+                status = meta.get("status", "unknown")
+                context += f"\n\n[Dependency {dep_id}: {name} — {status}]"
+            elif dep_id in dependency_results:
+                body = dependency_results[dep_id]
+                if mode == "summary":
+                    body = summarize_for_context(body)
+                context += f"\n\n[Result from {dep_id}]:\n{body}"
 
         prompt = self.prompt_template
         if "{previous_context}" in prompt:
