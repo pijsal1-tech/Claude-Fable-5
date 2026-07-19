@@ -27,6 +27,33 @@
     fallback path left.
 
 ### Added
+- **R-301/R-305 (T-028): `scripts/migrate_sessions.py` — lossless,
+  idempotent JSON→JSONL migration; session data untracked from git.**
+  Each legacy `<id>.json` (single document with embedded `messages`)
+  becomes the T-027 pair: `session_<id>.jsonl` (one line per message,
+  legacy `timestamp` carried verbatim as `ts`) +
+  `session_<id>.meta.json` (header carried verbatim — title /
+  project_path / created_at / updated_at — plus `message_count`).
+  **Self-verifying:** after writing, each session is replayed through
+  `SessionStore.replay` and compared value-exact against the legacy
+  document (count + role/content/ts) before being reported migrated.
+  **Idempotent:** an existing `session_<id>.jsonl` means "already
+  migrated" → skipped; a re-run is a no-op (mtime-pinned by tests) and
+  — the dangerous case — never clobbers messages appended *after*
+  migration while the legacy file still exists. Corrupt legacy files
+  are skipped and reported without failing the batch, and are **never**
+  deleted even under `--remove-legacy` (forensic evidence); legacy
+  files are kept by default (deletion is an explicit user decision
+  after verification). **R-305:** `.gitignore` now ignores session
+  *data* only (`sessions/*.json|*.jsonl|*.meta.json|*.tmp` — not the
+  package: `store.py`/`__init__.py` stay tracked); the 43 tracked
+  session JSONs are `git rm --cached`-ed (index only, files stay on
+  disk; history purge is T-050). Migration runbook (migrate → verify →
+  `git rm --cached` → optional `--remove-legacy`) lives in the script's
+  module docstring. Evidence: `tests/unit/test_migrate_sessions.py` —
+  14 tests incl. migrating a copy of the repo's real 43 sessions
+  value-exact. Full suite **417 passed** (403 + 14); mypy clean;
+  `./scripts/check.sh` ALL GREEN.
 - **R-301 (T-027): `sessions/store.py` — append-only JSONL session
   store; kills the O(n²) rewrite-per-message.**
   On-disk format (spec in the module docstring): `session_<id>.jsonl`

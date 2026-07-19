@@ -20,3 +20,12 @@ keys.txt
 active_team_backup.zip
 editor_v3.rar
 doc_2026-07-12_02-53-55.agents.rar
+# T-028 (R-305): بيانات الجلسات لا تُتتبَّع — محادثات المستخدم ليست كودًا.
+# نستهدف ملفات البيانات فقط (لا المجلد كله): sessions/__init__.py
+# و sessions/store.py كود إنتاجي يبقى متتبَّعًا.
+# إخراج المتتبَّع حاليًا: git rm --cached 'sessions/*.json'
+# (تنظيف التاريخ نفسه = T-050)
+sessions/*.json
+sessions/*.jsonl
+sessions/*.meta.json
+sessions/*.tmp
