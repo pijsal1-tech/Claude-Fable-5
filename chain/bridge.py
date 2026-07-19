@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import pathlib
+import shutil
 import threading
 import time
 import uuid
@@ -320,6 +321,14 @@ class ChainBridge:
         run_dir = self._runs_dir / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
 
+        # T-044 (R-601): مسار الإطلاق مشترك بين start_chain و resume_run —
+        # نفس الأحداث، نفس البوابة، نفس دورة حياة التذكرة.
+        self._launch_run(run, run_dir, ws_send_fn, ticket)
+        return run_id
+
+    def _launch_run(self, run: ChainRun, run_dir: pathlib.Path,
+                    ws_send_fn, ticket: RunTicket | None) -> None:
+        """يشغّل ChainRun في thread — المسار الوحيد لتنفيذ سلسلة (T-044)."""
         # ── Store ──
         with self._lock:
             self._active_run = run
@@ -363,11 +372,102 @@ class ChainBridge:
                 with self._lock:
                     self._active_run = None
 
-        thread = threading.Thread(target=_run_chain, daemon=True, name=f"chain-{run_id}")
+        thread = threading.Thread(target=_run_chain, daemon=True,
+                                  name=f"chain-{run.run_id}")
         self._active_thread = thread
         thread.start()
 
-        return run_id
+    # ═══════════════════════════════════════════════════
+    #   Crash Resume — T-044 (R-601)
+    # ═══════════════════════════════════════════════════
+
+    def list_resumable(self) -> list[dict]:
+        """يمسح runs_dir ويرجع ملخصات الـ runs القابلة للاستكمال."""
+        from .resume import scan_resumable
+        return scan_resumable(self._runs_dir)
+
+    def resume_run(self, run_id: str, ws_send_fn,
+                   ticket: RunTicket | None = None) -> bool:
+        """يستأنف run منقطعًا من state.json — بعد تحقق الانجراف.
+
+        المسار (runbook في chain/resume.py):
+        can_resume → load_state → check_drift (رفض + تقرير عند
+        أي ملف متغيّر/مفقود) → rebuild_run (الناجح يبقى، الباقي
+        pending ⇒ exactly-once) → نفس مسار إطلاق start_chain.
+
+        Returns: True لو انطلق الاستكمال؛ False مع إطار خطأ/رفض
+        مُرسل عبر ws_send_fn في كل مسارات الفشل.
+        """
+        from .resume import check_drift, rebuild_run
+
+        def _safe_send(msg: dict) -> None:
+            try:
+                ws_send_fn(msg)
+            except Exception:
+                pass
+
+        with self._lock:
+            if self.is_running:
+                _safe_send({
+                    "type": "chain_error",
+                    "text": "⚠️ في chain نشط حالياً. ألغيه أولاً.",
+                })
+                return False
+
+        run_dir = self._runs_dir / run_id
+        if not ChainExecutor.can_resume(run_dir):
+            _safe_send({
+                "type": "chain_error",
+                "run_id": run_id,
+                "text": f"⚠️ لا يوجد run قابل للاستكمال بهذا المعرّف: {run_id}",
+            })
+            return False
+
+        state = ChainExecutor.load_state(run_dir)
+        if state is None:
+            _safe_send({
+                "type": "chain_error",
+                "run_id": run_id,
+                "text": f"⚠️ تعذّرت قراءة state.json للـ run: {run_id}",
+            })
+            return False
+
+        # ── تحقق الانجراف: بصمات اللقطة (T-033) ضد القرص الحالي ──
+        report = check_drift(state.get("project_snapshot"),
+                             self._project_root)
+        if report.has_drift:
+            _safe_send({
+                "type": "chain_resume_refused",
+                "run_id": run_id,
+                "drift_report": report.to_dict(),
+                "text": (f"🚫 رفض الاستكمال — الملفات تغيّرت منذ الانقطاع "
+                         f"({len(report.changed)} متغيّر، "
+                         f"{len(report.missing)} مفقود). "
+                         f"استخدم discard_run أو ابدأ chain جديدًا."),
+            })
+            return False
+
+        run = rebuild_run(state)
+        done = sum(1 for s in run.steps if s.status == "success")
+        _safe_send({
+            "type": "chain_resumed",
+            "run_id": run.run_id,
+            "steps_done": done,
+            "steps_total": len(run.steps),
+            "text": (f"▶️ استكمال {run.run_id}: "
+                     f"{done}/{len(run.steps)} خطوات منجزة — "
+                     f"تنفيذ المتبقي فقط."),
+        })
+        self._launch_run(run, run_dir, ws_send_fn, ticket)
+        return True
+
+    def discard_run(self, run_id: str) -> bool:
+        """يحذف حالة run منقطع بالكامل (مجلد الـ run) — لا استكمال بعدها."""
+        run_dir = self._runs_dir / run_id
+        if not (run_dir / "state.json").exists():
+            return False
+        shutil.rmtree(run_dir, ignore_errors=True)
+        return True
 
     def _gated_apply(self, run: ChainRun, ws_send_fn) -> None:
         """T-012 (R-104): التطبيق الوحيد لنتائج السلسلة — عبر ApprovalGate فقط.

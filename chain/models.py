@@ -442,7 +442,11 @@ class ChainRun:
         return {
             "run_id": self.run_id,
             "status": self.status,
-            "steps": [s.to_dict() for s in self.steps],
+            # T-044 (R-601): prompt_template يُحمل في الـ state (ليس في
+            # to_dict الموجه للواجهة) — بدونه الاستكمال ينفّذ الخطوات
+            # المتبقية ببرومبتات فارغة.
+            "steps": [{**s.to_dict(), "prompt_template": s.prompt_template}
+                      for s in self.steps],
             "results": dict(self.results),
             "started_at": self.started_at,
             "completed_at": self.completed_at,

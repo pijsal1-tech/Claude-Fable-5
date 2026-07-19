@@ -1556,6 +1556,54 @@ def ws_handler(ws):
             else:
                 ws.send(json.dumps({"type": "chain_status", "active": False}))
 
+        # ── T-044 (R-601): Crash Resume surface ──
+        elif msg_type == "resume_scan":
+            # مسح runs_dir عن runs منقطعة قابلة للاستكمال
+            if chain_bridge:
+                ws.send(json.dumps({
+                    "type": "resumable_runs",
+                    "runs": chain_bridge.list_resumable(),
+                }, ensure_ascii=False))
+            else:
+                ws.send(json.dumps({"type": "resumable_runs", "runs": []}))
+
+        elif msg_type == "resume_run":
+            # استكمال run منقطع — تحقق انجراف البصمات قبل أي تنفيذ
+            if not chain_bridge:
+                ws.send(json.dumps({"type": "error",
+                                    "text": "Chain system غير مفعّل"}))
+                continue
+            resume_id = data.get("run_id", "").strip()
+            if not resume_id:
+                ws.send(json.dumps({"type": "error", "text": "run_id مطلوب"}))
+                continue
+            resume_ticket = _begin_run_ticket(
+                "chain",
+                lambda m: ws.send(json.dumps(m, ensure_ascii=False)))
+            if resume_ticket is None:
+                continue
+            ok = chain_bridge.resume_run(
+                resume_id, _json_sender(ws), ticket=resume_ticket)
+            if not ok:
+                # الرفض/الخطأ أُرسل من الجسر — حرّر التذكرة
+                resume_ticket.finish("failed")
+
+        elif msg_type == "discard_run":
+            # حذف حالة run منقطع نهائيًا
+            if not chain_bridge:
+                ws.send(json.dumps({"type": "error",
+                                    "text": "Chain system غير مفعّل"}))
+                continue
+            discard_id = data.get("run_id", "").strip()
+            ok = chain_bridge.discard_run(discard_id)
+            ws.send(json.dumps({
+                "type": "discard_result",
+                "run_id": discard_id,
+                "ok": ok,
+                "text": ("🗑️ حُذفت حالة الـ run" if ok
+                         else "⚠️ لا يوجد run بهذا المعرّف"),
+            }, ensure_ascii=False))
+
         # ── T-016 (R-105): Registry control surface ──
         elif msg_type == "list_runs":
             # كل الـ runs التي يعرفها السجل (نشطة ومنتهية) — id/mode/state/started_at
@@ -1849,6 +1897,20 @@ def main():
         ctx=ctx,
     )
     print(f"  🔗 Chain System: active")
+
+    # ── Crash-resume startup scan (T-044, R-601) ──
+    # يفحص runs_dir عن runs منقطعة (state.json بحالة غير نهائية) —
+    # إعلام فقط عند الإقلاع؛ القرار (resume_run/discard_run) عبر WS.
+    try:
+        _resumable = chain_bridge.list_resumable()
+        if _resumable:
+            print(f"  ♻️ Resumable runs: {len(_resumable)} — "
+                  + ", ".join(
+                      f"{r['run_id']} ({r['steps_done']}/{r['steps_total']})"
+                      for r in _resumable[:5]))
+            print("     استخدم resume_run / discard_run من الواجهة (WS).")
+    except Exception as _exc:
+        print(f"  ⚠️ Resume scan skipped: {_exc}")
 
     # ── Retention GC pass (T-033, R-305) ──
     # مسح artifacts الـ runs عند الإقلاع حسب config.retention —
