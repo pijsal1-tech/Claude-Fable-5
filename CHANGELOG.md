@@ -27,6 +27,37 @@
     fallback path left.
 
 ### Added
+- **R-303 (T-031): Session ↔ Project binding — sessions are stamped
+  with a project fingerprint and project switches are policy-checked.**
+  `sessions/store.py` gains `project_fingerprint(path)` (`sha256` of the
+  **resolved** root path, first 12 hex chars; empty path = unbound) and
+  every `SessionMeta` now carries `project_id`, stamped at `create()` and
+  re-stamped by `set_project_path()`; `rebuild_meta()` preserves it and
+  legacy sidecars without the field read back as unbound (compat, no
+  migration needed). The pure decision function
+  `check_project_binding(bound_id, new_path, policy) → BindingCheck`
+  returns `action="none"` for unbound-or-matching sessions (silent
+  switch) and the policy name on mismatch; an unknown policy raises a
+  loud `ValueError` (config typos must not fail silent). `server.py`
+  wires it into `/api/switch-project` under three policies read from the
+  new `config.yaml` `session_binding` section — `warn_only: true`
+  (default) forces **warn**: the switch succeeds and a context banner is
+  injected into `project_context` on every subsequent message until a
+  new session starts (`/api/clear` and `/api/session/new` reset it);
+  `warn_only: false` activates `session_binding.policy`: **fork** clears
+  `chat_history` and opens a fresh session bound to the new project
+  (response carries `binding.new_session_id`), **block** refuses the
+  switch with 409 and leaves the current project untouched. Corrupt or
+  missing legacy session state degrades to unbound (tolerant), while a
+  bad policy string in config surfaces as a 500. Tests: unit matrix in
+  `tests/unit/test_project_binding.py` (fingerprint stability +
+  resolve-normalization, full bound/match×policy matrix, ValueError,
+  meta stamping on create/set/rebuild, legacy-meta compat) and
+  per-policy Flask E2E in `tests/integration/test_session_binding.py`
+  (warn banner in response + module state + reset paths; fork clears
+  history and binds; block 409 project-untouched; regressions:
+  same-project switch and unbound legacy session are silent, and a
+  `session_mgr`-less boot keeps the old switch path intact).
 - **R-302 (T-030): the three raw-history consumers migrated to named
   window policies — behavior byte-identical, ownership centralized.**
   The actual consumer sites (pinned during migration; the initial T-029

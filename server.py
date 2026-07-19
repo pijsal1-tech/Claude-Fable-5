@@ -81,6 +81,9 @@ provider = None
 chat_history: list[Message] = []
 session_mgr: SessionManager = None
 _backup_done_for_batch = False  # علامة لمنع تكرار الباك-أب في نفس الـ batch
+# R-303 (T-031): بانر تنبيه ربط الجلسة — يُملأ عند تبديل المشروع تحت
+# سياسة warn ويُحقن في project_context لكل رسالة حتى بدء جلسة جديدة.
+_binding_banner: str = ""
 MAX_SMART_FILE_SIZE = 100 * 1024  # حد أقصى لحجم ملف يقرأه Smart Path (100KB)
 
 # ── Chain System Infrastructure (M0 + M5) ──
@@ -393,8 +396,9 @@ def api_chat_history():
 @app.route("/api/clear", methods=["POST"])
 def api_clear():
     """مسح المحادثة وبدء جلسة جديدة"""
-    global chat_history
+    global chat_history, _binding_banner
     chat_history = []
+    _binding_banner = ""  # R-303: جلسة جديدة = زوال تنبيه الربط
     # بدء جلسة جديدة
     if session_mgr:
         session_mgr.new_session(str(fm.root) if fm else "")
@@ -439,11 +443,12 @@ def api_load_session(session_id):
 @app.route("/api/session/new", methods=["POST"])
 def api_new_session():
     """بدء جلسة جديدة"""
-    global chat_history
+    global chat_history, _binding_banner
     if not session_mgr:
         return jsonify({"ok": False, "error": "Session manager not initialized"}), 500
 
     chat_history = []
+    _binding_banner = ""  # R-303: جلسة جديدة = زوال تنبيه الربط
     session = session_mgr.new_session(str(fm.root) if fm else "")
     return jsonify({"ok": True, "session": session})
 
@@ -598,10 +603,30 @@ def api_switch_model():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+def _session_binding_policy() -> str:
+    """R-303 (T-031): قراءة سياسة ربط الجلسة من config.yaml.
+
+    ``session_binding.warn_only: true`` (الافتراضي) → "warn" دائمًا.
+    ``warn_only: false`` → تُفعَّل ``session_binding.policy``
+    (warn / fork / block). أي خطأ في القراءة → "warn" (أأمن سلوك).
+    """
+    try:
+        import yaml as _yaml
+        with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
+            _sb = (_yaml.safe_load(_cf) or {}).get("session_binding") or {}
+        if not isinstance(_sb, dict):
+            return "warn"
+        if _sb.get("warn_only", True):
+            return "warn"
+        return str(_sb.get("policy", "warn"))
+    except Exception:
+        return "warn"
+
+
 @app.route("/api/switch-project", methods=["POST"])
 def api_switch_project():
     """تغيير مسار المشروع"""
-    global fm, cmd_runner
+    global fm, cmd_runner, chat_history, _binding_banner
 
     # ── حماية: منع التبديل أثناء run نشط (R-101 → R-105) ──
     _active_runs = execution_registry.list_active()
@@ -625,6 +650,31 @@ def api_switch_project():
         except Exception as e:
             return jsonify({"ok": False, "error": f"فشل إنشاء المجلد: {e}"}), 400
 
+    # ── R-303 (T-031): فحص ربط الجلسة بالمشروع قبل التبديل ──
+    # الجلسة المرتبطة ببصمة مشروع مختلف تُعالَج حسب السياسة:
+    # warn (بانر سياق) / fork (جلسة جديدة مرتبطة) / block (409 رفض).
+    _bind_check = None
+    _bound_path = ""
+    if session_mgr and getattr(session_mgr, "current_session_id", None):
+        from sessions.store import check_project_binding, project_fingerprint
+        try:
+            _cur = session_mgr.load_session(session_mgr.current_session_id)
+            _bound_path = (_cur or {}).get("project_path", "") or ""
+            _bind_check = check_project_binding(
+                project_fingerprint(_bound_path), abs_path,
+                _session_binding_policy())
+        except ValueError:
+            # سياسة غير معروفة في config = خطأ تهيئة — نفشل بصوت عالٍ
+            raise
+        except Exception:
+            _bind_check = None  # جلسات قديمة/تالفة → تسامح (غير مرتبطة)
+    if _bind_check is not None and _bind_check.action == "block":
+        return jsonify({
+            "ok": False,
+            "error": "الجلسة الحالية مرتبطة بمشروع آخر — التبديل مرفوض (سياسة block)",
+            "binding": {"policy": "block", "bound_project_path": _bound_path},
+        }), 409
+
     try:
         # R-102 (T-008): the switch IS ctx.switch_project() — one atomic
         # swap; every consumer resolves the new handle at its next call.
@@ -638,8 +688,26 @@ def api_switch_project():
             fm = FileManager(abs_path)
             cmd_runner = CommandRunner(cwd=abs_path, auto_approve=True)
         scan = fm.scan_project()
+
+        # ── R-303 (T-031): تطبيق نتيجة فحص الربط بعد نجاح التبديل ──
+        _binding_info = None
+        if _bind_check is not None and _bind_check.action == "warn":
+            _binding_banner = (
+                f"⚠️ [تنبيه ربط الجلسة]: هذه الجلسة بدأت على المشروع "
+                f"{_bound_path} وتم التبديل إلى {abs_path} — "
+                f"التاريخ السابق قد يخص مشروعًا آخر."
+            )
+            _binding_info = {"policy": "warn", "banner": _binding_banner}
+        elif _bind_check is not None and _bind_check.action == "fork":
+            chat_history = []
+            _new_sess = session_mgr.new_session(abs_path)
+            _binding_banner = ""
+            _binding_info = {"policy": "fork",
+                             "new_session_id": _new_sess["id"]}
+
         return jsonify({
             "ok": True,
+            "binding": _binding_info,
             "project": {
                 "root": str(fm.root),
                 "name": fm.root.name,
@@ -874,6 +942,13 @@ def ws_handler(ws):
                 mentioned_files = []
                 user_text_with_files = user_text
                 project_context = ""
+
+            # R-303 (T-031): حقن بانر تنبيه الربط (سياسة warn) في السياق
+            if _binding_banner:
+                project_context = (
+                    f"{_binding_banner}\n\n{project_context}"
+                    if project_context else _binding_banner
+                )
 
             # ═══════════════════════════════════════
             # 🧠 Smart Routing — RequestRouter يقرر المسار
