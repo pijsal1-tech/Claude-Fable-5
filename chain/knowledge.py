@@ -114,66 +114,76 @@ class KnowledgeAccumulator:
     def build_context(self, max_tokens: int = 8000) -> str:
         """
         بناء سياق مختصر يُضاف للـ prompt.
-        يحافظ على أهم المعلومات ضمن حد الـ tokens.
+
+        T-024 (R-203): القصّات الحرفية (content[:2000] للملفات،
+        [:500]/[:300] للبحث/الأوامر، والقص النهائي max_tokens*4)
+        استُبدلت بحزم محاسَب بالتوكنز عبر ``ContextBudget``:
+        الأقسام تُقبل كاملة أو تُسقط بالأهمية (الملفات المقروءة =
+        high، الملاحظات/الأخطاء = high لأنها صغيرة وحاسمة،
+        المجلدات/البحث/الأوامر = normal) — لا قصّ في منتصف محتوى.
         """
         if not self._tool_results and not self._observations:
             return ""
-        
-        sections = []
-        
-        # ── ملفات مقروءة ──
+        from context.budget import BudgetItem, ContextBudget
+
+        candidates: list[BudgetItem] = []   # (بترتيب الإدراج = ترتيب العرض)
+
+        # ── ملفات مقروءة ── (كل ملف عنصر مستقل — يُسقط الأكبر أولًا لو لزم)
         if self._files_read:
-            sec = "📂 [ملفات تم قراءتها]:\n"
+            candidates.append(BudgetItem(
+                key="files:header", text="📂 [ملفات تم قراءتها]:\n",
+                tier="high"))
             for path, content in self._files_read.items():
-                # نختصر المحتوى الطويل
-                preview = content[:2000] if len(content) > 2000 else content
-                sec += f"\n--- {path} ---\n{preview}\n"
-                if len(content) > 2000:
-                    sec += f"... ({len(content)} حرف إجمالي)\n"
-            sections.append(sec)
-        
+                candidates.append(BudgetItem(
+                    key=f"file:{path}",
+                    text=f"\n--- {path} ---\n{content}\n",
+                    tier="high"))
+
         # ── مجلدات ──
         if self._dirs_listed:
             sec = "📁 [مجلدات تم استعراضها]:\n"
             for path, listing in self._dirs_listed.items():
                 sec += f"\n{path}/:\n{listing}\n"
-            sections.append(sec)
-        
+            candidates.append(BudgetItem(key="dirs", text=sec, tier="normal"))
+
         # ── نتائج بحث ──
         if self._searches:
             sec = "🔍 [نتائج بحث]:\n"
             for s in self._searches[-5:]:  # آخر 5
-                sec += f"\nبحث: {s['query']}\n{s['result'][:500]}\n"
-            sections.append(sec)
-        
+                sec += f"\nبحث: {s['query']}\n{s['result']}\n"
+            candidates.append(BudgetItem(key="searches", text=sec,
+                                         tier="normal"))
+
         # ── أوامر نُفذت ──
         if self._commands:
             sec = "⚡ [أوامر تم تنفيذها]:\n"
             for c in self._commands:
                 status = "✅" if c["success"] else "❌"
-                sec += f"\n{status} $ {c['command']}\n{c['result'][:300]}\n"
-            sections.append(sec)
-        
-        # ── ملاحظات ──
+                sec += f"\n{status} $ {c['command']}\n{c['result']}\n"
+            candidates.append(BudgetItem(key="commands", text=sec,
+                                         tier="normal"))
+
+        # ── ملاحظات ── (صغيرة وحاسمة — خلاصة فهم الـ AI المتراكم)
         if self._observations:
             sec = "💡 [ملاحظات سابقة]:\n"
             for obs in self._observations[-10:]:
                 sec += f"- {obs}\n"
-            sections.append(sec)
-        
+            candidates.append(BudgetItem(key="observations", text=sec,
+                                         tier="high"))
+
         # ── أخطاء ──
         if self._errors:
             sec = "⚠️ [أخطاء]:\n"
             for err in self._errors[-5:]:
                 sec += f"- {err}\n"
-            sections.append(sec)
-        
-        context = "\n".join(sections)
-        
-        # قص لو طويل
-        if len(context) > max_tokens * 4:  # تقدير: 4 chars/token
-            context = context[:max_tokens * 4] + "\n... (تم اختصار السياق)"
-        
+            candidates.append(BudgetItem(key="errors", text=sec, tier="high"))
+
+        budget = ContextBudget(model_window=max_tokens, reserved_output=0)
+        packed = budget.pack(candidates)
+        context = "\n".join(it.text for it in packed.kept)
+        if packed.dropped:
+            context += (f"\n... (أُسقط {len(packed.dropped)} قسم معرفة — "
+                        f"ميزانية التوكنز: {packed.budget_tokens})")
         return context
     
     # ──── معلومات ────

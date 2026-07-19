@@ -423,10 +423,24 @@ def build_delegate(user_request: str, context: str = "",
     - مراجعة قبل التطبيق
     - موافقة المستخدم قبل الـ land
     """
+    # T-024 (R-203): كان content[:2000] لكل ملف — قصّ أعمى يبتر أهم ملف.
+    # الآن: حزم محاسَب بالتوكنز عبر ContextBudget — الملف يدخل كاملًا أو
+    # يُسقط الأكبر أولًا مع ملاحظة مرصودة (لا بتر صامت في المنتصف).
     files_block = ""
     if files:
-        for path, content in files.items():
-            files_block += f"\n\n📄 {path}:\n```\n{content[:2000]}\n```"
+        from context.budget import BudgetItem, ContextBudget
+        _budget = ContextBudget.from_config(None)
+        _packed = _budget.pack([
+            BudgetItem(key=path,
+                       text=f"\n\n📄 {path}:\n```\n{content}\n```",
+                       tier="high")
+            for path, content in files.items()
+        ])
+        files_block = "".join(it.text for it in _packed.kept)
+        if _packed.dropped:
+            _names = ", ".join(d.key for d in _packed.dropped)
+            files_block += (f"\n\n... (أُسقطت ملفات لتجاوز ميزانية "
+                            f"التوكنز: {_names})")
 
     brief_prompt = (
         f"اكتب brief مُهيكل (XML) لهذه المهمة — العامل يرى الـ brief فقط:\n\n"

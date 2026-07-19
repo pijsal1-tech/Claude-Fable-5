@@ -354,13 +354,21 @@ class SmartOrchestrator:
     def _split_content(self, content: str, token_budget: int) -> list[str]:
         """
         تقسيم بسيط بناءً على token budget.
-        تقدير tokens: chars / 4 (English avg).
+
+        T-024 (R-203): تقدير التوكنز عبر المقدّر المركزي
+        ``CharsPerTokenEstimator`` (نفس chars/4 لكن من مصدر واحد
+        قابل للاستبدال) بدل تخمينات ``len // 4`` المبعثرة محليًا.
+        التقسيم يحفظ كل المحتوى (لا إسقاط) — لذلك هو خارج
+        مسار pack()، لكن المحاسبة موحّدة.
         لو المحتوى فاضي، يرجع chunk واحد.
         """
+        from context.budget import CharsPerTokenEstimator
+        est = CharsPerTokenEstimator()
+
         if not content.strip():
             return [content] if content else [""]
 
-        estimated_tokens = len(content) // 4
+        estimated_tokens = est.estimate(content)
         if estimated_tokens <= token_budget:
             return [content]
 
@@ -376,8 +384,8 @@ class SmartOrchestrator:
                 if i < len(segments) - 1:
                     candidate += FILE_BOUNDARY  # إعادة الحد
 
-                # تقدير tokens للـ chunk الحالي + segment الجديد
-                if (len(current_chunk) + len(candidate)) // 4 > token_budget and current_chunk:
+                # تقدير tokens للـ chunk الحالي + segment الجديد (المقدّر المركزي)
+                if est.estimate(current_chunk + candidate) > token_budget and current_chunk:
                     chunks.append(current_chunk.strip("\n"))
                     current_chunk = candidate
                 else:
@@ -399,7 +407,7 @@ class SmartOrchestrator:
         current_tokens = 0
 
         for line in lines:
-            line_tokens = len(line) // 4 + 1
+            line_tokens = est.estimate(line) + 1
             if current_tokens + line_tokens > token_budget and current_chunk_lines:
                 chunks.append("\n".join(current_chunk_lines))
                 current_chunk_lines = []

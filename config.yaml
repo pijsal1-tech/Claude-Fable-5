@@ -20,6 +20,13 @@ backup_before_edit: true
 # أقصى عدد ملفات يقرأها كسياق
 max_context_files: 15
 
+# ميزانية السياق (T-024 / R-203) — ContextBudget.from_config يقرأ هذا القسم.
+# budget_tokens = (model_window - reserved_output) × (1 - safety_margin)
+context_budget:
+  model_window: 128000     # نافذة الموديل بالتوكنز
+  reserved_output: 8000    # محجوز لمخرجات الموديل
+  safety_margin: 0.10      # هامش أمان لعدم دقة المقدّر (بند مخاطر R-203)
+
 # إعدادات المزودين
 providers:
   use_ai:

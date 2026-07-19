@@ -47,17 +47,20 @@ class ContextItem:
     success: bool = True
     size: int = 0     # حجم المحتوى الأصلي (قبل القطع)
 
-    def to_prompt_block(self, max_len: int = 8000) -> str:
-        """تحويل لبلوك يُضاف للـ prompt"""
+    def to_prompt_block(self) -> str:
+        """تحويل لبلوك يُضاف للـ prompt.
+
+        T-024 (R-203): بلا قصّ حروف — المحتوى كامل، والقبول/الإسقاط
+        قرار محاسَب بالتوكنز داخل ``build_prompt_section`` عبر
+        ``ContextBudget`` (العنصر يُقبل كاملًا أو يُسقط مرصودًا —
+        لا قصّ صامت في المنتصف).
+        """
         icons = {
             "file": "📄", "dir": "📁", "search": "🔍",
             "tree": "🌳", "info": "ℹ️", "deps": "📦",
         }
         icon = icons.get(self.kind, "📎")
-        content = self.content[:max_len]
-        if len(self.content) > max_len:
-            content += f"\n... (مقطوع — {len(self.content)} حرف إجمالي)"
-        return f"{icon} [{self.kind}: {self.source}]:\n{content}"
+        return f"{icon} [{self.kind}: {self.source}]:\n{self.content}"
 
 
 # ════════════════════════════════════════════════════
@@ -89,28 +92,65 @@ class ContextResult:
     def total_success(self) -> int:
         return sum(1 for i in self.items if i.success)
 
-    def build_prompt_section(self, max_total: int = 50000) -> str:
-        """بناء قسم السياق للـ prompt"""
+    # خريطة أهمية أنواع العناصر → طبقات ContextBudget (T-024):
+    # ملفات مذكورة بالاسم = high (مرجّح الحاجة بشدة)، سياق داعم
+    # (مجلدات/بحث/deps) = normal، نظرة عامة (شجرة/info) = opportunistic.
+    TIER_BY_KIND = {
+        "file": "high",
+        "dir": "normal",
+        "search": "normal",
+        "deps": "normal",
+        "tree": "opportunistic",
+        "info": "opportunistic",
+    }
+
+    def build_prompt_section(self, max_total: int = 50000,
+                             budget: "object | None" = None) -> str:
+        """بناء قسم السياق للـ prompt.
+
+        T-024 (R-203): الحزم عبر ``ContextBudget`` بدل حدي الحروف
+        القديمين (per_item_max + max_total): العنصر يُقبل كاملًا أو
+        يُسقط بالأهمية (الطبقة الأدنى أولًا، الأكبر أولًا) — لا قصّ
+        صامت في منتصف أهم عنصر.
+
+        Args:
+            max_total: حد توافقي بالحروف (واجهة legacy) — يُترجم
+                لميزانية توكنز بنفس مقدّر chars/4 المركزي عندما
+                لا تُمرّر ميزانية صريحة.
+            budget: ``ContextBudget`` جاهزة (من config) — تتقدم على
+                ``max_total`` إن وُجدت.
+        """
         if not self.items:
             return ""
+        from context.budget import BudgetItem, ContextBudget
+
+        if budget is None:
+            # مقياس legacy: max_total حرف ≈ max_total//4 توكن
+            budget = ContextBudget(model_window=max(1, max_total // 4),
+                                   reserved_output=0)
+        assert isinstance(budget, ContextBudget)
 
         parts = [
             f"[✅ تم جمع {self.total_success} معلومة تلقائياً من المشروع الفعلي "
             f"({self.files_count} ملفات، {self.dirs_count} مجلدات، {self.searches_count} بحث)]:\n"
         ]
 
-        total_len = 0
-        per_item_max = max_total // max(len(self.items), 1)
-
-        for item in self.items:
-            if not item.success:
-                continue
-            block = item.to_prompt_block(max_len=per_item_max)
-            if total_len + len(block) > max_total:
-                parts.append(f"\n... (وقف الإرفاق — وصلنا للحد: {max_total} حرف)")
-                break
-            parts.append(block)
-            total_len += len(block)
+        budget_items = [
+            BudgetItem(
+                key=f"{idx}:{item.kind}:{item.source}",
+                text=item.to_prompt_block(),
+                tier=self.TIER_BY_KIND.get(item.kind, "normal"),
+            )
+            for idx, item in enumerate(self.items)
+            if item.success
+        ]
+        packed = budget.pack(budget_items)
+        parts.extend(it.text for it in packed.kept)
+        if packed.dropped:
+            parts.append(
+                f"\n... (أُسقط {len(packed.dropped)} عنصر سياق — "
+                f"ميزانية التوكنز: {packed.budget_tokens})"
+            )
 
         parts.append(
             "\n[تعليمات مهمة]: المعلومات أعلاه مقروءة من الملفات الفعلية في نظام الملفات. "
