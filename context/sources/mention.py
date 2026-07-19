@@ -23,8 +23,9 @@ from __future__ import annotations
 
 import re
 
-from actions.file_manager import FileManager, WEB_EXTENSIONS
+from actions.file_manager import MAX_FILE_SIZE, WEB_EXTENSIONS
 from context.engine import ContextItem, ContextRequest, ProjectScan
+from context.safe_reader import SafeReader
 
 # T-018: إصلاح الثابت الكاذب.
 # legacy: ``MAX_MENTIONED = 100  # حد أقصى 10 ملفات`` — الكود يقول 100
@@ -61,16 +62,34 @@ def extract_search_terms(message: str) -> tuple[set[str], set[str]]:
     return exact_names, stems
 
 
+def _number_lines(text: str) -> str:
+    """ترقيم الأسطر — حرفيًا نفس ``FileManager.read_file`` (عقد goldens
+    T-017: نفس المحاذاة ``{i+1:>{width}}: `` ونفس "" للملف الفارغ)."""
+    lines = text.splitlines()
+    width = len(str(len(lines)))
+    return "\n".join(f"{i + 1:>{width}}: {line}"
+                     for i, line in enumerate(lines))
+
+
 def build_items(scan: ProjectScan, paths: list[str],
                 kind: str) -> list[ContextItem]:
-    """قراءة المحتوى المرقّم لكل مسار — فشل القراءة = content=None
-    (huge-file quirk المثبّت). مشترك بين Mention/Keyword (T-019)."""
-    fm = FileManager(str(scan.root))
+    """قراءة المحتوى المرقّم لكل مسار — عبر **SafeReader** (T-026 / R-204):
+    الملف السري يصل كـ stub حجب (بلا ترقيم)، وفشل القراءة = content=None
+    (huge-file quirk المثبّت — ``max_file_size=MAX_FILE_SIZE`` يحفظ نفس
+    سقف legacy البالغ 500KB بايت-بايت). مشترك بين Mention/Keyword (T-019)."""
+    reader = SafeReader(scan.root, max_file_size=MAX_FILE_SIZE)
     items: list[ContextItem] = []
     for rel_path in paths:
-        try:
-            content: str | None = fm.read_file(rel_path, with_line_numbers=True)
-        except Exception:
+        result = reader.read_text(rel_path)
+        content: str | None
+        if result.redacted:
+            # stub الحجب يمر كما هو — بلا ترقيم أسطر (ليس "محتوى ملف")
+            content = result.content
+        elif result.ok and result.content is not None:
+            content = _number_lines(result.content)
+        else:
+            # not_found / too_large / policy / read_error — نفس تسامح
+            # legacy: content=None يُتخطى بصمت في الحقن
             content = None
         items.append(ContextItem(source_kind=kind, path=rel_path,
                                  content=content))
