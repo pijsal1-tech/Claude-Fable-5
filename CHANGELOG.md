@@ -27,6 +27,34 @@
     fallback path left.
 
 ### Added
+- **R-502 (T-042): Agent manifest — fleet definitions as data; ROLE_MAP
+  deleted.** New `agents_rules/manifest.yaml` describes all 21 agents
+  (`role → {file, stage, name, description, capabilities, tier,
+  fallback}`); the schema is documented in the file header.
+  `chain/agent_loader.py`: `ROLE_MAP`/`ROLE_STAGE_MAP` **deleted** — the
+  manifest is the single source; strict validation (node-level YAML
+  compose, so every error message carries a **line number**:
+  `manifest.yaml:<line>: …`) rejects unknown keys, bad stages, non-`base`
+  fallbacks, path traversal, duplicate roles, and missing files;
+  a broken/missing manifest **fails fast at construction**
+  (`ManifestError` aggregates all errors). Resolution is now loud:
+  unknown role ⇒ `UnknownAgentRoleError`; a file that vanishes without a
+  declared `fallback: base` ⇒ `ManifestError` (the old 3-level silent
+  fallback ladder is gone — `base`/synthetic fallback only for
+  explicitly-declared chains). **Hot-reload:** the registry rebuilds on
+  manifest mtime change (atomic swap; a broken mid-session edit keeps
+  the old registry serving and records `last_reload_error`, a later fix
+  recovers); the prompt cache is keyed by `(path, mtime)` so editing an
+  agent file mid-session takes effect on the next load — the stale-cache
+  authoring bug is fixed. `get_definition(role)` exposes manifest
+  metadata; `load_by_stage`/security limits (traversal, 50KB, 1000
+  lines) and the frozen `AgentPrompt` + content hash are retained.
+  Parity gate: `tests/unit/test_agent_manifest.py` pins the deleted
+  ROLE_MAP verbatim as baseline and proves all 21 roles resolve
+  byte-identically (content hash + stage + source) through the manifest,
+  plus schema-rejection (line numbers asserted), loud-failure,
+  hot-reload (broken-edit/recovery/monotonic-mtime), and prompt-file
+  hot-edit suites — 48 tests.
 - **R-501 (T-041): Agent + Delegate runners — legacy dispatch deleted,
   one dispatch path.** `runners/agent.py` (`AgentRunner(loop_factory,
   on_loop)`: builds an `AgentLoop` per run via the factory — which is

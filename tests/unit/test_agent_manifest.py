@@ -106,10 +106,19 @@ agents:
 """
 
 
+_MTIME_OFFSET = [0]
+
+
 def _bump_mtime(path: pathlib.Path) -> None:
-    """يضمن تغيّر mtime حتى على أنظمة ملفات بدقة ثانية."""
+    """
+    يضمن تغيّر mtime حتى على أنظمة ملفات بدقة ثانية.
+    الإزاحة متزايدة رتيبًا: كتابتان متتاليتان في نفس الثانية
+    (mtime خام متساوٍ) تحصلان على mtime نهائي مختلف دائمًا —
+    وإلا فقد يتساوى mtime+ثابت قبل التعديل وبعده فلا يُكتشف.
+    """
+    _MTIME_OFFSET[0] += 2
     st = path.stat()
-    os.utime(path, (st.st_atime, st.st_mtime + 2))
+    os.utime(path, (st.st_atime, st.st_mtime + _MTIME_OFFSET[0]))
 
 
 # ═══════════════════════════════════════════════════════
