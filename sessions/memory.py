@@ -364,11 +364,143 @@ class ConversationMemory:
 
         return [t for t in visible if t.turn_id in selected]
 
-    # ── الأعقاب (واجهة مثبتة — تنفيذ لاحق) ──
+    # ── النافذة الطبقية والتلخيص (R-304 / T-032) ──
+
+    def summary_artifact(self) -> Optional[SummaryArtifact]:
+        """آخر ملخص مخزن في التيار — السجل مصدر الحقيقة الوحيد."""
+        latest: Optional[SummaryArtifact] = None
+        for rec in self._store.replay(self._session_id).records:
+            if rec.get("kind") == _KIND_SUMMARY:
+                latest = SummaryArtifact(
+                    text=str(rec.get("text", "")),
+                    covers_until=int(rec.get("covers_until", 0)),
+                    ts=str(rec.get("ts", "")),
+                )
+        return latest
+
+    def tiered_window(self, policy: TieredPolicy) -> TieredWindow:
+        """نافذة طبقية تحت الميزانية — راجع مخطط الطبقات في docstring الوحدة.
+
+        التجميع: المثبت يُخصم أولًا (داخل دائمًا)، ثم شريط حديث
+        **متصل** من الأحدث للأقدم يتوقف عند أول دور لا يسع الميزانية
+        (أرضية ``recent_floor`` تتفوق على الميزانية)، ثم ملخص الشريحة
+        الأقدم إن وُجد وكان يغطي أدوارًا أُسقطت فعلًا. لا استدعاء
+        تلخيص هنا إطلاقًا — القراءة من المخزن فقط (المسار الساخن
+        لا ينتظر التلخيص أبدًا).
+        """
+        visible = [t for t in self.turns()
+                   if policy.include_agent or t.visibility == "user"]
+        pinned = [t for t in visible if t.pinned]
+        unpinned = [t for t in visible if not t.pinned]
+
+        remaining = policy.token_budget
+        for t in pinned:            # المثبت يُخصم لا يُقصى
+            remaining -= self._estimator.estimate(t.content)
+
+        # الشريط الحديث المتصل: من الأحدث للأقدم، يتوقف عند أول
+        # دور لا يسع (لا فجوات) — والأرضية تدخل مهما كلفت
+        recent: list[Turn] = []
+        floor = min(policy.recent_floor, len(unpinned))
+        for idx, t in enumerate(reversed(unpinned)):
+            cost = self._estimator.estimate(t.content)
+            if idx < floor:         # داخل الأرضية — لا تُنتهك
+                recent.append(t)
+                remaining -= cost
+                continue
+            if cost > remaining:
+                break               # اتصال الشريط — لا قفز لأدوار أقدم
+            recent.append(t)
+            remaining -= cost
+        recent.reverse()
+
+        dropped = unpinned[:len(unpinned) - len(recent)]
+        summary = self.summary_artifact() if dropped else None
+        degraded = False
+        if dropped:
+            covered_until = summary.covers_until if summary else 0
+            degraded = any(t.turn_id >= covered_until for t in dropped)
+            if summary and not any(t.turn_id < covered_until
+                                   for t in dropped):
+                summary = None      # الملخص لا يغطي شيئًا مما سقط
+
+        kept = {t.turn_id for t in pinned} | {t.turn_id for t in recent}
+        return TieredWindow(
+            summary=summary,
+            turns=[t for t in visible if t.turn_id in kept],
+            degraded=degraded,
+        )
+
+    def update_summary(self, summarizer: Summarizer,
+                       upto: Optional[int] = None
+                       ) -> Optional[SummaryArtifact]:
+        """النواة المتزامنة: تلخيص الشريحة الجديدة تراكميًّا + إلحاق artifact.
+
+        تلخّص الأدوار ``[covers_until السابق, upto)`` ممررة الملخص
+        السابق للدمج. ``upto=None`` = كل الأدوار الحالية. لا شريحة
+        جديدة → تعيد الملخص الحالي كما هو. تفشل بصوت عالٍ — الابتلاع
+        مسؤولية الخيط الخلفي فقط.
+        """
+        turns = self.turns()
+        prev = self.summary_artifact()
+        start = prev.covers_until if prev else 0
+        end = len(turns) if upto is None else min(upto, len(turns))
+        if end <= start:
+            return prev
+        slice_turns = [t for t in turns[start:end] if not t.pinned]
+        text = summarizer(slice_turns, prev.text if prev else None)
+        artifact = SummaryArtifact(text=text, covers_until=end,
+                                   ts=_now_iso())
+        self._store.append_record(self._session_id, {
+            "kind": _KIND_SUMMARY,
+            "text": artifact.text,
+            "covers_until": artifact.covers_until,
+            "ts": artifact.ts,
+        })
+        return artifact
+
+    def maybe_update_summary_async(self, summarizer: Summarizer,
+                                   every_n: int = 10) -> bool:
+        """خطّاف المسار الساخن — يعود فورًا، لا ينتظر ولا يرفع استثناءً.
+
+        يُطلق خيط تلخيص خلفي (daemon) إن نمت الشريحة غير المغطاة
+        ≥ ``every_n`` دورًا ولا خيط في الرحلة. يعيد True إن أُطلق.
+        فشل التلخيص يُسجّل في ``last_summary_error`` ويُبتلع —
+        النافذة تتدهور لقصّة صريحة (مسار التدهور المنصوص).
+        """
+        if every_n < 1:
+            raise ValueError("every_n ≥ 1")
+        with self._summary_lock:
+            if self._summary_thread and self._summary_thread.is_alive():
+                return False        # طلب واحد في الرحلة
+            prev = self.summary_artifact()
+            covered = prev.covers_until if prev else 0
+            target = self._next_turn_id()
+            if target - covered < every_n:
+                return False        # الشريحة لم تنضج بعد
+
+            def _run() -> None:
+                try:
+                    self.update_summary(summarizer, upto=target)
+                except BaseException as exc:  # التدهور المنصوص — لا رفع
+                    self.last_summary_error = exc
+
+            self._summary_thread = threading.Thread(
+                target=_run, name="memory-summarizer", daemon=True)
+            self._summary_thread.start()
+            return True
+
+    def wait_for_summary(self, timeout: float = 5.0) -> None:
+        """انتظار خيط التلخيص الجاري — للاختبارات والإغلاق النظيف فقط."""
+        t = self._summary_thread
+        if t and t.is_alive():
+            t.join(timeout)
+
+    # ── الأعقاب ──
 
     def summary(self) -> Optional[str]:
-        """ملخص المحادثة — stub: لا تلخيص بعد (R-304 يوصّله)."""
-        return None
+        """نص آخر ملخص مخزن — None إن لم يُلخّص بعد (وصّله T-032)."""
+        artifact = self.summary_artifact()
+        return artifact.text if artifact else None
 
     def search(self, query: str, limit: int = 5) -> list[Turn]:
         """استرجاع دلالي — stub: لا فهرس بعد (R-802 يوصّله)."""

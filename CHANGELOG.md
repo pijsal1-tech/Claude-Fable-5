@@ -27,6 +27,48 @@
     fallback path left.
 
 ### Added
+- **R-304 (T-032): tiered windowing + async summarizer — graceful
+  degradation between "full history" and "amnesia".**
+  `sessions/memory.py` gains `tiered_window(TieredPolicy) →
+  TieredWindow`: a budget-bound window assembled as **pinned turns
+  (deducted first, never evicted) → a contiguous verbatim strip of the
+  most recent turns (stops at the first turn that doesn't fit — no
+  gaps in front of the summary) → a stored summary of the older slice**,
+  entering the window only when it actually covers dropped turns (short
+  sessions are byte-identical to before — regression-pinned). The
+  verbatim strip never shrinks below `recent_floor` even at
+  `token_budget=0` (R-304 risk clause), and `TieredWindow.degraded` is
+  truthful: turns dropped without summary coverage = explicit hard
+  cutoff. Summaries are **artifacts in the JSONL stream itself**
+  (`kind="summary"` records with `text`/`covers_until` exclusive/`ts`) —
+  the log stays the single source of truth (T-029 principle), summaries
+  are auditable in the session log, and the effective summary is the
+  last such record on replay (unknown-kind skipping from T-029 keeps
+  old readers safe). `update_summary(summarizer, upto)` is the
+  synchronous core — incremental: it summarizes only the yet-uncovered
+  slice, passing the previous summary text for merging, and fails
+  loudly for direct callers. `maybe_update_summary_async(summarizer,
+  every_n=10)` is the hot-path hook: fires a daemon thread only when
+  the uncovered slice has grown ≥ `every_n` turns and no run is
+  inflight (single-inflight dedup under a lock), **returns immediately
+  and never raises** — a summarizer crash is recorded in
+  `last_summary_error` and the window degrades to a plain cutoff;
+  `wait_for_summary(timeout)` exists for tests/clean shutdown. The
+  `summary()` stub from T-029 is now wired (last stored summary text or
+  `None`); prompts must label summaries via `TieredWindow.
+  summary_block()` which prefixes `SUMMARY_LABEL` (drift/hallucination
+  risk answered by labeling, not hiding). Tests
+  (`tests/unit/test_tiered_window.py`, 22): tier-assembly math
+  (pinned-first deduction, contiguous strip, summary admission/
+  exclusion rules), floor enforcement at zero budget, incremental
+  summarization + no-op on empty slice + replay survival, async
+  immediacy with a slow summarizer (timing assert < 0.2s vs 0.5s
+  sleep), single-inflight dedup, not-ripe skip, failure degradation
+  (error captured, no fake artifact, hard-cutoff window), loud sync
+  failure, and the R-304 acceptance gate: a **100-turn simulation**
+  where a fact stated at turn 5 is no longer verbatim but remains
+  represented in the summary, with all verbatim turns within budget
+  and `degraded=False`.
 - **R-303 (T-031): Session ↔ Project binding — sessions are stamped
   with a project fingerprint and project switches are policy-checked.**
   `sessions/store.py` gains `project_fingerprint(path)` (`sha256` of the
