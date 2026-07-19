@@ -46,6 +46,7 @@ from chain.router import RequestRouter
 from core.strategy import RoutingTier
 from chain.action_applier import ActionApplier
 from providers.budget import AccountAwareBudget
+from providers.capacity import CapacityModel
 from providers.pool import ProviderPool
 from chain.agent_loop import AgentLoop
 from chain.agent_tools import AgentTools
@@ -223,6 +224,7 @@ delegate_bridge: DelegateBridge = None  # M6: جسر التفويض
 # ── Smart Request Pipeline (Phase 1-5) ──
 provider_pool: ProviderPool = None          # إدارة مزودين متعددين
 account_budget: AccountAwareBudget = None   # ميزانية واعية بالحسابات
+capacity_model: CapacityModel = None        # سعة صادقة من pool+breakers (T-038)
 request_router: RequestRouter = None        # توجيه ذكي للطلبات
 action_applier: ActionApplier = None        # تطبيق نتائج Chain
 orchestrator: SmartOrchestrator = None      # تحليل التعقيد
@@ -370,6 +372,18 @@ def api_cwd():
 # ════════════════════════════════════════════════════
 # API — Info
 # ════════════════════════════════════════════════════
+@app.route("/api/capacity")
+def api_capacity():
+    """T-038 (R-403): سعة صادقة — أرقام الـ UI مشتقة من CapacityModel
+    (حالة pool + قواطع T-037 الحية)، مع أعلام estimated للتخمينات؛
+    لا حساب MIN_ACCOUNTS ثابت — كل رقم قابل للتتبع لحالة الموديل."""
+    if capacity_model is None:
+        return jsonify({"ok": False,
+                        "error": "capacity model غير مهيأ بعد"}), 503
+    return jsonify({"ok": True,
+                    "capacity": capacity_model.report().to_dict()})
+
+
 @app.route("/api/info")
 def api_info():
     """معلومات المشروع والمزود"""
@@ -1711,6 +1725,7 @@ def _apply_single_action(action: dict) -> dict:
 def main():
     global fm, cmd_runner, provider, session_mgr, chain_bridge, ctx
     global provider_pool, account_budget, request_router, action_applier, orchestrator
+    global capacity_model
     global agent_tools
 
     arg_parser = argparse.ArgumentParser(description="WebDev AI Editor — Web Server")
@@ -1884,8 +1899,13 @@ def main():
     if chain_bridge:
         chain_bridge.action_applier = action_applier
     print(f"  🧠 Smart Router: active ({len(provider_pool.names)} providers)")
-    budget_snap = account_budget.check()
-    print(f"  💰 Budget: {budget_snap.total_available} calls available")
+    # T-038 (R-403): أرقام السعة من CapacityModel — قابلة للتتبع لحالة
+    # pool/breaker، والتخمينات مُعلّمة بدل تقديمها كحقائق.
+    capacity_model = CapacityModel(provider_pool)
+    _cap = capacity_model.report()
+    _est = " (تقديري)" if _cap.estimated else ""
+    print(f"  💰 Capacity: {_cap.total_available} calls · "
+          f"{_cap.healthy_count} healthy providers{_est}")
 
     # ── Agent Tools ──
     agent_tools = AgentTools(
