@@ -27,6 +27,37 @@
     fallback path left.
 
 ### Added
+- **R-302 (T-029): `sessions/memory.py` — `ConversationMemory` facade,
+  the single owner of history access on top of the JSONL store.**
+  API: `append(role, content, visibility="user", **extra) -> turn_id`
+  (sequential ids derived from the log; a cached counter keeps append
+  O(1)), `turns()`, `window(WindowPolicy)`, `pin(turn_id)` /
+  `unpin(turn_id)`, plus frozen stubs `summary() -> None` (R-304) and
+  `search() -> []` (R-802). **Pinning is append-only**: pins are
+  `kind="pin"` marker records in the same log — no rewrite, no sidecar
+  state; effective pin state = last marker per turn at replay, so it
+  survives crashes exactly like messages do. **Window pipeline is a
+  fixed order**: visibility filter → pinned turns set aside (they
+  survive trimming) → `last_n` applied to unpinned only →
+  `token_budget` charges pinned first then admits unpinned
+  newest-first, whole-turn-or-drop (never mid-truncates a turn; uses
+  the central `CharsPerTokenEstimator` from `context/budget.py`);
+  output is always in log order. Named policies ship for the T-030
+  migration: `POLICY_FULL`, `POLICY_CHAT` (value-exact `[-10:]`
+  equivalence), `POLICY_DELEGATE` (value-exact `[-6:]` equivalence).
+  **Backward compatible:** kind-less T-027/T-028 records are read as
+  visible user-facing message turns. Evidence:
+  `tests/unit/test_conversation_memory.py` — 31 tests (append/turn-id
+  stability across instances, policy slice equivalence, token budget
+  incl. pinned-charged-first and never-mid-truncate, pin/unpin
+  replay, stubs, on-disk JSONL round-trip + torn-tail). Full suite
+  **448 passed**; mypy gate clean; `./scripts/check.sh` ALL GREEN.
+  *Also fixed in this task:* the T-027 growth benchmark compared
+  **means** of first/last 100 append durations — one scheduler spike
+  in a shared sandbox flipped it (a transient failure was actually
+  observed); it now compares **medians** (outlier-robust, still
+  cleanly separates O(1) from linear growth) — verified stable across
+  5 consecutive runs.
 - **R-301/R-305 (T-028): `scripts/migrate_sessions.py` — lossless,
   idempotent JSON→JSONL migration; session data untracked from git.**
   Each legacy `<id>.json` (single document with embedded `messages`)

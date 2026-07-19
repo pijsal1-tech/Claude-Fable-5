@@ -407,11 +407,11 @@
 - **Files to Modify:** `sessions/memory.py` (new), units
 - **Affected Modules:** none wired yet
 - **Acceptance Criteria:** window policy units green; append/window integration on JSONL green.
-- **Implementation:** [ ] facade · [ ] policies · [ ] stubs
-- **Testing:** [ ] policy units · [ ] integration
-- **Regression:** [ ] suite green
-- **Documentation:** [ ] API doc
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-030
+- **Implementation:** [x] facade · [x] policies · [x] stubs
+- **Testing:** [x] policy units · [x] integration
+- **Regression:** [x] suite green
+- **Documentation:** [x] API doc
+- **Completion Status:** ✅ · **Reviewer Notes:** `sessions/memory.py` — `ConversationMemory(store, session_id, estimator=None)`. Six design decisions worth a reviewer's attention: **(1) Append-only pin markers.** `pin/unpin` write `kind="pin"` records into the same JSONL log instead of mutating a sidecar — effective pin state is the *last* marker per turn at replay, so pins inherit the store's crash-safety (torn-tail handling, no rewrite path, no second source of truth). **(2) Fixed window pipeline.** `window(WindowPolicy)` always runs: visibility filter → pinned set aside (survive trims) → `last_n` on *unpinned only* → `token_budget` with pinned charged first, then unpinned admitted newest-first whole-turn-or-drop (never mid-truncates; central `CharsPerTokenEstimator` from `context/budget.py`); output re-sorted to log order. Deterministic composition — no policy-dependent branching. **(3) Agent visibility.** `visibility="agent"` turns exist but are excluded unless `include_agent=True` — tool chatter never leaks into user-facing windows by default. **(4) Named legacy policies.** `POLICY_CHAT`/`POLICY_DELEGATE` are proven *value-exact* equivalents of today's `[-10:]`/`[-6:]` slices (tests assert list equality, not counts) so T-030 is a mechanical swap. **(5) Frozen stubs.** `summary() -> None` and `search() -> []` are typed, documented no-ops so consumers can code against the final surface now (R-304/R-802 fill them in later). **(6) O(1) preserved.** `append` derives the next turn_id from a lazily-filled cached counter, not a replay per call — the T-027 performance contract holds through the facade. Backward compat: kind-less T-027/28 records read as visible user message turns. Evidence: `tests/unit/test_conversation_memory.py` — 31 tests across append/turn-id stability (incl. cross-instance), policy slice equivalence, token budget (incl. pinned-charged-first, never-mid-truncate, last_n+budget composition), pin replay, stubs, on-disk JSONL integration + torn tail. Full suite **448 passed** (417 + 31); mypy gate clean (41 files); `./scripts/check.sh` **ALL GREEN**. *Also fixed:* the T-027 growth benchmark compared **means** of first/last-100 append durations — one scheduler spike in the shared sandbox flipped it (transient failure actually observed); it now compares **medians** (outlier-robust, still separates O(1) from linear) — verified stable across 5 consecutive runs. · **Next Task:** T-030
 
 ## T-030 — Migrate Three History Consumers (R-302)
 - **Description:** Capture the current slices (`[-10:]`, `[-6:]`, full) as goldens, then convert all three consumers to `memory.window(policy)` with policies reproducing today's behavior exactly.

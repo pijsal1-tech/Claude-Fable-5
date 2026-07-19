@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import statistics
 import time
 
 import pytest
@@ -297,8 +298,13 @@ class TestBenchmark:
         assert len(store.replay(meta.id).records) == 1000
 
     def test_append_cost_does_not_grow_with_history(self, tmp_path):
-        """جوهر قتل O(n²): متوسط آخر 100 إلحاق ≤ 3× متوسط أول 100
-        رغم أن التاريخ صار 10× أطول (القديم كان يعطي ~10×)."""
+        """جوهر قتل O(n²): وسيط (median) آخر 100 إلحاق ≤ 3× وسيط أول 100
+        رغم أن التاريخ صار 10× أطول (القديم كان يعطي ~10×).
+
+        لماذا الوسيط وليس المتوسط؟ المتوسط الحسابي لـ 100 قياس ينقلب
+        بقفزة جدولة (scheduler spike) واحدة في بيئة مشتركة — فشل عابر
+        رُصد فعلياً بهذا الشكل. الوسيط مقاوم للقيم الشاذة لكنه ما زال
+        يفصل بوضوح بين O(1) والنمو الخطي."""
         store = SessionStore(tmp_path / "growth", fsync="never")
         meta = store.create()
         durations: list[float] = []
@@ -307,8 +313,8 @@ class TestBenchmark:
             t0 = time.perf_counter()
             store.append_message(meta.id, "user", payload)
             durations.append(time.perf_counter() - t0)
-        first = sum(durations[:100]) / 100
-        last = sum(durations[-100:]) / 100
+        first = statistics.median(durations[:100])
+        last = statistics.median(durations[-100:])
         assert last <= first * 3, (
-            f"الإلحاق ينمو مع التاريخ: أول 100={first * 1e6:.1f}µs "
-            f"آخر 100={last * 1e6:.1f}µs")
+            f"الإلحاق ينمو مع التاريخ: وسيط أول 100={first * 1e6:.1f}µs "
+            f"وسيط آخر 100={last * 1e6:.1f}µs")
