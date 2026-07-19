@@ -27,6 +27,36 @@
     fallback path left.
 
 ### Added
+- **R-501 (T-041): Agent + Delegate runners — legacy dispatch deleted,
+  one dispatch path.** `runners/agent.py` (`AgentRunner(loop_factory,
+  on_loop)`: builds an `AgentLoop` per run via the factory — which is
+  also where a contract-test failure must be planted, since the loop
+  swallows provider send errors internally — re-emits loop WS frames as
+  free events, streams the final text as `run_output` chunks of 80, and
+  reads the terminal status from the ticket because `AgentLoop.run`
+  finishes its own ticket) and `runners/delegate.py` (`DelegateRunner
+  (bridge)`: wraps `DelegateBridge.run_delegation`; a run parked at
+  `waiting_approval` finishes the stream with `handoff="waiting_approval"`
+  and returns a completed `RunResult` while the **ticket stays running** —
+  `land()`/`reject()` finish it later; decisive outcomes map
+  rejected/landed→completed, cancelled→cancelled, failed→failed).
+  `server.py`: the agent WS **polling workaround (old L920–965) is
+  deleted** — the agent now runs on a worker thread and a new top-level
+  `cancel_agent` handler (next to `agent_approval_response`) covers
+  mid-run cancellation; `LEGACY_DISPATCH` + `_legacy_dispatch()` and the
+  entire legacy ladder (inline direct stream-worker, `start_chain`
+  branch, no-ticket delegate thread) are deleted; dispatch is now a
+  single `RUNNERS` map (`direct`/`chain`/`agent`/`delegate` → runner
+  factories) — `RUNNERS[strategy](**deps).run(request, ticket,
+  _RunnerWSAdapter(send))`. `runners/__init__.py` documents the dispatch
+  architecture and exports all four runners. Tests: `TestAgentRunnerContract`
+  + `TestDelegateRunnerContract` join the shared harness (all four
+  runners now pass `RunnerContractMixin`); `test_dispatch_parity.py`
+  drops the flag tests (replaced by `test_legacy_dispatch_flag_deleted`
+  + `test_runners_map_covers_all_modes`) and adds agent parity
+  (success byte-identical frames incl. chunk-80 slicing, cancellation)
+  and delegate parity (waiting_approval with both tickets left running
+  then landed, provider-failure with identical `delegate_error` frames).
 - **R-501 (T-040): Direct + Chain runners behind the `LEGACY_DISPATCH`
   flag.** `runners/direct.py` (`DirectRunner`: one provider stream call
   emitted as `run_output` chunks, cancellation checked between chunks)
