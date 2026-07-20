@@ -27,6 +27,40 @@
     fallback path left.
 
 ### Added
+- **R-603 (T-046): Parallel ready-set execution — `max_parallel_steps`
+  becomes real.** Previously the executor always ran `ready[0]`
+  sequentially while the policy advertised parallelism. Now
+  `chain/executor.py::_execute_loop` dispatches the ready set per wave:
+  `max_parallel_steps=1` (or a single ready step) takes the **legacy
+  lane** — `self._execute_step(run, ready[0], …)` byte-identical to the
+  old path, no pool created; otherwise `_execute_batch` runs
+  `ready[:max_workers]` (capacity cap) on a
+  `ThreadPoolExecutor(max_workers=policy.max_parallel_steps)`.
+  - **Guarded merge:** all step-finish mutations funnel exclusively
+    through new `_apply_step_result` / `_apply_step_failure` under
+    `self._merge_lock`; `events.jsonl` appends serialize under
+    `self._events_lock`; `BudgetTracker` reservations were already
+    lock-protected and gate submissions unchanged.
+  - **Cancellation:** pre-submit `_check_cancelled` checkpoint per task
+    stops submissions mid-batch; workers hit the existing retry-boundary
+    checkpoint (siblings stop); the pool is fully **drained before**
+    `ChainCancelled` propagates — no orphan worker writes state after
+    the loop exits. Steps in-flight at cancel time may remain
+    `"running"` in the final cancelled run (bounded by batch size ≤
+    `max_parallel_steps`); T-044 `rebuild_run` resets them to `pending`
+    on resume.
+  - ⚠️ **Behavior note:** step *completion order* is now nondeterministic
+    at `max_parallel_steps>1` — results themselves stay deterministic.
+  - Evidence: 🆕 `tests/integration/test_parallel_execution.py` (11):
+    parallel=1 parity ×2 (start order == declaration order; peak
+    concurrency == 1); speedup ×2 (**≥3× on 8-step map @ parallel=4**,
+    FakeProvider latency 0.15s; capacity-cap peak ≤ 3 with 12 ready);
+    stress ×4 (3 seeds × 20 map steps with ~30% injected random
+    failures — each step executed exactly once, state consistent;
+    critical-failure skip); cancellation ×2 (mid-batch: siblings stop,
+    pool drained, mid-flight ≤ batch size; pre-cancelled token ⇒ zero
+    provider calls); DAG waves ×1 (reduce completes last). check.sh
+    ALL GREEN: **886 passed, 1 skipped**.
 - **R-602 (T-045): `context_policy` enforced in `build_prompt` —
   the decorative field becomes a real lever.** `chain/models.py`:
   `canonical_context_policy(value)` — alias map (`full`,
