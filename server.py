@@ -65,7 +65,8 @@ from runners.delegate import DelegateRunner
 from runners.direct import DirectRunner
 from core.approval import ApprovalGate
 from chain.knowledge import KnowledgeAccumulator
-from core.execution import ExecutionRegistry, RunBusyError
+from core.execution import ExecutionRegistry
+from core.session_context import SessionContext, RunBusyError
 from core.events import (
     ApprovalRequested,
     BudgetChanged,
@@ -104,7 +105,6 @@ parser = ResponseParser()
 provider = None
 chat_history: list[Message] = []
 session_mgr: SessionManager = None
-_backup_done_for_batch = False  # علامة لمنع تكرار الباك-أب في نفس الـ batch
 # R-303 (T-031): بانر تنبيه ربط الجلسة — يُملأ عند تبديل المشروع تحت
 # سياسة warn ويُحقن في project_context لكل رسالة حتى بدء جلسة جديدة.
 _binding_banner: str = ""
@@ -365,7 +365,6 @@ orchestrator: SmartOrchestrator = None      # تحليل التعقيد
 
 # ── Agent System ──
 agent_tools: AgentTools = None              # أدوات الـ Agent
-_active_agent_loop: AgentLoop = None        # Agent Loop النشط حالياً
 
 # ── ApprovalGate (T-012, R-104) — نقطة الموافقة الوحيدة قبل أي كتابة ──
 approval_gate: ApprovalGate = None
@@ -929,906 +928,935 @@ def api_run_file():
 # ════════════════════════════════════════════════════
 # WebSocket — AI Streaming
 # ════════════════════════════════════════════════════
-def ws_handler(ws):
-    """WebSocket للتواصل الحي مع AI — مع دعم الجلسات والخطط"""
-    global chat_history, _backup_done_for_batch, fm, cmd_runner, delegate_bridge
-    global _active_agent_loop
+def _build_session_context(ws):
+    """T-048 (R-701): موقع التركيب — يبني SessionContext لاتصال WS جديد.
 
-    # T-047 (R-604): كل إطارات هذا الاتصال تمر عبر bus الاتصال →
-    # _WSAdapter (موقع ws.send الأوحد). _ws_frame = ناشر الإطارات.
-    _ws_frame = _json_sender(ws)
+    هذا **ليس** handler: قراءات globals الوحدة هنا هي نقطة الربط
+    الوحيدة المسموحة (بذر الحالة المشتركة وقت الاتصال) — بعدها كل
+    وصول الـ handlers للحالة عبر sctx حصريًا (يفرضه
+    scripts/lint_handler_state.py). قواعد نطاق الحالة كاملة في
+    core/session_context.py.
+    """
+    bus = EventBus()
+    adapter = _WSAdapter(ws, bus)
+    project = None
+    if ctx is not None:
+        project = ctx.project
+    elif fm is not None:
+        project = ProjectHandle(root=str(fm.root), fm=fm,
+                                cmd_runner=cmd_runner)
+    return SessionContext(
+        send=_frame_publisher(bus),
+        ctx=ctx,
+        bus=bus,
+        adapter=adapter,
+        project=project,
+        chat_history=list(chat_history),
+        session_mgr=session_mgr,
+        chain_bridge=chain_bridge,
+        delegate_bridge=delegate_bridge,
+        provider_source=_active_provider,
+        banner_source=lambda: _binding_banner,
+    )
 
-    while True:
-        try:
-            raw = ws.receive()
-            if not raw:
+
+def _handle_ws_message(ctx, sctx, msg):
+    """T-048 (R-701): معالجة رسالة WS واحدة — كل حالة المحادثة عبر sctx.
+
+    ``ctx`` خدمات العملية المشتركة (composition root)؛ ``sctx`` حالة
+    هذا الاتصال (تاريخ، مقبض مشروع، موافقات، موديل، إرسال). ممنوع
+    ``global`` وأي كتابة حالة محادثة وحدوية هنا — تفرضه بوابة
+    scripts/lint_handler_state.py في check.sh.
+    """
+    msg_type = msg.get("type", "")
+
+
+    if msg_type == "ping":
+        # T-006 (R-102): ctx (composition root) is reachable in the WS
+        # handler; extra field is ignored by the frontend.
+        sctx.send({"type": "pong", "ctx": ctx is not None})
+        return
+
+    # ── Agent: المستخدم وافق/رفض أمر terminal ──
+    if msg_type == "agent_approval_response":
+        if sctx.active_agent_loop:
+            approved = msg.get("approved", False)
+            approval_id = msg.get("approval_request_id", "")
+            payload_hash = msg.get("payload_hash", "")
+            sctx.active_agent_loop.approve_command(approved, approval_id, payload_hash)
+        return
+
+    # ── Agent: إلغاء من المستخدم (T-041: كان يُلتقط داخل حلقة
+    # الاستطلاع المحذوفة — الآن يصل مباشرة لأن الـ Agent يعمل في
+    # thread عامل وحلقة WS الرئيسية حرة دائمًا) ──
+    if msg_type == "cancel_agent":
+        if sctx.active_agent_loop:
+            sctx.active_agent_loop.cancel()
+            print("    🛑 Agent cancelled by user")
+        return
+
+    # ── Chain: رد المستخدم على إطار chain_approval_request (T-012) ──
+    # السلسلة معلّقة في thread منفصل على gate.request — هذا يفكها.
+    if msg_type == "chain_approval_response":
+        if sctx.chain_bridge:
+            matched = sctx.chain_bridge.resolve_approval(
+                request_id=msg.get("request_id", ""),
+                approved=msg.get("approved", False),
+                payload_hash=msg.get("payload_hash", ""),
+            )
+            if not matched:
+                print(f"⚠️ Chain approval غير مطابق: {msg.get('request_id', '')}")
+        return
+
+    if msg_type == "message":
+        user_text = msg.get("text", "").strip()
+        mode = msg.get("mode", "chat")
+
+        if not user_text:
+            sctx.send({"type": "error", "text": "رسالة فارغة"})
+            return
+
+        # ── 1. كشف ذكي للمسارات (ملفات + مجلدات) ──
+        import re
+        detected_dir = None
+        detected_file = None
+
+        # البحث عن مسارات بين علامات التنصيص
+        quoted = re.findall(r'["\']([^"\']+)["\']', user_text)
+        for p in quoted:
+            p_clean = p.strip()
+            if os.path.isdir(p_clean):
+                detected_dir = os.path.abspath(p_clean)
                 break
-            data = json.loads(raw)
-        except Exception:
-            break
+            elif os.path.isfile(p_clean):
+                detected_file = os.path.abspath(p_clean)
+                break
 
-        msg_type = data.get("type", "")
-
-        if msg_type == "ping":
-            # T-006 (R-102): ctx (composition root) is reachable in the WS
-            # handler; extra field is ignored by the frontend.
-            _ws_frame({"type": "pong", "ctx": ctx is not None})
-            continue
-
-        # ── Agent: المستخدم وافق/رفض أمر terminal ──
-        if msg_type == "agent_approval_response":
-            if _active_agent_loop:
-                approved = data.get("approved", False)
-                approval_id = data.get("approval_request_id", "")
-                payload_hash = data.get("payload_hash", "")
-                _active_agent_loop.approve_command(approved, approval_id, payload_hash)
-            continue
-
-        # ── Agent: إلغاء من المستخدم (T-041: كان يُلتقط داخل حلقة
-        # الاستطلاع المحذوفة — الآن يصل مباشرة لأن الـ Agent يعمل في
-        # thread عامل وحلقة WS الرئيسية حرة دائمًا) ──
-        if msg_type == "cancel_agent":
-            if _active_agent_loop:
-                _active_agent_loop.cancel()
-                print("    🛑 Agent cancelled by user")
-            continue
-
-        # ── Chain: رد المستخدم على إطار chain_approval_request (T-012) ──
-        # السلسلة معلّقة في thread منفصل على gate.request — هذا يفكها.
-        if msg_type == "chain_approval_response":
-            if chain_bridge:
-                matched = chain_bridge.resolve_approval(
-                    request_id=data.get("request_id", ""),
-                    approved=data.get("approved", False),
-                    payload_hash=data.get("payload_hash", ""),
-                )
-                if not matched:
-                    print(f"⚠️ Chain approval غير مطابق: {data.get('request_id', '')}")
-            continue
-
-        if msg_type == "message":
-            user_text = data.get("text", "").strip()
-            mode = data.get("mode", "chat")
-
-            if not user_text:
-                _ws_frame({"type": "error", "text": "رسالة فارغة"})
-                continue
-
-            # ── 1. كشف ذكي للمسارات (ملفات + مجلدات) ──
-            import re
-            detected_dir = None
-            detected_file = None
-
-            # البحث عن مسارات بين علامات التنصيص
-            quoted = re.findall(r'["\']([^"\']+)["\']', user_text)
-            for p in quoted:
-                p_clean = p.strip()
-                if os.path.isdir(p_clean):
-                    detected_dir = os.path.abspath(p_clean)
+        # البحث في الكلمات عن مسارات (مع دعم Windows backslash)
+        if not detected_dir and not detected_file:
+            # كشف مسارات Windows مثل D:\path\to\file
+            win_paths = re.findall(r'[A-Za-z]:[\\/ ][^\s,;"\'>]+', user_text)
+            for wp in win_paths:
+                wp = wp.strip().rstrip('.,;?)')
+                if os.path.isdir(wp):
+                    detected_dir = os.path.abspath(wp)
                     break
-                elif os.path.isfile(p_clean):
-                    detected_file = os.path.abspath(p_clean)
+                elif os.path.isfile(wp):
+                    detected_file = os.path.abspath(wp)
                     break
 
-            # البحث في الكلمات عن مسارات (مع دعم Windows backslash)
-            if not detected_dir and not detected_file:
-                # كشف مسارات Windows مثل D:\path\to\file
-                win_paths = re.findall(r'[A-Za-z]:[\\/ ][^\s,;"\'>]+', user_text)
-                for wp in win_paths:
-                    wp = wp.strip().rstrip('.,;?)')
-                    if os.path.isdir(wp):
-                        detected_dir = os.path.abspath(wp)
-                        break
-                    elif os.path.isfile(wp):
-                        detected_file = os.path.abspath(wp)
-                        break
+        if not detected_dir and not detected_file:
+            for w in user_text.split():
+                w_clean = w.strip('.,;?()[]{}"\'')
+                if os.path.isdir(w_clean):
+                    detected_dir = os.path.abspath(w_clean)
+                    break
+                elif os.path.isfile(w_clean):
+                    detected_file = os.path.abspath(w_clean)
+                    break
 
-            if not detected_dir and not detected_file:
-                for w in user_text.split():
-                    w_clean = w.strip('.,;?()[]{}"\'')
-                    if os.path.isdir(w_clean):
-                        detected_dir = os.path.abspath(w_clean)
-                        break
-                    elif os.path.isfile(w_clean):
-                        detected_file = os.path.abspath(w_clean)
-                        break
+        if not detected_dir and not detected_file and os.path.isdir(user_text.strip()):
+            detected_dir = os.path.abspath(user_text.strip())
+        elif not detected_dir and not detected_file and os.path.isfile(user_text.strip()):
+            detected_file = os.path.abspath(user_text.strip())
 
-            if not detected_dir and not detected_file and os.path.isdir(user_text.strip()):
-                detected_dir = os.path.abspath(user_text.strip())
-            elif not detected_dir and not detected_file and os.path.isfile(user_text.strip()):
-                detected_file = os.path.abspath(user_text.strip())
-
-            # ── معالجة ملف مكتشف: قراءة محتواه وإرفاقه ──
-            if detected_file:
-                try:
-                    with open(detected_file, 'r', encoding='utf-8', errors='replace') as df:
-                        file_content = df.read(MAX_SMART_FILE_SIZE)
-                    file_ext = os.path.splitext(detected_file)[1]
-                    user_text += f"\n\n[📄 محتوى الملف: {detected_file}]:\n```{file_ext.lstrip('.')}\n{file_content}\n```"
-                except Exception:
-                    pass  # تجاهل أخطاء القراءة
-                detected_file = None  # لا نغير المجلد
-
-            # ── معالجة مجلد مكتشف: تغيير المشروع ──
-            if detected_dir:
-                try:
-                    # R-102 (T-008): switch through the composition root.
-                    if ctx is not None:
-                        _handle = ctx.switch_project(detected_dir)
-                        fm = _handle.fm
-                        cmd_runner = _handle.cmd_runner
-                    else:
-                        fm = FileManager(detected_dir)
-                        cmd_runner = CommandRunner(cwd=detected_dir, auto_approve=True)
-                    scan = fm.scan_project()
-                    if session_mgr:
-                        session_mgr.update_project_path(detected_dir)
-
-                    _ws_frame({
-                        "type": "project_switched",
-                        "project": {
-                            "root": str(fm.root),
-                            "name": fm.root.name,
-                            "total_files": scan["total_files"],
-                            "total_size_kb": scan["total_size_kb"],
-                        }
-                    })
-
-                    _ws_frame({"type": "start"})
-                    _ws_frame({
-                        "type": "chunk",
-                        "text": f"حاضر يا صاحبي! أنا غيرت مجلد العمل دلوقتي للمجلد ده: `{detected_dir}` 📂\n\nلقيت فيه {scan['total_files']} ملف. تقدر تطلب مني أي حاجة بخصوصهم دلوقتي! 👍"
-                    })
-                    _ws_frame({
-                        "type": "done",
-                        "actions": [],
-                        "options": [],
-                        "summary": "Switched project directory"
-                    })
-                    continue
-                except Exception as e:
-                    _ws_frame({"type": "error", "text": f"فشل فتح المجلد: {e}"})
-                    continue
-
-            # ── 2. جمع السياق — ContextEngine (T-019, R-201) ──
-            # الكتلة المضمّنة القديمة (mention regex → rglob لكل كلمة →
-            # حقن المحتوى → get_project_context) استُخرجت إلى حزمة context/
-            # بمسح نظام ملفات واحد لكل رسالة. الـ parity مضمون بـ goldens
-            # T-017 عبر tests/unit/test_context_engine.py.
+        # ── معالجة ملف مكتشف: قراءة محتواه وإرفاقه ──
+        if detected_file:
             try:
-                _msg_ctx = gather_message_context(fm.root, user_text)
-                mentioned_files = _msg_ctx.mentioned_files
-                user_text_with_files = _msg_ctx.user_text_with_files
-                project_context = _msg_ctx.project_context
+                with open(detected_file, 'r', encoding='utf-8', errors='replace') as df:
+                    file_content = df.read(MAX_SMART_FILE_SIZE)
+                file_ext = os.path.splitext(detected_file)[1]
+                user_text += f"\n\n[📄 محتوى الملف: {detected_file}]:\n```{file_ext.lstrip('.')}\n{file_content}\n```"
             except Exception:
-                mentioned_files = []
-                user_text_with_files = user_text
-                project_context = ""
+                pass  # تجاهل أخطاء القراءة
+            detected_file = None  # لا نغير المجلد
 
-            # R-303 (T-031): حقن بانر تنبيه الربط (سياسة warn) في السياق
-            if _binding_banner:
-                project_context = (
-                    f"{_binding_banner}\n\n{project_context}"
-                    if project_context else _binding_banner
-                )
+        # ── معالجة مجلد مكتشف: تغيير المشروع ──
+        if detected_dir:
+            try:
+                # T-048 (R-701): تبديل مشروع **هذا الاتصال فقط** — مقبض
+                # التبويبات الأخرى يبقى صالحًا (ctx.project لا يُبدَّل).
+                if ctx is not None:
+                    sctx.switch_project(detected_dir)
+                else:
+                    sctx.project = ProjectHandle(
+                        root=detected_dir,
+                        fm=FileManager(detected_dir),
+                        cmd_runner=CommandRunner(cwd=detected_dir,
+                                                 auto_approve=True))
+                scan = sctx.fm.scan_project()
+                if sctx.session_mgr:
+                    sctx.session_mgr.update_project_path(detected_dir)
 
-            # ═══════════════════════════════════════
-            # 🧠 Smart Routing — RequestRouter يقرر المسار
-            # ═══════════════════════════════════════
-            if request_router and mode != "chat":
-                try:
-                    # جمع محتوى الملفات المذكورة كـ dict
-                    files_dict = None
-                    if mentioned_files:
-                        files_dict = {}
-                        for f_path in mentioned_files[:5]:
-                            try:
-                                files_dict[f_path] = fm.read_file(f_path)
-                            except Exception:
-                                pass
+                sctx.send({
+                    "type": "project_switched",
+                    "project": {
+                        "root": str(sctx.fm.root),
+                        "name": sctx.fm.root.name,
+                        "total_files": scan["total_files"],
+                        "total_size_kb": scan["total_size_kb"],
+                    }
+                })
 
-                    # اتخاذ القرار
-                    file_content_for_routing = None
-                    if mentioned_files and len(mentioned_files) == 1:
+                sctx.send({"type": "start"})
+                sctx.send({
+                    "type": "chunk",
+                    "text": f"حاضر يا صاحبي! أنا غيرت مجلد العمل دلوقتي للمجلد ده: `{detected_dir}` 📂\n\nلقيت فيه {scan['total_files']} ملف. تقدر تطلب مني أي حاجة بخصوصهم دلوقتي! 👍"
+                })
+                sctx.send({
+                    "type": "done",
+                    "actions": [],
+                    "options": [],
+                    "summary": "Switched project directory"
+                })
+                return
+            except Exception as e:
+                sctx.send({"type": "error", "text": f"فشل فتح المجلد: {e}"})
+                return
+
+        # ── 2. جمع السياق — ContextEngine (T-019, R-201) ──
+        # الكتلة المضمّنة القديمة (mention regex → rglob لكل كلمة →
+        # حقن المحتوى → get_project_context) استُخرجت إلى حزمة context/
+        # بمسح نظام ملفات واحد لكل رسالة. الـ parity مضمون بـ goldens
+        # T-017 عبر tests/unit/test_context_engine.py.
+        try:
+            _msg_ctx = gather_message_context(sctx.fm.root, user_text)
+            mentioned_files = _msg_ctx.mentioned_files
+            user_text_with_files = _msg_ctx.user_text_with_files
+            project_context = _msg_ctx.project_context
+        except Exception:
+            mentioned_files = []
+            user_text_with_files = user_text
+            project_context = ""
+
+        # R-303 (T-031): حقن بانر تنبيه الربط (سياسة warn) في السياق
+        if sctx.binding_banner:
+            project_context = (
+                f"{sctx.binding_banner}\n\n{project_context}"
+                if project_context else sctx.binding_banner
+            )
+
+        # ═══════════════════════════════════════
+        # 🧠 Smart Routing — RequestRouter يقرر المسار
+        # ═══════════════════════════════════════
+        if request_router and mode != "chat":
+            try:
+                # جمع محتوى الملفات المذكورة كـ dict
+                files_dict = None
+                if mentioned_files:
+                    files_dict = {}
+                    for f_path in mentioned_files[:5]:
                         try:
-                            file_content_for_routing = fm.read_file(mentioned_files[0])
+                            files_dict[f_path] = sctx.fm.read_file(f_path)
                         except Exception:
                             pass
 
-                    routing = request_router.route(
-                        user_request=user_text,
-                        file_content=file_content_for_routing,
-                        files=files_dict,
-                        mode=mode,
-                    )
+                # اتخاذ القرار
+                file_content_for_routing = None
+                if mentioned_files and len(mentioned_files) == 1:
+                    try:
+                        file_content_for_routing = sctx.fm.read_file(mentioned_files[0])
+                    except Exception:
+                        pass
 
-                    # ── إبلاغ المستخدم بالقرار ──
-                    # T-035 (R-401): الفصل على الطبقة (tier) لا النص —
-                    # الترجمة label→tier تعيش في RoutingDecision.tier وحدها.
-                    routing_tier = routing.tier
-                    # T-047 (R-604): قرار التوجيه حدث رصدي على الـ bus
-                    # العام (سجلات R-402) — لا إطار واجهة منه.
-                    event_bus.publish(RoutingDecided(
-                        run_id=f"route-{uuid.uuid4().hex[:8]}",
-                        strategy=str(routing.strategy),
-                        payload=routing.to_dict()))
-                    if routing_tier is not RoutingTier.DIRECT:
-                        _ws_frame({
-                            "type": "chain_started",
-                            "text": (
-                                f"🧠 Smart Router: اختار **{routing.strategy}** "
-                                f"(complexity: {routing.complexity_score:.1f})"
-                                + (f"\n⚠️ {routing.downgrade_reason}" if routing.downgraded else "")
-                            ),
-                            "routing": routing.to_dict(),
-                        })
+                routing = request_router.route(
+                    user_request=user_text,
+                    file_content=file_content_for_routing,
+                    files=files_dict,
+                    mode=mode,
+                )
 
-                    # ── توجيه لـ chain_bridge ──
-                    if routing_tier is RoutingTier.CHAINED:
-                        # T-015 (R-105): registry ticket — single-run policy
-                        chain_ticket = _begin_run_ticket(
-                            "chain",
-                            lambda m: _ws_frame(m))
-                        if chain_ticket is None:
-                            continue
-                        _ws_send = _json_sender(ws)
+                # ── إبلاغ المستخدم بالقرار ──
+                # T-035 (R-401): الفصل على الطبقة (tier) لا النص —
+                # الترجمة label→tier تعيش في RoutingDecision.tier وحدها.
+                routing_tier = routing.tier
+                # T-047 (R-604): قرار التوجيه حدث رصدي على الـ bus
+                # العام (سجلات R-402) — لا إطار واجهة منه.
+                event_bus.publish(RoutingDecided(
+                    run_id=f"route-{uuid.uuid4().hex[:8]}",
+                    strategy=str(routing.strategy),
+                    payload=routing.to_dict()))
+                if routing_tier is not RoutingTier.DIRECT:
+                    sctx.send({
+                        "type": "chain_started",
+                        "text": (
+                            f"🧠 Smart Router: اختار **{routing.strategy}** "
+                            f"(complexity: {routing.complexity_score:.1f})"
+                            + (f"\n⚠️ {routing.downgrade_reason}" if routing.downgraded else "")
+                        ),
+                        "routing": routing.to_dict(),
+                    })
 
-                        # حفظ في history
-                        chat_history.append(Message(role="user", content=user_text))
-                        if session_mgr:
-                            session_mgr.append_message("user", user_text)
-
-                        # T-041 (R-501): المسار الوحيد — runner فوق نفس
-                        # الجسر، نفس الإطارات (عبر _RunnerWSAdapter)، نفس
-                        # التذكرة. الـ runner يعمل في thread حتى تبقى حلقة
-                        # WS مستقبِلة (chain_approval_response تصل للبوابة).
-                        _chain_req = RunRequest(
-                            mode="chain",
-                            message=user_text_with_files,
-                            context={
-                                "file_content": file_content_for_routing,
-                                "files": files_dict,
-                            },
-                            metadata={
-                                "force_strategy": routing.chain_strategy,
-                            },
-                        )
-                        threading.Thread(
-                            target=RUNNERS["chain"](bridge=chain_bridge).run,
-                            args=(_chain_req, chain_ticket,
-                                  _RunnerWSAdapter(_ws_send)),
-                            daemon=True,
-                            name=f"runner-chain-{chain_ticket.run_id}",
-                        ).start()
-                        continue  # الـ runner يتكفل بالرد
-
-                    # ── توجيه لـ delegate_bridge ──
-                    if routing_tier is RoutingTier.DELEGATE and delegate_bridge:
-                        # T-041: إطارات {"type": et, **ed} تُبنى الآن داخل
-                        # _RunnerWSAdapter من أحداث DelegateRunner الحرة —
-                        # هنا الإرسال الخام فقط (نفس الحماية من WS مقفول).
-                        _delegate_event_frame = _json_sender(ws)
-
-                        # حفظ في history
-                        chat_history.append(Message(role="user", content=user_text))
-                        if session_mgr:
-                            session_mgr.append_message("user", user_text)
-
-                        # T-015 (R-105): registry ticket — delegate أصبح قابلاً للإلغاء
-                        delegate_ticket = _begin_run_ticket(
-                            "delegate",
-                            lambda m: _ws_frame(m))
-                        if delegate_ticket is None:
-                            continue
-                        # T-041 (R-501): عبر DelegateRunner — نفس الجسر ونفس
-                        # الأحداث (تصل الواجهة حرفيًا عبر _RunnerWSAdapter).
-                        # نداء متزامن كما كان: run_delegation يعود عند
-                        # waiting_approval — لا انتظار مستخدم داخل النداء.
-                        RUNNERS["delegate"](bridge=delegate_bridge).run(
-                            RunRequest(
-                                mode="delegate",
-                                message=user_text,
-                                context={
-                                    "files": files_dict or {},
-                                    "project_context": project_context,
-                                },
-                            ),
-                            delegate_ticket,
-                            _RunnerWSAdapter(_delegate_event_frame),
-                        )
-                        continue  # الـ delegate يتكفل بالرد
-
-                except Exception as e:
-                    # لو الـ router فشل — نكمل بالمسار العادي
-                    print(f"  ⚠️ Router error: {e}")
-
-            # ═══════════════════════════════════════
-            # 🤖 Agent Loop — لكل الأوضاع
-            # ═══════════════════════════════════════
-            if agent_tools and mode in ("build", "edit", "chat", "plan"):
-                try:
-                    _ws_lock = threading.Lock()
-
-                    def _agent_ws_send(msg_dict):
-                        """إرسال WebSocket thread-safe"""
-                        try:
-                            with _ws_lock:
-                                _ws_frame(msg_dict)
-                        except Exception as e:
-                            print(f"  ⚠️ Agent WS send error: {e}")
-
-                    def _agent_send_fn(prompt_text, hist, sys_prompt):
-                        """إرسال عبر provider_pool — مع fallback"""
-                        if provider_pool:
-                            result, used_name = provider_pool.send_with_fallback(
-                                prompt_text, hist, sys_prompt
-                            )
-                            return result
-                        return _active_provider().send(prompt_text, hist, sys_prompt)
-
-                    # T-041 (R-501): AgentRunner في thread عامل — حلقة الـ WS
-                    # الرئيسية تبقى حرة دائمًا، فرسائل agent_approval_response
-                    # وcancel_agent تصل من المستوى الأعلى مباشرة (حلقة
-                    # الاستطلاع القديمة workaround حُذفت بالكامل).
+                # ── توجيه لـ sctx.chain_bridge ──
+                if routing_tier is RoutingTier.CHAINED:
+                    # T-015 (R-105): registry ticket — single-run policy
+                    chain_ticket = _begin_run_ticket(
+                        "chain",
+                        lambda m: sctx.send(m))
+                    if chain_ticket is None:
+                        return
+                    _ws_send = sctx.send
 
                     # حفظ في history
-                    chat_history.append(Message(role="user", content=user_text))
-                    if session_mgr:
-                        session_mgr.append_message("user", user_text)
+                    sctx.chat_history.append(Message(role="user", content=user_text))
+                    if sctx.session_mgr:
+                        sctx.session_mgr.append_message("user", user_text)
 
-                    # إرسال بداية
-                    _ws_frame({"type": "start"})
-                    print(f"  🤖 Agent Loop started (mode={mode})")
-
-                    # T-015 (R-105): registry ticket — agent تحت نفس السجل
-                    agent_ticket = _begin_run_ticket("agent", _agent_ws_send)
-                    if agent_ticket is None:
-                        continue
-
-                    def _agent_loop_factory(frame_sink):
-                        """يبني AgentLoop لهذا الطلب — الإطارات عبر sink الـ runner."""
-                        return AgentLoop(
-                            tools=agent_tools,
-                            send_fn=_agent_send_fn,
-                            ws_send_fn=frame_sink,
-                            system_prompt=get_system_prompt(),
-                            max_iterations=6,
-                            # T-013 (R-104): نفس بوابة الموافقة الموحدة لكل الأوضاع
-                            approval_gate=approval_gate,
-                        )
-
-                    def _publish_agent_loop(loop):
-                        """ينشر الحلقة النشطة — الموافقات/الإلغاء من مستوى WS الأعلى."""
-                        global _active_agent_loop
-                        _active_agent_loop = loop
-
-                    _agent_req = RunRequest(
-                        mode="agent",
+                    # T-041 (R-501): المسار الوحيد — runner فوق نفس
+                    # الجسر، نفس الإطارات (عبر _RunnerWSAdapter)، نفس
+                    # التذكرة. الـ runner يعمل في thread حتى تبقى حلقة
+                    # WS مستقبِلة (chain_approval_response تصل للبوابة).
+                    _chain_req = RunRequest(
+                        mode="chain",
                         message=user_text_with_files,
                         context={
-                            "history": chat_history[:-1],
-                            "project_context": project_context,
+                            "file_content": file_content_for_routing,
+                            "files": files_dict,
+                        },
+                        metadata={
+                            "force_strategy": routing.chain_strategy,
                         },
                     )
-                    _agent_runner = RUNNERS["agent"](
-                        loop_factory=_agent_loop_factory,
-                        on_loop=_publish_agent_loop,
-                    )
-                    _agent_sink = _RunnerWSAdapter(_agent_ws_send)
-
-                    def _run_agent():
-                        global _active_agent_loop
-                        try:
-                            result = _agent_runner.run(
-                                _agent_req, agent_ticket, _agent_sink)
-                        finally:
-                            _active_agent_loop = None
-
-                        if result.status == RESULT_FAILED:
-                            print(f"  ❌ Agent Loop error: {result.error}")
-                            _agent_ws_send({"type": "error", "text": result.error})
-                            _agent_ws_send({"type": "done", "options": []})
-                            return
-
-                        full_response = result.text or ""
-                        print(f"  ✅ Agent Loop done — {len(full_response)} chars")
-
-                        if not full_response:
-                            _agent_ws_send({"type": "error", "text": "لم يتم الحصول على رد من الـ AI"})
-                            _agent_ws_send({"type": "done", "options": []})
-                            return
-
-                        # الرد نفسه وصل الواجهة كـ chunks من الـ runner —
-                        # هنا الحفظ + التحليل + إطار plan/done الختامي فقط.
-                        chat_history.append(Message(role="assistant", content=full_response))
-                        if session_mgr:
-                            session_mgr.append_message("assistant", full_response)
-
-                        parsed = parser.parse(full_response)
-                        actions = []
-                        for fb in parsed.files:
-                            actions.append({"action": "create_file", "path": fb.path, "content": fb.content, "language": fb.language})
-                        for eb in parsed.edits:
-                            actions.append({"action": "edit_file", "path": eb.path, "old_text": eb.old_text, "new_text": eb.new_text})
-                        for cb in parsed.commands:
-                            actions.append({"action": "run_command", "command": cb.command})
-
-                        options = [opt.text for opt in parsed.options] if hasattr(parsed, 'options') and parsed.options else []
-
-                        if actions:
-                            _agent_ws_send({
-                                "type": "plan",
-                                "actions": actions,
-                                "options": options,
-                                "summary": parsed.summary(),
-                            })
-                        else:
-                            _agent_ws_send({
-                                "type": "done",
-                                "options": options,
-                            })
-
-                    _backup_done_for_batch = False
                     threading.Thread(
-                        target=_run_agent,
+                        target=RUNNERS["chain"](bridge=sctx.chain_bridge).run,
+                        args=(_chain_req, chain_ticket,
+                              _RunnerWSAdapter(_ws_send)),
                         daemon=True,
-                        name=f"runner-agent-{agent_ticket.run_id}",
+                        name=f"runner-chain-{chain_ticket.run_id}",
                     ).start()
-                    continue  # الـ runner يتكفل بالرد
+                    return  # الـ runner يتكفل بالرد
 
-                except Exception as e:
-                    _active_agent_loop = None
-                    print(f"  ⚠️ Agent Loop error: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    # fallback للمسار العادي
+                # ── توجيه لـ sctx.delegate_bridge ──
+                if routing_tier is RoutingTier.DELEGATE and sctx.delegate_bridge:
+                    # T-041: إطارات {"type": et, **ed} تُبنى الآن داخل
+                    # _RunnerWSAdapter من أحداث DelegateRunner الحرة —
+                    # هنا الإرسال الخام فقط (نفس الحماية من WS مقفول).
+                    _delegate_event_frame = sctx.send
 
-            # المسار العادي (direct/chat) — بناء البرومبت
-            prompt = build_prompt(
-                mode=mode,
-                user_request=user_text_with_files,
-                project_context=project_context
-            )
+                    # حفظ في history
+                    sctx.chat_history.append(Message(role="user", content=user_text))
+                    if sctx.session_mgr:
+                        sctx.session_mgr.append_message("user", user_text)
 
-            # نحفظ النص الأصلي في الـ history (بدون سياق المشروع لتوفير مساحة)
-            chat_history.append(Message(role="user", content=user_text))
-            # حفظ فوري في الجلسة (crash-safe)
-            if session_mgr:
-                session_mgr.append_message("user", user_text)
+                    # T-015 (R-105): registry ticket — delegate أصبح قابلاً للإلغاء
+                    delegate_ticket = _begin_run_ticket(
+                        "delegate",
+                        lambda m: sctx.send(m))
+                    if delegate_ticket is None:
+                        return
+                    # T-041 (R-501): عبر DelegateRunner — نفس الجسر ونفس
+                    # الأحداث (تصل الواجهة حرفيًا عبر _RunnerWSAdapter).
+                    # نداء متزامن كما كان: run_delegation يعود عند
+                    # waiting_approval — لا انتظار مستخدم داخل النداء.
+                    RUNNERS["delegate"](bridge=sctx.delegate_bridge).run(
+                        RunRequest(
+                            mode="delegate",
+                            message=user_text,
+                            context={
+                                "files": files_dict or {},
+                                "project_context": project_context,
+                            },
+                        ),
+                        delegate_ticket,
+                        _RunnerWSAdapter(_delegate_event_frame),
+                    )
+                    return  # الـ delegate يتكفل بالرد
 
-            system_prompt = get_system_prompt()
+            except Exception as e:
+                # لو الـ router فشل — نكمل بالمسار العادي
+                print(f"  ⚠️ Router error: {e}")
 
-            # إرسال بداية
-            _ws_frame({"type": "start"})
+        # ═══════════════════════════════════════
+        # 🤖 Agent Loop — لكل الأوضاع
+        # ═══════════════════════════════════════
+        if agent_tools and mode in ("build", "edit", "chat", "plan"):
+            try:
+                _ws_lock = threading.Lock()
 
-            # T-041 (R-501): المسار الوحيد — DirectRunner (نفس النداء stream
-            # ونفس إطارات chunk/error عبر _RunnerWSAdapter؛ التذكرة بنوع
-            # "direct"). المطابقة مع stream-worker المحذوف مثبتة في
-            # tests/integration/test_dispatch_parity.py (بايت-بايت).
-            direct_ticket = _begin_run_ticket("direct", _json_sender(ws))
-            if direct_ticket is None:
-                continue
-            _direct_req = RunRequest(
-                mode="direct",
-                message=prompt,
-                system_prompt=system_prompt,
-                context={"history": chat_history[:-1]},
-            )
-            _direct_result = RUNNERS["direct"](
-                stream_fn=lambda p, h, s: _active_provider().stream(p, h, s)
-            ).run(_direct_req, direct_ticket, _RunnerWSAdapter(_json_sender(ws)))
-            # دلالة المسار القديم حرفيًا: الفشل يرسل إطار error ثم يُكمل
-            # للتحليل بالنص الجزئي (لا continue) — نفس فرع "error" القديم.
-            full_response = _direct_result.text
-            if _direct_result.status != RESULT_COMPLETED:
-                _ws_frame({
+                def _agent_ws_send(msg_dict):
+                    """إرسال WebSocket thread-safe"""
+                    try:
+                        with _ws_lock:
+                            sctx.send(msg_dict)
+                    except Exception as e:
+                        print(f"  ⚠️ Agent WS send error: {e}")
+
+                def _agent_send_fn(prompt_text, hist, sys_prompt):
+                    """إرسال عبر provider_pool — مع fallback"""
+                    if provider_pool:
+                        result, used_name = provider_pool.send_with_fallback(
+                            prompt_text, hist, sys_prompt
+                        )
+                        return result
+                    return sctx.active_provider().send(prompt_text, hist, sys_prompt)
+
+                # T-041 (R-501): AgentRunner في thread عامل — حلقة الـ WS
+                # الرئيسية تبقى حرة دائمًا، فرسائل agent_approval_response
+                # وcancel_agent تصل من المستوى الأعلى مباشرة (حلقة
+                # الاستطلاع القديمة workaround حُذفت بالكامل).
+
+                # حفظ في history
+                sctx.chat_history.append(Message(role="user", content=user_text))
+                if sctx.session_mgr:
+                    sctx.session_mgr.append_message("user", user_text)
+
+                # إرسال بداية
+                sctx.send({"type": "start"})
+                print(f"  🤖 Agent Loop started (mode={mode})")
+
+                # T-015 (R-105): registry ticket — agent تحت نفس السجل
+                agent_ticket = _begin_run_ticket("agent", _agent_ws_send)
+                if agent_ticket is None:
+                    return
+
+                def _agent_loop_factory(frame_sink):
+                    """يبني AgentLoop لهذا الطلب — الإطارات عبر sink الـ runner."""
+                    return AgentLoop(
+                        tools=agent_tools,
+                        send_fn=_agent_send_fn,
+                        ws_send_fn=frame_sink,
+                        system_prompt=get_system_prompt(),
+                        max_iterations=6,
+                        # T-013 (R-104): نفس بوابة الموافقة الموحدة لكل الأوضاع
+                        approval_gate=approval_gate,
+                    )
+
+                def _publish_agent_loop(loop):
+                    """ينشر الحلقة النشطة — الموافقات/الإلغاء من مستوى WS الأعلى."""
+                    sctx.active_agent_loop = loop
+
+                _agent_req = RunRequest(
+                    mode="agent",
+                    message=user_text_with_files,
+                    context={
+                        "history": sctx.chat_history[:-1],
+                        "project_context": project_context,
+                    },
+                )
+                _agent_runner = RUNNERS["agent"](
+                    loop_factory=_agent_loop_factory,
+                    on_loop=_publish_agent_loop,
+                )
+                _agent_sink = _RunnerWSAdapter(_agent_ws_send)
+
+                def _run_agent():
+                    try:
+                        result = _agent_runner.run(
+                            _agent_req, agent_ticket, _agent_sink)
+                    finally:
+                        sctx.active_agent_loop = None
+
+                    if result.status == RESULT_FAILED:
+                        print(f"  ❌ Agent Loop error: {result.error}")
+                        _agent_ws_send({"type": "error", "text": result.error})
+                        _agent_ws_send({"type": "done", "options": []})
+                        return
+
+                    full_response = result.text or ""
+                    print(f"  ✅ Agent Loop done — {len(full_response)} chars")
+
+                    if not full_response:
+                        _agent_ws_send({"type": "error", "text": "لم يتم الحصول على رد من الـ AI"})
+                        _agent_ws_send({"type": "done", "options": []})
+                        return
+
+                    # الرد نفسه وصل الواجهة كـ chunks من الـ runner —
+                    # هنا الحفظ + التحليل + إطار plan/done الختامي فقط.
+                    sctx.chat_history.append(Message(role="assistant", content=full_response))
+                    if sctx.session_mgr:
+                        sctx.session_mgr.append_message("assistant", full_response)
+
+                    parsed = parser.parse(full_response)
+                    actions = []
+                    for fb in parsed.files:
+                        actions.append({"action": "create_file", "path": fb.path, "content": fb.content, "language": fb.language})
+                    for eb in parsed.edits:
+                        actions.append({"action": "edit_file", "path": eb.path, "old_text": eb.old_text, "new_text": eb.new_text})
+                    for cb in parsed.commands:
+                        actions.append({"action": "run_command", "command": cb.command})
+
+                    options = [opt.text for opt in parsed.options] if hasattr(parsed, 'options') and parsed.options else []
+
+                    if actions:
+                        _agent_ws_send({
+                            "type": "plan",
+                            "actions": actions,
+                            "options": options,
+                            "summary": parsed.summary(),
+                        })
+                    else:
+                        _agent_ws_send({
+                            "type": "done",
+                            "options": options,
+                        })
+
+                sctx.backup_done_for_batch = False
+                threading.Thread(
+                    target=_run_agent,
+                    daemon=True,
+                    name=f"runner-agent-{agent_ticket.run_id}",
+                ).start()
+                return  # الـ runner يتكفل بالرد
+
+            except Exception as e:
+                sctx.active_agent_loop = None
+                print(f"  ⚠️ Agent Loop error: {e}")
+                import traceback
+                traceback.print_exc()
+                # fallback للمسار العادي
+
+        # المسار العادي (direct/chat) — بناء البرومبت
+        prompt = build_prompt(
+            mode=mode,
+            user_request=user_text_with_files,
+            project_context=project_context
+        )
+
+        # نحفظ النص الأصلي في الـ history (بدون سياق المشروع لتوفير مساحة)
+        sctx.chat_history.append(Message(role="user", content=user_text))
+        # حفظ فوري في الجلسة (crash-safe)
+        if sctx.session_mgr:
+            sctx.session_mgr.append_message("user", user_text)
+
+        system_prompt = get_system_prompt()
+
+        # إرسال بداية
+        sctx.send({"type": "start"})
+
+        # T-041 (R-501): المسار الوحيد — DirectRunner (نفس النداء stream
+        # ونفس إطارات chunk/error عبر _RunnerWSAdapter؛ التذكرة بنوع
+        # "direct"). المطابقة مع stream-worker المحذوف مثبتة في
+        # tests/integration/test_dispatch_parity.py (بايت-بايت).
+        direct_ticket = _begin_run_ticket("direct", sctx.send)
+        if direct_ticket is None:
+            return
+        _direct_req = RunRequest(
+            mode="direct",
+            message=prompt,
+            system_prompt=system_prompt,
+            context={"history": sctx.chat_history[:-1]},
+        )
+        _direct_result = RUNNERS["direct"](
+            stream_fn=lambda p, h, s: sctx.active_provider().stream(p, h, s)
+        ).run(_direct_req, direct_ticket, _RunnerWSAdapter(sctx.send))
+        # دلالة المسار القديم حرفيًا: الفشل يرسل إطار error ثم يُكمل
+        # للتحليل بالنص الجزئي (لا continue) — نفس فرع "error" القديم.
+        full_response = _direct_result.text
+        if _direct_result.status != RESULT_COMPLETED:
+            sctx.send({
+                "type": "error",
+                "text": _direct_result.error or "الرد لم يكتمل",
+            })
+
+        # تحليل الرد
+        sctx.chat_history.append(Message(role="assistant", content=full_response))
+        # حفظ فوري في الجلسة (crash-safe)
+        if sctx.session_mgr:
+            sctx.session_mgr.append_message("assistant", full_response)
+
+        parsed = parser.parse(full_response)
+
+        actions = []
+        for fb in parsed.files:
+            actions.append({
+                "action": "create_file",
+                "path": fb.path,
+                "content": fb.content,
+                "language": fb.language,
+            })
+        for eb in parsed.edits:
+            actions.append({
+                "action": "edit_file",
+                "path": eb.path,
+                "old_text": eb.old_text,
+                "new_text": eb.new_text,
+            })
+        for cb in parsed.commands:
+            actions.append({
+                "action": "run_command",
+                "command": cb.command,
+            })
+
+        # استخراج الاقتراحات الذكية (Quick Replies)
+        options = [opt.text for opt in parsed.options] if hasattr(parsed, 'options') and parsed.options else []
+
+        # إعادة تعيين علامة الباك-أب
+        sctx.backup_done_for_batch = False
+
+        # ── نظام Plan First ──
+        if mode in ("plan", "build", "edit") and actions:
+            sctx.send({
+                "type": "plan",
+                "actions": actions,
+                "options": options,
+                "summary": parsed.summary(),
+            })
+        else:
+            sctx.send({
+                "type": "done",
+                "actions": actions,
+                "options": options,
+                "summary": parsed.summary(),
+            })
+
+    elif msg_type == "apply_action":
+        # تطبيق إجراء محدد (مع باك-أب تلقائي)
+        action = msg.get("action", {})
+        result = _apply_single_action(action, sctx)
+        sctx.send({"type": "action_result", **result})
+
+    elif msg_type == "apply_all_actions":
+        # تطبيق كل الإجراءات خطوة بخطوة
+        actions = msg.get("actions", [])
+        sctx.backup_done_for_batch = False
+        total = len(actions)
+        for i, action in enumerate(actions):
+            # إرسال progress
+            sctx.send({
+                "type": "task_progress",
+                "current": i + 1,
+                "total": total,
+                "action": action,
+                "status": "running",
+            })
+            result = _apply_single_action(action, sctx)
+            sctx.send({
+                "type": "task_progress",
+                "current": i + 1,
+                "total": total,
+                "action": action,
+                "status": "done" if result["ok"] else "error",
+                "message": result.get("message", ""),
+            })
+            if not result["ok"]:
+                sctx.send({
                     "type": "error",
-                    "text": _direct_result.error or "الرد لم يكتمل",
+                    "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"
                 })
+                break
 
-            # تحليل الرد
-            chat_history.append(Message(role="assistant", content=full_response))
-            # حفظ فوري في الجلسة (crash-safe)
-            if session_mgr:
-                session_mgr.append_message("assistant", full_response)
+        sctx.backup_done_for_batch = False
+        sctx.send({"type": "all_actions_done", "total": total})
 
-            parsed = parser.parse(full_response)
-
-            actions = []
-            for fb in parsed.files:
-                actions.append({
-                    "action": "create_file",
-                    "path": fb.path,
-                    "content": fb.content,
-                    "language": fb.language,
+    elif msg_type == "execute_plan":
+        # تنفيذ خطة معتمدة (نفس apply_all_actions)
+        actions = msg.get("actions", [])
+        sctx.backup_done_for_batch = False
+        total = len(actions)
+        for i, action in enumerate(actions):
+            sctx.send({
+                "type": "task_progress",
+                "current": i + 1,
+                "total": total,
+                "action": action,
+                "status": "running",
+            })
+            result = _apply_single_action(action, sctx)
+            sctx.send({
+                "type": "task_progress",
+                "current": i + 1,
+                "total": total,
+                "action": action,
+                "status": "done" if result["ok"] else "error",
+                "message": result.get("message", ""),
+            })
+            if not result["ok"]:
+                sctx.send({
+                    "type": "error",
+                    "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"
                 })
-            for eb in parsed.edits:
-                actions.append({
-                    "action": "edit_file",
-                    "path": eb.path,
-                    "old_text": eb.old_text,
-                    "new_text": eb.new_text,
+                break
+
+        sctx.backup_done_for_batch = False
+        sctx.send({"type": "all_actions_done", "total": total})
+
+    # ═══════════════════════════════════════════
+    #  M5: Chain System — WebSocket Handlers
+    # ═══════════════════════════════════════════
+
+    elif msg_type == "chain_message":
+        # تشغيل chain ذكي (بديل لـ message العادية للمهام المعقدة)
+        user_text = msg.get("text", "").strip()
+        if not user_text:
+            sctx.send({"type": "error", "text": "رسالة فارغة"})
+            return
+
+        force_strategy = msg.get("strategy", None)  # اختياري
+
+        # تحضير المحتوى
+        file_content = msg.get("file_content", None)
+        file_path = msg.get("file_path", "")
+        folder_path = msg.get("folder_path", "")  # مسار مجلد كامل
+        files = msg.get("files", None)  # {path: content}
+
+        # ── قراءة مجلد كامل ──
+        if folder_path and os.path.isdir(folder_path):
+            from chain.bridge import scan_folder_for_chain, get_folder_summary
+
+            # ملخص أولاً
+            summary = get_folder_summary(folder_path)
+            sctx.send({
+                "type": "folder_scanned",
+                "folder": summary,
+                "text": f"📂 تم مسح المجلد: {summary.get('name', '')} "
+                        f"({summary.get('total_files', 0)} ملف، "
+                        f"{summary.get('total_size_kb', 0)}KB)",
+            })
+
+            # قراءة المحتوى
+            files = scan_folder_for_chain(folder_path)
+
+            if not files:
+                sctx.send({
+                    "type": "error",
+                    "text": "المجلد فاضي أو مفيش ملفات نصية قابلة للقراءة",
                 })
-            for cb in parsed.commands:
-                actions.append({
-                    "action": "run_command",
-                    "command": cb.command,
-                })
+                return
 
-            # استخراج الاقتراحات الذكية (Quick Replies)
-            options = [opt.text for opt in parsed.options] if hasattr(parsed, 'options') and parsed.options else []
+        # ── قراءة ملف واحد ──
+        elif not file_content and file_path:
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    file_content = f.read(MAX_SMART_FILE_SIZE)
+            except Exception:
+                pass
 
-            # إعادة تعيين علامة الباك-أب
-            _backup_done_for_batch = False
+        if not sctx.chain_bridge:
+            sctx.send({"type": "error", "text": "Chain system غير مفعّل"})
+            return
 
-            # ── نظام Plan First ──
-            if mode in ("plan", "build", "edit") and actions:
-                _ws_frame({
-                    "type": "plan",
-                    "actions": actions,
-                    "options": options,
-                    "summary": parsed.summary(),
-                })
-            else:
-                _ws_frame({
-                    "type": "done",
-                    "actions": actions,
-                    "options": options,
-                    "summary": parsed.summary(),
-                })
+        # T-015 (R-105): registry ticket — single-run policy
+        chain_ticket = _begin_run_ticket(
+            "chain",
+            lambda m: sctx.send(m))
+        if chain_ticket is None:
+            return
+        _ws_send = sctx.send
 
-        elif msg_type == "apply_action":
-            # تطبيق إجراء محدد (مع باك-أب تلقائي)
-            action = data.get("action", {})
-            result = _apply_single_action(action)
-            _ws_frame({"type": "action_result", **result})
+        run_id = sctx.chain_bridge.start_chain(
+            ws_send_fn=_ws_send,
+            user_request=user_text,
+            file_content=file_content,
+            file_path=file_path,
+            files=files,
+            force_strategy=force_strategy,
+            ticket=chain_ticket,
+        )
 
-        elif msg_type == "apply_all_actions":
-            # تطبيق كل الإجراءات خطوة بخطوة
-            actions = data.get("actions", [])
-            _backup_done_for_batch = False
-            total = len(actions)
-            for i, action in enumerate(actions):
-                # إرسال progress
-                _ws_frame({
-                    "type": "task_progress",
-                    "current": i + 1,
-                    "total": total,
-                    "action": action,
-                    "status": "running",
-                })
-                result = _apply_single_action(action)
-                _ws_frame({
-                    "type": "task_progress",
-                    "current": i + 1,
-                    "total": total,
-                    "action": action,
-                    "status": "done" if result["ok"] else "error",
-                    "message": result.get("message", ""),
-                })
-                if not result["ok"]:
-                    _ws_frame({
-                        "type": "error",
-                        "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"
-                    })
-                    break
+        if not run_id:
+            # start_chain already sent error via _ws_send
+            chain_ticket.finish("failed")
 
-            _backup_done_for_batch = False
-            _ws_frame({"type": "all_actions_done", "total": total})
+    elif msg_type == "chain_cancel":
+        # إلغاء chain نشط
+        reason = msg.get("reason", "User cancelled")
+        if sctx.chain_bridge:
+            ok = sctx.chain_bridge.cancel(reason)
+            if ok:
+                # T-015 (R-105): ارفع علم الإلغاء على التذاكر النشطة —
+                # التذكرة تُنهى بدقة في finally الخاص بالـ bridge
+                for _t in execution_registry.list_active():
+                    _t.cancel(reason)
+            sctx.send({
+                "type": "chain_cancel_result",
+                "ok": ok,
+                "text": "تم إلغاء السلسلة" if ok else "مفيش سلسلة نشطة",
+            })
+        else:
+            sctx.send({"type": "error", "text": "Chain system غير مفعّل"})
 
-        elif msg_type == "execute_plan":
-            # تنفيذ خطة معتمدة (نفس apply_all_actions)
-            actions = data.get("actions", [])
-            _backup_done_for_batch = False
-            total = len(actions)
-            for i, action in enumerate(actions):
-                _ws_frame({
-                    "type": "task_progress",
-                    "current": i + 1,
-                    "total": total,
-                    "action": action,
-                    "status": "running",
-                })
-                result = _apply_single_action(action)
-                _ws_frame({
-                    "type": "task_progress",
-                    "current": i + 1,
-                    "total": total,
-                    "action": action,
-                    "status": "done" if result["ok"] else "error",
-                    "message": result.get("message", ""),
-                })
-                if not result["ok"]:
-                    _ws_frame({
-                        "type": "error",
-                        "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"
-                    })
-                    break
+    elif msg_type == "chain_status":
+        # حالة chain النشط
+        if sctx.chain_bridge:
+            status = sctx.chain_bridge.get_status()
+            sctx.send({"type": "chain_status", **status})
+        else:
+            sctx.send({"type": "chain_status", "active": False})
 
-            _backup_done_for_batch = False
-            _ws_frame({"type": "all_actions_done", "total": total})
+    # ── T-044 (R-601): Crash Resume surface ──
+    elif msg_type == "resume_scan":
+        # مسح runs_dir عن runs منقطعة قابلة للاستكمال
+        if sctx.chain_bridge:
+            sctx.send({
+                "type": "resumable_runs",
+                "runs": sctx.chain_bridge.list_resumable(),
+            })
+        else:
+            sctx.send({"type": "resumable_runs", "runs": []})
 
-        # ═══════════════════════════════════════════
-        #  M5: Chain System — WebSocket Handlers
-        # ═══════════════════════════════════════════
+    elif msg_type == "resume_run":
+        # استكمال run منقطع — تحقق انجراف البصمات قبل أي تنفيذ
+        if not sctx.chain_bridge:
+            sctx.send({"type": "error",
+                                "text": "Chain system غير مفعّل"})
+            return
+        resume_id = msg.get("run_id", "").strip()
+        if not resume_id:
+            sctx.send({"type": "error", "text": "run_id مطلوب"})
+            return
+        resume_ticket = _begin_run_ticket(
+            "chain",
+            lambda m: sctx.send(m))
+        if resume_ticket is None:
+            return
+        ok = sctx.chain_bridge.resume_run(
+            resume_id, sctx.send, ticket=resume_ticket)
+        if not ok:
+            # الرفض/الخطأ أُرسل من الجسر — حرّر التذكرة
+            resume_ticket.finish("failed")
 
-        elif msg_type == "chain_message":
-            # تشغيل chain ذكي (بديل لـ message العادية للمهام المعقدة)
-            user_text = data.get("text", "").strip()
-            if not user_text:
-                _ws_frame({"type": "error", "text": "رسالة فارغة"})
-                continue
+    elif msg_type == "discard_run":
+        # حذف حالة run منقطع نهائيًا
+        if not sctx.chain_bridge:
+            sctx.send({"type": "error",
+                                "text": "Chain system غير مفعّل"})
+            return
+        discard_id = msg.get("run_id", "").strip()
+        ok = sctx.chain_bridge.discard_run(discard_id)
+        sctx.send({
+            "type": "discard_result",
+            "run_id": discard_id,
+            "ok": ok,
+            "text": ("🗑️ حُذفت حالة الـ run" if ok
+                     else "⚠️ لا يوجد run بهذا المعرّف"),
+        })
 
-            force_strategy = data.get("strategy", None)  # اختياري
+    # ── T-016 (R-105): Registry control surface ──
+    elif msg_type == "list_runs":
+        # كل الـ runs التي يعرفها السجل (نشطة ومنتهية) — id/mode/state/started_at
+        sctx.send(_list_runs_frame())
 
-            # تحضير المحتوى
-            file_content = data.get("file_content", None)
-            file_path = data.get("file_path", "")
-            folder_path = data.get("folder_path", "")  # مسار مجلد كامل
-            files = data.get("files", None)  # {path: content}
+    elif msg_type == "cancel_run":
+        # إلغاء تعاوني لـ run محدد بمعرّفه — acknowledged / not_found
+        sctx.send(
+            _cancel_run_frame(msg.get("run_id", ""), msg.get("reason", "")),
+            ensure_ascii=False,
+        )
 
-            # ── قراءة مجلد كامل ──
-            if folder_path and os.path.isdir(folder_path):
-                from chain.bridge import scan_folder_for_chain, get_folder_summary
+    # ── M6: Delegate System ──
+    elif msg_type == "delegate_message":
+        # تفويض مهمة معقدة
+        user_text = msg.get("text", "").strip()
+        if not user_text:
+            sctx.send({"type": "error", "text": "الرسالة فارغة"})
+            return
 
-                # ملخص أولاً
-                summary = get_folder_summary(folder_path)
-                _ws_frame({
-                    "type": "folder_scanned",
-                    "folder": summary,
-                    "text": f"📂 تم مسح المجلد: {summary.get('name', '')} "
-                            f"({summary.get('total_files', 0)} ملف، "
-                            f"{summary.get('total_size_kb', 0)}KB)",
-                })
+        if not sctx.delegate_bridge:
+            sctx.delegate_bridge = DelegateBridge(sctx.active_provider(), ctx=ctx)
 
-                # قراءة المحتوى
-                files = scan_folder_for_chain(folder_path)
-
-                if not files:
-                    _ws_frame({
-                        "type": "error",
-                        "text": "المجلد فاضي أو مفيش ملفات نصية قابلة للقراءة",
-                    })
-                    continue
-
-            # ── قراءة ملف واحد ──
-            elif not file_content and file_path:
+        # جمع ملفات السياق
+        files_context = {}
+        try:
+            scan = sctx.fm.scan_project()
+            for f in scan.get("files", [])[:10]:
                 try:
-                    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
-                        file_content = f.read(MAX_SMART_FILE_SIZE)
+                    content = sctx.fm.read_file(f["path"])
+                    files_context[f["path"]] = content
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        project_context = ""
+        try:
+            project_context = sctx.fm.get_project_context()
+        except Exception:
+            pass
+
+        # T-041 (R-501): نفس مسار الإرسال الموحّد — DelegateRunner فوق
+        # الجسر (كان النداء المباشر هنا بلا تذكرة — الآن التفويض من هذا
+        # المدخل أيضًا تحت سياسة الـ run الواحد وقابل للإلغاء).
+        delegate_msg_ticket = _begin_run_ticket("delegate", sctx.send)
+        if delegate_msg_ticket is None:
+            return
+
+        threading.Thread(
+            target=RUNNERS["delegate"](bridge=sctx.delegate_bridge).run,
+            args=(
+                RunRequest(
+                    mode="delegate",
+                    message=user_text,
+                    context={
+                        "files": files_context,
+                        "project_context": project_context,
+                    },
+                ),
+                delegate_msg_ticket,
+                _RunnerWSAdapter(sctx.send),
+            ),
+            daemon=True,
+            name=f"runner-delegate-{delegate_msg_ticket.run_id}",
+        ).start()
+
+    elif msg_type == "delegate_approve":
+        # المستخدم وافق على التعديلات
+        if sctx.delegate_bridge and sctx.delegate_bridge.is_active:
+            def approval_handler(et, ed):
+                try:
+                    sctx.send({"type": et, **ed})
                 except Exception:
                     pass
 
-            if not chain_bridge:
-                _ws_frame({"type": "error", "text": "Chain system غير مفعّل"})
-                continue
-
-            # T-015 (R-105): registry ticket — single-run policy
-            chain_ticket = _begin_run_ticket(
-                "chain",
-                lambda m: _ws_frame(m))
-            if chain_ticket is None:
-                continue
-            _ws_send = _json_sender(ws)
-
-            run_id = chain_bridge.start_chain(
-                ws_send_fn=_ws_send,
-                user_request=user_text,
-                file_content=file_content,
-                file_path=file_path,
-                files=files,
-                force_strategy=force_strategy,
-                ticket=chain_ticket,
-            )
-
-            if not run_id:
-                # start_chain already sent error via _ws_send
-                chain_ticket.finish("failed")
-
-        elif msg_type == "chain_cancel":
-            # إلغاء chain نشط
-            reason = data.get("reason", "User cancelled")
-            if chain_bridge:
-                ok = chain_bridge.cancel(reason)
-                if ok:
-                    # T-015 (R-105): ارفع علم الإلغاء على التذاكر النشطة —
-                    # التذكرة تُنهى بدقة في finally الخاص بالـ bridge
-                    for _t in execution_registry.list_active():
-                        _t.cancel(reason)
-                _ws_frame({
-                    "type": "chain_cancel_result",
-                    "ok": ok,
-                    "text": "تم إلغاء السلسلة" if ok else "مفيش سلسلة نشطة",
-                })
-            else:
-                _ws_frame({"type": "error", "text": "Chain system غير مفعّل"})
-
-        elif msg_type == "chain_status":
-            # حالة chain النشط
-            if chain_bridge:
-                status = chain_bridge.get_status()
-                _ws_frame({"type": "chain_status", **status})
-            else:
-                _ws_frame({"type": "chain_status", "active": False})
-
-        # ── T-044 (R-601): Crash Resume surface ──
-        elif msg_type == "resume_scan":
-            # مسح runs_dir عن runs منقطعة قابلة للاستكمال
-            if chain_bridge:
-                _ws_frame({
-                    "type": "resumable_runs",
-                    "runs": chain_bridge.list_resumable(),
-                })
-            else:
-                _ws_frame({"type": "resumable_runs", "runs": []})
-
-        elif msg_type == "resume_run":
-            # استكمال run منقطع — تحقق انجراف البصمات قبل أي تنفيذ
-            if not chain_bridge:
-                _ws_frame({"type": "error",
-                                    "text": "Chain system غير مفعّل"})
-                continue
-            resume_id = data.get("run_id", "").strip()
-            if not resume_id:
-                _ws_frame({"type": "error", "text": "run_id مطلوب"})
-                continue
-            resume_ticket = _begin_run_ticket(
-                "chain",
-                lambda m: _ws_frame(m))
-            if resume_ticket is None:
-                continue
-            ok = chain_bridge.resume_run(
-                resume_id, _json_sender(ws), ticket=resume_ticket)
-            if not ok:
-                # الرفض/الخطأ أُرسل من الجسر — حرّر التذكرة
-                resume_ticket.finish("failed")
-
-        elif msg_type == "discard_run":
-            # حذف حالة run منقطع نهائيًا
-            if not chain_bridge:
-                _ws_frame({"type": "error",
-                                    "text": "Chain system غير مفعّل"})
-                continue
-            discard_id = data.get("run_id", "").strip()
-            ok = chain_bridge.discard_run(discard_id)
-            _ws_frame({
-                "type": "discard_result",
-                "run_id": discard_id,
-                "ok": ok,
-                "text": ("🗑️ حُذفت حالة الـ run" if ok
-                         else "⚠️ لا يوجد run بهذا المعرّف"),
-            })
-
-        # ── T-016 (R-105): Registry control surface ──
-        elif msg_type == "list_runs":
-            # كل الـ runs التي يعرفها السجل (نشطة ومنتهية) — id/mode/state/started_at
-            _ws_frame(_list_runs_frame())
-
-        elif msg_type == "cancel_run":
-            # إلغاء تعاوني لـ run محدد بمعرّفه — acknowledged / not_found
-            _ws_frame(
-                _cancel_run_frame(data.get("run_id", ""), data.get("reason", "")),
-                ensure_ascii=False,
-            )
-
-        # ── M6: Delegate System ──
-        elif msg_type == "delegate_message":
-            # تفويض مهمة معقدة
-            user_text = data.get("text", "").strip()
-            if not user_text:
-                _ws_frame({"type": "error", "text": "الرسالة فارغة"})
-                continue
-
-            if not delegate_bridge:
-                delegate_bridge = DelegateBridge(_active_provider(), ctx=ctx)
-
-            # جمع ملفات السياق
-            files_context = {}
-            try:
-                scan = fm.scan_project()
-                for f in scan.get("files", [])[:10]:
+            landed = sctx.delegate_bridge.land(on_event=approval_handler)
+            if landed and sctx.delegate_bridge.current_run:
+                # أرسل الرد للمعالجة العادية
+                run = sctx.delegate_bridge.current_run
+                if run.result:
+                    sctx.send({
+                        "type": "start",
+                    })
+                    sctx.send({
+                        "type": "chunk",
+                        "text": run.result.response,
+                    })
+                    # تحليل الأكشنز
                     try:
-                        content = fm.read_file(f["path"])
-                        files_context[f["path"]] = content
+                        actions = parser.extract_actions(run.result.response)
+                        options = parser.extract_options(run.result.response)
+                        sctx.send({
+                            "type": "done",
+                            "actions": actions,
+                            "options": options,
+                            "summary": f"✅ تم اعتماد التعديلات (delegation #{run.run_id})",
+                        })
                     except Exception:
-                        pass
-            except Exception:
-                pass
+                        sctx.send({
+                            "type": "done",
+                            "actions": [],
+                            "options": [],
+                            "summary": f"✅ تم اعتماد التعديلات",
+                        })
+        else:
+            sctx.send({"type": "error", "text": "لا يوجد تفويض نشط"})
 
-            project_context = ""
+    elif msg_type == "delegate_reject":
+        # المستخدم رفض التعديلات
+        reason = msg.get("reason", "")
+        if sctx.delegate_bridge and sctx.delegate_bridge.is_active:
+            sctx.delegate_bridge.reject(reason, on_event=lambda et, ed: sctx.send(
+                {"type": et, **ed}
+            ))
+        else:
+            sctx.send({"type": "error", "text": "لا يوجد تفويض نشط"})
+
+def ws_handler(ws):
+    """WebSocket للتواصل الحي مع AI — T-048: الحالة في SessionContext."""
+    sctx = _build_session_context(ws)
+    try:
+        while True:
             try:
-                project_context = fm.get_project_context()
+                raw = ws.receive()
+                if not raw:
+                    break
+                data = json.loads(raw)
             except Exception:
-                pass
+                break
+            _handle_ws_message(ctx, sctx, data)
+    finally:
+        # ── WebSocket Disconnected Cleanup (T-048: idempotent عبر sctx) ──
+        print("🔌 WebSocket disconnected. Cleaning up and cancelling active tasks...")
+        sctx.close()
 
-            # T-041 (R-501): نفس مسار الإرسال الموحّد — DelegateRunner فوق
-            # الجسر (كان النداء المباشر هنا بلا تذكرة — الآن التفويض من هذا
-            # المدخل أيضًا تحت سياسة الـ run الواحد وقابل للإلغاء).
-            delegate_msg_ticket = _begin_run_ticket("delegate", _json_sender(ws))
-            if delegate_msg_ticket is None:
-                continue
-
-            threading.Thread(
-                target=RUNNERS["delegate"](bridge=delegate_bridge).run,
-                args=(
-                    RunRequest(
-                        mode="delegate",
-                        message=user_text,
-                        context={
-                            "files": files_context,
-                            "project_context": project_context,
-                        },
-                    ),
-                    delegate_msg_ticket,
-                    _RunnerWSAdapter(_json_sender(ws)),
-                ),
-                daemon=True,
-                name=f"runner-delegate-{delegate_msg_ticket.run_id}",
-            ).start()
-
-        elif msg_type == "delegate_approve":
-            # المستخدم وافق على التعديلات
-            if delegate_bridge and delegate_bridge.is_active:
-                def approval_handler(et, ed):
-                    try:
-                        _ws_frame({"type": et, **ed})
-                    except Exception:
-                        pass
-
-                landed = delegate_bridge.land(on_event=approval_handler)
-                if landed and delegate_bridge.current_run:
-                    # أرسل الرد للمعالجة العادية
-                    run = delegate_bridge.current_run
-                    if run.result:
-                        _ws_frame({
-                            "type": "start",
-                        })
-                        _ws_frame({
-                            "type": "chunk",
-                            "text": run.result.response,
-                        })
-                        # تحليل الأكشنز
-                        try:
-                            actions = parser.extract_actions(run.result.response)
-                            options = parser.extract_options(run.result.response)
-                            _ws_frame({
-                                "type": "done",
-                                "actions": actions,
-                                "options": options,
-                                "summary": f"✅ تم اعتماد التعديلات (delegation #{run.run_id})",
-                            })
-                        except Exception:
-                            _ws_frame({
-                                "type": "done",
-                                "actions": [],
-                                "options": [],
-                                "summary": f"✅ تم اعتماد التعديلات",
-                            })
-            else:
-                _ws_frame({"type": "error", "text": "لا يوجد تفويض نشط"})
-
-        elif msg_type == "delegate_reject":
-            # المستخدم رفض التعديلات
-            reason = data.get("reason", "")
-            if delegate_bridge and delegate_bridge.is_active:
-                delegate_bridge.reject(reason, on_event=lambda et, ed: _ws_frame(
-                    {"type": et, **ed}
-                ))
-            else:
-                _ws_frame({"type": "error", "text": "لا يوجد تفويض نشط"})
-
-    # ── WebSocket Disconnected Cleanup ──
-    print("🔌 WebSocket disconnected. Cleaning up and cancelling active tasks...")
-    if _active_agent_loop:
-        try:
-            _active_agent_loop.cancel()
-        except Exception:
-            pass
-    if chain_bridge:
-        try:
-            chain_bridge.cancel("WebSocket disconnected")
-        except Exception:
-            pass
 
 
 # Explicit registration (T-006): flask-sock's decorator returns None, which
@@ -1841,36 +1869,39 @@ sock.route("/ws")(ws_handler)
 MAX_SMART_FILE_SIZE = 100 * 1024
 
 
-def _apply_single_action(action: dict) -> dict:
-    """تطبيق إجراء واحد — مع باك-أب إلزامي قبل أي تعديل"""
-    global _backup_done_for_batch
+def _apply_single_action(action: dict, sctx) -> dict:
+    """تطبيق إجراء واحد — مع باك-أب إلزامي قبل أي تعديل.
+
+    T-048 (R-701): يعمل على مشروع الاتصال (sctx.fm/cmd_runner) وعلم
+    الباك-أب لكل اتصال — لا حالة وحدوية.
+    """
     act_type = action.get("action", "")
 
     try:
         # باك-أب كامل قبل أول تعديل في الـ batch
-        if not _backup_done_for_batch and act_type in ("create_file", "edit_file"):
+        if not sctx.backup_done_for_batch and act_type in ("create_file", "edit_file"):
             try:
-                backup_path = fm.create_full_backup()
-                _backup_done_for_batch = True
+                backup_path = sctx.fm.create_full_backup()
+                sctx.backup_done_for_batch = True
                 if backup_path:
                     print(f"🛡️ Full backup created: {backup_path}")
             except Exception as e:
                 print(f"⚠️ Backup warning: {e}")
-                _backup_done_for_batch = True  # لا نوقف التنفيذ بسبب فشل الباك-أب
+                sctx.backup_done_for_batch = True  # لا نوقف التنفيذ بسبب فشل الباك-أب
 
         if act_type == "create_file":
             path = action["path"]
             content = action["content"]
-            saved = fm.write_file(path, content)
+            saved = sctx.fm.write_file(path, content)
             return {"ok": True, "message": f"تم حفظ: {saved}"}
 
         elif act_type == "edit_file":
             path = action["path"]
-            fm.edit_file(path, action["old_text"], action["new_text"])
+            sctx.fm.edit_file(path, action["old_text"], action["new_text"])
             return {"ok": True, "message": f"تم تعديل: {path}"}
 
         elif act_type == "run_command":
-            result = cmd_runner.run(action["command"], need_approval=False)
+            result = sctx.cmd_runner.run(action["command"], need_approval=False)
             return {"ok": result["success"], "message": result["output"] or result["error"]}
 
         return {"ok": False, "message": f"إجراء غير معروف: {act_type}"}
