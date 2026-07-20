@@ -28,6 +28,7 @@ from context.sources.mention import (
     render_legacy_injection,
 )
 from context.sources.structure import STRUCTURE_PATH, StructureSource
+from context.sources.symbol import SymbolSource
 
 
 @dataclass(frozen=True)
@@ -45,7 +46,11 @@ def _default_engine(index: Any = None) -> ContextEngine:
     الـ scan_factory هو ``index.scan()`` — sweep طزاجة + صفر مشيات
     شجرية. بدونه (مسارات الاختبارات/ctx-less) يبقى ProjectScan.
     """
-    sources: list = [MentionSource(), KeywordSource(), StructureSource()]
+    # T-056 (R-205): SymbolSource بعد Keyword وقبل Structure — عناصره
+    # بمسارات رمزية <symbol:...> فلا تدخل قائمة mentioned_files (الـ
+    # facade يرشّح mention/keyword فقط) ⇒ goldens T-017 غير متأثرة.
+    sources: list = [MentionSource(), KeywordSource(), SymbolSource(),
+                     StructureSource()]
     if index is not None:
         return ContextEngine(sources, scan_factory=lambda _root: index.scan())
     return ContextEngine(sources)
