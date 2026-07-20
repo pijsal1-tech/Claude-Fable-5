@@ -1931,6 +1931,46 @@ def _apply_single_action(action: dict, sctx) -> dict:
 # ════════════════════════════════════════════════════
 # Main
 # ════════════════════════════════════════════════════
+def _read_config() -> dict:
+    """قراءة config.yaml — تسامحية: فشل القراءة يعيد {} (لا يمنع الإقلاع)."""
+    try:
+        import yaml as _yaml
+        with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
+            return _yaml.safe_load(_cf) or {}
+    except Exception:
+        return {}
+
+
+def _resolve_default_provider(cli_model, cfg):
+    """T-051 (R-703): حل (مزود، موديل) الإقلاع — **config يفوز**.
+
+    الأولوية (من الأعلى):
+    1. ``--model prov:model`` الصريح — نية المستخدم المباشرة.
+    2. ``--model model`` بلا مزود — الموديل للمزود الافتراضي **من
+       config** (كان hardcoded "genspark" — التناقض الذي أزاله T-051).
+    3. بلا ``--model``: المزود = ``config.default_provider``، والموديل =
+       ``config.providers.<id>.model`` إن وُجد وإلا None (افتراضي صنف
+       المزود نفسه — مصدر واحد للقيمة، لا نسخة ثانية هنا).
+    4. config غير مقروء/بلا default_provider: "use_ai" — مرآة قيمة
+       config.yaml المشحونة (ملاذ أخير للإقلاع فقط، ليس تفضيلًا).
+
+    يعيد (prov_id: str, model_name: str | None).
+    """
+    cfg = cfg or {}
+    cfg_provider = str(cfg.get("default_provider") or "use_ai")
+
+    if cli_model:
+        if ":" in cli_model:
+            prov_id, model_name = cli_model.split(":", 1)
+            return prov_id, model_name
+        return cfg_provider, cli_model
+
+    providers_cfg = cfg.get("providers") or {}
+    section = providers_cfg.get(cfg_provider) or {}
+    model_name = section.get("model") or None
+    return cfg_provider, model_name
+
+
 def main():
     global fm, cmd_runner, provider, session_mgr, chain_bridge, ctx
     global provider_pool, account_budget, request_router, action_applier, orchestrator
@@ -1981,29 +2021,25 @@ def main():
     register_provider("deepseek", DeepSeekProvider)
     register_provider("alle_ai", AlleAIProvider)
 
-    # المزود الافتراضي — Genspark Sonnet 5
-    default_provider = args.model or "genspark:claude-sonnet-5"
-    if ":" in default_provider:
-        prov_id, model_name = default_provider.split(":", 1)
-    else:
-        # لو المستخدم حط اسم موديل بس
-        prov_id = "genspark"
-        model_name = default_provider
+    # المزود الافتراضي — T-051 (R-703): **config يفوز**. الـ hardcode
+    # القديم ("genspark:claude-sonnet-5") كان يناقض config.yaml — محذوف.
+    prov_id, model_name = _resolve_default_provider(args.model, _read_config())
 
+    _model_kw = {"model": model_name} if model_name else {}
     if prov_id == "genspark":
-        provider_config = GensparkConfig(model=model_name)
+        provider_config = GensparkConfig(**_model_kw)
         provider = GensparkProvider(provider_config)
     elif prov_id == "deepseek":
-        provider_config = DeepSeekConfig(model=model_name)
+        provider_config = DeepSeekConfig(**_model_kw)
         provider = DeepSeekProvider(provider_config)
     elif prov_id == "alle_ai":
-        provider_config = AlleAIConfig(model=model_name)
+        provider_config = AlleAIConfig(**_model_kw)
         provider = AlleAIProvider(provider_config)
     else:
         provider_config = UseAIConfig(
-            model=model_name,
             ws_timeout=90,
             accounts_dir=str(_DIR),
+            **_model_kw,
         )
         provider = UseAIProvider(provider_config)
 

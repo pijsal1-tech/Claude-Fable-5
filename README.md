@@ -359,17 +359,16 @@ editor_v2/
 │   ├── بحث/، بناء/، تخطيط/...      # مجلدات التخصصات
 │   └── rules/, skills/, tools/      # قواعد ومهارات إضافية
 │
-├── 🧪  tests/                       # 125+ اختبار
-│   ├── test_m0_context_bug.py       # 4 tests
-│   ├── test_provider_contract.py    # 20 tests
-│   ├── test_agent_registry.py       # 20 tests
-│   ├── test_chain_executor.py       # 19 tests
-│   ├── test_orchestrator.py         # 22 tests
-│   ├── test_chain_bridge.py         # 13 tests
-│   ├── test_server_integration.py   # 13 tests
-│   └── test_folder_scanner.py       # 14 tests
+├── 🧪  tests/                       # المجموعة الكاملة — العدد الحقيقي من CI
+│   ├── unit/                        # وحدات (محرك السياق، الفهرس، الجلسات، ...)
+│   ├── integration/                 # تكامل (WS، السلاسل، التنفيذ المتوازي، ...)
+│   ├── contracts/                   # عقود المزودين (ProviderContractMixin)
+│   ├── goldens/                     # مخرجات مثبتة (parity السياق)
+│   └── fixtures/ + fakes/           # مشروع عيّنة + FakeProvider
 │
-└── 📂  sessions/                    # جلسات محفوظة
+├── ⚙️  .github/workflows/ci.yml     # CI: check.sh + coverage ratchet
+│
+└── 📂  sessions/                    # كود مخزن الجلسات (البيانات خارج git)
 ```
 
 ---
@@ -377,29 +376,22 @@ editor_v2/
 ## 🧪 الاختبارات
 
 ```bash
-# تشغيل كل الاختبارات
-python tests/test_m0_context_bug.py
-python tests/test_provider_contract.py
-python tests/test_agent_registry.py
-python tests/test_chain_executor.py
-python tests/test_orchestrator.py
-python tests/test_chain_bridge.py
-python tests/test_server_integration.py
-python tests/test_folder_scanner.py
+# الفحص الكامل — نفس بوابات CI حرفيًا (mypy + البوابات البنيوية + pytest)
+./scripts/check.sh
+
+# أو الاختبارات فقط
+python -m pytest
+
+# مع قياس التغطية (أرضية coverage_baseline.txt تصاعدية-فقط)
+python -m pytest --cov=. --cov-report=term
+python scripts/coverage_ratchet.py check
 ```
 
-**النتائج الحالية: 125/125 ✅**
-
-| مجموعة | عدد | المحتوى |
-|--------|-----|---------|
-| M0: Context Bug | 4 | إصلاح globals scoping |
-| M1a: Provider Contract | 20 | Capabilities, Error Taxonomy, MockProvider |
-| M1b: Agent Registry | 20 | 21 role, fallback, security, caching |
-| M2: Chain Executor | 19 | DAG, retries, budget, persistence |
-| M3: Orchestrator | 22 | 5D complexity, 5 strategies, E2E |
-| M4: Chain Bridge | 13 | Event→WS mapping, threading, lifecycle |
-| M5: Server Integration | 13 | WS handlers, syntax, contracts |
-| Folder Scanner | 14 | Scanning, filtering, priority, limits |
+> **مبدأ الصدق (R-703):** لا أرقام اختبارات مكتوبة يدويًا هنا — العدد
+> الحقيقي والنتيجة الحقيقية مصدرهما تشغيل CI الفعلي
+> (`.github/workflows/ci.yml`) أو `./scripts/check.sh` محليًا.
+> التغطية محروسة بـ ratchet تصاعدي-فقط: لا تنخفض تحت الأرضية
+> المسجلة في `coverage_baseline.txt` أبدًا.
 
 ---
 
@@ -408,8 +400,9 @@ python tests/test_folder_scanner.py
 ### `config.yaml`
 
 ```yaml
-# المزود الافتراضي
-default_provider: "genspark"
+# المزود الافتراضي — config هو المصدر الوحيد (T-051):
+# السيرفر يقرأ هذه القيمة عند الإقلاع؛ --model يتقدّم عليها فقط.
+default_provider: "use_ai"
 
 # إعدادات المزودين
 providers:
