@@ -1,0 +1,2 @@
+[webdev_ai.strategies]
+demo_echo = demo_strategy:DemoEchoStrategy

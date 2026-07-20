@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: webdev-ai-demo-strategy
+Version: 0.1.0
+Summary: Demo strategy plugin for WebDev AI Editor (T-102 / R-801)
+Requires-Python: >=3.10

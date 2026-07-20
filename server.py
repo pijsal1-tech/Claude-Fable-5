@@ -380,6 +380,7 @@ capacity_model: CapacityModel = None        # سعة صادقة من pool+breake
 request_router: RequestRouter = None        # توجيه ذكي للطلبات
 action_applier: ActionApplier = None        # تطبيق نتائج Chain
 orchestrator: SmartOrchestrator = None      # تحليل التعقيد
+plugin_registry = None                       # T-102 (R-801): سجل الإضافات — يُملأ عند الإقلاع
 
 # ── Agent System ──
 agent_tools: AgentTools = None              # أدوات الـ Agent
@@ -2141,12 +2142,25 @@ def main():
     )
     print(f"  🛡️ ApprovalGate: {approval_gate.mode}")
 
+    # ── Strategy Plugins (T-102, R-801) ──
+    # تحميل واحد عند الإقلاع؛ المحجورون يُسجَّلون ويُعرَضون — المضيف
+    # يقلع دائمًا (بوابة التحقق في chain/plugin_registry.py تعزل أي فشل).
+    from chain.plugin_registry import StrategyPluginRegistry
+    global plugin_registry
+    plugin_registry = StrategyPluginRegistry()
+    plugin_registry.discover()
+    if plugin_registry.loaded:
+        print(f"  🧩 Strategy plugins: {', '.join(sorted(plugin_registry.loaded))}")
+    for _q in plugin_registry.quarantined:
+        print(f"  ⚠️ Plugin quarantined: {_q.name} [{_q.stage}] {_q.reason}")
+
     # ── Chain Bridge (M5) ──
     chain_bridge = ChainBridge(
         provider=provider,
         project_root=project_path,
         approval_gate=approval_gate,
         ctx=ctx,
+        plugin_registry=plugin_registry,
     )
     print(f"  🔗 Chain System: active")
 
@@ -2213,7 +2227,8 @@ def main():
                 pass  # Fallback providers — not critical
 
     account_budget = AccountAwareBudget(provider_pool.all_providers)
-    orchestrator = SmartOrchestrator()
+    # T-102: نفس سجل الإضافات المُحمَّل عند الإقلاع (لا اكتشاف ثانٍ).
+    orchestrator = SmartOrchestrator(plugin_registry=plugin_registry)
     # T-036 (R-402): عتبات التوجيه من config.routing — صاخبة على schema
     # مكسورة (لا نبتلع الخطأ: عتبات خاطئة صامتة أسوأ من فشل إقلاع واضح)؛
     # قسم مفقود فقط = الافتراضات التاريخية.

@@ -191,7 +191,8 @@ class ChainBridge:
                  runs_dir: str | pathlib.Path | None = None,
                  action_applier: ActionApplier | None = None,
                  approval_gate: ApprovalGate | None = None,
-                 ctx=None):
+                 ctx=None,
+                 plugin_registry=None):
         """
         provider: المزود الحالي
         project_root: مجلد المشروع
@@ -200,6 +201,9 @@ class ChainBridge:
             قبل تطبيق نتائج السلسلة. بدونها **لا تطبيق إطلاقًا** — لا عودة
             للـ auto-apply الصامت.
         ctx: AppContext — لو موجود، project_root/runs_dir يُحلّان وقت الاستدعاء (R-102)
+        plugin_registry: StrategyPluginRegistry (T-102, R-801) — سجل
+            الإضافات المُحمَّل عند الإقلاع؛ None = لا إضافات (السلوك
+            الأساسي بايت-بايت). يُمرَّر للأوركستريتور الداخلي.
         """
         # R-102 (T-008): provider also resolves at call time via ctx —
         # api_switch_model publishes once on the context; no private pokes.
@@ -212,7 +216,8 @@ class ChainBridge:
         self._ctx = ctx
         self._static_project_root = project_root
         self._explicit_runs_dir = pathlib.Path(runs_dir) if runs_dir else None
-        self._orchestrator = SmartOrchestrator()
+        self._orchestrator = SmartOrchestrator(
+            plugin_registry=plugin_registry)
         self._agent_loader = AgentLoader()
         self._action_applier = action_applier
         self._approval_gate = approval_gate

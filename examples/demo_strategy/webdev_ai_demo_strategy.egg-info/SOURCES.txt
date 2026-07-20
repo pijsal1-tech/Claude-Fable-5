@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+demo_strategy/__init__.py
+webdev_ai_demo_strategy.egg-info/PKG-INFO
+webdev_ai_demo_strategy.egg-info/SOURCES.txt
+webdev_ai_demo_strategy.egg-info/dependency_links.txt
+webdev_ai_demo_strategy.egg-info/entry_points.txt
+webdev_ai_demo_strategy.egg-info/top_level.txt

@@ -15,7 +15,10 @@ from dataclasses import dataclass, field
 from typing import assert_never
 
 from core.strategy import ExecutionStrategy, RoutingTier, STRATEGY_TABLE
+from context.bundle import ContextBundle, ContextItem
 
+from .plugin_api import PluginContext
+from .plugin_registry import StrategyPluginRegistry
 from .strategies import (
     StrategyResult,
     build_direct,
@@ -127,6 +130,14 @@ class SmartOrchestrator:
     - عدد الملفات المتأثرة
     - تعقيد الطلب
     - المخاطر
+
+    T-102 (R-801): يعرف أيضًا **سجل الإضافات** (اختياري):
+    قبل الفصل على أعضاء ExecutionStrategy، إن طابق الطلبُ
+    ``routing_hints`` لإضافة محمّلة (بعد المدمجين في الأولوية:
+    force_strategy الصريح يتجاوز الإضافات دائمًا) تُبنى خطة الإضافة
+    عبر ``PluginContext`` وتُنفَّذ بمسار Runner الطبيعي نفسه. أي
+    استثناء من build() وقت التشغيل ⇒ سقوط آمن للاختيار المدمج —
+    الإضافة لا تُسقط الطلب أبدًا.
     """
 
     # ── عتبات ──
@@ -134,6 +145,64 @@ class SmartOrchestrator:
     MEDIUM_FILE_LINES = 1000
     LARGE_FILE_LINES = 4000
     TOKEN_BUDGET = 8000  # تقدير tokens لكل chunk
+
+    def __init__(self,
+                 plugin_registry: "StrategyPluginRegistry | None" = None
+                 ) -> None:
+        """plugin_registry: سجل T-100 بعد discover() — None = لا إضافات
+        (السلوك الأساسي بايت-بايت، مثبت باختبار baseline)."""
+        self._plugin_registry = plugin_registry
+
+    # ═══════════════════════════════════════════════════
+    #   T-102: ترشيح الإضافات (routing_hints)
+    # ═══════════════════════════════════════════════════
+
+    def _match_plugin(self, user_request: str,
+                      total_complexity: float) -> tuple[str, type] | None:
+        """أول إضافة محمّلة تطابق hints — (اسم، صنف) أو None.
+
+        قواعد المطابقة (موثقة في examples/demo_strategy/README.md):
+        - ``keywords``: أي كلمة تظهر في الطلب (بلا حساسية حالة).
+        - ``max_complexity`` (اختياري): لا ترشيح فوقها.
+        الترتيب حتمي: ترتيب أسماء السجل المفروز.
+        """
+        registry = self._plugin_registry
+        if registry is None:
+            return None
+        for name in sorted(registry.loaded):
+            cls = registry.loaded[name]
+            hints = getattr(cls, "routing_hints", {}) or {}
+            keywords = hints.get("keywords") or []
+            if not any(str(kw).lower() in user_request.lower()
+                       for kw in keywords):
+                continue
+            max_cx = hints.get("max_complexity")
+            if max_cx is not None and total_complexity > float(max_cx):
+                continue
+            return name, cls
+        return None
+
+    def _build_via_plugin(self, name: str, cls: type, user_request: str,
+                          files: dict[str, str] | None,
+                          file_content: str | None,
+                          file_path: str) -> StrategyResult | None:
+        """بناء خطة الإضافة عبر PluginContext — None عند أي فشل
+        (سقوط آمن للاختيار المدمج؛ لا استثناء يتسرب للطلب)."""
+        bundle = ContextBundle()
+        if file_content:
+            bundle.add(ContextItem("attachment", file_path or "attached",
+                                   file_content))
+        for fpath, fcontent in (files or {}).items():
+            bundle.add(ContextItem("attachment", fpath, fcontent))
+        ctx = PluginContext(user_request=user_request,
+                            _bundle=bundle)
+        try:
+            result = cls().build(ctx)
+        except Exception:
+            return None
+        if not isinstance(result, StrategyResult) or not result.steps:
+            return None
+        return result
 
     def analyze_complexity(self, user_request: str,
                            files: dict[str, str] | None = None,
@@ -268,6 +337,22 @@ class SmartOrchestrator:
         # في corpus T-034 (orch_forced_delegate_falls_back_to_direct).
         strategy = (ExecutionStrategy.parse(force_strategy)
                     if force_strategy else analysis.recommended)
+
+        # T-102 (R-801): ترشيح الإضافات — بعد المدمجين في الأولوية:
+        # force_strategy الصريح يتجاوز الإضافات دائمًا (تجاوز يدوي =
+        # قرار مستخدم)، وبدونه إضافة مطابقة الـ hints تفوز على التوصية
+        # الآلية. فشل build() ⇒ سقوط آمن للمسار المدمج أدناه.
+        if not force_strategy:
+            matched = self._match_plugin(user_request, analysis.total)
+            if matched is not None:
+                plugin_name, plugin_cls = matched
+                plugin_result = self._build_via_plugin(
+                    plugin_name, plugin_cls, user_request,
+                    files, file_content, file_path)
+                if plugin_result is not None:
+                    plugin_result.metadata["complexity"] = analysis.to_dict()
+                    plugin_result.metadata["plugin_name"] = plugin_name
+                    return plugin_result
 
         if strategy is None or strategy is ExecutionStrategy.DELEGATE:
             result = build_direct(user_request)
