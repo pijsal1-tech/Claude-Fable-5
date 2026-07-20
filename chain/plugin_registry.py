@@ -15,8 +15,9 @@
    - ``import``  — ‏`ep.load()` نفسه (ImportError/SyntaxError/أي شيء).
    - ``shape``   — فحص الشكل: الكائن **صنف** يكشف `build()` قابلة
      للنداء و`routing_hints` من نوع `dict`.
-   - ``dry_run`` — إنشاء نسخة ثم نداء `build()` على طلب fixture
-     ثابت (`_FIXTURE_REQUEST`)؛ إرجاع None يُعامل كفشل أيضًا
+   - ``dry_run`` — إنشاء نسخة ثم نداء `build()` على سياق fixture
+     ثابت (`chain.plugin_api.fixture_context()` — منذ T-101 الإضافة
+     تستلم `PluginContext` حصريًا)؛ إرجاع None يُعامل كفشل أيضًا
      (الإضافة التي لا تنتج خطة لا تنفع الراوتر).
 
 3. **الكشف (exposure)** — بعد `discover()`:
@@ -32,9 +33,11 @@
 - **حقن الاكتشاف**: `entry_points_fn` قابل للحقن في المُنشئ حتى
   تختبر الوحدة مصفوفة الفشل بأكملها بدون تثبيت حزم فعلية — الافتراضي
   هو `importlib.metadata.entry_points` الحقيقي.
-- السجل **مستقل** حتى T-102 (لا يلمس core/strategy.py ولا الراوتر)؛
-  نطاق الصلاحيات (PluginContext) موضوع T-101 وليس مشكلة تحميل
-  (خلاصة الـ spike §1 نقطة 3).
+- السجل **مستقل** حتى T-102 (لا يلمس core/strategy.py ولا الراوتر).
+- **نطاق الصلاحيات (T-101)**: الإضافات تستلم `PluginContext` من
+  `chain/plugin_api.py` حصريًا — لا مدير ملفات ولا جلسات ولا خادم
+  (خلاصة الـ spike §1 نقطة 3: نطاق الصلاحيات مشكلة تصميم واجهة لا
+  آلية تحميل — مفروض بتوقيع build() + بوابة grep في check.sh).
 """
 from __future__ import annotations
 
@@ -42,12 +45,9 @@ from dataclasses import dataclass, field
 from importlib.metadata import entry_points as _real_entry_points
 from typing import Any, Callable, Iterable, Protocol
 
+from chain.plugin_api import fixture_context
 
 ENTRY_POINT_GROUP = "webdev_ai.strategies"
-
-# طلب الـ fixture الثابت للـ dry-run — عمدًا تافه وثابت بايت-بايت:
-# البوابة تختبر أن الإضافة *تعمل*، لا جودة خطتها.
-_FIXTURE_REQUEST = "Add a hello-world route to the project (dry-run fixture)."
 
 
 class _EntryPointLike(Protocol):
@@ -139,10 +139,12 @@ class StrategyPluginRegistry:
                     QuarantineRecord(name, "shape", shape_error))
                 continue
 
-            # المرحلة 3: dry_run — إنشاء نسخة + build() على الـ fixture.
+            # المرحلة 3: dry_run — إنشاء نسخة + build() على سياق الـ
+            # fixture (T-101: الإضافة تستلم PluginContext حصريًا —
+            # لا نص خام ولا أي مقبض آخر).
             try:
                 instance = obj()
-                plan = instance.build(_FIXTURE_REQUEST)
+                plan = instance.build(fixture_context())
             except Exception as exc:  # noqa: BLE001 — عزل مقصود
                 self._quarantine(name, "dry_run", exc)
                 continue

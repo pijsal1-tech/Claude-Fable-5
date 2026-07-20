@@ -49,11 +49,15 @@ class FakeEntryPoint:
 
 
 class GoodStrategy:
-    """إضافة صالحة — صنف بـ build() وrouting_hints قاموس."""
+    """إضافة صالحة — صنف بـ build(ctx) وrouting_hints قاموس.
+
+    منذ T-101: build() تستلم PluginContext حصريًا — الطلب عبر
+    ctx.user_request (يثبته test_dry_run_receives_plugin_context).
+    """
     routing_hints = {"tier": "chained", "score_min": 3}
 
-    def build(self, user_request, **kwargs):
-        return {"steps": [{"id": "s1", "prompt": user_request}]}
+    def build(self, ctx, **kwargs):
+        return {"steps": [{"id": "s1", "prompt": ctx.user_request}]}
 
 
 class BadShapeNoBuild:
@@ -65,7 +69,7 @@ class BadShapeHintsNotDict:
     """شكل سيئ — routing_hints ليست dict."""
     routing_hints = "chained"
 
-    def build(self, user_request, **kwargs):
+    def build(self, ctx, **kwargs):
         return {}
 
 
@@ -73,7 +77,7 @@ class DryRunCrash:
     """ينهار عند build() على الـ fixture."""
     routing_hints = {}
 
-    def build(self, user_request, **kwargs):
+    def build(self, ctx, **kwargs):
         raise RuntimeError("plan explosion on fixture")
 
 
@@ -81,7 +85,7 @@ class DryRunNone:
     """build() يرجع None — خطة غائبة = فشل."""
     routing_hints = {}
 
-    def build(self, user_request, **kwargs):
+    def build(self, ctx, **kwargs):
         return None
 
 
@@ -92,7 +96,7 @@ class InitCrash:
     def __init__(self):
         raise ValueError("constructor bomb")
 
-    def build(self, user_request, **kwargs):  # pragma: no cover
+    def build(self, ctx, **kwargs):  # pragma: no cover
         return {}
 
 
@@ -209,6 +213,24 @@ class TestGateEdgeCases:
         (q,) = reg.quarantined
         assert q.stage == "dry_run"
         assert q.reason.startswith("ValueError:")
+
+    def test_dry_run_receives_plugin_context(self):
+        """T-101: بوابة dry-run تسلّم PluginContext — لا نصًا خامًا."""
+        from chain.plugin_api import FIXTURE_REQUEST, PluginContext
+        seen = []
+
+        class Spy:
+            routing_hints = {}
+
+            def build(self, ctx, **kwargs):
+                seen.append(ctx)
+                return {"steps": []}
+
+        reg = _registry_with([FakeEntryPoint("spy", obj=Spy)])
+        assert reg.get("spy") is Spy
+        (ctx,) = seen
+        assert isinstance(ctx, PluginContext)
+        assert ctx.user_request == FIXTURE_REQUEST
 
 
 # ═══════════════ 4) دورة الحياة + الكشف الدفاعي ═══════════════

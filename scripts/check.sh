@@ -105,6 +105,20 @@ if [ -n "$color_violations" ]; then
 fi
 echo "colors clean"
 
+# T-101 (R-801): نطاق صلاحيات الإضافات — الإضافات تستلم PluginContext
+# فقط (عروض ContextEngine + emit hook)؛ ممنوع أي إشارة لمدير الملفات
+# أو مخزن الجلسات أو الخادم داخل وحدتي واجهة الإضافات.
+echo "== plugin capability grep (no fm/sessions/server in plugin API) =="
+plugin_violations=$(grep -rnE \
+  '\bfm\b|file_manager|FileManager|SessionStore|session_store|import server' \
+  chain/plugin_registry.py chain/plugin_api.py || true)
+if [ -n "$plugin_violations" ]; then
+  echo "plugin capability violation — forbidden handle in plugin API:"
+  echo "$plugin_violations"
+  exit 1
+fi
+echo "plugin capabilities clean"
+
 echo "== pytest =="
 python3 -m pytest
 
