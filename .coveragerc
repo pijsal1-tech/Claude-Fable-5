@@ -1,0 +1,13 @@
+# T-050 (R-703): تكوين التغطية — كود الإنتاج فقط (الاختبارات ليست هدف قياس).
+[run]
+source = .
+omit =
+    tests/*
+    scripts/*
+    static/*
+    sessions/*.json
+    .migrate*
+
+[report]
+skip_covered = False
+precision = 1
