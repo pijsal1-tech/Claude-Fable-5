@@ -28,11 +28,13 @@
     <!-- T-061 (R-905): ثيمان إضافيان — ملفا بيانات فقط، صفر تعديل مكوّنات -->
     <link rel="stylesheet" href="/static/themes/high-contrast.css?v=1">
     <link rel="stylesheet" href="/static/themes/monokai.css?v=1">
-    <link rel="stylesheet" href="/static/style.css?v=18">
+    <link rel="stylesheet" href="/static/style.css?v=19">
 
-    <!-- highlight.js for syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark-dimmed.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <!-- highlight.js — T-064 (R-904): المحرك مورَّد محليًا (BSD-3، بلا CDN)
+         + grammar إضافية لـ dockerfile. لا stylesheet خارجي: ألوان الإبراز
+         من توكنز var(--syntax-*) في style.css فتتبدل مع الثيم فورًا. -->
+    <script src="/static/vendor/highlight.min.js"></script>
+    <script src="/static/vendor/hljs-dockerfile.min.js"></script>
 
     <!-- marked.js for markdown -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
@@ -40,6 +42,10 @@
     <!-- File-type icons — T-063 (R-903): وحدة الأيقونات تُحمّل قبل app.js
          لأن app.js يستدعي FileIcons.getFileIcon() في الشجرة/التبويبات/المرفقات. -->
     <script src="/static/js/file_icons.js?v=1"></script>
+
+    <!-- Syntax highlighting — T-064 (R-904): نقطة الاستهلاك الوحيدة للمحرك؛
+         تستهلك hljs + FileIcons فتُحمَّل بعدهما وقبل app.js. -->
+    <script src="/static/js/code_highlight.js?v=1"></script>
 </head>
 <body>
 
@@ -150,7 +156,11 @@
                     </div>
                     <div class="editor-body">
                         <div class="line-numbers" id="line-numbers"></div>
-                        <textarea id="editor-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+                        <!-- T-064: طبقة الإبراز خلف textarea شفاف النص (overlay) -->
+                        <div class="editor-code-wrap">
+                            <pre id="editor-highlight" aria-hidden="true"><code id="editor-highlight-code"></code></pre>
+                            <textarea id="editor-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -232,6 +242,6 @@
 <!-- Toast container -->
 <div class="toast-container" id="toast-container"></div>
 
-<script src="/static/app.js?v=19"></script>
+<script src="/static/app.js?v=20"></script>
 </body>
 </html>

@@ -818,6 +818,9 @@ function addChatMessage(role, content) {
                 <div class="msg-content" dir="${dir}">${renderMarkdown(content)}</div>
             `;
         }
+        // T-064: إبراز بلوكات الكود في الرسالة (fence-tag أو auto-detect).
+        CodeHighlight.highlightContainer(msg);
+
         // Add copy response button for assistant messages
         const copyBtn = document.createElement("button");
         copyBtn.className = "copy-response-btn";
@@ -881,6 +884,10 @@ function appendStreamChunk(text) {
         content.innerHTML = renderMarkdown(currentStreamText);
     }
 
+    // T-064: إبراز تدفقي — البلوكات المكتملة تُخدم من كاش LRU (نفس
+    // السلسلة حرفيًا = لا وميض)، والبلوك المفتوح الأخير فقط يُعاد تحليله.
+    CodeHighlight.highlightContainer(content);
+
     // Auto scroll
     const container = document.getElementById("chat-messages");
     container.scrollTop = container.scrollHeight;
@@ -923,10 +930,8 @@ function finalizeStreamMessage(data) {
         // Apply direction to individual paragraphs for mixed content
         applyParagraphDirections(content);
 
-        // highlight code blocks
-        content.querySelectorAll("pre code").forEach(block => {
-            hljs.highlightElement(block);
-        });
+        // highlight code blocks — T-064: عبر نقطة الاستهلاك الوحيدة (مُكاش).
+        CodeHighlight.highlightContainer(content);
 
         // إضافة أزرار Apply على الأكواد
         addApplyButtons(content, currentStreamText);
@@ -1331,8 +1336,10 @@ function showEditor(path, content) {
     filenameEl.textContent = path;
     dirtyEl.classList.add("hidden");
 
-    // تحديث أرقام الأسطر
+    // تحديث أرقام الأسطر + طبقة الإبراز (T-064)
+    textarea.scrollTop = 0;
     updateLineNumbers();
+    renderEditorHighlight();
 
     // ربط أحداث التعديل
     textarea.oninput = () => {
@@ -1343,11 +1350,23 @@ function showEditor(path, content) {
         if (tab) tab.dirty = isDirty;
         renderTabs();
         updateLineNumbers();
+        renderEditorHighlight();
     };
 
-    // مزامنة scroll أرقام الأسطر
+    // مزامنة scroll أرقام الأسطر + طبقة الإبراز
     textarea.onscroll = () => {
         document.getElementById("line-numbers").scrollTop = textarea.scrollTop;
+        const pre = document.getElementById("editor-highlight");
+        pre.scrollTop = textarea.scrollTop;
+        pre.scrollLeft = textarea.scrollLeft;
+        // المسار الكسول للملفات الكبيرة: إعادة إبراز شريحة الـ viewport
+        // فقط عند التمرير (rAF-throttled — لا تكديس أعمال).
+        if (state.editorHighlightMode === "lazy" && !state.editorLazyRaf) {
+            state.editorLazyRaf = requestAnimationFrame(() => {
+                state.editorLazyRaf = null;
+                renderEditorHighlight();
+            });
+        }
     };
 
     // Tab key inserts real tab
@@ -1390,6 +1409,31 @@ function updateLineNumbers() {
         html += i + "\n";
     }
     lineNumEl.textContent = html;
+}
+
+// T-064 (R-904): طبقة إبراز المحرر — <pre> خلف الـ textarea (نصه شفاف)
+// تُرسم عبر CodeHighlight.buildEditorHTML: إبراز كامل للملفات الصغيرة،
+// وشريحة viewport فقط للكبيرة (>2000 سطر)، ونص خام للمجهول.
+const EDITOR_LINE_HEIGHT = 20.8; // 13px × 1.6 — مطابق لـ CSS المحرر
+function renderEditorHighlight() {
+    const textarea = document.getElementById("editor-textarea");
+    const codeEl = document.getElementById("editor-highlight-code");
+    const pre = document.getElementById("editor-highlight");
+    if (!state.activeTab) {
+        codeEl.innerHTML = "";
+        state.editorHighlightMode = null;
+        return;
+    }
+    const firstLine = Math.floor(textarea.scrollTop / EDITOR_LINE_HEIGHT);
+    const visible = Math.ceil(textarea.clientHeight / EDITOR_LINE_HEIGHT) || 60;
+    const res = CodeHighlight.buildEditorHTML(
+        textarea.value, state.activeTab, firstLine, visible
+    );
+    // سطر أخير فارغ يحافظ على تطابق ارتفاع التمرير مع الـ textarea.
+    codeEl.innerHTML = res.html + "\n";
+    state.editorHighlightMode = res.mode;
+    pre.scrollTop = textarea.scrollTop;
+    pre.scrollLeft = textarea.scrollLeft;
 }
 
 function saveFile() {
@@ -1880,16 +1924,12 @@ function renderExploringAccordion(items) {
 function renderMarkdown(text) {
     if (!text) return "";
     try {
-        // Configure marked
+        // Configure marked — T-064: خيار highlight أُزيل (محذوف من marked v5+
+        // أصلًا فكان صامتًا)؛ الإبراز الآن عبر CodeHighlight.highlightContainer
+        // بعد كل innerHTML (مُكاش — لا وميض أثناء البث).
         marked.setOptions({
             breaks: true,
             gfm: true,
-            highlight: function (code, lang) {
-                if (lang && hljs.getLanguage(lang)) {
-                    return hljs.highlight(code, { language: lang }).value;
-                }
-                return hljs.highlightAuto(code).value;
-            }
         });
         return marked.parse(text);
     } catch (e) {
