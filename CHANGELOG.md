@@ -27,6 +27,30 @@
     fallback path left.
 
 ### Added
+- **R-801 (T-101): Capability-scoped plugin API (`PluginContext`).**
+  - New `chain/plugin_api.py`: frozen `PluginContext` is the *only*
+    object handed to plugin `build()` — request data
+    (`user_request` / `run_id` / defensive-copy `metadata`), read-only
+    ContextEngine views over a pre-gathered `ContextBundle`
+    (`context_paths` / `context_content` / `context_items`, all copies;
+    huge-file items and unknown paths read as `None`), and an
+    `emit(frame_type, payload)` hook whose payload is copied before
+    forwarding. No raw file manager, session store, server handle, or
+    provider pool anywhere on the surface — enforced by constructor
+    signature plus a new `scripts/check.sh` grep gate over
+    `chain/plugin_registry.py` + `chain/plugin_api.py`.
+  - Helpers: `fixture_context()` (canned dry-run context) and
+    `event_bus_emitter(bus, run_id)` (publishes typed `StepProgress`
+    onto the real EventBus — respects the T-047 transport boundary).
+  - Registry wiring: the T-100 dry-run gate now hands plugins
+    `fixture_context()` instead of a raw string; T-100 test fixtures
+    updated to the `build(ctx)` signature.
+  - New `tests/unit/test_plugin_api.py` = 13 tests (forbidden-name
+    surface scan + verbatim public-surface lock, frozen/defensive-copy
+    checks, full emit round-trip to a real EventBus, context views,
+    check.sh gate presence + real modules pass + seeded violation
+    rejected, T-100→T-101 integration). Full gate:
+    **1209 passed, 1 skipped — ALL GREEN**.
 - **R-801 (T-100): StrategyPluginRegistry core.**
   - New standalone `chain/plugin_registry.py`: `StrategyPluginRegistry`
     discovers plugins via
