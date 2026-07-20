@@ -8,13 +8,20 @@
 ═══════════════════════════════════════════════════════
 """
 from __future__ import annotations
+import logging
 import os
 import pathlib
-from dataclasses import dataclass
+import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as _FuturesTimeout
+from dataclasses import dataclass, field
 from typing import Callable
 from chain.path_policy import resolve_workspace_path, is_secret_file
+from core.execution import RunTicket
 import hashlib
 import json
+
+_LOG = logging.getLogger("chain.agent_tools")
 
 def compute_payload_hash(tool: str, args: dict, cwd: str, env: dict | None) -> str:
     # Sort keys for deterministic serialization
@@ -27,6 +34,85 @@ def compute_payload_hash(tool: str, args: dict, cwd: str, env: dict | None) -> s
 SAFE_TOOLS = {"read_file", "list_dir", "search_code", "get_file_info", "get_project_tree"}
 APPROVAL_TOOLS = {"run_command"}
 ALL_TOOLS = SAFE_TOOLS | APPROVAL_TOOLS
+
+
+# ═══════════════ سياسة أوامر الـ Agent (T-058 / R-504) ═══════════════
+
+DEFAULT_COMMAND_TIMEOUT = 60.0       # ثوانٍ — مهلة تنفيذ الأمر الواحد
+DEFAULT_OUTPUT_MAX_CHARS = 8000      # سقف كل مجرى مخرجات (stdout/stderr)
+_TIMEOUT_GRACE_SECONDS = 2.0         # سماحية فوق مهلة subprocess قبل التخلي
+_CANCEL_POLL_SECONDS = 0.05          # فترة استطلاع إلغاء التذكرة
+
+
+@dataclass(frozen=True)
+class CommandPolicy:
+    """سياسة تنفيذ run_command — القائمة ملكية المشروع لا الـ agent.
+
+    R-504: الـ allowlist تأتي من config.yaml حصريًا؛ الـ agent لا يختار
+    أوامره الحرة أبدًا. ``enforce=False`` (قسم config غائب / بناء بلا
+    سياسة) = وضع legacy: بوابة الموافقة وحدها تحكم (سلوك ما قبل T-058).
+    ``enforce=True`` مع قائمة فارغة = رفض كل الأوامر (إغلاق صريح).
+
+    ملاحظة: الـ allowlist طبقة **إضافية** فوق ApprovalGate (T-013) —
+    لا تتجاوزها؛ أمر مسموح لا يزال يحتاج موافقة المستخدم.
+    """
+
+    enforce: bool = False
+    allowlist: dict[str, str] = field(default_factory=dict)
+    timeout_seconds: float = DEFAULT_COMMAND_TIMEOUT
+    output_max_chars: int = DEFAULT_OUTPUT_MAX_CHARS
+
+    def resolve(self, command: str) -> tuple[str, str] | None:
+        """مطابقة الطلب مع القائمة — بنص الأمر الحرفي أو باسم المدخل.
+
+        المطابقة بعد توحيد الفراغات (لا مطابقة جزئية/بادئة — أمر يبدأ
+        بنص مسموح ليس مسموحًا). ترجع (اسم المدخل، الأمر المُحلّ) أو None.
+        """
+        requested = " ".join((command or "").split())
+        if not requested:
+            return None
+        for name, allowed in self.allowlist.items():
+            normalized = " ".join(allowed.split())
+            if requested == normalized or requested == name:
+                return name, normalized
+        return None
+
+
+def command_policy_from(cfg: dict | None) -> CommandPolicy:
+    """قراءة ``cfg["agent"]`` — تسامحية في الأنواع، صارمة في الدلالة.
+
+    قسم ``command_allowlist`` غائب أو ليس dict ⇒ ``enforce=False``
+    (legacy). موجود ⇒ ``enforce=True`` بالمداخل النصية الصالحة فقط
+    (قيم فارغة/غير نصية تُسقط — قائمة أقصر أأمن من قائمة أوسع).
+    """
+    section = (cfg or {}).get("agent") or {}
+    if not isinstance(section, dict):
+        return CommandPolicy()
+    raw = section.get("command_allowlist")
+    if not isinstance(raw, dict):
+        return CommandPolicy()
+    entries = {
+        str(k): v.strip()
+        for k, v in raw.items()
+        if isinstance(k, str) and isinstance(v, str) and v.strip()
+    }
+    timeout = section.get("command_timeout_seconds", DEFAULT_COMMAND_TIMEOUT)
+    cap = section.get("command_output_max_chars", DEFAULT_OUTPUT_MAX_CHARS)
+    return CommandPolicy(
+        enforce=True,
+        allowlist=entries,
+        timeout_seconds=(
+            float(timeout)
+            if isinstance(timeout, (int, float))
+            and not isinstance(timeout, bool) and timeout > 0
+            else DEFAULT_COMMAND_TIMEOUT
+        ),
+        output_max_chars=(
+            int(cap)
+            if isinstance(cap, int) and not isinstance(cap, bool) and cap > 0
+            else DEFAULT_OUTPUT_MAX_CHARS
+        ),
+    )
 
 
 @dataclass
@@ -60,7 +146,8 @@ class AgentTools:
     """
     
     def __init__(self, file_manager=None, command_runner=None,
-                 project_root: str = ".", ctx=None):
+                 project_root: str = ".", ctx=None,
+                 command_policy: CommandPolicy | None = None):
         # R-102 (T-007) — pattern: "resolve at call time".
         # When ctx (AppContext) is provided, fm/cmd/project_root are
         # properties resolving ctx.project.* on EVERY access — never cached —
@@ -72,6 +159,11 @@ class AgentTools:
         self._static_root = str(project_root)
         self._max_file_size = 100 * 1024  # 100KB
         self._max_dir_depth = 3
+        # T-058 (R-504): سياسة الأوامر — بلا سياسة = legacy (لا فرض allowlist)
+        self.command_policy = command_policy or CommandPolicy()
+        # T-058: تذكرة التنفيذ الحالية — يضبطها AgentLoop.run قبل كل تشغيل؛
+        # tool_run_command يستطلع is_cancelled أثناء الأمر الطويل.
+        self.run_ticket: RunTicket | None = None
 
     @property
     def fm(self):
@@ -254,18 +346,99 @@ class AgentTools:
         return self.tool_list_dir(".", depth=max_depth)
     
     def tool_run_command(self, command: str, reason: str = "") -> str:
-        """تنفيذ أمر في Terminal — يحتاج موافقة"""
+        """تنفيذ أمر في Terminal — موافقة + allowlist (T-058 / R-504).
+
+        المسار: فحص allowlist (فرضها من config — رفض مهيكل ومسجَّل، لا
+        تنفيذ صامت أبدًا) → تنفيذ عبر cmd_runner في خيط عامل مع استطلاع
+        إلغاء RunTicket ومهلة قصوى → التقاط stdout/stderr/exit code
+        بسقف حجم. نمط المهلة نمط T-057: بلا ``with ThreadPoolExecutor``
+        (خروجه ينتظر الخيط البطيء فيهزم المهلة) — ``shutdown(wait=False)``.
+        """
         if not self.cmd:
             return "❌ CommandRunner غير متاح"
-        
+
+        policy = self.command_policy
+        entry_name = ""
+        actual = command
+        if policy.enforce:
+            resolved = policy.resolve(command)
+            if resolved is None:
+                entries = ", ".join(sorted(policy.allowlist)) or "(فارغة)"
+                _LOG.warning(
+                    "run_command REJECTED (not allowlisted): %r — "
+                    "available entries: %s", command, entries)
+                return (
+                    "❌ أمر مرفوض — غير موجود في قائمة الأوامر المسموحة "
+                    "(agent.command_allowlist في config.yaml).\n"
+                    f"الأمر المطلوب: {command}\n"
+                    f"المداخل المتاحة: {entries}"
+                )
+            entry_name, actual = resolved
+            _LOG.info("run_command allowed via entry %r: %r",
+                      entry_name, actual)
+
+        pool = ThreadPoolExecutor(max_workers=1)
         try:
-            result = self.cmd.run(command, need_approval=False, timeout=30)
-            output = result.get("output", "") or result.get("error", "")
-            if result.get("success"):
-                return output or "(تم التنفيذ بنجاح — لا مخرجات)"
-            return f"❌ فشل: {output}"
+            future = pool.submit(
+                self.cmd.run, actual,
+                need_approval=False,
+                timeout=int(max(1, policy.timeout_seconds)),
+                retries=0,
+            )
+            deadline = (time.monotonic() + policy.timeout_seconds
+                        + _TIMEOUT_GRACE_SECONDS)
+            while True:
+                try:
+                    result = future.result(timeout=_CANCEL_POLL_SECONDS)
+                    break
+                except _FuturesTimeout:
+                    ticket = self.run_ticket
+                    if ticket is not None and ticket.is_cancelled:
+                        _LOG.warning(
+                            "run_command cancelled via RunTicket %s: %r",
+                            ticket.run_id, actual)
+                        return (f"❌ أُلغي الأمر (تذكرة التنفيذ أُلغيت): "
+                                f"{actual}")
+                    if time.monotonic() >= deadline:
+                        _LOG.warning("run_command timeout after %.1fs: %r",
+                                     policy.timeout_seconds, actual)
+                        return (f"❌ انتهت مهلة الأمر "
+                                f"({policy.timeout_seconds:g}s): {actual}")
         except Exception as e:
             return f"❌ خطأ: {e}"
+        finally:
+            pool.shutdown(wait=False)
+
+        return self._format_command_result(
+            actual, entry_name, result, policy.output_max_chars)
+
+    def _format_command_result(self, command: str, entry_name: str,
+                               result: dict, max_chars: int) -> str:
+        """تقرير نتيجة مهيكل: الأمر + exit code + مخرجات مسقوفة الحجم."""
+        stdout = self._cap_output(str(result.get("output") or ""), max_chars)
+        stderr = self._cap_output(str(result.get("error") or ""), max_chars)
+        code = result.get("code", -1)
+        header = f"$ {command}"
+        if entry_name:
+            header += f"  [allowlist: {entry_name}]"
+        parts = [header, f"exit code: {code}"]
+        if stdout:
+            parts.append(f"── stdout ──\n{stdout}")
+        if stderr:
+            parts.append(f"── stderr ──\n{stderr}")
+        if not stdout and not stderr:
+            parts.append("(لا مخرجات)")
+        body = "\n".join(parts)
+        if result.get("success"):
+            return body
+        return "❌ فشل الأمر:\n" + body
+
+    @staticmethod
+    def _cap_output(text: str, max_chars: int) -> str:
+        """سقف حجم مجرى مخرجات واحد — مع علامة اقتطاع صريحة."""
+        if len(text) <= max_chars:
+            return text
+        return text[:max_chars] + f"\n... (اقتُطع — {len(text)} حرف إجمالي)"
     
     # ──── مساعدات ────
     
