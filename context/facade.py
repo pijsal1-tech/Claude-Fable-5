@@ -45,7 +45,7 @@ def _default_engine(index: Any = None) -> ContextEngine:
     الـ scan_factory هو ``index.scan()`` — sweep طزاجة + صفر مشيات
     شجرية. بدونه (مسارات الاختبارات/ctx-less) يبقى ProjectScan.
     """
-    sources = [MentionSource(), KeywordSource(), StructureSource()]
+    sources: list = [MentionSource(), KeywordSource(), StructureSource()]
     if index is not None:
         return ContextEngine(sources, scan_factory=lambda _root: index.scan())
     return ContextEngine(sources)

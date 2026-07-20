@@ -355,9 +355,16 @@ def _build_ctx(project_path: str) -> AppContext:
 
     Called by main() after wiring; kept as a separate function so tests can
     verify the aliasing (ctx.project.fm IS fm, etc.) without booting Flask.
+
+    T-049 (R-702): the boot-time handle also gets a ProjectIndex attached
+    to the (global) FileManager — same shape as _server_handle_factory.
     """
+    from context.index import ProjectIndex
+    _index = ProjectIndex(project_path)
+    _index.attach(fm)
     return AppContext(
-        project=ProjectHandle(root=project_path, fm=fm, cmd_runner=cmd_runner),
+        project=ProjectHandle(root=project_path, fm=fm, cmd_runner=cmd_runner,
+                              index=_index),
         provider_pool=provider_pool,
         session_manager=session_mgr,
         budget=account_budget,

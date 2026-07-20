@@ -225,7 +225,9 @@ def test_inline_block_deleted_from_server():
     # المعالج يستدعي الـ facade
     assert "from context.facade import gather_message_context" in code
     # T-048 (R-701): المقبض أصبح خاصًّا بالاتصال — sctx.fm
-    assert "gather_message_context(sctx.fm.root, user_text)" in code
+    # T-049 (R-702): النداء يمرر الفهرس — index=sctx.project.index
+    assert "gather_message_context(sctx.fm.root, user_text," in code
+    assert "index=sctx.project.index" in code
 
 
 def test_extract_search_terms_legacy_rules():

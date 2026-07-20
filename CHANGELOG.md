@@ -27,6 +27,34 @@
     fallback path left.
 
 ### Added
+- **R-702 (T-049): ProjectIndex — inverted index kills O(files) per message.**
+  - New `context/index.py`: `ProjectIndex` built once at project open
+    (os.walk, sorted global order preserving T-017 golden order) with
+    inverted maps (basename → paths, ext → paths, name pairs) and ranked
+    `lookup()` (exact > prefix > substring). Freshness by two mechanisms:
+    **write-through hooks** (`attach(fm)` → `FileManager.add_write_hook`;
+    every `write_file`/`edit_file` notifies the index with the rel path)
+    and an **mtime-age sweep** (`refresh_if_stale()`, default 2.0s) that
+    catches out-of-band edits within one sweep. `IndexedScan` is a
+    drop-in `ProjectScan` borrowing the live index list — zero tree
+    walks at query time.
+  - `ProjectScan` gained a uniform query surface (`lookup_name` /
+    `lookup_stem`, linear) and its walk switched from `rglob` to
+    `os.walk`; `MentionSource`/`KeywordSource` now query via
+    `scan.lookup_*` instead of scanning `scan.files` directly (same
+    sorted order, WEB_EXTENSIONS filter, dedupe and cap preserved —
+    goldens unchanged).
+  - Wiring: `server._server_handle_factory` and `_build_ctx` build the
+    index into `ProjectHandle.index` and attach it to the FileManager;
+    the WS handler passes `index=sctx.project.index` to
+    `gather_message_context` (ctx-less/test paths fall back to plain
+    `ProjectScan`).
+  - New check.sh gate: grep bans `.rglob(` calls anywhere in `context/`.
+  - Tests (`tests/unit/test_project_index.py`, 23): build/lookup/
+    ranking/invalidation, FileManager hook contract, write-then-mention
+    freshness, out-of-band edit within one sweep (fake clock), facade
+    parity with/without index, 5k-file perf fixture (<10ms mention
+    resolution, zero-rglob patched-assert), grep-gate tests.
 - **R-701 (T-048): SessionContext per WS connection — two-tab isolation.**
   🆕 `core/session_context.py`: per-connection `SessionContext` (own
   `ProjectHandle`, independent `chat_history`, per-tab model selection,

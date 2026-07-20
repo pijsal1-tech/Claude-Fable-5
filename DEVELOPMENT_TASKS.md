@@ -691,11 +691,11 @@
 - **Files to Modify:** `context/index.py` (new), sources, FileManager hooks
 - **Affected Modules:** context resolution
 - **Acceptance Criteria:** <10ms mention resolution on 5k-file fixture; write-then-mention freshness; out-of-band edit within one sweep; grep green.
-- **Implementation:** [ ] index · [ ] hooks · [ ] sweep · [ ] source migration
-- **Testing:** [ ] 10ms bench · [ ] freshness ×2 · [ ] grep
-- **Regression:** [ ] context goldens
-- **Documentation:** [ ] index design note
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-050
+- **Implementation:** [x] index · [x] hooks · [x] sweep · [x] source migration
+- **Testing:** [x] 10ms bench · [x] freshness ×2 · [x] grep
+- **Regression:** [x] context goldens
+- **Documentation:** [x] index design note
+- **Completion Status:** ✅ (2026-07-20) · **Reviewer Notes:** 🆕 `context/index.py` — `ProjectIndex` يُبنى **مرة عند فتح المشروع** (os.walk — ليس rglob؛ فرز عالمي يحفظ ترتيب goldens T-017) بفهارس مقلوبة: `_by_name` (basename→paths، O(1))، `_by_ext`، أزواج `_names` لمطابقة الجذوع؛ `lookup(term)` مرتّب exact > prefix > substring. **الطزاجة بآليتين**: (1) write-through — `attach(fm)` يسجّل `notify_write` في `FileManager.add_write_hook`؛ ملف جديد يُدرَج بـ `bisect.insort` (ترتيب محفوظ) + إعادة اشتقاق؛ (2) `refresh_if_stale()` sweep بالعمر (2.0s افتراضيًا، ساعة قابلة للحقن) يلتقط التعديلات الخارجية خلال sweep واحد. `IndexedScan` بديل drop-in لـ `ProjectScan` (يستعير القائمة الحية — صفر مشيات وقت الاستعلام، لا `super().__init__`). `context/engine.py`: `ProjectScan` تحوّل من rglob إلى os.walk + واجهة `lookup_name`/`lookup_stem` خطية موحّدة؛ المصدران Mention/Keyword يستعلمان `scan.lookup_*` (نفس الفرز + فلتر WEB_EXTENSIONS + dedupe + الحد — parity بايت-بايت مثبت باختبار مقارنة مع/بدون فهرس). `actions/file_manager.py`: `add_write_hook` + نداء الخطافات بعد `os.replace` في `write_file` (يغطي `edit_file` بالتفويض؛ فشل خطاف لا يُفشل الكتابة). التوصيل: `_server_handle_factory` و`_build_ctx` يملآن خانة `ProjectHandle.index` ويربطان الـ fm؛ المعالج يمرر `index=sctx.project.index` إلى `gather_message_context` (مسارات الاختبار/ctx-less تسقط لـ ProjectScan عادي). **بوابة check.sh السابعة**: grep يمنع `.rglob(` في `context/`. وثيقة التصميم = docstring الموديول. Evidence: 🆕 `tests/unit/test_project_index.py` (23): بناء/استعلام/ترتيب ×7 (مطابقة قائمة ProjectScan بايت-بايت، عقد IndexedScan) · إبطال/طزاجة ×7 (notify_write إدراج مفروز/no-op/ملف شبح، sweep بساعة مزيفة، **write-then-mention عبر الخطاف**، **out-of-band خلال sweep واحد**، attach متسامح) · عقد خطافات FileManager ×3 (write/edit/خطاف معطوب) · تكامل ×2 (**parity مع/بدون فهرس**، صفر مشيات — rglob+os.walk محظوران بعد البناء) · أداء 5k ×2 (**<10ms** mention resolution، **zero-rglob patched-assert**) · grep ×2. تعديل مصاحب: اختبار T-019 البنيوي (النداء يمرر `index=`) وتعليق نوع في facade لـ mypy. check.sh ALL GREEN: **937 passed, 1 skipped** (+23)، mypy Success، بوابة rglob نظيفة — goldens T-017 تمر بلا تعديل. · **Next Task:** T-050
 
 ## T-050 — CI Pipeline + Coverage Ratchet + History Purge (R-703)
 - **Description:** CI workflow (lint + mypy + pytest + coverage ratchet at 40%, increase-only); purge session files from git history via `git filter-repo` (announced, coordinated force-push).

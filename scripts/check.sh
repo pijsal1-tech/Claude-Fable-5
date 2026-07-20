@@ -79,6 +79,18 @@ echo "transport boundary clean"
 echo "== handler state lint (no module-level mutable state in handlers) =="
 python3 scripts/lint_handler_state.py server.py
 
+# T-049 (R-702): مسار كل-رسالة يستعلم ProjectIndex — ممنوع أي نداء
+# rglob في كود حزمة context/ (البناء عبر os.walk في engine/index فقط،
+# والمصادر تستعلم lookup_* — صفر مشيات شجرية وقت الرسالة).
+echo "== rglob ban grep (no rglob calls in context/ per-message paths) =="
+rglob_violations=$(grep -rn '\.rglob(' --include='*.py' context/ || true)
+if [ -n "$rglob_violations" ]; then
+  echo "rglob violation — tree walk in context/ per-message path:"
+  echo "$rglob_violations"
+  exit 1
+fi
+echo "rglob clean"
+
 echo "== pytest =="
 python3 -m pytest
 
