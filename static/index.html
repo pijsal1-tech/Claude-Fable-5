@@ -249,6 +249,23 @@
     </div>
 </div>
 
+<!-- T-066 (R-902): لوحة تاريخ الـ runs — استعادة بنقرة + تقرير تعارض مقروء -->
+<div id="run-history-panel" class="hidden">
+    <div id="run-history-head">
+        <span>↩ تاريخ الـ Runs</span>
+        <span class="spacer"></span>
+        <button id="run-history-close" onclick="document.getElementById('run-history-panel').classList.add('hidden')">✕</button>
+    </div>
+    <div id="run-history-report"></div>
+    <div id="run-history-list"></div>
+</div>
+
+<!-- T-066 (R-906): شريحة حالة التوجيه/السعة — مطوية افتراضيًا، عرض قراءة فقط -->
+<div id="status-chip">
+    <div id="status-chip-label" title="حالة التوجيه والسعة — اضغط للتفاصيل">📊 الحالة</div>
+    <div id="status-chip-panel" class="hidden"></div>
+</div>
+
 <!-- Toast container -->
 <!-- T-065 (R-901): لوحة مراجعة الـ diff لطلبات الموافقة (chain_approval_request) -->
 <div id="diff-panel-overlay" class="hidden">

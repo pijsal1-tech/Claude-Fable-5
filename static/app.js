@@ -3144,7 +3144,7 @@ async function confirmRollback(entryIdx, fileIdx) {
 
 // يعترض قرار لوحة الـ diff عندما تكون مفتوحة كتأكيد استعادة (النقرة
 // الثانية): قبول ⇒ إرسال إطار rollback من الوحدة؛ رفض ⇒ إغلاق فقط.
-// يرجع true لو استُهلك القرار (فلا يُرسَل chain_approval_response).
+// يرجع true لو استُهلك القرار (فلا يُرسَل رد الموافقة للبوابة).
 function consumeRollbackDecision(overrideAll) {
     if (!pendingRollback) return false;
     const { entry, fileIdx } = pendingRollback;
