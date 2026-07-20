@@ -27,6 +27,26 @@
     fallback path left.
 
 ### Added
+- **R-905 (T-061): Theme switcher, persistence + 2 extra themes.**
+  - Header theme picker (🎨 dropdown) driven by a single `THEMES`
+    registry in `static/app.js` — the one source of truth for shipped
+    themes. `setTheme` swaps `data-theme` only: live restyle, no reload;
+    unknown stored themes fall back to dark.
+  - Persistence via `localStorage("webdev-ai-theme")` — the **same key**
+    the T-060 pre-paint bootstrap reads, so the chosen theme survives
+    reload with no FOUC (key equality is test-enforced).
+  - Two new theme data files: `static/themes/high-contrast.css`
+    (pure black/white + bright saturated accents; AAA body text, 21.0)
+    and `static/themes/monokai.css` (Monokai Pro-inspired; dim text
+    adjusted for AA). Both define the complete dark token set and scope
+    strictly to `[data-theme="<id>"]` — a test forbids touching bare
+    `:root`, keeping dark the unchanged default for existing users.
+  - WCAG AA is now a permanent test, not a manual audit: computed
+    contrast for 4 text/bg pairs across all 4 themes (minima: dark 6.80,
+    light 5.14, high-contrast 15.91, monokai 7.80 — all ≥ 4.5).
+  - "Adding a theme" 5-step guide documented in `tokens.css` header:
+    one data file + one registry entry, zero component changes.
+  - `tests/unit/test_theme_tokens.py`: 11 → 28 tests.
 - **R-905 (T-060): Design-token layer + dark/light themes.**
   - New `static/themes/`: `tokens.css` (structural tokens + role aliases —
     `--accent`, `--syntax-*`, `--icon-*`, `--diff-*-fg`, terminal roles;

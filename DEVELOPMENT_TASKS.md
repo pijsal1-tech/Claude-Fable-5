@@ -877,11 +877,11 @@
 - **Files to Modify:** `public/` (switcher component), `static/themes/high-contrast.css`, `static/themes/<variant>.css`
 - **Affected Modules:** settings UI
 - **Acceptance Criteria:** ≥4 total themes; live switch + persistence across reload; AA contrast documented per theme.
-- **Implementation:** [ ] switcher · [ ] persistence · [ ] 2 theme files · [ ] contrast audit
-- **Testing:** [ ] persistence reload test · [ ] switch restyles code/icons
-- **Regression:** [ ] dark default unchanged for existing users
-- **Documentation:** [ ] "adding a theme" guide
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-062
+- **Implementation:** [x] switcher · [x] persistence · [x] 2 theme files · [x] contrast audit
+- **Testing:** [x] persistence reload test · [x] switch restyles code/icons
+- **Regression:** [x] dark default unchanged for existing users
+- **Documentation:** [x] "adding a theme" guide
+- **Completion Status:** ✅ 2026-07-20 · **Reviewer Notes:** (1) Switcher: زر 🎨 + dropdown في الهيدر (static/index.html، بنمط model-picker القائم)؛ سجل `THEMES` في static/app.js = مصدر الحقيقة الوحيد (id/label/desc)؛ `setTheme` يبدّل `data-theme` فقط — تبديل حي بلا reload (مُختبَر grep: لا location.reload في المسار)، وثيم غير معروف يسقط آمنًا إلى dark. أنماط الـ dropdown توكنز فقط (بوابة الألوان خضراء). (2) Persistence: `localStorage("webdev-ai-theme")` — **نفس المفتاح** الذي يقرأه bootstrap الـ head قبل أول paint (T-060)، فاختيار المستخدم يصمد عبر reload بلا FOUC؛ اختبار يفرض تطابق المفتاح بين app.js و index.html (وإلا انفصل الحفظ عن الاستعادة). (3) ملفا الثيمات: `high-contrast.css` (أسود نقي/أبيض نقي + ألوان مشبعة فاتحة؛ AAA لنص المتن = 21.0) و `monokai.css` (Monokai Pro-inspired؛ نصوص خافتة عُدّلت عن الأصل لتباين AA) — كلاهما يعرّف **نفس مجموعة توكنز dark كاملة** (اختبار تكافؤ لكل ثيم) ويستهدف `[data-theme="<id>"]` حصرًا — اختبار يمنع تسرب أي ثيم إلى `:root` العارية = **dark الافتراضي لم يتغير للمستخدمين الحاليين** (regression checkbox؛ قيم dark نفسها ما زالت مقفولة بـ snapshot T-060). (4) تدقيق التباين الآن **اختبار دائم** لا فحصًا يدويًا: TestContrastAA يحسب WCAG لأزواج النص/الخلفية الأربعة في كل الثيمات (أدنى النسب: dark 6.80 · light 5.14 · high-contrast 15.91 · monokai 7.80 — كلها ≥4.5 AA، موثّقة هنا = "AA contrast documented per theme"). (5) "switch restyles code/icons": بنيويًا كل ألوان hljs والشارات تستهلك `--syntax-*`/`--icon-*` (ترحيل T-060) وكل ثيم يعرّفها — تبديل السمة يعيد تلوينها بالضرورة؛ لا متصفح في CI فالإثبات = تكافؤ التوكنز + صفر ألوان خام. (6) دليل "إضافة ثيم" (5 خطوات) موثّق رأس tokens.css. tests/unit/test_theme_tokens.py: 11 → **28 اختبارًا** (+17: تكافؤ لكل ثيم، نطاق data-theme، AA لكل ثيم، AAA للـ high-contrast، السجل، تطابق مفتاح الحفظ، تبديل-بلا-reload، السقوط الآمن). `./scripts/check.sh` = **1111 passed, 1 skipped — ALL GREEN**. · **Next Task:** T-062
 
 ## T-062 — File-Type Icon System (R-903)
 - **Description:** Single `getFileIcon(path)` mapping module + SVG sprite (open-licensed set) covering: JS, TS, JSX/TSX, Python, HTML, CSS/SCSS, JSON, YAML/TOML, Markdown, Java, C, C++, C#, Go, Rust, PHP, Ruby, SQL, Shell, Dockerfile, env/config, images, lock files + fallback glyph; icon colors from theme tokens.

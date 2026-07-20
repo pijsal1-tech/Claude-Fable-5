@@ -1,0 +1,79 @@
+/* ═══════════════════════════════════════════════════════════════
+   🎹 Monokai Theme — T-061 (R-905)
+   لوحة محرر شهيرة (Monokai Pro-inspired) — خلفيات دافئة داكنة
+   وألوان الصياغة الكلاسيكية. نفس مجموعة توكنز dark.css كاملة.
+   بعض النصوص الخافتة غُمِّقت/فُتِّحت عن Monokai الأصلي لتباين AA.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root[data-theme="monokai"] {
+    color-scheme: dark;
+
+    /* Base colors */
+    --bg-base: #2d2a2e;
+    --bg-surface: #221f22;
+    --bg-overlay: #19181a;
+    --bg-mantle: #1e1c1f;
+    --bg-crust: #151417;
+
+    /* Surface layers */
+    --surface-0: #403e41;
+    --surface-1: #4a474c;
+    --surface-2: #5b585c;
+
+    /* Text */
+    --text: #fcfcfa;
+    --text-dim: #c1c0c0;
+    --text-muted: #939293;
+    --subtext: #d8d7d7;
+
+    /* Accent colors — Monokai classic */
+    --blue: #78dce8;
+    --green: #a9dc76;
+    --red: #ff6188;
+    --yellow: #ffd866;
+    --mauve: #ab9df2;
+    --teal: #78dce8;
+    --peach: #fc9867;
+    --pink: #ff6188;
+    --sky: #78dce8;
+    --lavender: #ab9df2;
+    --flamingo: #ff6188;
+
+    /* Soft accents */
+    --blue-soft: #78dce8;
+    --green-soft: #a9dc76;
+    --red-soft: #ff6188;
+    --peach-soft: #fc9867;
+    --yellow-soft: #ffd866;
+    --mauve-soft: #ab9df2;
+    --lavender-soft: #ab9df2;
+    --teal-soft: #78dce8;
+    --sky-soft: #78dce8;
+
+    /* Shadows / overlays */
+    --shadow-color: #000000;
+    --hint-color: #ffffff;
+    --scrim: #221f22;
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+    /* Run button gradients */
+    --run-btn-grad-a: #3a4432;
+    --run-btn-grad-b: #2c3526;
+    --run-btn-hover-a: #46543c;
+    --run-btn-hover-b: #384430;
+
+    /* On-accent text */
+    --text-on-accent: #2d2a2e;
+
+    /* File-type icon/badge colors (R-903) */
+    --icon-py: #6a9fd8;
+    --icon-js: #ffd866;
+    --icon-ts: #78a9e8;
+    --icon-html: #fc9867;
+    --icon-css: #ab9df2;
+    --icon-json: #5b585c;
+    --icon-md: #78dce8;
+    --icon-badge-fg: #ffffff;
+    --icon-js-fg: #000000;
+}

@@ -158,3 +158,133 @@ class TestPrefersColorScheme:
     def test_color_scheme_declared(self) -> None:
         assert "color-scheme: dark" in _read(THEMES / "dark.css")
         assert "color-scheme: light" in _read(THEMES / "light.css")
+
+
+# ═══════════════════════════════════════════════════════════════
+# T-061 (R-905) — Theme Switcher + Persistence + ثيمات إضافية
+# ═══════════════════════════════════════════════════════════════
+
+ALL_THEMES = ("dark", "light", "high-contrast", "monokai")
+
+
+def _luminance(hex_color: str) -> float:
+    h = hex_color.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+
+    def f(c: float) -> float:
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+
+
+def _contrast(fg: str, bg: str) -> float:
+    la, lb = _luminance(fg), _luminance(bg)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def _palette(theme: str) -> dict[str, str]:
+    css = _read(THEMES / f"{theme}.css")
+    return dict(re.findall(r"(--[\w-]+)\s*:\s*(#[0-9a-fA-F]{3,8})\s*;", css))
+
+
+class TestAllThemesParity:
+    """≥4 ثيمات، كلٌّ يعرّف نفس مجموعة توكنز dark كاملة — ملفات بيانات."""
+
+    def test_at_least_four_theme_files_ship(self) -> None:
+        palettes = [p.stem for p in THEMES.glob("*.css") if p.stem != "tokens"]
+        assert len(palettes) >= 4, f"shipped: {sorted(palettes)}"
+        assert set(ALL_THEMES) <= set(palettes)
+
+    @pytest.mark.parametrize("theme", [t for t in ALL_THEMES if t != "dark"])
+    def test_theme_defines_every_dark_token(self, theme: str) -> None:
+        dark = _defined_tokens(_read(THEMES / "dark.css"))
+        other = _defined_tokens(_read(THEMES / f"{theme}.css"))
+        missing = dark - other
+        extra = other - dark
+        assert not missing, f"{theme}.css ينقصه: {sorted(missing)}"
+        assert not extra, f"{theme}.css يزيد بـ: {sorted(extra)}"
+
+    @pytest.mark.parametrize("theme", [t for t in ALL_THEMES if t != "dark"])
+    def test_theme_scoped_to_data_attribute(self, theme: str) -> None:
+        # الثيمات غير الافتراضية تستهدف [data-theme="<id>"] حصرًا —
+        # لا تتسرب إلى :root العارية (dark وحده الافتراضي).
+        css = _read(THEMES / f"{theme}.css")
+        assert f':root[data-theme="{theme}"]' in css
+        assert not re.search(r":root\s*[,{]", css.replace(
+            f':root[data-theme="{theme}"]', "")), (
+            f"{theme}.css يستهدف :root العارية"
+        )
+
+
+class TestContrastAA:
+    """تدقيق WCAG AA محسوب — أزواج النص/الخلفية الأساسية لكل ثيم شحنّاه."""
+
+    PAIRS = (
+        ("--text", "--bg-base"),
+        ("--text", "--bg-surface"),
+        ("--text-dim", "--bg-base"),
+        ("--subtext", "--bg-surface"),
+    )
+
+    @pytest.mark.parametrize("theme", ALL_THEMES)
+    def test_primary_text_pairs_meet_aa(self, theme: str) -> None:
+        pal = _palette(theme)
+        failures = []
+        for fg, bg in self.PAIRS:
+            ratio = _contrast(pal[fg], pal[bg])
+            if ratio < 4.5:
+                failures.append(f"{theme}: {fg} on {bg} = {ratio:.2f} < 4.5")
+        assert not failures, "\n".join(failures)
+
+    def test_high_contrast_theme_reaches_aaa_for_body_text(self) -> None:
+        pal = _palette("high-contrast")
+        assert _contrast(pal["--text"], pal["--bg-base"]) >= 7.0
+
+
+class TestSwitcher:
+    """واجهة التبديل: سجل الثيمات، الحفظ، ومزامنة الـ bootstrap."""
+
+    @pytest.fixture()
+    def app_js(self) -> str:
+        return _read(ROOT / "static" / "app.js")
+
+    @pytest.fixture()
+    def html(self) -> str:
+        return _read(ROOT / "static" / "index.html")
+
+    def test_registry_lists_all_shipped_themes(self, app_js: str) -> None:
+        m = re.search(r"const THEMES = \[(.*?)\];", app_js, re.DOTALL)
+        assert m, "سجل THEMES غائب من app.js"
+        ids = set(re.findall(r'id:\s*"([\w-]+)"', m.group(1)))
+        assert ids == set(ALL_THEMES), f"registry={sorted(ids)}"
+
+    def test_persistence_uses_same_key_as_bootstrap(
+        self, app_js: str, html: str
+    ) -> None:
+        # نفس مفتاح localStorage في السجل والبوتستراب — وإلا انفصل الحفظ
+        # عن الاستعادة قبل أول paint.
+        assert 'THEME_STORAGE_KEY = "webdev-ai-theme"' in app_js
+        assert "localStorage.setItem(THEME_STORAGE_KEY" in app_js
+        assert 'localStorage.getItem("webdev-ai-theme")' in html
+
+    def test_set_theme_swaps_attribute_without_reload(self, app_js: str) -> None:
+        assert 'setAttribute("data-theme", themeId)' in app_js
+        assert "location.reload" not in app_js.split("function setTheme")[1].split(
+            "function updateThemeLabel"
+        )[0]
+
+    def test_switcher_ui_present_and_new_themes_linked(self, html: str) -> None:
+        assert 'id="theme-dropdown"' in html
+        assert 'id="theme-list"' in html
+        assert "themes/high-contrast.css" in html
+        assert "themes/monokai.css" in html
+
+    def test_unknown_stored_theme_falls_back_to_dark(self, app_js: str) -> None:
+        body = app_js.split("function setTheme")[1].split("function ")[1]
+        src = app_js.split("function setTheme")[1]
+        assert 'themeId = "dark"' in src.split("}")[0] + "}", (
+            "setTheme بلا سقوط آمن إلى dark لثيم غير معروف"
+        )

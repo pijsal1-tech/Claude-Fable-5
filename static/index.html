@@ -25,6 +25,9 @@
     <link rel="stylesheet" href="/static/themes/tokens.css?v=1">
     <link rel="stylesheet" href="/static/themes/dark.css?v=1">
     <link rel="stylesheet" href="/static/themes/light.css?v=1">
+    <!-- T-061 (R-905): ثيمان إضافيان — ملفا بيانات فقط، صفر تعديل مكوّنات -->
+    <link rel="stylesheet" href="/static/themes/high-contrast.css?v=1">
+    <link rel="stylesheet" href="/static/themes/monokai.css?v=1">
     <link rel="stylesheet" href="/static/style.css?v=18">
 
     <!-- highlight.js for syntax highlighting -->
@@ -69,6 +72,19 @@
             <button class="mode-btn" data-mode="plan">📐 Plan</button>
             <button class="mode-btn" data-mode="build">🔨 Build</button>
             <button class="mode-btn" data-mode="edit">✂️ Edit</button>
+        </div>
+
+        <!-- Theme Switcher — T-061 (R-905) -->
+        <div class="theme-selector">
+            <button class="header-btn" onclick="toggleThemePicker()" id="theme-btn" title="تغيير الثيم">🎨 <span id="current-theme-label">Theme</span></button>
+            <div class="sessions-dropdown hidden" id="theme-dropdown" style="right:16px;left:auto;width:240px">
+                <div class="sessions-header">
+                    <span>🎨 اختر الثيم</span>
+                </div>
+                <div class="sessions-list" id="theme-list">
+                    <!-- populated by JS (THEMES registry in app.js) -->
+                </div>
+            </div>
         </div>
 
         <!-- Provider -->

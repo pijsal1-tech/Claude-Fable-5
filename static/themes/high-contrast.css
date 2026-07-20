@@ -1,0 +1,78 @@
+/* ═══════════════════════════════════════════════════════════════
+   ♿ High-Contrast Theme — T-061 (R-905)
+   أسود نقي + أبيض نقي + ألوان مشبعة فاتحة — تباين AAA للنصوص
+   الأساسية. يعرّف نفس مجموعة توكنز dark.css كاملة (اختبار تكافؤ).
+   ═══════════════════════════════════════════════════════════════ */
+
+:root[data-theme="high-contrast"] {
+    color-scheme: dark;
+
+    /* Base colors */
+    --bg-base: #000000;
+    --bg-surface: #000000;
+    --bg-overlay: #000000;
+    --bg-mantle: #000000;
+    --bg-crust: #000000;
+
+    /* Surface layers */
+    --surface-0: #1f1f1f;
+    --surface-1: #333333;
+    --surface-2: #4d4d4d;
+
+    /* Text */
+    --text: #ffffff;
+    --text-dim: #e0e0e0;
+    --text-muted: #b3b3b3;
+    --subtext: #f0f0f0;
+
+    /* Accent colors — مشبعة فاتحة لتباين عالٍ على الأسود */
+    --blue: #99ccff;
+    --green: #66ff99;
+    --red: #ff8095;
+    --yellow: #ffe680;
+    --mauve: #d9b3ff;
+    --teal: #80ffe6;
+    --peach: #ffb380;
+    --pink: #ff99cc;
+    --sky: #99e6ff;
+    --lavender: #b3c6ff;
+    --flamingo: #ffb3c6;
+
+    /* Soft accents — نفس الفاتحة (لا تدرجات باهتة في وضع التباين) */
+    --blue-soft: #99ccff;
+    --green-soft: #66ff99;
+    --red-soft: #ff8095;
+    --peach-soft: #ffb380;
+    --yellow-soft: #ffe680;
+    --mauve-soft: #d9b3ff;
+    --lavender-soft: #b3c6ff;
+    --teal-soft: #80ffe6;
+    --sky-soft: #99e6ff;
+
+    /* Shadows / overlays */
+    --shadow-color: #000000;
+    --hint-color: #ffffff;
+    --scrim: #1f1f1f;
+    --shadow-md: 0 0 0 1px rgba(255, 255, 255, 0.35);
+    --shadow-lg: 0 0 0 2px rgba(255, 255, 255, 0.5);
+
+    /* Run button gradients */
+    --run-btn-grad-a: #003300;
+    --run-btn-grad-b: #002600;
+    --run-btn-hover-a: #004d00;
+    --run-btn-hover-b: #003a00;
+
+    /* On-accent text */
+    --text-on-accent: #000000;
+
+    /* File-type icon/badge colors (R-903) — نسخ فاتحة عالية التباين */
+    --icon-py: #7db8e8;
+    --icon-js: #f1e05a;
+    --icon-ts: #7db8e8;
+    --icon-html: #ff9270;
+    --icon-css: #c9a3ff;
+    --icon-json: #d0d0d0;
+    --icon-md: #8fb8ff;
+    --icon-badge-fg: #000000;
+    --icon-js-fg: #000000;
+}

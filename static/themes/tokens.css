@@ -21,8 +21,18 @@
        تشير إلى لوحة الثيم — تُعاد تعبئتها تلقائيًا عند تبديل الثيم.
      - dark.css:  اللوحة الداكنة — الافتراضي (:root بلا سمة + [data-theme="dark"]).
      - light.css: اللوحة الفاتحة — [data-theme="light"].
-     - إضافة ثيم = ملف بيانات جديد يعرّف نفس مجموعة التوكنز تحت
-       [data-theme="<name>"] — صفر تعديل على المكوّنات.
+     - high-contrast.css / monokai.css: ثيمات إضافية (T-061).
+
+   دليل إضافة ثيم (T-061):
+     1. أنشئ static/themes/<name>.css يعرّف **نفس مجموعة توكنز
+        dark.css كاملة** تحت :root[data-theme="<name>"] حصرًا
+        (لا تستهدف :root العارية — dark وحده الافتراضي).
+     2. أعلن color-scheme: dark|light داخل البلوك.
+     3. أضف <link> للملف في static/index.html قبل style.css.
+     4. أضف إدخالًا في سجل THEMES بـ static/app.js (id/label/desc).
+     5. تحقّق: tests/unit/test_theme_tokens.py يفرض تكافؤ التوكنز
+        وتباين WCAG AA (≥4.5) لأزواج النص/الخلفية الأساسية.
+     صفر تعديل على المكوّنات — الثيم ملف بيانات + سطر سجل.
 
    منع الـ FOUC: سكربت مضمّن في <head> بـ index.html يضبط data-theme
    قبل أول paint (localStorage ← وإلا prefers-color-scheme ← وإلا dark).

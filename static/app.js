@@ -39,7 +39,97 @@ document.addEventListener("DOMContentLoaded", () => {
     initResizeHandle();
     initDragDrop();
     initEditorShortcuts();
+    initThemePicker();
 });
+
+// ═══════════════════════════════════════════
+// Theme Switcher — T-061 (R-905)
+// السجل = مصدر الحقيقة الوحيد للثيمات المتاحة — إضافة ثيم =
+// ملف CSS جديد تحت static/themes/ + إدخال هنا — صفر تعديل مكوّنات.
+// المفتاح في localStorage ("webdev-ai-theme") يقرأه أيضًا سكربت
+// الـ bootstrap في <head> قبل أول paint (T-060 — لا FOUC).
+// ═══════════════════════════════════════════
+const THEME_STORAGE_KEY = "webdev-ai-theme";
+const THEMES = [
+    { id: "dark", label: "🌙 Dark", desc: "الافتراضي — True Black" },
+    { id: "light", label: "☀️ Light", desc: "فاتح — Latte" },
+    { id: "high-contrast", label: "♿ High Contrast", desc: "تباين عالٍ — AAA" },
+    { id: "monokai", label: "🎹 Monokai", desc: "لوحة محرر كلاسيكية" },
+];
+
+function getCurrentTheme() {
+    return document.documentElement.getAttribute("data-theme") || "dark";
+}
+
+function setTheme(themeId) {
+    if (!THEMES.some(t => t.id === themeId)) themeId = "dark";
+    // تبديل حي: سمة واحدة تعيد تلوين كل شيء (التوكنز) — بلا reload.
+    document.documentElement.setAttribute("data-theme", themeId);
+    try { localStorage.setItem(THEME_STORAGE_KEY, themeId); } catch (e) { /* private mode */ }
+    updateThemeLabel();
+    renderThemeList();
+}
+
+function updateThemeLabel() {
+    const label = document.getElementById("current-theme-label");
+    if (!label) return;
+    const cur = THEMES.find(t => t.id === getCurrentTheme());
+    label.textContent = cur ? cur.label : "Theme";
+}
+
+function renderThemeList() {
+    const list = document.getElementById("theme-list");
+    if (!list) return;
+    const current = getCurrentTheme();
+    list.innerHTML = "";
+    THEMES.forEach(t => {
+        const item = document.createElement("div");
+        item.className = "theme-item" + (t.id === current ? " active" : "");
+        item.setAttribute("data-theme-id", t.id);
+        item.onclick = () => {
+            setTheme(t.id);
+            document.getElementById("theme-dropdown").classList.add("hidden");
+            document.removeEventListener("click", closeThemeOnOutside);
+        };
+        const name = document.createElement("div");
+        name.className = "theme-item-name";
+        name.textContent = t.label + (t.id === current ? " ✓" : "");
+        const desc = document.createElement("div");
+        desc.className = "theme-item-desc";
+        desc.textContent = t.desc;
+        item.appendChild(name);
+        item.appendChild(desc);
+        list.appendChild(item);
+    });
+}
+
+function toggleThemePicker() {
+    const dropdown = document.getElementById("theme-dropdown");
+    if (dropdown.classList.contains("hidden")) {
+        renderThemeList();
+        dropdown.classList.remove("hidden");
+        setTimeout(() => {
+            document.addEventListener("click", closeThemeOnOutside);
+        }, 100);
+    } else {
+        dropdown.classList.add("hidden");
+        document.removeEventListener("click", closeThemeOnOutside);
+    }
+}
+
+function closeThemeOnOutside(e) {
+    const dropdown = document.getElementById("theme-dropdown");
+    const btn = document.getElementById("theme-btn");
+    if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+        dropdown.classList.add("hidden");
+        document.removeEventListener("click", closeThemeOnOutside);
+    }
+}
+
+function initThemePicker() {
+    // data-theme مضبوطة مسبقًا من bootstrap الـ <head> — نزامن الـ UI فقط.
+    updateThemeLabel();
+}
 
 // ═══════════════════════════════════════════
 // WebSocket

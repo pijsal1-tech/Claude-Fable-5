@@ -2208,3 +2208,41 @@ html, body {
     to { transform: rotate(360deg); }
 }
 
+/* ═══════════════════════════════════════════
+   Theme Switcher — T-061 (R-905)
+   ═══════════════════════════════════════════ */
+.theme-selector {
+    position: relative;
+}
+
+.theme-selector .sessions-dropdown {
+    top: calc(100% + 8px);
+}
+
+.theme-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: var(--transition);
+}
+
+.theme-item:hover {
+    background: color-mix(in srgb, var(--blue-soft) 12%, transparent);
+}
+
+.theme-item.active {
+    background: color-mix(in srgb, var(--blue-soft) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--blue-soft) 30%, transparent);
+}
+
+.theme-item-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.theme-item-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+}
