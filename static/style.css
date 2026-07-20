@@ -2304,3 +2304,197 @@ html, body {
     color: var(--text-dim);
     margin-top: 2px;
 }
+
+/* ═══════════════════════════════════════════
+   T-065 (R-901) — Diff-Review Panel
+   خلفيات add/del من توكنز الثيم (--diff-*-fg عبر
+   color-mix)؛ ألوان الصياغة (hljs-*) على النص
+   فوق الخلفية = "syntax layered under add/remove".
+   ═══════════════════════════════════════════ */
+#diff-panel-overlay {
+    position: fixed;
+    inset: 0;
+    background: color-mix(in srgb, var(--bg-crust) 70%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+}
+
+#diff-panel-overlay.hidden { display: none; }
+
+#diff-panel {
+    width: min(1100px, 92vw);
+    height: min(760px, 88vh);
+    background: var(--bg-surface);
+    border: 1px solid var(--surface-1);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#diff-panel-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--bg-overlay);
+    border-bottom: 1px solid var(--surface-0);
+}
+
+#diff-panel-toolbar button {
+    background: var(--surface-0);
+    color: var(--text);
+    border: 1px solid var(--surface-1);
+    border-radius: 6px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+#diff-panel-toolbar #diff-approve-all { background: color-mix(in srgb, var(--green) 18%, transparent); }
+#diff-panel-toolbar #diff-reject-all { background: color-mix(in srgb, var(--red) 18%, transparent); }
+#diff-panel-toolbar #diff-confirm { background: color-mix(in srgb, var(--blue) 18%, transparent); }
+
+#diff-panel-files {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+#diff-panel-help {
+    padding: 6px 14px;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-overlay);
+    border-top: 1px solid var(--surface-0);
+}
+
+.diff-file-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg-overlay);
+    border: 1px solid var(--surface-0);
+    border-radius: 6px;
+    margin-top: 8px;
+    cursor: pointer;
+}
+
+.diff-file-header.active { border-color: var(--blue); }
+
+.diff-collapse-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.diff-file-path {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    flex: 1;
+}
+
+.diff-count-add { color: var(--diff-add-fg); font-size: 12px; font-weight: 600; }
+.diff-count-del { color: var(--diff-del-fg); font-size: 12px; font-weight: 600; }
+
+.diff-kind-badge {
+    font-size: 11px;
+    color: var(--text-muted);
+    border: 1px solid var(--surface-1);
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+
+.diff-file-decision {
+    border: 1px solid var(--surface-1);
+    border-radius: 6px;
+    padding: 3px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    background: var(--surface-0);
+    color: var(--text);
+}
+
+.diff-file-decision.accepted { background: color-mix(in srgb, var(--green) 20%, transparent); }
+.diff-file-decision.rejected { background: color-mix(in srgb, var(--red) 20%, transparent); }
+
+.diff-file-body {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid var(--surface-0);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    background: var(--syntax-bg);
+}
+
+/* صف diff — ارتفاع ثابت 20px مطابق لـ DiffPanel.ROW_HEIGHT (virtualization) */
+.diff-row {
+    display: flex;
+    align-items: stretch;
+    height: 20px;
+    line-height: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    white-space: pre;
+}
+
+.diff-row.add { background: color-mix(in srgb, var(--diff-add-fg) 14%, transparent); }
+.diff-row.del { background: color-mix(in srgb, var(--diff-del-fg) 14%, transparent); }
+
+.diff-gutter {
+    width: 44px;
+    flex-shrink: 0;
+    text-align: right;
+    padding-right: 8px;
+    color: var(--text-muted);
+    user-select: none;
+    border-right: 1px solid var(--surface-0);
+}
+
+.diff-sign {
+    width: 18px;
+    flex-shrink: 0;
+    text-align: center;
+    color: var(--text-muted);
+    user-select: none;
+}
+
+.diff-line-code {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--syntax-text);
+    background: none;
+    padding: 0 6px;
+}
+
+.diff-line-code.add { background: color-mix(in srgb, var(--diff-add-fg) 14%, transparent); }
+.diff-line-code.del { background: color-mix(in srgb, var(--diff-del-fg) 14%, transparent); }
+.diff-line-code.diff-empty { background: color-mix(in srgb, var(--surface-0) 40%, transparent); }
+
+.diff-split-side {
+    display: flex;
+    width: 50%;
+    overflow: hidden;
+}
+
+.diff-split-side + .diff-split-side { border-left: 1px solid var(--surface-0); }
+
+.diff-command-payload {
+    margin: 0 0 8px;
+    padding: 10px;
+    background: var(--syntax-bg);
+    border: 1px solid var(--surface-0);
+    border-radius: 0 0 6px 6px;
+    font-size: 12px;
+    color: var(--syntax-text);
+    overflow-x: auto;
+}
+
+#diff-panel-timer { font-size: 11px; color: var(--text-muted); }

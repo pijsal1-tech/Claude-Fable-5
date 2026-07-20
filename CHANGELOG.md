@@ -27,6 +27,43 @@
     fallback path left.
 
 ### Added
+- **R-901 (T-065): Diff-review panel for the approval gate.**
+  - New `DiffPanel` module (`static/js/diff_panel.js`, UMD-lite, node-testable)
+    holding all pure logic; DOM glue lives in `static/app.js`
+    (`openDiffPanel` / `closeDiffPanel` / `sendDiffDecision` / `renderDiffPanel`
+    plus button and keyboard bindings). Module header **pins the payload
+    schema verbatim**: incoming `chain_approval_request`
+    (`request_id`/`source`/`run_id`/`payload_hash`/`actions[{kind,target,payload,summary}]`
+    as built by `chain/bridge.py`), outgoing `chain_approval_response`
+    (`request_id`/`approved`/`payload_hash` — accepted by `gate.resolve` only
+    on a verbatim id+hash match), and closing `chain_approval_verdict`.
+  - **Gate atomicity respected:** the protocol has no partial approval, so
+    per-file accept/reject toggles are review aids — Confirm sends
+    `approved:true` only when *every* file is accepted; any rejected file
+    ⇒ `approved:false`. The panel closes on `chain_approval_verdict`,
+    keeping the gate as the source of truth.
+  - **Diff engine:** common prefix/suffix trim + Myers O(ND) with
+    `MAX_MYERS_D=1500` and a linear fallback for huge inputs; command-kind
+    actions render their raw payload (`rows:null`). Unified **and**
+    side-by-side (split) modes with cached split pairs.
+  - **Syntax colors layered under add/del backgrounds** via
+    `CodeHighlight.highlightCode` per line (LRU makes repeats cheap);
+    language derived from `FileIcons.getFileIcon(target).id` — no second
+    extension map. File headers use T-063 icons plus ±counts, kind badges,
+    collapse and per-file decision buttons.
+  - **Virtualized rendering:** `ROW_HEIGHT: 20` matches the CSS
+    `.diff-row { height: 20px }` (test-enforced); 80-row window with
+    top/bottom spacers preserving scroll height; rAF-throttled re-window.
+    A 3k-line diff builds in <2s and renders a window in <200ms.
+  - **Keyboard shortcuts:** a=approve all, r/Escape=reject all,
+    Enter=confirm, u=toggle unified/split, x=collapse active file,
+    j/k=move focus (clamped); ignored while typing in inputs.
+  - Panel CSS is token-only (color-lint clean). `tests/unit/test_diff_panel.py`
+    adds 21 tests: WS contract against the **real `ApprovalGate`** (batch +
+    per-file semantics, tampered-hash rejection, verbatim id echo), golden
+    render of a 5-file mixed request, 3k-line perf/virtualization, full
+    shortcut map, auto-mode regression (whitelist emits no frame — panel
+    never opens), and schema/wiring pinning. Full gate: **1166 passed, 1 skipped**.
 - **R-904 (T-064): Syntax highlighting engine + chat/file views.**
   - **Engine decision (documented in module header): highlight.js 11.11.1,
     not Shiki** — Shiki needs WASM + a bundling step; this project is
