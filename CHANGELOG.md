@@ -27,6 +27,21 @@
     fallback path left.
 
 ### Added
+- **R-206 (T-057): Minimal SemanticSource — relevance-based recall, seeded early.**
+  - New `context/semantic_source.py`: pluggable `EmbeddingBackend`
+    interface + default local `HashingEmbedder` (md5 bag-of-words,
+    128-dim, L2-normalized — zero deps, zero network, deterministic).
+  - Corpus = project file chunks (30 lines, via SafeReader — secrets
+    excluded) + last 20 user turns; cosine top-k retrieval as
+    `<semantic:...>` items at **opportunistic tier only** — never
+    displaces `must_have`/`high` (compliance-tested).
+  - Hard timeout with skip-on-timeout: whole retrieval runs in a
+    worker thread; any slowness/failure ⇒ empty result — a slow
+    embedding call can never block the response.
+  - Config flag `context.semantic.enabled` in config.yaml (default
+    on, cheap to disable); `timeout_seconds` / `top_k` tunable.
+  - Standard composition: `[Mention, Keyword, Symbol, Semantic,
+    Structure]` — T-017 goldens unaffected (flag on and off).
 - **R-205 (T-056): SymbolSource — symbol-aware context in the standard composition.**
   - New `context/sources/symbol.py`: message terms resolve to
     `<symbol:definition:X>` / `<symbol:callers:X>` / `<symbol:imports:rel>`

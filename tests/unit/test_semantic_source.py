@@ -70,7 +70,7 @@ class TestRetrievalPrecision:
         (tmp_path / "a.py").write_text("def add(a, b):\n    return a + b\n",
                                        encoding="utf-8")
         items = _collect(SemanticSource(), tmp_path,
-                         "zzz qqq xxx unrelated gibberish")
+                         "purple elephant dancing rainbow")
         assert items == []                    # لا ضجيج تحت العتبة
 
     def test_turn_recall_and_no_self_retrieval(self, tmp_path):

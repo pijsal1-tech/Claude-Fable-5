@@ -37,13 +37,19 @@ def _app_config() -> dict:
 
     T-057: علم ``context.semantic`` يعيش في config.yaml بجوار الحزمة
     (نفس الملف الذي يقرؤه server._read_config — جذر التطبيق هو أبو
-    مجلد context/).
+    مجلد context/). القراءة عبر **SafeReader** — بوابة R-204 هي مسار
+    القراءة الوحيد داخل context/ (بوابة grep في check.sh)، وتسامحها
+    المرصود (فشل/حجب ⇒ لا محتوى) هو نفس دلالة "فشل ⇒ {}" هنا.
     """
     try:
         import yaml
-        cfg_path = pathlib.Path(__file__).resolve().parent.parent / "config.yaml"
-        with open(cfg_path, encoding="utf-8") as fh:
-            loaded = yaml.safe_load(fh)
+        from context.safe_reader import SafeReader
+        app_root = pathlib.Path(__file__).resolve().parent.parent
+        reader = SafeReader(app_root)
+        result = reader.read_text("config.yaml")
+        if not result.ok or result.content is None or result.redacted:
+            return {}
+        loaded = yaml.safe_load(result.content)
         return loaded if isinstance(loaded, dict) else {}
     except Exception:
         return {}
