@@ -157,6 +157,10 @@ class ExecutionPolicy:
     session_mode: str = "isolated"    # isolated | shared | provider_default
 
     # ── Parallelism ──
+    # T-046 (R-603): صار حقيقيًا — كان معلنًا والتنفيذ تسلسلي دائمًا
+    # (ready[0]). الآن المنفّذ يشغّل المجموعة الجاهزة على
+    # ThreadPoolExecutor بهذا السقف؛ ‏1 = المسار التسلسلي القديم حرفيًّا.
+    # ترتيب إكمال الخطوات المتوازية غير حتمي — النتائج نفسها حتمية.
     max_parallel_steps: int = 3
 
     # ── Retries ──
