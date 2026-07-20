@@ -633,11 +633,11 @@
 - **Files to Modify:** `chain/executor.py` prompt build
 - **Affected Modules:** chain prompts
 - **Acceptance Criteria:** step-5 prompt ≥50% smaller under `summary` on the 5-step fixture; three-mode goldens green; `minimal` completeness check.
-- **Implementation:** [ ] full · [ ] summary · [ ] minimal · [ ] defaults
-- **Testing:** [ ] mode goldens · [ ] ≥50% size test
-- **Regression:** [ ] default-mode parity with legacy
-- **Documentation:** [ ] chain-authoring doc: three modes
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-046
+- **Implementation:** [x] full · [x] summary · [x] minimal · [x] defaults
+- **Testing:** [x] mode goldens · [x] ≥50% size test
+- **Regression:** [x] default-mode parity with legacy
+- **Documentation:** [x] chain-authoring doc: three modes
+- **Completion Status:** ✅ (2026-07-19) · **Reviewer Notes:** `chain/models.py` — `canonical_context_policy(value)`: alias map `full` / `selective`→`full` (**legacy default — byte-identical parity**, proven by golden re-implementing the pre-T-045 concatenation inline) / `summary` / `summaries`→`summary` / `minimal`; unknown ⇒ `ValueError`. `summarize_for_context(text, max_tokens=SUMMARY_TOKENS_PER_DEP=256)`: deterministic budgeted extract — 70% head + explicit `[N chars omitted — summary mode]` marker + 30% tail; within-budget passes **verbatim** (no gratuitous mangling); accounting via central T-024 estimator; `lru_cache(128)` = the per-step-output summary cache the roadmap asks for (no provider calls ⇒ golden-able). `ChainStep.build_prompt(deps, dependency_meta=None)`: renders per canonical mode — `full` verbatim; `summary` per-dep budgeted; `minimal` = `[Dependency id: name — status]` lines with **zero result content** (meta falls back to id/unknown when absent); `{previous_context}` placeholder respected in all three. **No unconditional dep concatenation remains** (R-602 acceptance). `chain/executor.py`: plan-time validation in `execute()` — unknown policy fails the run **before any provider call** (run_error frame + state saved, provider call_count == 0 proven); `_execute_step` passes `dependency_meta` from the DAG. Authoring guide (mode selection + summary-starvation caveat → mark data-dependent edges `full` explicitly) = comment block over the alias map. Evidence: 🆕 `tests/unit/test_context_policy.py` (28): alias/unknown matrix ×10; render goldens ×7 (verbatim strings; minimal-completeness = every declared dep named + zero content bytes); legacy parity ×2; summarizer ×3 (deterministic; head+tail markers survive); **5-step fixture: step-5 `summary` prompt ≤50% of unbounded baseline** (acceptance) + minimal<summary<full ordering; executor E2E ×4 (fail-fast zero-calls; provider-received prompt shrinks >2× under summary; minimal leaks no dep content; default chain regression). check.sh ALL GREEN: **875 passed, 1 skipped** (pre-existing), mypy Success. · **Next Task:** T-046
 
 ## T-046 — Parallel Ready-Set Execution (R-603)
 - **Description:** Replace `ready[0]` (executor.py L204–206) with `ThreadPoolExecutor(max_workers=policy.max_parallel_steps)` over the full ready set; results merge through a lock-guarded `apply_step_result()`; per-task ticket cancellation checkpoints; stress test — 20 map steps with injected random failures.

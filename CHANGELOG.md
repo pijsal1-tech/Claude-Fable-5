@@ -27,6 +27,42 @@
     fallback path left.
 
 ### Added
+- **R-602 (T-045): `context_policy` enforced in `build_prompt` —
+  the decorative field becomes a real lever.** `chain/models.py`:
+  `canonical_context_policy(value)` — alias map (`full`,
+  `selective`→`full` [legacy default, byte-identical parity],
+  `summary`, `summaries`→`summary`, `minimal`); unknown value ⇒
+  `ValueError` (fail fast). `summarize_for_context(text,
+  max_tokens=SUMMARY_TOKENS_PER_DEP=256)` — deterministic
+  budgeted extract (70% head + explicit omission marker + 30%
+  tail; within-budget passes verbatim; token accounting via the
+  central T-024 estimator; `lru_cache` = per-step-output summary
+  cache). `ChainStep.build_prompt(dependency_results,
+  dependency_meta=None)` now renders per policy: `full` verbatim
+  (no unconditional concatenation remains), `summary` budgeted
+  per-dep summaries, `minimal` dependency name+status lines with
+  **zero result content**; `{previous_context}` placeholder
+  respected in all modes. `chain/executor.py`: plan-time
+  validation in `execute()` — any step with an unknown policy
+  fails the run **before the first provider call** (run_error +
+  state saved); `_execute_step` passes `dependency_meta`
+  (name/status from the DAG) for `minimal`. Chain-authoring guide
+  (when to use each mode + the summary-starvation caveat: mark
+  data-dependent edges `full` explicitly) = comment block over
+  the policy map in `chain/models.py`. Evidence:
+  🆕 `tests/unit/test_context_policy.py` (28): alias/unknown
+  matrix ×10; three-mode render goldens ×7 (verbatim strings,
+  incl. minimal-completeness: every declared dep named, zero
+  content bytes; placeholder in all modes); legacy parity ×2
+  (`selective` default byte-identical to the pre-T-045
+  concatenation, missing-dep skip); summarizer ×3 (verbatim
+  within budget, deterministic truncation, head+tail preserved);
+  5-step fixture: step-5 prompt under `summary` **≤50% of the
+  unbounded baseline** (acceptance) + minimal<summary<full
+  ordering; executor E2E ×4 (unknown policy → failed with zero
+  provider calls; provider-received prompt actually shrinks under
+  `summary`; `minimal` provider sees no dep content; default
+  chain unchanged — regression).
 - **R-601 (T-044): Crash resume wired — `can_resume`/`load_state`
   get their first production callers.** 🆕 `chain/resume.py`:
   `scan_resumable(runs_dir)` (startup + on-demand scan for
