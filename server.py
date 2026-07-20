@@ -66,7 +66,8 @@ from runners.direct import DirectRunner
 from core.approval import ApprovalGate
 from chain.knowledge import KnowledgeAccumulator
 from core.execution import ExecutionRegistry
-from core.session_context import SessionContext, RunBusyError
+from core.execution import RunBusyError
+from core.session_context import SessionContext
 from core.events import (
     ApprovalRequested,
     BudgetChanged,

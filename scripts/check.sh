@@ -73,6 +73,12 @@ if [ -n "$ws_violations" ]; then
 fi
 echo "transport boundary clean"
 
+# T-048 (R-701): الحالة لكل اتصال — ممنوع global أو قراءة حالة وحدوية
+# متغيّرة داخل دوال الـ handlers (ws_handler/_handle_ws_message/...).
+# القاعدة كاملة في core/session_context.py؛ الفاحص AST-based.
+echo "== handler state lint (no module-level mutable state in handlers) =="
+python3 scripts/lint_handler_state.py server.py
+
 echo "== pytest =="
 python3 -m pytest
 
