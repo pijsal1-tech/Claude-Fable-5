@@ -27,6 +27,22 @@
     fallback path left.
 
 ### Added
+- **R-106 (T-053): CheckpointManager core — content-addressed pre-write snapshots.**
+  - New `core/checkpoint.py`: `snapshot(run_id, paths)` stores pre-write
+    copies in a content-addressed `objects/<sha256>` store (duplicate
+    content stored once, ever) + appends to a `checkpoints.jsonl` log;
+    `seal(run_id, paths)` records post-write hashes after the apply.
+  - `restore_run(run_id)` / `restore_file(run_id, path)` verify the
+    current on-disk hash first: only content provably equal to the run's
+    sealed output (or already at snapshot state) is rolled back — an
+    external edit, a crash-before-seal, or store corruption **refuses with
+    a structured conflict report** and never overwrites unverifiable work.
+    `restore_run` still restores clean siblings (partial status).
+  - Created-by-the-run files (snapshot records "absent") are deleted on
+    rollback; `RestoreReport.to_dict()` is WS-frame-ready for T-054.
+  - 19 unit tests in `tests/unit/test_checkpoint.py` (byte-exact 5-file
+    batch incl. binary + UTF-8, dedup assertion, per-file restore leaves
+    siblings, refusal matrix). Standalone — no server wiring yet (T-054).
 - **Phase 8 Scoping (T-052): spike findings + task breakdown — no production code.**
   - New `docs/phase8_plan.md`: (1) entry-point plugin loading for R-801
     **validated by throwaway experiment** on Python 3.13.13 — per-plugin

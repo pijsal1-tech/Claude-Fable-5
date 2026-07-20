@@ -755,11 +755,11 @@
 - **Files to Modify:** `core/checkpoint.py` (new), `tests/unit/test_checkpoint.py`
 - **Affected Modules:** none yet
 - **Acceptance Criteria:** 5-file batch snapshot+restore is byte-exact; per-file restore leaves siblings; external-modification refusal unit-tested; duplicate content stored once (dedup asserted).
-- **Implementation:** [ ] content-addressed store · [ ] CheckpointLog · [ ] restore_run/restore_file · [ ] hash-conflict refusal
-- **Testing:** [ ] byte-exact restore · [ ] partial restore · [ ] conflict refusal · [ ] dedup
-- **Regression:** [ ] suite green
-- **Documentation:** [ ] checkpoint store layout
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-054
+- **Implementation:** [x] content-addressed store · [x] CheckpointLog · [x] restore_run/restore_file · [x] hash-conflict refusal
+- **Testing:** [x] byte-exact restore · [x] partial restore · [x] conflict refusal · [x] dedup
+- **Regression:** [x] suite green
+- **Documentation:** [x] checkpoint store layout
+- **Completion Status:** ✅ 2026-07-20 · **Reviewer Notes:** `core/checkpoint.py` (~450 lines) — `objects/<sha256>` blob store + `checkpoints.jsonl` log with two record types: `snapshot` (pre-write) and `seal` (post-write). The seal record is the key design addition: restore verifies current-disk hash == sealed post-write hash before overwriting — anything else (human edit, crash-before-seal, absent-snapshot-but-content-exists) refuses with a structured `Conflict` (path, expected/actual sha256, reason) and never destroys unverifiable work. `restore_run` restores clean siblings around conflicts (status success/partial/refused); `RestoreReport.to_dict()` is WS-frame-ready for T-054. Dedup: one blob per unique content ever (asserted across runs); first-snapshot-wins within a run; atomic writes via tmp+`os.replace`; torn log-tail lines tolerated. 19 new tests in `tests/unit/test_checkpoint.py` (5-file byte-exact incl. binary+UTF-8, created-file rollback deletes, per-file leaves siblings, external-edit refusal with report, partial restore, missing-seal refusal, dedup, serialization). Suite: 982 passed, 1 skipped — ALL GREEN. No server wiring (T-054). · **Next Task:** T-054
 
 ## T-054 — Wire Checkpoints + Rollback WS Commands (R-106)
 - **Description:** Every `ApprovalGate`-approved apply calls `CheckpointManager.snapshot()` before writing (chain + agent paths); record before/after diff post-apply; add WS `rollback_run(run_id)` and `rollback_file(run_id, path)` handlers returning success/partial/refused frames; checkpoints registered with R-305 `RetentionPolicy` (extend T-033's sweep).
