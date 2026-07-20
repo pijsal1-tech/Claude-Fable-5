@@ -27,6 +27,47 @@
     fallback path left.
 
 ### Added
+- **R-604 (T-047): Typed EventBus + single WS Adapter — execution
+  decoupled from transport.** 🆕 `core/events.py`: in-process `EventBus`
+  (per-run **FIFO** delivery under a per-run lock; subscriber **isolation**
+  — a throwing subscriber never affects others or the publisher; bounded
+  per-run **history** for debugging, LRU-capped run count;
+  `subscribe()` returns an unsubscribe function) + the six typed events
+  of the R-604 catalog: `RunStarted` / `StepProgress` /
+  `ApprovalRequested` / `RunFinished` / `RoutingDecided` /
+  `BudgetChanged` (frozen dataclasses keyed by `run_id`).
+  - **Single WS Adapter:** `server.py::_WSAdapter` is now the **only**
+    `ws.send` site in the codebase. `_json_sender(ws)` builds the
+    per-connection pipeline `frame → _frame_publisher → EventBus →
+    _WSAdapter → ws.send` — same signature, same JSON-only /
+    swallow-errors / no-ticket-lifecycle contract (T-015), so all 52
+    scattered `ws.send(json.dumps(...))` sites in `ws_handler` migrated
+    to `_ws_frame(...)` with **zero frame-shape change** (adapter
+    renders `{"type": frame_type, **payload}` byte-identically —
+    parity-proven against a legacy recording).
+  - **Observability lane:** module-level `event_bus` carries the
+    non-UI events: `_RunnerWSAdapter` now publishes `RunStarted` /
+    `RunFinished` (still **no** UI frame — legacy semantics), the
+    router decision site publishes `RoutingDecided` (R-402 hook), and
+    any frame carrying a `budget` dict derives a `BudgetChanged`.
+    Approval frames publish `ApprovalRequested`; everything else
+    `StepProgress`.
+  - **CI gate:** `scripts/check.sh` grep bans `ws.send(` outside the
+    adapter across `server.py chain/ core/ runners/ actions/ context/
+    sessions/` (only `self._ws.send(` inside `_WSAdapter._send`
+    allowed; `providers/use_ai.py` exempt — it is an outbound WS
+    *client* to the AI provider, not UI transport). Runners import
+    zero transport modules (tested).
+  - Evidence: 🆕 `tests/unit/test_event_bus.py` (14): pub/sub ×5
+    (subscribe/unsubscribe, multi-subscriber, broken-subscriber
+    isolation, bounded history, full event catalog); **FIFO under
+    concurrent emission ×2** (4 threads × 50 events per run — per-run
+    order preserved; history order too); adapter parity ×5 (**legacy
+    recording byte-identical**, swallow-errors contract, approval →
+    typed event, budget → `BudgetChanged`, runner lifecycle →
+    observability events with no UI frame); boundary ×2 (grep clean,
+    runners transport-free). check.sh ALL GREEN: **900 passed,
+    1 skipped**.
 - **R-603 (T-046): Parallel ready-set execution — `max_parallel_steps`
   becomes real.** Previously the executor always ran `ready[0]`
   sequentially while the policy advertised parallelism. Now

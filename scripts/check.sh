@@ -58,6 +58,21 @@ if [ -n "$threshold_violations" ]; then
 fi
 echo "thresholds clean"
 
+# T-047 (R-604): النقل معزول — ممنوع أي ws.send خارج المحوّل الوحيد
+# (_WSAdapter._send في server.py). المنفّذون ينشرون أحداثًا على الـ
+# EventBus فقط. (providers/use_ai.py مستثنى: عميل WS خارجي لمزوّد AI —
+# ليس نقل واجهة المستخدم.)
+echo "== ws.send boundary grep (transport isolated to _WSAdapter) =="
+ws_violations=$(grep -rn 'ws\.send(' --include='*.py' \
+  server.py chain/ core/ runners/ actions/ context/ sessions/ \
+  | grep -v 'self\._ws\.send(' || true)
+if [ -n "$ws_violations" ]; then
+  echo "ws.send boundary violation — raw send outside _WSAdapter:"
+  echo "$ws_violations"
+  exit 1
+fi
+echo "transport boundary clean"
+
 echo "== pytest =="
 python3 -m pytest
 

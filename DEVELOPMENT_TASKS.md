@@ -659,11 +659,11 @@
 - **Files to Modify:** `core/events.py` (new), `server.py` adapter, all emit sites
 - **Affected Modules:** every progress-reporting path
 - **Acceptance Criteria:** frame snapshots vs legacy recordings identical; FIFO test under concurrent emission; CI grep green.
-- **Implementation:** [ ] bus · [ ] event types · [ ] adapter · [ ] migrate sites · [ ] CI grep
-- **Testing:** [ ] snapshots · [ ] FIFO · [ ] grep
-- **Regression:** [ ] client works unmodified
-- **Documentation:** [ ] event catalog
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-048
+- **Implementation:** [x] bus · [x] event types · [x] adapter · [x] migrate sites · [x] CI grep
+- **Testing:** [x] snapshots · [x] FIFO · [x] grep
+- **Regression:** [x] client works unmodified
+- **Documentation:** [x] event catalog
+- **Completion Status:** ✅ (2026-07-20) · **Reviewer Notes:** 🆕 `core/events.py` — `EventBus`: **FIFO لكل run** (النشر لنفس `run_id` متسلسل تحت RLock خاص بالـ run؛ لا ضمان ترتيب عابر للـ runs — موثق)، **عزل المشتركين** (استثناء مشترك يُبتلع ولا يمس البقية/الناشر)، **تاريخ لكل run** (deque مسقوفة + LRU على عدد الـ runs)، `subscribe()` يعيد دالة إلغاء الاشتراك. الأنواع الستة من كتالوج R-604 كلها frozen dataclasses بمفتاح `run_id`: `RunStarted`/`StepProgress`/`ApprovalRequested`/`RunFinished`/`RoutingDecided`/`BudgetChanged` — **كتالوج الأحداث = docstring الموديول** (أي حدث يُنتج إطار واجهة وأيها رصدي فقط). `server.py`: **`_WSAdapter` = موقع `ws.send` الأوحد** (قفل إرسال + ابتلاع أخطاء WS كما كان)؛ `_json_sender(ws)` يحتفظ بتوقيعه وعقده (T-015: JSON فقط، لا مساس بدورة التذكرة — اختباره القديم يمر بلا تعديل) لكنه الآن يبني الخط `dict frame → _frame_publisher → bus الاتصال → _WSAdapter`؛ **52 موقع `ws.send(json.dumps(...))` في `ws_handler` هاجروا** إلى `_ws_frame(...)` (migration آلي متوازن الأقواس مع نزع `ensure_ascii=False` — المحوّل يضيفه مركزيًّا) — **صفر تغيير في شكل الإطارات** (المحوّل يبني `{"type": frame_type, **payload}` — تكافؤ بايت-بايت مثبت ضد تسجيل قديم حرفي). القناة الرصدية: `event_bus` على مستوى الموديول — `_RunnerWSAdapter` ينشر `RunStarted`/`RunFinished` (بلا إطار واجهة — نفس القديم)، موقع قرار الراوتر ينشر `RoutingDecided` (خطاف R-402)، وأي إطار يحمل `budget` يشتق `BudgetChanged`؛ إطارات الموافقة ⇒ `ApprovalRequested`. **بوابة CI**: check.sh grep يمنع `ws.send(` خارج المحوّل عبر `server.py chain/ core/ runners/ actions/ context/ sessions/` (المسموح `self._ws.send(` داخل `_WSAdapter._send` فقط؛ `providers/use_ai.py` مستثنى موثقًا — عميل WS صادر لمزوّد AI لا نقل واجهة). Evidence: 🆕 `tests/unit/test_event_bus.py` (14): pub/sub ×5 (اشتراك/إلغاء، تعدد مشتركين، عزل المعطوب، سقف التاريخ، الكتالوج كاملًا) · **FIFO تحت نشر متزامن ×2** (4 خيوط × 50 حدثًا لكل run — ترتيب كل run محفوظ + ترتيب التاريخ) · تكافؤ المحوّل ×5 (**تسجيل قديم بايت-بايت**، عقد ابتلاع الأخطاء، موافقة⇒حدث مكتوب، budget⇒`BudgetChanged`، دورة حياة الـ runner⇒أحداث رصدية بلا إطار) · الحدود ×2 (grep نظيف كاختبار يفشل الحزمة لا السكريبت فقط؛ الـ runners صفر استيراد نقل). check.sh ALL GREEN: **900 passed, 1 skipped** (pre-existing)، mypy Success — regression: كل اختبارات dispatch_parity/ws_run_control/concurrent_run_guard القديمة تمر بلا تعديل = الواجهة تعمل كما هي. · **Next Task:** T-048
 
 ---
 
