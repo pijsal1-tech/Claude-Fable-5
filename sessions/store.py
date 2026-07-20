@@ -193,6 +193,9 @@ class SessionStore:
         # كاش الرؤوس + الجلسات التي فُحص ذيلها للكتابة في عمر المخزن هذا
         self._meta_cache: dict[str, SessionMeta] = {}
         self._tail_checked: set[str] = set()
+        # T-103: فحص ذيل sidecar الحلقات — مفتاحه مسار الملف لا معرّف
+        # الجلسة (سجلان مستقلان لنفس الجلسة يجب ألا يتشاركا الفحص)
+        self._episode_tail_checked: set[str] = set()
 
     # ── المسارات ──
 
@@ -201,6 +204,15 @@ class SessionStore:
 
     def meta_path(self, session_id: str) -> pathlib.Path:
         return self.sessions_dir / f"session_{session_id}.meta.json"
+
+    def episodes_path(self, session_id: str) -> pathlib.Path:
+        """sidecar الحلقات (T-103 / R-802): ``session_<id>.episodes.jsonl``.
+
+        ملحق-فقط بنفس ضمانات سجل الرسائل (fsync حسب السياسة، تعافي
+        الذيل الممزّق) — لكنه **مشتق** من الـ runs لا من الرسائل:
+        غيابه = لا حلقات بعد، ليس خطأ.
+        """
+        return self.sessions_dir / f"session_{session_id}.episodes.jsonl"
 
     # ── دورة الحياة ──
 
@@ -222,12 +234,14 @@ class SessionStore:
 
     def delete(self, session_id: str) -> bool:
         found = False
-        for p in (self.data_path(session_id), self.meta_path(session_id)):
+        for p in (self.data_path(session_id), self.meta_path(session_id),
+                  self.episodes_path(session_id)):
             if p.exists():
                 p.unlink()
                 found = True
         self._meta_cache.pop(session_id, None)
         self._tail_checked.discard(session_id)
+        self._episode_tail_checked.discard(session_id)
         return found
 
     def list_ids(self) -> list[str]:
@@ -273,6 +287,50 @@ class SessionStore:
             "role": role, "content": content, "ts": _now_iso(),
         })
 
+    # ── sidecar الحلقات (T-103 / R-802) ──
+
+    def append_episode(self, session_id: str,
+                       record: dict[str, Any]) -> None:
+        """إلحاق سجل حلقة واحد إلى ``session_<id>.episodes.jsonl``.
+
+        نفس ضمانات ``append_record`` (سطر JSON + ``\\n``، fsync حسب
+        السياسة، بتر الذيل الممزّق قبل أول إلحاق) لكن على sidecar
+        مستقل: **لا يلمس سجل الرسائل ولا الـ meta** — الحلقات مشتقة
+        (تُبنى من الـ runs) ولا تُحتسب في ``message_count``.
+        الجلسة يجب أن توجد (سجل رسائلها) — حلقة بلا جلسة خطأ استعمال.
+        """
+        if not self.exists(session_id):
+            raise FileNotFoundError(f"جلسة غير موجودة: {session_id}")
+        path = self.episodes_path(session_id)
+        if not path.is_file():
+            path.touch()
+            self._episode_tail_checked.add(session_id)  # جديد — ذيل سليم
+        elif session_id not in self._episode_tail_checked:
+            self._episode_tail_checked.add(session_id)
+            self._truncate_torn_tail(path)
+
+        line = json.dumps(record, ensure_ascii=False)
+        if "\n" in line:   # نفس حزام أمان append_record
+            raise ValueError("سجل JSONL لا يحوي سطرًا جديدًا داخليًا")
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+            f.flush()
+            if self._fsync == "always":
+                os.fsync(f.fileno())
+
+    def replay_episodes(self, session_id: str) -> ReplayResult:
+        """كل سجلات الحلقات بالترتيب — نفس دلالات تعافي ``replay``.
+
+        sidecar غير موجود = لا حلقات بعد ⇒ نتيجة فارغة (ليس خطأ —
+        الحلقات مشتقة اختيارية بخلاف سجل الرسائل الإلزامي).
+        """
+        path = self.episodes_path(session_id)
+        if not path.is_file():
+            if not self.exists(session_id):
+                raise FileNotFoundError(f"جلسة غير موجودة: {session_id}")
+            return ReplayResult()
+        return self._replay_path(path, f"{session_id}.episodes")
+
     # ── القراءة ──
 
     def replay(self, session_id: str) -> ReplayResult:
@@ -283,6 +341,10 @@ class SessionStore:
         path = self.data_path(session_id)
         if not path.is_file():
             raise FileNotFoundError(f"جلسة غير موجودة: {session_id}")
+        return self._replay_path(path, session_id)
+
+    def _replay_path(self, path: pathlib.Path, label: str) -> ReplayResult:
+        """قلب replay() — مشترك بين سجل الرسائل وsidecar الحلقات (T-103)."""
         raw = path.read_bytes()
         result = ReplayResult()
         if not raw:
@@ -301,7 +363,7 @@ class SessionStore:
                     "utf-8", errors="strict")))
             except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                 raise CorruptLogError(
-                    f"سطر تالف في وسط سجل {session_id} "
+                    f"سطر تالف في وسط سجل {label} "
                     f"(سطر {i + 1}): {exc}") from exc
         return result
 
@@ -427,6 +489,11 @@ class SessionStore:
         if session_id in self._tail_checked:
             return
         self._tail_checked.add(session_id)
+        self._truncate_torn_tail(path)
+
+    @staticmethod
+    def _truncate_torn_tail(path: pathlib.Path) -> None:
+        """بتر ما بعد آخر ``\\n`` سليم — مشترك بين السجل والحلقات (T-103)."""
         size = path.stat().st_size
         if size == 0:
             return
