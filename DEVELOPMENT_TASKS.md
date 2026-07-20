@@ -903,11 +903,11 @@
 - **Files to Modify:** `public/` (tree, tabs, mention components)
 - **Affected Modules:** file tree, tabs, mentions
 - **Acceptance Criteria:** visual snapshot of a fixture project tree containing all covered types; grep proves no second extension→icon mapping exists.
-- **Implementation:** [ ] tree · [ ] tabs · [ ] mentions
-- **Testing:** [ ] snapshot · [ ] single-source grep
-- **Regression:** [ ] tree interactions unchanged
-- **Documentation:** [ ] —
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-064
+- **Implementation:** [x] tree · [x] tabs · [x] mentions
+- **Testing:** [x] snapshot · [x] single-source grep
+- **Regression:** [x] tree interactions unchanged
+- **Documentation:** [x] —
+- **Completion Status:** ✅ 2026-07-20 · **Reviewer Notes:** (1) **مصدر وحيد**: أُضيفت `fileIconHTML(path)` في `static/app.js` (import واحد لوحدة T-062 عبر `FileIcons.getFileIcon`) تُرجع `<svg class="file-icon" style="color: var(--icon-*)"><use href="/static/icons/sprite.svg#icon-*"></use></svg>`؛ وحُذفت دالة الإيموجي القديمة `getFileIcon(ext)` بالكامل (اختبار يمنع عودة توقيعاتها الحرفية `".py": "🐍"` إلخ). (2) **نقاط الاستهلاك الثلاث**: الشجرة (`renderTreeNode` → `fileIconHTML(val.path)`)، التبويبات (`renderTabs` → `fileIconHTML(t.path)`)، مرفقات الـ @mention (`renderAttachments` → `fileIconHTML(att.name)` بدل 📄). diff-panel وrun-history غير موجودين بعد (T-065) — النطاق يقول "when they exist". `getFileBadgeHTML` (شارات SRC/TREE/DIR لنشاط الأدوات بالشات) نظام منفصل خارج النطاق عمدًا — موثّق باختبار. (3) **مسار**: حقل Files ذكر `public/` لكنه كود ميت (server.py يخدم `static/` فقط — مثبت منذ T-060) فالتعديلات تحت `static/`. (4) `static/index.html`: تحميل `file_icons.js?v=1` قبل app.js (اختبار ترتيب)؛ `static/style.css`: قاعدة `.file-icon {width:14px;height:14px;flex-shrink:0}` (بلا ألوان خام — بوابة color-lint خضراء). (5) **`tests/unit/test_icon_consumption.py` = 11 اختبارًا**: بوابة grep على كل الـ .js المخدومة (regex `"\.ext": "..."`) تُثبت لا mapping ثانٍ خارج الوحدة؛ حذف الدالة القديمة؛ نقاط الاستهلاك الثلاث؛ ترتيب التحميل؛ وsnapshot لشجرة تجريبية من 25 مسارًا تغطي كل الأصناف — تُشغَّل `fileIconHTML` **الفعلية** (مستخرجة من app.js) في node مع الوحدة الحقيقية، وتطابق الرموز جدولًا مثبتًا حرفيًا (`#icon-js` … `#icon-file`). (6) **ملاحظة استرجاع**: تنفيذ T-063 كان قد التُقط في f260b9b ثم **عُكس** في d19f124 (Revert بتوقيع "Antigravity AI") — أُعيد من f260b9b وتحقق كاملًا. `./scripts/check.sh` = **1129 passed, 1 skipped — ALL GREEN**. · **Next Task:** T-064
 
 ## T-064 — Syntax Highlighting Engine + Chat/File Views (R-904)
 - **Description:** Integrate one highlighting engine (highlight.js or Shiki — decide and document); apply to fenced code blocks in chat (auto-detect + fence-tag override) and file content views with line numbers; palettes read from theme tokens; streaming output highlighted incrementally (only the appended chunk re-tokenized — no flicker); large files highlighted lazily by viewport.
