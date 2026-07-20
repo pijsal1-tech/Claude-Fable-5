@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from actions.file_manager import FileManager
     from actions.command_runner import CommandRunner
     from actions.response_parser import ResponseParser, ParsedResponse
+    from core.checkpoint import CheckpointManager
 
 
 # ═══════════════════════════════════════════════════════
@@ -130,7 +131,8 @@ class ActionApplier:
         return self._static_cmd
 
     def apply_step(self, step_id: str, ai_response: str,
-                   dry_run: bool = False) -> ApplyResult:
+                   dry_run: bool = False, run_id: str = "",
+                   checkpoint: "CheckpointManager | None" = None) -> ApplyResult:
         """
         يحلل ناتج AI step ويطبق الإجراءات.
 
@@ -138,6 +140,10 @@ class ActionApplier:
             step_id: معرف الخطوة
             ai_response: نص رد AI الكامل
             dry_run: لو True — يحلل بس ولا يطبق
+            run_id: معرف الـ run — مفتاح الـ checkpoint (T-054, R-106)
+            checkpoint: CheckpointManager — لو موجود مع run_id، تُلتقط
+                snapshot لحالة ملفات الـ batch **قبل** أي كتابة وseal
+                بعدها — rollback_run/rollback_file يستعيدان منها.
 
         Returns:
             ApplyResult مع تفاصيل كل إجراء
@@ -179,6 +185,27 @@ class ActionApplier:
             result.duration_ms = int((time.monotonic() - start) * 1000)
             return result
 
+        # ── 2.5 Checkpoint: snapshot ما-قبل-الكتابة (T-054, R-106) ──
+        # كل مسارات الملفات تُلتقط قبل أول كتابة؛ الأوامر لا تُلتقط.
+        ckpt_paths: list = []
+        if checkpoint is not None and run_id and not dry_run:
+            from chain.path_policy import resolve_workspace_path
+            _fm_root = getattr(self._fm, "root", None)
+            for a in actions:
+                _p = a.get("path")
+                if not _p or _fm_root is None:
+                    continue
+                try:
+                    ckpt_paths.append(resolve_workspace_path(
+                        _fm_root, _p, must_exist=False, allow_symlinks=False))
+                except Exception:
+                    continue  # مسار مرفوض — الكتابة نفسها ستفشل بنفس السبب
+            if ckpt_paths:
+                try:
+                    checkpoint.snapshot(run_id, ckpt_paths)
+                except Exception:
+                    ckpt_paths = []  # فشل snapshot لا يمنع الـ apply (الباك-أب موجود)
+
         # ── 3. Backup تلقائي (مرة واحدة لكل batch) ──
         if self._auto_backup and not self._backup_done and self._fm and not dry_run:
             try:
@@ -213,6 +240,15 @@ class ActionApplier:
                     self._on_action(ar)
                 except Exception:
                     pass
+
+        # ── 4.5 Checkpoint: seal ما-بعد-الكتابة (T-054, R-106) ──
+        # hash ما-بعد-الكتابة يثبت لاحقًا أن الملف لم يُعدَّل خارجيًا،
+        # والـ blob المخزّن يتيح عرض diff قبل/بعد من المخزن وحده.
+        if checkpoint is not None and ckpt_paths:
+            try:
+                checkpoint.seal(run_id, ckpt_paths)
+            except Exception:
+                pass  # فشل الـ seal يجعل rollback يرفض بأمان — لا كسر للـ apply
 
         result.duration_ms = int((time.monotonic() - start) * 1000)
         return result

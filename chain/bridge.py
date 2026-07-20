@@ -31,6 +31,7 @@ from .orchestrator import SmartOrchestrator
 from .agent_loader import AgentLoader
 from .action_applier import ActionApplier
 from core.approval import ApprovalGate, ApprovalRequest, ProposedAction
+from core.checkpoint import CheckpointManager
 from core.execution import RunTicket
 from .path_policy import is_secret_file  # T-025 (R-204): فلتر حدود الماسح
 
@@ -237,6 +238,16 @@ class ChainBridge:
         if self._explicit_runs_dir is not None:
             return self._explicit_runs_dir
         return pathlib.Path(self._project_root or ".") / ".ai_runs"
+
+    @property
+    def checkpoint_manager(self) -> CheckpointManager:
+        """T-054 (R-106): مدير الـ checkpoints — يُحَل وقت الاستدعاء.
+
+        المخزن تحت ``<runs_dir>/checkpoints`` — الاسم لا يطابق نمط
+        ``run-*`` فمسح retention لمجلدات الـ runs لا يلمسه؛ تقليمه
+        يتم عبر ``CheckpointManager.prune`` (مربوط بنفس الـ sweep).
+        """
+        return CheckpointManager(self._runs_dir / "checkpoints")
 
     @property
     def action_applier(self) -> ActionApplier | None:
@@ -541,10 +552,14 @@ class ChainBridge:
         if not verdict.approved:
             return  # مرفوض/مهلة/deny — صفر كتابات
 
+        # T-054 (R-106): snapshot قبل الكتابة + seal بعدها — داخل
+        # apply_step نفسه (لا مسار apply يتجاوز الـ snapshot).
         apply_result = self._action_applier.apply_step(
             step_id="mr_execute",
             ai_response=result_text,
             dry_run=False,
+            run_id=run.run_id,
+            checkpoint=self.checkpoint_manager,
         )
         _safe_send({
             "type": "chain_apply_result",

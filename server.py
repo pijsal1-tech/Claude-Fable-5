@@ -1026,6 +1026,38 @@ def _handle_ws_message(ctx, sctx, msg):
                 print(f"⚠️ Chain approval غير مطابق: {msg.get('request_id', '')}")
         return
 
+    # ── Rollback (T-054, R-106): استعادة ملفات run مُطبَّق ──
+    # يتحقق hash الملف الحالي أولًا — تعديل خارجي ⇒ رفض بتقرير تعارض
+    # (success/partial/refused في إطار rollback_result).
+    if msg_type in ("rollback_run", "rollback_file"):
+        run_id = str(msg.get("run_id", "")).strip()
+        if not run_id:
+            sctx.send({"type": "rollback_result", "status": "refused",
+                       "run_id": "", "restored": [],
+                       "conflicts": [{"path": "", "reason": "missing_run_id"}]})
+            return
+        bridge = sctx.chain_bridge
+        if bridge is None:
+            sctx.send({"type": "rollback_result", "status": "refused",
+                       "run_id": run_id, "restored": [],
+                       "conflicts": [{"path": "",
+                                      "reason": "no_chain_bridge"}]})
+            return
+        mgr = bridge.checkpoint_manager
+        if msg_type == "rollback_file":
+            path = str(msg.get("path", "")).strip()
+            if not path:
+                sctx.send({"type": "rollback_result", "status": "refused",
+                           "run_id": run_id, "restored": [],
+                           "conflicts": [{"path": "",
+                                          "reason": "missing_path"}]})
+                return
+            report = mgr.restore_file(run_id, path)
+        else:
+            report = mgr.restore_run(run_id)
+        sctx.send({"type": "rollback_result", **report.to_dict()})
+        return
+
     if msg_type == "message":
         user_text = msg.get("text", "").strip()
         mode = msg.get("mode", "chat")
@@ -2109,6 +2141,16 @@ def main():
             print(f"  🧹 Retention ({_mode}): "
                   f"{len(_report.kept)} باقٍ / {len(_report.deleted)} "
                   f"{'مرشح للحذف' if _report.dry_run else 'محذوف'}")
+            # T-054 (R-106): تقليم checkpoints بنفس سياسة الـ sweep —
+            # الـ runs الناجية تُبقي checkpoints-ها؛ المحذوفة تُقلَّم
+            # (log + blob GC). في dry-run لا تقليم (نفس أمان الـ sweep).
+            if not _report.dry_run:
+                from core.checkpoint import CheckpointManager as _CkptMgr
+                _ck = _CkptMgr(pathlib.Path(project_path) / ".ai_runs"
+                               / "checkpoints")
+                _pruned = _ck.prune(set(_report.kept))
+                if _pruned:
+                    print(f"  🧹 Checkpoints: {_pruned} run مُقلَّم")
     except Exception as _exc:
         print(f"  ⚠️ Retention sweep skipped: {_exc}")
 

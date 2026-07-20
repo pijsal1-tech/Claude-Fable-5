@@ -294,6 +294,37 @@ class CheckpointManager:
                 out.append(rid)
         return out
 
+    def prune(self, keep_run_ids: set[str] | frozenset[str]) -> int:
+        """T-054 (R-106): retention hookup — drop runs outside ``keep_run_ids``.
+
+        Rewrites the log keeping only records of surviving runs, then
+        garbage-collects blobs no surviving record references.  Returns the
+        number of run ids pruned.  Called next to the R-305 retention sweep
+        with the sweep's surviving run set, so checkpoint storage stays
+        bounded by the same policy as run artifacts.
+        """
+        records = self._iter_log()
+        all_ids = {str(r.get("run_id", "")) for r in records if r.get("run_id")}
+        doomed = all_ids - set(keep_run_ids)
+        if not doomed:
+            return 0
+        survivors = [r for r in records if str(r.get("run_id", "")) not in doomed]
+        tmp = self._log_path.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
+            for rec in survivors:
+                fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        os.replace(tmp, self._log_path)
+        # blob GC: keep only hashes still referenced by surviving records
+        live_hashes = {r.get("sha256") for r in survivors if r.get("sha256")}
+        if self._objects.is_dir():
+            for blob in self._objects.iterdir():
+                if blob.name.endswith(".tmp") or blob.name not in live_hashes:
+                    try:
+                        blob.unlink()
+                    except OSError:
+                        pass  # best-effort — سيلتقطه المسح القادم
+        return len(doomed)
+
     def _iter_log(self) -> list[dict]:
         if not self._log_path.exists():
             return []
