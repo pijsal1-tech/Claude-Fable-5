@@ -207,7 +207,9 @@ class TestTierRestriction:
                  BudgetItem("core.py", "كود جوهري " * 20, tier="high")]
         items += [BudgetItem(it.path, (it.content or "") * 10,
                              tier=MEMORY_TIER) for it in bundle.items]
-        packed = ContextBudget(model_window=60).pack(items)
+        # 80 → ميزانية 72 توكن: تتسع للأساسيين (16+50=66) فقط،
+        # فتُسقط عناصر الذاكرة (opportunistic) أولًا دون المساس بهما.
+        packed = ContextBudget(model_window=80).pack(items)
         kept = {i.key for i in packed.kept}
         assert "user_request" in kept and "core.py" in kept
         dropped = {d.key for d in packed.dropped}

@@ -27,6 +27,40 @@
     fallback path left.
 
 ### Added
+- **R-802 (T-105): Layered retrieval source at the opportunistic tier —
+  R-802 complete.**
+  - New `context/sources/memory.py`: `MemorySource` combines the
+    episodic layer (T-103) and the semantic index (T-104) behind one
+    ContextEngine source (`kind="memory"`). Semantic hits surface as
+    `<memory:sem:{chunk_id}>` items; episodes are matched by a
+    deterministic word-overlap score (Arabic + Latin tokens, newest
+    wins ties, max 2) and rendered as labeled
+    `<memory:episode:{run_id}>` blocks. Symbolic `<memory:...>` paths
+    never enter `mentioned_files`.
+  - Tier confinement is provable, not conventional: the module-level
+    constant `MEMORY_TIER = "opportunistic"` is the **only** tier
+    string in the file — a source-grep test bans
+    `"must_have"/"high"/"normal"` outright, and a budget-pack test
+    shows memory items are dropped first under pressure while
+    must_have/high survive.
+  - Fallback-to-skip retrieval: worker thread +
+    `future.result(timeout=...)` (verbatim R-206 / semantic-source
+    pattern — no `with ThreadPoolExecutor`, `shutdown(wait=False)`),
+    any timeout/exception ⇒ the source contributes nothing and the
+    bundle still builds; both layers `None` ⇒ inert source, no thread.
+  - Facade seam: `gather_message_context(..., memory_source=None)` /
+    `_default_engine` insert the source before StructureSource only
+    when provided — the default composition is byte-identical to
+    pre-T-105 (T-017 goldens preserved by construction, asserted by
+    regression tests).
+  - `tests/integration/test_layered_memory.py` (9 tests): the R-802
+    causal-value proof — a 100-turn fixture where a question about a
+    turn-10 decision is answered **with** retrieval on and provably
+    absent **without** it (both directions asserted); forced-slow
+    embedder (5s vs 0.2s timeout) skips the source in <2s with the
+    bundle intact; docs: retrieval-flow diagram added as
+    `docs/phase8_plan.md` §2.1. Full gate: **1264 passed, 1 skipped —
+    ALL GREEN.**
 - **R-802 (T-104): Embedder protocol + semantic index.**
   - New `context/embedding.py`: `Embedder` protocol
     (`embed(texts) -> list[list[float]]` — the phase8_plan §2 interface
