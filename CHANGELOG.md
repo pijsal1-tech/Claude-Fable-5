@@ -27,6 +27,27 @@
     fallback path left.
 
 ### Added
+- **R-504 (T-058): `run_command` agent tool behind a project-owned allowlist.**
+  - `chain/agent_tools.py`: new `CommandPolicy` + `command_policy_from` —
+    the allowlist lives in `config.yaml` (`agent.command_allowlist`:
+    test/lint/typecheck/build entries) and is **never** agent-chosen.
+  - Exact-match enforcement (literal command or logical entry name,
+    whitespace-normalized — no prefix/pattern matching): a
+    non-allowlisted command gets a structured, logged rejection naming
+    the request and the available entries — never silent execution.
+  - The allowlist is a layer **on top of** the ApprovalGate (T-013):
+    allowed commands still require interactive user approval.
+  - `RunTicket`-linked timeout + cancellation: the command runs in a
+    worker thread polled every 50ms — ticket cancellation is observed
+    *during* a long command; hung commands hit an explicit timeout
+    (config `command_timeout_seconds`). `AgentLoop.run` wires its
+    ticket into the tools for the duration of the run.
+  - stdout/stderr/exit code captured in a structured report; each
+    stream size-capped independently (`command_output_max_chars`) with
+    an explicit truncation marker.
+  - Missing config section = legacy mode (gate-only, pre-T-058
+    behavior) — zero migration break. 26 tests in
+    `tests/unit/test_run_command.py`.
 - **R-206 (T-057): Minimal SemanticSource — relevance-based recall, seeded early.**
   - New `context/semantic_source.py`: pluggable `EmbeddingBackend`
     interface + default local `HashingEmbedder` (md5 bag-of-words,

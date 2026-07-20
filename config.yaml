@@ -20,6 +20,28 @@ backup_before_edit: true
 # أقصى عدد ملفات يقرأها كسياق
 max_context_files: 15
 
+# أوامر الـ Agent (T-058 / R-504) — command_policy_from يقرأ هذا القسم.
+# run_command ينفذ الأوامر المذكورة هنا **فقط** — القائمة ملكية المشروع،
+# الـ agent لا يختار أوامر حرة أبدًا. أي أمر خارج القائمة = رفض مهيكل
+# صريح ومسجَّل (لا تنفيذ صامت). حذف command_allowlist بالكامل = وضع
+# legacy: بوابة الموافقة وحدها تحكم (سلوك ما قبل T-058).
+# ملاحظة: القائمة طبقة إضافية فوق ApprovalGate — أمر مسموح هنا لا يزال
+# يحتاج موافقة المستخدم التفاعلية.
+#   المفتاح = اسم منطقي (test/lint/typecheck/build...)، القيمة = الأمر
+#   الحرفي. الـ agent يطلب بالأمر الحرفي أو بالاسم المنطقي — مطابقة
+#   تامة بعد توحيد الفراغات (لا بادئات، لا أنماط).
+#   command_timeout_seconds:   مهلة الأمر الواحد (انتهاؤها = فشل صريح).
+#   command_output_max_chars:  سقف كل مجرى مخرجات (stdout/stderr) —
+#                              الزائد يُقتطع بعلامة صريحة.
+agent:
+  command_allowlist:
+    test: "python -m pytest -q"
+    lint: "python -m mypy --ignore-missing-imports ."
+    typecheck: "python -m mypy --ignore-missing-imports ."
+    build: "python -m compileall -q ."
+  command_timeout_seconds: 60
+  command_output_max_chars: 8000
+
 # ميزانية السياق (T-024 / R-203) — ContextBudget.from_config يقرأ هذا القسم.
 # budget_tokens = (model_window - reserved_output) × (1 - safety_margin)
 context_budget:

@@ -97,6 +97,10 @@ class AgentLoop:
         history = history or []
         self._cancelled = False
         self._ticket = ticket
+        # T-058 (R-504): نفس التذكرة تصل لأدوات التنفيذ — tool_run_command
+        # يستطلع is_cancelled أثناء الأمر الطويل (إلغاء أثناء التنفيذ لا
+        # فقط بين الأدوات).
+        self.tools.run_ticket = ticket
         try:
             result = self._run_loop(user_request, history, project_context,
                                     run_id, step_id)
@@ -104,6 +108,8 @@ class AgentLoop:
             if ticket is not None:
                 ticket.finish("failed")
             raise
+        finally:
+            self.tools.run_ticket = None
         if ticket is not None:
             ticket.finish("cancelled" if self._is_cancelled() else "completed")
         return result

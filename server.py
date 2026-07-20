@@ -49,7 +49,7 @@ from providers.budget import AccountAwareBudget
 from providers.capacity import CapacityModel
 from providers.pool import ProviderPool
 from chain.agent_loop import AgentLoop
-from chain.agent_tools import AgentTools
+from chain.agent_tools import AgentTools, command_policy_from
 from core.runner import (
     EVENT_RUN_FINISHED,
     EVENT_RUN_OUTPUT,
@@ -2209,13 +2209,21 @@ def main():
           f"{_cap.healthy_count} healthy providers{_est}")
 
     # ── Agent Tools ──
+    # T-058 (R-504): سياسة أوامر الـ agent من config.yaml — الـ allowlist
+    # ملكية المشروع لا الـ agent؛ قسم غائب = وضع legacy (بوابة الموافقة فقط).
+    _cmd_policy = command_policy_from(_read_config())
     agent_tools = AgentTools(
         file_manager=fm,
         command_runner=cmd_runner,
         project_root=project_path,
         ctx=ctx,
+        command_policy=_cmd_policy,
     )
-    print(f"  🤖 Agent System: active")
+    if _cmd_policy.enforce:
+        print(f"  🤖 Agent System: active "
+              f"(allowlist: {len(_cmd_policy.allowlist)} أمر)")
+    else:
+        print("  🤖 Agent System: active (allowlist: legacy/off)")
 
     # ── AppContext final config (T-006/T-007, R-102) ──
     ctx.config.update({"host": args.host, "port": args.port, "provider_id": prov_id})
