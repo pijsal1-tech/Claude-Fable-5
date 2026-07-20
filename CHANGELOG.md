@@ -27,6 +27,38 @@
     fallback path left.
 
 ### Added
+- **R-504 (T-059): Verification feedback loop — the agent runs the test,
+  reads the result, and fixes before declaring success.**
+  - `chain/knowledge.py`: `run_command` results enter the next iteration
+    as **`high`-tier** context items (like file contents) — failure
+    output is the fuel for the fix and survives budget pressure; a
+    budget test proves the FAIL line outlives a normal-tier dir item at
+    a tight token cap.
+  - `chain/agent_loop.py`: new `_verification_instruction()` injects a
+    mandatory verification step (`[خطوة التحقق — إلزامية لمهام تعديل
+    الكود]`) into both the initial and follow-up prompts — run the
+    configured test command → read its result → fix on failure → never
+    declare a code task done unverified. Injected **only** when the
+    command policy is enforced and the allowlist has a
+    test/lint/typecheck/build entry; legacy mode injects nothing.
+  - **No ungated mutation path:** command-triggered file writes (e.g.
+    an autoformatter) are now captured — `chain/agent_tools.py` takes
+    pre-command workspace signatures (400-file / 512KB caps, secret
+    files and heavy dirs skipped), snapshots changed files, seals them,
+    and reports `🧷 [checkpoint]` in the tool output. New
+    `CheckpointManager.snapshot_absent()` (`core/checkpoint.py`)
+    records command-**created** files as pre-state-absent
+    (`sha256=None` ⇒ restore deletes them) — safe because
+    `entries_for_run` is first-snapshot-wins. `server.py` wires the
+    **same** CheckpointManager used for chain writes (T-054): one
+    restore path. Without a gate the command is auto-rejected and no
+    side effect ever lands (tested).
+  - `tests/integration/test_agent_feedback.py` (10 tests): fail-then-fix
+    fixture (1st run exits 1, the 2nd prompt carries the failure output,
+    2nd run passes), gated+checkpointed side-effect proof, budget
+    compliance, and verification-instruction presence/absence matrix.
+  - Verification-step contract documented in the `agent:` section of
+    `config.yaml` (T-058 precedent).
 - **R-504 (T-058): `run_command` agent tool behind a project-owned allowlist.**
   - `chain/agent_tools.py`: new `CommandPolicy` + `command_policy_from` —
     the allowlist lives in `config.yaml` (`agent.command_allowlist`:

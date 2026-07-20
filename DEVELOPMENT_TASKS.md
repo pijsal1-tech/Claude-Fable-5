@@ -845,11 +845,11 @@
 - **Files to Modify:** `AgentRunner`, agent prompt templates, `tests/integration/test_agent_feedback.py`
 - **Affected Modules:** agent loop, prompts
 - **Acceptance Criteria:** fixture where the agent's first attempt fails a test and the second iteration (informed by failure output) passes; command-triggered writes provably gated and checkpointed (grep + test); token cost of feedback items budget-compliant.
-- **Implementation:** [ ] result → context item · [ ] prompt update · [ ] gated command-writes
-- **Testing:** [ ] fail-then-fix fixture · [ ] gated-writes proof · [ ] budget compliance
-- **Regression:** [ ] agent parity E2E still green
-- **Documentation:** [ ] verification-step contract in agent docs
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-060
+- **Implementation:** [x] result → context item · [x] prompt update · [x] gated command-writes
+- **Testing:** [x] fail-then-fix fixture · [x] gated-writes proof · [x] budget compliance
+- **Regression:** [x] agent parity E2E still green
+- **Documentation:** [x] verification-step contract in agent docs
+- **Completion Status:** ✅ 2026-07-20 · **Reviewer Notes:** (1) `knowledge.build_iteration_context`: عناصر `source_kind in ("file","command")` طبقة `high` — مخرجات فشل الاختبار تنجو من ضغط الميزانية (اختبار budget يثبت بقاء "FAIL: assertion failed" عند max_tokens=60 وسقوط عنصر dir عادي). (2) `agent_loop._verification_instruction()`: حقن `[خطوة التحقق — إلزامية لمهام تعديل الكود]` في البرومبت الأولي والمتابعات معًا، فقط عند enforce + allowlist يحوي test/lint/typecheck/build؛ وضع legacy = لا حقن (مُختبَر). (3) `agent_tools.tool_run_command`: توقيعات workspace قبل الأمر (سقف 400 ملف/512KB، تخطي أسرار ومجلدات ضخمة) → `snapshot` للمعدَّل + `snapshot_absent` الجديدة في `core/checkpoint.py` للملفات المنشأة (sha256=None ⇒ الاسترجاع يحذف؛ آمنة لأن entries_for_run أول-snapshot-يفوز) → `seal` — نفس CheckpointManager الخاص بالـ chain (`server.py: checkpoint=chain_bridge.checkpoint_manager`) = مسار استرجاع واحد، لا تعديل غير مبوَّب (لا-بوابة ⇒ رفض تلقائي والملف لا يُنشأ أصلًا — مُختبَر). fixture فشل-ثم-نجاح: أول تشغيل exit 1 والبرومبت التالي يحمل مخرجات الفشل، الثاني PASS. عقد خطوة التحقق موثَّق في تعليقات قسم agent بـ config.yaml (سابقة T-058). tests/integration/test_agent_feedback.py = 10 اختبارات. `./scripts/check.sh` = 1083 passed, 1 skipped — ALL GREEN (mypy يغطي core/checkpoint.py و chain/). · **Next Task:** T-060
 
 ---
 
