@@ -147,7 +147,8 @@ class AgentTools:
     
     def __init__(self, file_manager=None, command_runner=None,
                  project_root: str = ".", ctx=None,
-                 command_policy: CommandPolicy | None = None):
+                 command_policy: CommandPolicy | None = None,
+                 checkpoint=None):
         # R-102 (T-007) — pattern: "resolve at call time".
         # When ctx (AppContext) is provided, fm/cmd/project_root are
         # properties resolving ctx.project.* on EVERY access — never cached —
@@ -164,6 +165,19 @@ class AgentTools:
         # T-058: تذكرة التنفيذ الحالية — يضبطها AgentLoop.run قبل كل تشغيل؛
         # tool_run_command يستطلع is_cancelled أثناء الأمر الطويل.
         self.run_ticket: RunTicket | None = None
+        # T-059 (R-504/R-106): CheckpointManager — كتابات الأوامر الجانبية
+        # (autoformatter مثلاً) تُلتقط snapshot قبل الأمر وseal بعده —
+        # لا مسار طفرة بلا بوابة: الأمر نفسه لا يصل هنا إلا بعد موافقة
+        # ApprovalGate (T-013)، وآثاره على الملفات قابلة للاستعادة (T-053).
+        self._checkpoint = checkpoint
+
+    # حدود مسح الملفات قبل/بعد الأمر (T-059) — مشاريع أكبر من
+    # السقف تفقد التغطية للزائد فقط (لا فشل) — موثّق في docstring.
+    _CKPT_MAX_FILES = 400
+    _CKPT_MAX_FILE_BYTES = 512 * 1024
+    _CKPT_SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv",
+                       "venv", ".ai_runs", ".next", "dist", ".cache",
+                       ".idea", ".vscode"}
 
     @property
     def fm(self):
@@ -377,6 +391,23 @@ class AgentTools:
             _LOG.info("run_command allowed via entry %r: %r",
                       entry_name, actual)
 
+        # ── T-059 (R-106): snapshot ما-قبل-الأمر — كتابات الأمر الجانبية
+        # (منسّق تلقائي، سكريبت بناء...) تصبح قابلة للاستعادة مثل أي
+        # كتابة agent أخرى. blobs مُعنونة بالمحتوى ⇒ التكرار شبه مجاني.
+        ticket0 = self.run_ticket
+        ckpt_run_id = ticket0.run_id if ticket0 is not None else ""
+        pre_sigs: dict[str, tuple[int, int]] | None = None
+        if self._checkpoint is not None and ckpt_run_id:
+            try:
+                pre_sigs = self._workspace_signatures()
+                if pre_sigs:
+                    self._checkpoint.snapshot(ckpt_run_id,
+                                              sorted(pre_sigs))
+            except Exception:
+                _LOG.exception("pre-command checkpoint failed — "
+                               "continuing without side-effect capture")
+                pre_sigs = None
+
         pool = ThreadPoolExecutor(max_workers=1)
         try:
             future = pool.submit(
@@ -409,8 +440,57 @@ class AgentTools:
         finally:
             pool.shutdown(wait=False)
 
-        return self._format_command_result(
+        report = self._format_command_result(
             actual, entry_name, result, policy.output_max_chars)
+
+        # ── T-059: seal ما-بعد-الأمر للملفات التي غيّرها الأمر ──
+        if pre_sigs is not None and self._checkpoint is not None:
+            try:
+                changed = self._changed_paths(pre_sigs)
+                if changed:
+                    self._checkpoint.seal(ckpt_run_id, changed)
+                    _LOG.info("run_command side-effects checkpointed: "
+                              "%d file(s) under run %s",
+                              len(changed), ckpt_run_id)
+                    report += (f"\n🧷 [checkpoint]: الأمر غيّر "
+                               f"{len(changed)} ملف — قابلة للاستعادة "
+                               f"(run: {ckpt_run_id})")
+            except Exception:
+                _LOG.exception("post-command seal failed")
+        return report
+
+    def _workspace_signatures(self) -> dict[str, tuple[int, int]]:
+        """مسح محدود لملفات المشروع: مسار ← (size, mtime_ns).
+
+        حدود: تخطي مجلدات الضجيج، سقف عدد وحجم — مشروع أكبر من
+        السقف يفقد تغطية الزائد فقط (الخطر المتبقي موثّق، لا فشل).
+        """
+        sigs: dict[str, tuple[int, int]] = {}
+        root = self.project_root
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames
+                           if d not in self._CKPT_SKIP_DIRS]
+            for name in filenames:
+                if len(sigs) >= self._CKPT_MAX_FILES:
+                    return sigs
+                full = os.path.join(dirpath, name)
+                if is_secret_file(pathlib.Path(full)):
+                    continue
+                try:
+                    st = os.stat(full)
+                except OSError:
+                    continue
+                if st.st_size > self._CKPT_MAX_FILE_BYTES:
+                    continue
+                sigs[full] = (st.st_size, st.st_mtime_ns)
+        return sigs
+
+    def _changed_paths(self, pre: dict[str, tuple[int, int]]) -> list[str]:
+        """مقارنة بعدية: مُعدّل + جديد + محذوف (كلها طفرات تُختم)."""
+        post = self._workspace_signatures()
+        changed = [p for p, sig in post.items() if pre.get(p) != sig]
+        changed.extend(p for p in pre if p not in post)  # محذوف
+        return sorted(changed)
 
     def _format_command_result(self, command: str, entry_name: str,
                                result: dict, max_chars: int) -> str:

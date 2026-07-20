@@ -339,6 +339,10 @@ class AgentLoop:
             )
         
         # وصف الأدوات (لو AI يدعمها)
+        # T-059 (R-504): تعليمات التحقق تُحقن عند وجود أوامر مهيأة
+        _verify = self._verification_instruction()
+        if _verify:
+            parts.append(_verify)
         parts.append(self._tools_instruction())
         
         return "\n\n".join(parts)
@@ -368,6 +372,10 @@ class AgentLoop:
             "أو استخدم أدوات إضافية إذا كنت تحتاج معلومات أكثر."
         )
         
+        # T-059 (R-504): تعليمات التحقق تُحقن عند وجود أوامر مهيأة
+        _verify = self._verification_instruction()
+        if _verify:
+            parts.append(_verify)
         parts.append(self._tools_instruction())
         
         return "\n\n".join(parts)
@@ -384,6 +392,30 @@ class AgentLoop:
             f"لا تستخدم أي أدوات — أعط الرد النهائي الآن."
         )
     
+    def _verification_instruction(self) -> str:
+        """T-059 (R-504): التحقق خطوة طبيعية — عند وجود أمر اختبار مهيأ.
+
+        تُبنى من allowlist الأدوات (config: agent.command_allowlist) —
+        بلا مدخل test/lint/... مهيأ لا تُحقن أي تعليمات (صفر تكلفة).
+        """
+        policy = getattr(self.tools, "command_policy", None)
+        if policy is None or not policy.enforce or not policy.allowlist:
+            return ""
+        verify = [n for n in ("test", "lint", "typecheck", "build")
+                  if n in policy.allowlist]
+        if not verify:
+            return ""
+        entries = "، ".join(verify)
+        return (
+            "\n[خطوة التحقق — إلزامية لمهام تعديل الكود]:\n"
+            f"المشروع يوفر أوامر تحقق مهيأة: {entries}.\n"
+            "بعد أي تعديل كود، شغّل أمر الاختبار (```TOOL: run_command``` "
+            "مع command: test) واقرأ النتيجة قبل إعلان النجاح.\n"
+            "- لو فشل الاختبار: حلل المخرجات، أصلح السبب، ثم أعد التشغيل.\n"
+            "- لا تعلن أن المهمة نجحت بدون تشغيل التحقق — الاكتمال بلا "
+            "تحقق تخمين لا نتيجة."
+        )
+
     def _tools_instruction(self) -> str:
         """وصف الأدوات المتاحة"""
         return """

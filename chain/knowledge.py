@@ -330,10 +330,14 @@ class KnowledgeAccumulator:
                 ref_lines.append(f"{display} ({(e.content_hash or '')[:8]})")
                 continue
             header = self._section_header(e.item.source_kind)
+            # T-059 (R-504): نتائج run_command طبقة high — مخرجات الفشل
+            # هي وقود حلقة التحقق (fail→fix)؛ إسقاطها بالميزانية يعمي
+            # الـ agent عن سبب الفشل في الجولة التالية.
             candidates.append(BudgetItem(
                 key=key,
                 text=f"{header}{self._render_body(e)}",
-                tier="high" if e.item.source_kind == "file" else "normal",
+                tier=("high" if e.item.source_kind in ("file", "command")
+                      else "normal"),
             ))
             verbatim_keys.append(key)
 

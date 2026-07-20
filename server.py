@@ -2218,6 +2218,9 @@ def main():
         project_root=project_path,
         ctx=ctx,
         command_policy=_cmd_policy,
+        # T-059 (R-106): كتابات الأوامر الجانبية تُلتقط في نفس مخزن
+        # checkpoints الذي يخدم كتابات السلسلة (T-054) — مسار استعادة واحد.
+        checkpoint=chain_bridge.checkpoint_manager,
     )
     if _cmd_policy.enforce:
         print(f"  🤖 Agent System: active "
