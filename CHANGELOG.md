@@ -27,6 +27,33 @@
     fallback path left.
 
 ### Added
+- **R-905 (T-060): Design-token layer + dark/light themes.**
+  - New `static/themes/`: `tokens.css` (structural tokens + role aliases —
+    `--accent`, `--syntax-*`, `--icon-*`, `--diff-*-fg`, terminal roles;
+    zero raw colors in it), `dark.css` (default palette — applied to
+    bare `:root` **and** `[data-theme="dark"]`; values byte-identical to
+    the pre-migration palette, locked by a snapshot test), `light.css`
+    (Latte-inspired; defines the exact same token set — parity-tested).
+  - Migration: `static/style.css` went from 110 raw colors to **zero** —
+    every `rgba(...)` became `color-mix(in srgb, var(--token) N%,
+    transparent)`; hljs block now consumes `--syntax-*` (ready for
+    R-904); file badges consume `--icon-*` (ready for R-903). Found and
+    fixed a pre-existing silent fallback: `.copy-btn` consumed undefined
+    `--text-base`/`--border`. Legacy unserved `public/static/style.css`
+    migrated too.
+  - No-FOUC bootstrap inline in `static/index.html` `<head>` — sets
+    `data-theme` before the first stylesheet: `localStorage` →
+    `prefers-color-scheme` → dark. `color-scheme` declared per theme.
+  - New CI gate in `scripts/check.sh`: **color token lint** — raw
+    hex/rgb/hsl anywhere under `static/`+`public/` outside
+    `static/themes/` fails the build.
+  - WCAG AA: computed contrast for 8 text/bg pairs across both themes,
+    all ≥ 4.5 (light `--subtext` darkened vs. upstream Latte to pass).
+  - `tests/unit/test_theme_tokens.py` (11 tests): lint mirror, dark↔light
+    token parity, only-defined-tokens consumption, dark palette snapshot,
+    bootstrap-before-styles order, `color-scheme` declarations.
+  - Adding a theme = one data file defining `[data-theme="<name>"]` —
+    no component changes (consumed by T-061's switcher).
 - **R-504 (T-059): Verification feedback loop — the agent runs the test,
   reads the result, and fixes before declaring success.**
   - `chain/knowledge.py`: `run_command` results enter the next iteration
