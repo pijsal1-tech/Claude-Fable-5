@@ -171,6 +171,9 @@ function updateConnectionDot(connected) {
 }
 
 function handleWSMessage(data) {
+    // T-066 (R-906): شريحة الحالة تلتقط routing/budget من الإطارات
+    // الموجودة — استهلاك فقط، ولا تغيّر مسار أي إطار.
+    if (StatusChip.noteFrame(statusChipState, data)) scheduleStatusChipRender();
     switch (data.type) {
         case "start":
             state.streaming = true;
@@ -372,6 +375,11 @@ function handleWSMessage(data) {
                 ? "✅ تمت الموافقة — جارٍ التطبيق"
                 : `❌ مرفوض (${data.reason || "denied"}) — لا كتابات`,
                 data.approved ? "success" : "info");
+            break;
+
+        // ── T-066 (R-902): نتيجة الاستعادة — تقرير RestoreReport حرفيًا ──
+        case "rollback_result":
+            handleRollbackResult(data);
             break;
 
         case "chain_status":
@@ -1459,6 +1467,9 @@ function closeDiffPanel() {
 
 function sendDiffDecision(overrideAll) {
     if (!diffPanelState) return;
+    // T-066 (R-902): اللوحة قد تكون مفتوحة كتأكيد استعادة — يُستهلك
+    // القرار محليًا (إطار rollback من وحدة RunHistory) بدل رد الموافقة.
+    if (consumeRollbackDecision(overrideAll)) return;
     state.ws.send(JSON.stringify(DiffPanel.decisionFrame(diffPanelState, overrideAll)));
     // الإغلاق الفعلي عند وصول chain_approval_verdict (مصدر الحقيقة البوابة).
 }
@@ -1879,6 +1890,8 @@ function loadProjectInfo() {
             if (data.ok) {
                 document.getElementById("project-name").textContent =
                     `📂 ${data.project.name} (${data.project.total_files} files)`;
+                // T-066: جذر المشروع — لاختصار المسارات المطلقة في لوحة التاريخ
+                state.projectRoot = data.project.root || "";
                 if (data.provider.model) {
                     document.getElementById("provider-name").textContent = data.provider.model;
                 }
@@ -3059,3 +3072,161 @@ function delegateReject() {
         document.querySelectorAll(".review-btn").forEach(b => b.disabled = true);
     }
 }
+// ═══════════════════════════════════════════
+// T-066 (R-902): لوحة تاريخ الـ runs + الاستعادة بنقرة — DOM glue فوق
+// وحدة RunHistory (المنطق النقي في static/js/run_history.js).
+// التنفيذ عبر أمرَي WS الموجودين rollback_run/rollback_file (T-054)؛
+// التأكيد يعيد استخدام لوحة T-065 (diff من snapshot المخزن).
+// ═══════════════════════════════════════════
+let runHistoryEntries = [];
+let pendingRollback = null; // { entry, fileIdx } بانتظار تأكيد الـ diff
+
+async function toggleRunHistory() {
+    const panel = document.getElementById("run-history-panel");
+    if (!panel.classList.contains("hidden")) {
+        panel.classList.add("hidden");
+        return;
+    }
+    try {
+        const r = await fetch("/api/rollback/history");
+        const d = await r.json();
+        runHistoryEntries = RunHistory.buildEntries(
+            d.runs || [], Math.floor(Date.now() / 1000));
+    } catch (e) {
+        runHistoryEntries = [];
+    }
+    renderRunHistory();
+    panel.classList.remove("hidden");
+}
+
+function renderRunHistory() {
+    const listEl = document.getElementById("run-history-list");
+    listEl.innerHTML = RunHistory.renderPanelHTML(
+        runHistoryEntries, state.projectRoot || "");
+    listEl.querySelectorAll(".rh-rollback-run").forEach(btn => {
+        btn.onclick = () => confirmRollback(+btn.dataset.idx, null);
+    });
+    listEl.querySelectorAll(".rh-rollback-file").forEach(btn => {
+        btn.onclick = () => confirmRollback(+btn.dataset.idx, +btn.dataset.fidx);
+    });
+}
+
+// النقرة الأولى: جلب snapshots وفتح لوحة T-065 كتأكيد بصري.
+async function confirmRollback(entryIdx, fileIdx) {
+    const entry = runHistoryEntries[entryIdx];
+    if (!entry) return;
+    const files = fileIdx === null ? entry.files : [entry.files[fileIdx]];
+    const previews = {}, currents = {};
+    await Promise.all(files.map(async f => {
+        try {
+            const r = await fetch(`/api/rollback/preview?run_id=${
+                encodeURIComponent(entry.run_id)}&path=${encodeURIComponent(f.path)}`);
+            const d = await r.json();
+            previews[f.path] = d.ok ? d : { absent: false, snapshot: "" };
+        } catch (e) { previews[f.path] = { absent: false, snapshot: "" }; }
+        try {
+            const short = RunHistory.shortPath(f.path, state.projectRoot || "");
+            const r2 = await fetch(`/api/file/${short}`);
+            const d2 = await r2.json();
+            currents[f.path] = d2.ok ? d2.content : "";
+        } catch (e) { currents[f.path] = ""; }
+    }));
+    const built = RunHistory.confirmActions(entry, fileIdx, previews, currents);
+    pendingRollback = { entry, fileIdx };
+    // لوحة T-065 كعارض تأكيد محلي: إطار صناعي بلا request_id — أزرارها
+    // تُحوَّل لمسار rollback عبر pendingRollback في sendDiffDecision.
+    diffPanelState = DiffPanel.openState(
+        { request_id: "", payload_hash: "", run_id: entry.run_id,
+          actions: built.actions }, built.oldContents);
+    document.getElementById("diff-panel-overlay").classList.remove("hidden");
+    renderDiffPanel();
+}
+
+// يعترض قرار لوحة الـ diff عندما تكون مفتوحة كتأكيد استعادة (النقرة
+// الثانية): قبول ⇒ إرسال إطار rollback من الوحدة؛ رفض ⇒ إغلاق فقط.
+// يرجع true لو استُهلك القرار (فلا يُرسَل chain_approval_response).
+function consumeRollbackDecision(overrideAll) {
+    if (!pendingRollback) return false;
+    const { entry, fileIdx } = pendingRollback;
+    pendingRollback = null;
+    const approved = overrideAll === null
+        ? diffPanelState.accepted.every(a => a)
+        : overrideAll;
+    closeDiffPanel();
+    if (approved) {
+        state.ws.send(JSON.stringify(RunHistory.rollbackFrame(entry, fileIdx)));
+        toast("⏳ جارٍ الاستعادة...", "info");
+    }
+    return true;
+}
+
+function handleRollbackResult(frame) {
+    const entry = RunHistory.applyRollbackResult(runHistoryEntries, frame);
+    if (frame.status === "success") {
+        toast(`✅ استُعيد ${(frame.restored || []).length} ملف`, "success");
+    } else {
+        toast(frame.status === "partial"
+            ? "⚠️ استعادة جزئية — بعض الملفات تعارضت"
+            : "❌ رُفضت الاستعادة", "info");
+    }
+    const reportEl = document.getElementById("run-history-report");
+    reportEl.innerHTML = RunHistory.conflictReportHTML(frame);
+    if (entry) renderRunHistory();
+}
+
+// ═══════════════════════════════════════════
+// T-066 (R-906): شريحة حالة التوجيه/السعة — DOM glue فوق StatusChip.
+// عرض قراءة فقط من إطارات موجودة + /api/capacity — صفر endpoints جديدة.
+// الرسم مُخنوق عبر StatusChip.shouldRender (عاصفة أحداث ≠ عاصفة رسومات).
+// ═══════════════════════════════════════════
+const statusChipState = StatusChip.createState();
+const CAPACITY_POLL_MS = 30000;
+
+function scheduleStatusChipRender() {
+    if (StatusChip.shouldRender(statusChipState, Date.now())) {
+        renderStatusChip();
+    } else if (!statusChipState._timer) {
+        statusChipState._timer = setTimeout(() => {
+            statusChipState._timer = null;
+            if (StatusChip.hasPending(statusChipState)) scheduleStatusChipRender();
+        }, StatusChip.MIN_RENDER_INTERVAL_MS);
+    }
+}
+
+function renderStatusChip() {
+    statusChipState.renderCount++;
+    document.getElementById("status-chip-label").innerHTML =
+        StatusChip.renderChipHTML(statusChipState);
+    if (statusChipState.expanded) {
+        document.getElementById("status-chip-panel").innerHTML =
+            StatusChip.renderPanelHTML(statusChipState);
+    }
+}
+
+function toggleStatusChip() {
+    statusChipState.expanded = !statusChipState.expanded;
+    const panel = document.getElementById("status-chip-panel");
+    panel.classList.toggle("hidden", !statusChipState.expanded);
+    if (statusChipState.expanded) {
+        refreshCapacity();
+        renderStatusChip();
+    }
+}
+
+async function refreshCapacity() {
+    try {
+        const r = await fetch("/api/capacity");
+        const d = await r.json();
+        if (d.ok) {
+            StatusChip.updateCapacity(statusChipState, d.capacity);
+            scheduleStatusChipRender();
+        }
+    } catch (e) { /* خامل — الشريحة عرض فقط */ }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("run-history-btn").onclick = toggleRunHistory;
+    document.getElementById("status-chip-label").onclick = toggleStatusChip;
+    refreshCapacity();
+    setInterval(refreshCapacity, CAPACITY_POLL_MS);
+});

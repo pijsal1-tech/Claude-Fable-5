@@ -50,6 +50,11 @@
     <!-- Diff-review panel — T-065 (R-901): منطق اللوحة (يستهلك
          CodeHighlight + FileIcons فيُحمَّل بعدهما وقبل app.js). -->
     <script src="/static/js/diff_panel.js?v=1"></script>
+
+    <!-- Rollback UI + Status chip — T-066 (R-902/R-906): منطق نقي
+         (RunHistory يستهلك FileIcons؛ StatusChip مستقل) قبل app.js. -->
+    <script src="/static/js/run_history.js?v=1"></script>
+    <script src="/static/js/status_chip.js?v=1"></script>
 </head>
 <body>
 
@@ -62,6 +67,7 @@
         <div class="project-name" id="project-name" onclick="openFolder()" title="اضغط لتغيير المجلد" style="cursor:pointer">loading...</div>
         <button class="header-btn" onclick="openFolder()" title="فتح مجلد">📂 Open Folder</button>
         <button class="header-btn" onclick="toggleSessions()" title="الجلسات السابقة" id="sessions-btn">📋 Sessions</button>
+        <button class="header-btn" id="run-history-btn" title="تاريخ الـ runs والاستعادة — T-066">↩ History</button>
         <div class="model-selector">
             <button class="header-btn" onclick="toggleModelPicker()" id="model-btn" title="تغيير النموذج">🤖 <span id="current-model-label">Loading...</span></button>
             <div class="sessions-dropdown hidden" id="model-dropdown" style="left:16px;right:auto;width:320px">

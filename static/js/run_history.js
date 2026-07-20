@@ -39,9 +39,9 @@
 
     function fileIconSVG(path) {
         var icon = FileIconsRef.getFileIcon(path);
-        return '<svg class="file-icon" style="color: var(' + icon.color +
-            ')"><use href="/static/icons/sprite.svg#' + icon.id +
-            '"></use></svg>';
+        return '<svg class="file-icon" style="color: var(' + icon.colorToken +
+            ')" aria-hidden="true"><use href="/static/icons/sprite.svg' +
+            icon.symbol + '"></use></svg>';
     }
 
     // عمر مقروء — "الآن" / "منذ 5 د" / "منذ 3 س" / "منذ 2 يوم"
