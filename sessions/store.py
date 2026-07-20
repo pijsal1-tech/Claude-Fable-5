@@ -196,6 +196,8 @@ class SessionStore:
         # T-103: فحص ذيل sidecar الحلقات — مفتاحه مسار الملف لا معرّف
         # الجلسة (سجلان مستقلان لنفس الجلسة يجب ألا يتشاركا الفحص)
         self._episode_tail_checked: set[str] = set()
+        # T-104: فحص ذيل sidecar فهرس الـ embeddings — مجموعة مستقلة أيضًا
+        self._embidx_tail_checked: set[str] = set()
 
     # ── المسارات ──
 
@@ -213,6 +215,13 @@ class SessionStore:
         غيابه = لا حلقات بعد، ليس خطأ.
         """
         return self.sessions_dir / f"session_{session_id}.episodes.jsonl"
+
+    def embeddings_path(self, session_id: str) -> pathlib.Path:
+        """sidecar فهرس الـ embeddings (T-104 / R-802):
+        ``session_<id>.embidx.jsonl`` — مشتق قابل لإعادة البناء
+        (إعادة embedding للنصوص)؛ غيابه = لا فهرس بعد، ليس خطأ.
+        """
+        return self.sessions_dir / f"session_{session_id}.embidx.jsonl"
 
     # ── دورة الحياة ──
 
@@ -235,13 +244,15 @@ class SessionStore:
     def delete(self, session_id: str) -> bool:
         found = False
         for p in (self.data_path(session_id), self.meta_path(session_id),
-                  self.episodes_path(session_id)):
+                  self.episodes_path(session_id),
+                  self.embeddings_path(session_id)):
             if p.exists():
                 p.unlink()
                 found = True
         self._meta_cache.pop(session_id, None)
         self._tail_checked.discard(session_id)
         self._episode_tail_checked.discard(session_id)
+        self._embidx_tail_checked.discard(session_id)
         return found
 
     def list_ids(self) -> list[str]:
@@ -299,14 +310,55 @@ class SessionStore:
         (تُبنى من الـ runs) ولا تُحتسب في ``message_count``.
         الجلسة يجب أن توجد (سجل رسائلها) — حلقة بلا جلسة خطأ استعمال.
         """
+        self._append_sidecar(session_id, self.episodes_path(session_id),
+                             self._episode_tail_checked, record)
+
+    def replay_episodes(self, session_id: str) -> ReplayResult:
+        """كل سجلات الحلقات بالترتيب — نفس دلالات تعافي ``replay``.
+
+        sidecar غير موجود = لا حلقات بعد ⇒ نتيجة فارغة (ليس خطأ —
+        الحلقات مشتقة اختيارية بخلاف سجل الرسائل الإلزامي).
+        """
+        return self._replay_sidecar(session_id,
+                                    self.episodes_path(session_id),
+                                    f"{session_id}.episodes")
+
+    # ── sidecar فهرس الـ embeddings (T-104 / R-802) ──
+
+    def append_embedding_record(self, session_id: str,
+                                record: dict[str, Any]) -> None:
+        """إلحاق سجل متجه واحد إلى ``session_<id>.embidx.jsonl``.
+
+        نفس ضمانات sidecar الحلقات حرفيًا (المسار المشترك
+        ``_append_sidecar``): مستقل عن سجل الرسائل والـ meta؛ الفهرس
+        مشتق (يُعاد بناؤه بإعادة embedding) — فقدانه ليس فقدان بيانات.
+        """
+        self._append_sidecar(session_id, self.embeddings_path(session_id),
+                             self._embidx_tail_checked, record)
+
+    def replay_embeddings(self, session_id: str) -> ReplayResult:
+        """كل سجلات الفهرس بالترتيب — sidecar غائب ⇒ نتيجة فارغة."""
+        return self._replay_sidecar(session_id,
+                                    self.embeddings_path(session_id),
+                                    f"{session_id}.embidx")
+
+    # ── آلية الـ sidecar المشتركة (T-103/T-104) ──
+
+    def _append_sidecar(self, session_id: str, path: pathlib.Path,
+                        checked: set[str],
+                        record: dict[str, Any]) -> None:
+        """قلب إلحاق الـ sidecars: نفس ضمانات ``append_record`` (سطر
+        JSON + ``\\n``، fsync حسب السياسة، بتر الذيل الممزّق قبل أول
+        إلحاق) — بلا أي لمس لسجل الرسائل أو الـ meta. الجلسة يجب أن
+        توجد؛ ``checked`` مجموعة الفحص الخاصة بهذا الـ sidecar.
+        """
         if not self.exists(session_id):
             raise FileNotFoundError(f"جلسة غير موجودة: {session_id}")
-        path = self.episodes_path(session_id)
         if not path.is_file():
             path.touch()
-            self._episode_tail_checked.add(session_id)  # جديد — ذيل سليم
-        elif session_id not in self._episode_tail_checked:
-            self._episode_tail_checked.add(session_id)
+            checked.add(session_id)   # ملف جديد — ذيله سليم
+        elif session_id not in checked:
+            checked.add(session_id)
             self._truncate_torn_tail(path)
 
         line = json.dumps(record, ensure_ascii=False)
@@ -318,18 +370,14 @@ class SessionStore:
             if self._fsync == "always":
                 os.fsync(f.fileno())
 
-    def replay_episodes(self, session_id: str) -> ReplayResult:
-        """كل سجلات الحلقات بالترتيب — نفس دلالات تعافي ``replay``.
-
-        sidecar غير موجود = لا حلقات بعد ⇒ نتيجة فارغة (ليس خطأ —
-        الحلقات مشتقة اختيارية بخلاف سجل الرسائل الإلزامي).
-        """
-        path = self.episodes_path(session_id)
+    def _replay_sidecar(self, session_id: str, path: pathlib.Path,
+                        label: str) -> ReplayResult:
+        """قلب قراءة الـ sidecars — غائب ⇒ فارغ (مشتق اختياري)."""
         if not path.is_file():
             if not self.exists(session_id):
                 raise FileNotFoundError(f"جلسة غير موجودة: {session_id}")
             return ReplayResult()
-        return self._replay_path(path, f"{session_id}.episodes")
+        return self._replay_path(path, label)
 
     # ── القراءة ──
 

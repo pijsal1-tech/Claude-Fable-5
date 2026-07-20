@@ -27,6 +27,28 @@
     fallback path left.
 
 ### Added
+- **R-802 (T-104): Embedder protocol + semantic index.**
+  - New `context/embedding.py`: `Embedder` protocol
+    (`embed(texts) -> list[list[float]]` — the phase8_plan §2 interface
+    guard) + `ProviderEmbedder` hitting an OpenAI-compatible
+    `/embeddings` endpoint (response reordered by `index`; lazy
+    `requests` import). Single typed failure `EmbedderUnavailable`
+    covers unconfigured (no network attempt), transport, non-200 and
+    malformed-response paths — no raw exception leaks.
+  - New `context/semantic_index.py`: per-session vector index persisted
+    to a third sidecar `sessions/<id>.embidx.jsonl` (format-1 records:
+    chunk_id/text/source/vector/ts; newest-wins on duplicate ids;
+    rebuild-able derived data). Retrieval = pure-Python cosine top-k
+    (deterministic tie-break; no numpy / vector DB; loud `ValueError`
+    above the 5k-vector design cap). Provider failure degrades cleanly:
+    `add_texts` → 0 + `last_error` with no partial write, `search` →
+    `SearchResult(available=False)` — distinct from an empty-but-
+    available index.
+  - `SessionStore`: shared `_append_sidecar` / `_replay_sidecar` cores
+    now back both the episodes (T-103) and embeddings sidecars with
+    identical guarantees; `delete()` cleans all three files. 21 tests
+    (incl. 1k-chunk <1s perf bound and no-hard-dependency source gate);
+    suite 1255 passed, 1 skipped.
 - **R-802 (T-103): Episodic memory layer — per-run summaries.**
   - New `context/memory_layers.py`: `EpisodicLayer` appends one compact
     episode record per finished run (`kind="episode"`, format 1: goal,
