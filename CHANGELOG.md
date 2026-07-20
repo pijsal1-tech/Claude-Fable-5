@@ -27,6 +27,37 @@
     fallback path left.
 
 ### Added
+- **R-801 (T-102): Demo strategy package + routing integration.**
+  - New installable `examples/demo_strategy/` package (pyproject +
+    `webdev_ai.strategies` entry point): `DemoEchoStrategy` builds a
+    single-executor-step `StrategyResult` from its `PluginContext`
+    (request + context paths, `plugin_progress` emit). README doubles
+    as the plugin-author guide.
+  - `SmartOrchestrator` now accepts an optional `plugin_registry`:
+    after complexity analysis and **before** the built-in dispatch, a
+    loaded plugin whose `routing_hints` match (`keywords`
+    case-insensitive + optional `max_complexity`; deterministic order)
+    wins the selection — built via `PluginContext` and executed through
+    the normal Runner path (approval gate, checkpoints, events). An
+    explicit `force_strategy` always bypasses plugins; a crashing /
+    invalid `build()` falls back safely to the built-ins (a plugin can
+    never take down a request). Winning plans carry
+    `strategy_name="plugin:<name>"` + `metadata.plugin_name` — the
+    RouteLabel/ExecutionStrategy vocabularies are untouched.
+  - Boot integration in `server.py`: one `StrategyPluginRegistry`
+    discover at startup, loaded plugins + quarantine records printed
+    (`⚠️ Plugin quarantined: name [stage] reason`), the same registry
+    handed to `ChainBridge` (new `plugin_registry` parameter) and the
+    routing `SmartOrchestrator` — no second discovery.
+  - New `tests/integration/test_plugin_e2e.py` = 8 tests: full-bridge
+    E2E (matching request routes to the plugin step and writes a real
+    file), non-matching/forced requests use built-ins, runtime-crashing
+    plugin falls back safely, **real pip install inside an isolated
+    venv** discovered via importlib while the host env stays clean,
+    broken plugin boots green with quarantine reporting, server boot
+    wiring gate, and byte-identical no-plugins baseline (no registry ≡
+    empty registry). Full gate:
+    **1217 passed, 1 skipped — ALL GREEN**.
 - **R-801 (T-101): Capability-scoped plugin API (`PluginContext`).**
   - New `chain/plugin_api.py`: frozen `PluginContext` is the *only*
     object handed to plugin `build()` — request data

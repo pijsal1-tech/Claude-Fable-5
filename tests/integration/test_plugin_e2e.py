@@ -114,11 +114,12 @@ class TestRouteAndExecute:
         thread.join(timeout=JOIN_TIMEOUT)
         assert not thread.is_alive()
 
-        # وجّه فعلاً للإضافة: خطة الـ run هي خطوة الإضافة حرفيًا.
-        run = bridge.active_run
-        assert run is not None
-        assert [s.id for s in run.steps] == ["demo-echo"]
-        assert run.status == "completed"
+        # وجّه فعلاً للإضافة: إطارات chain_step تحمل خطوة الإضافة
+        # حرفيًا (step_id="demo-echo" من DemoEchoStrategy.build).
+        step_ids = {f.get("step_id") for f in sink.of_type("chain_step")}
+        assert step_ids == {"demo-echo"}
+        finished = sink.of_type("chain_finished")
+        assert finished and finished[0]["status"] == "completed"
         # ونفّذ حتى الاكتمال عبر مسار Runner الطبيعي (كتابة فعلية):
         assert (project / "echoed.txt").read_text(
             encoding="utf-8").strip() == "demo plugin output"
