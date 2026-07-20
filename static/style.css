@@ -6,67 +6,12 @@
 /* ── Google Fonts ── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* ── CSS Variables ── */
-:root {
-    /* Base colors — True Black */
-    --bg-base: #0d0d12;
-    --bg-surface: #111117;
-    --bg-overlay: #08080c;
-    --bg-mantle: #0a0a10;
-    --bg-crust: #060609;
-
-    /* Surface layers */
-    --surface-0: #1a1a24;
-    --surface-1: #252530;
-    --surface-2: #32323e;
-
-    /* Text */
-    --text: #e2e4f0;
-    --text-dim: #9598ad;
-    --text-muted: #555770;
-    --subtext: #c0c3d8;
-
-    /* Accent colors — Vibrant */
-    --blue: #6ea1ff;
-    --green: #5cff8a;
-    --red: #ff5f7e;
-    --yellow: #ffd866;
-    --mauve: #bf8aff;
-    --teal: #5cecc4;
-    --peach: #ff9e64;
-    --pink: #ff7eb6;
-    --sky: #6ad7f9;
-    --lavender: #9faeff;
-    --flamingo: #ff9ebc;
-
-    /* Functional */
-    --accent: var(--blue);
-    --success: var(--green);
-    --error: var(--red);
-    --warning: var(--yellow);
-
-    /* Sizing */
-    --sidebar-width: 260px;
-    --chat-width: 420px;
-    --terminal-height: 200px;
-    --header-height: 48px;
-    --radius: 8px;
-    --radius-lg: 12px;
-
-    /* Transitions */
-    --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-    /* Terminal Theme Colors (Catppuccin Mocha) */
-    --terminal-bg: var(--bg-surface);
-    --terminal-box-bg: var(--bg-overlay);
-    --terminal-text: var(--text);
-    --terminal-green: var(--green);
-    --terminal-blue: var(--blue);
-    --terminal-red: var(--red);
-    --terminal-yellow: var(--yellow);
-    --terminal-gray: var(--text-muted);
-}
+/* ── CSS Variables — T-060 (R-905) ──
+   انتقلت كل التوكنز إلى static/themes/:
+     tokens.css  = بنيوية + أدوار (sizing/transitions/aliases)
+     dark.css    = اللوحة الداكنة (الافتراضي)
+     light.css   = اللوحة الفاتحة
+   هذا الملف يستهلك التوكنز فقط — صفر ألوان خام (بوابة CI). */
 
 /* ── Reset ── */
 *, *::before, *::after {
@@ -96,7 +41,7 @@ html, body {
 
 /* ── Selection ── */
 ::selection {
-    background: rgba(110, 161, 255, 0.25);
+    background: color-mix(in srgb, var(--blue) 25%, transparent);
     color: var(--text);
 }
 
@@ -105,61 +50,61 @@ html, body {
    ═══════════════════════════════════════════ */
 .hljs {
     background: var(--bg-crust) !important;
-    color: #e2e4f0 !important;
+    color: var(--syntax-text) !important;
 }
 
 /* Keywords: if, else, def, class, return, import, from, for, while, with, as, try, except */
 .hljs-keyword,
-.hljs-selector-tag { color: #bf8aff !important; font-weight: 600; }
+.hljs-selector-tag { color: var(--syntax-keyword) !important; font-weight: 600; }
 
 /* Built-in types: int, str, list, dict, bool, None, True, False */
 .hljs-built_in,
-.hljs-type { color: #5cecc4 !important; }
+.hljs-type { color: var(--syntax-type) !important; }
 
 /* Strings */
 .hljs-string,
-.hljs-template-variable { color: #5cff8a !important; }
+.hljs-template-variable { color: var(--syntax-string) !important; }
 
 /* Numbers */
 .hljs-number,
-.hljs-literal { color: #ff9e64 !important; }
+.hljs-literal { color: var(--syntax-number) !important; }
 
 /* Functions & class names */
 .hljs-title,
 .hljs-title.function_,
-.hljs-title.class_ { color: #6ea1ff !important; font-weight: 600; }
+.hljs-title.class_ { color: var(--syntax-function) !important; font-weight: 600; }
 
 /* Comments */
 .hljs-comment,
-.hljs-quote { color: #555770 !important; font-style: italic; }
+.hljs-quote { color: var(--syntax-comment) !important; font-style: italic; }
 
 /* Decorators, meta, preprocessor */
 .hljs-meta,
-.hljs-meta-keyword { color: #ff7eb6 !important; }
+.hljs-meta-keyword { color: var(--syntax-meta) !important; }
 
 /* Variables, params */
 .hljs-variable,
-.hljs-params { color: #e2e4f0 !important; }
+.hljs-params { color: var(--syntax-variable) !important; }
 
 /* Operators, punctuation */
-.hljs-operator { color: #ff5f7e !important; }
+.hljs-operator { color: var(--syntax-operator) !important; }
 
 /* Attributes, property */
 .hljs-attr,
-.hljs-attribute { color: #ffd866 !important; }
+.hljs-attribute { color: var(--syntax-attribute) !important; }
 
 /* Regex */
-.hljs-regexp { color: #ff9ebc !important; }
+.hljs-regexp { color: var(--syntax-regexp) !important; }
 
 /* docstrings (triple-quoted) */
-.hljs-doctag { color: #5cecc4 !important; font-style: italic; }
+.hljs-doctag { color: var(--syntax-type) !important; font-style: italic; }
 
 /* Section headers */
-.hljs-section { color: #6ea1ff !important; font-weight: 700; }
+.hljs-section { color: var(--syntax-function) !important; font-weight: 700; }
 
 /* Deletion / Addition (diffs) */
-.hljs-deletion { color: #ff5f7e !important; background: rgba(255, 95, 126, 0.1); }
-.hljs-addition { color: #5cff8a !important; background: rgba(92, 255, 138, 0.1); }
+.hljs-deletion { color: var(--syntax-operator) !important; background: color-mix(in srgb, var(--red) 10%, transparent); }
+.hljs-addition { color: var(--syntax-string) !important; background: color-mix(in srgb, var(--green) 10%, transparent); }
 
 /* ═══════════════════════════════════════════
    Layout — 3-column IDE
@@ -236,8 +181,8 @@ html, body {
     width: 32px;
     height: 32px;
     padding: 0;
-    background: linear-gradient(135deg, #1a3a1a, #0f2a0f);
-    border: 1px solid rgba(92, 255, 138, 0.25);
+    background: linear-gradient(135deg, var(--run-btn-grad-a), var(--run-btn-grad-b));
+    border: 1px solid color-mix(in srgb, var(--green) 25%, transparent);
     border-radius: 50%;
     color: var(--green);
     font-size: 13px;
@@ -255,9 +200,9 @@ html, body {
 }
 
 .run-btn:hover {
-    background: linear-gradient(135deg, #1f4f1f, #153a15);
+    background: linear-gradient(135deg, var(--run-btn-hover-a), var(--run-btn-hover-b));
     border-color: var(--green);
-    box-shadow: 0 0 16px rgba(92, 255, 138, 0.25);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--green) 25%, transparent);
     transform: scale(1.08);
 }
 
@@ -384,7 +329,7 @@ html, body {
 }
 
 .tree-item:hover { background: var(--surface-0); color: var(--text); }
-.tree-item.active { background: rgba(137, 180, 250, 0.1); color: var(--accent); }
+.tree-item.active { background: color-mix(in srgb, var(--blue-soft) 10%, transparent); color: var(--accent); }
 .tree-item .icon { font-size: 14px; flex-shrink: 0; }
 .tree-item .name { overflow: hidden; text-overflow: ellipsis; }
 
@@ -563,7 +508,7 @@ html, body {
 }
 
 #editor-textarea::selection {
-    background: rgba(137, 180, 250, 0.3);
+    background: color-mix(in srgb, var(--blue-soft) 30%, transparent);
 }
 
 /* Tab dirty indicator */
@@ -580,7 +525,7 @@ html, body {
 #drag-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(137, 180, 250, 0.12);
+    background: color-mix(in srgb, var(--blue-soft) 12%, transparent);
     backdrop-filter: blur(4px);
     z-index: 100;
     display: flex;
@@ -643,8 +588,8 @@ html, body {
 }
 
 .attached-file.folder-attach {
-    background: linear-gradient(135deg, rgba(116, 199, 236, 0.15), rgba(137, 180, 250, 0.15));
-    border-color: rgba(137, 180, 250, 0.3);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--sky-soft) 15%, transparent), color-mix(in srgb, var(--blue-soft) 15%, transparent));
+    border-color: color-mix(in srgb, var(--blue-soft) 30%, transparent);
     font-weight: 500;
 }
 
@@ -670,13 +615,13 @@ html, body {
 }
 
 .attach-bubble-content.file {
-    background: linear-gradient(135deg, rgba(166, 227, 161, 0.08), rgba(148, 226, 213, 0.08));
-    border: 1px solid rgba(166, 227, 161, 0.2);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--green-soft) 8%, transparent), color-mix(in srgb, var(--teal-soft) 8%, transparent));
+    border: 1px solid color-mix(in srgb, var(--green-soft) 20%, transparent);
 }
 
 .attach-bubble-content.folder {
-    background: linear-gradient(135deg, rgba(137, 180, 250, 0.08), rgba(180, 190, 254, 0.08));
-    border: 1px solid rgba(137, 180, 250, 0.2);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--blue-soft) 8%, transparent), color-mix(in srgb, var(--lavender-soft) 8%, transparent));
+    border: 1px solid color-mix(in srgb, var(--blue-soft) 20%, transparent);
 }
 
 .attach-bubble-header {
@@ -711,15 +656,15 @@ html, body {
     font-size: 12px;
     padding: 2px 8px;
     border-radius: 20px;
-    background: rgba(166, 227, 161, 0.15);
-    color: var(--success, #a6e3a1);
+    background: color-mix(in srgb, var(--green-soft) 15%, transparent);
+    color: var(--success);
     white-space: nowrap;
 }
 
 .attach-file-list {
     margin-top: 8px;
     padding: 8px 10px;
-    background: rgba(0, 0, 0, 0.15);
+    background: color-mix(in srgb, var(--shadow-color) 15%, transparent);
     border-radius: 8px;
     max-height: 140px;
     overflow-y: auto;
@@ -895,7 +840,7 @@ html, body {
 
 .terminal-action-icon.diagnose-btn:hover {
     color: var(--yellow) !important;
-    background: rgba(255, 216, 102, 0.1) !important;
+    background: color-mix(in srgb, var(--yellow) 10%, transparent) !important;
 }
 
 .terminal-divider {
@@ -1100,8 +1045,10 @@ html, body {
 .copy-btn {
     padding: 3px 10px;
     background: var(--bg-overlay);
-    color: var(--text-base);
-    border: 1px solid var(--border);
+    /* T-060: --text-base/--border كانا غير معرّفين (سقوط صامت قبل
+       الترحيل) — استُبدلا بتوكنز معرّفة. */
+    color: var(--text);
+    border: 1px solid var(--surface-1);
     border-radius: 4px;
     font-size: 11px;
     font-weight: 600;
@@ -1111,7 +1058,7 @@ html, body {
 }
 
 .copy-btn:hover {
-    background: var(--border);
+    background: var(--surface-1);
     transform: scale(1.02);
 }
 
@@ -1156,8 +1103,8 @@ html, body {
     display: flex;
     gap: 8px;
     padding: 10px 14px;
-    background: rgba(137, 180, 250, 0.08);
-    border: 1px solid rgba(137, 180, 250, 0.2);
+    background: color-mix(in srgb, var(--blue-soft) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--blue-soft) 20%, transparent);
     border-radius: var(--radius);
     margin-top: 8px;
     flex-wrap: wrap;
@@ -1275,7 +1222,7 @@ html, body {
     align-items: center;
     gap: 8px;
     min-width: 250px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--shadow-color) 30%, transparent);
 }
 
 .toast.success { background: var(--bg-surface); border-left: 3px solid var(--success); }
@@ -1332,7 +1279,7 @@ html, body {
 }
 
 .copy-response-btn.copied {
-    background: rgba(166, 227, 161, 0.15);
+    background: color-mix(in srgb, var(--green-soft) 15%, transparent);
     border-color: var(--success);
     color: var(--success);
     pointer-events: none;
@@ -1402,7 +1349,7 @@ html, body {
 }
 
 .session-item.active {
-    background: rgba(137, 180, 250, 0.15);
+    background: color-mix(in srgb, var(--blue-soft) 15%, transparent);
     border-left: 3px solid var(--blue);
 }
 
@@ -1423,7 +1370,7 @@ html, body {
     background: var(--bg-surface);
     border: 1px solid var(--surface-0);
     border-radius: var(--radius-lg);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 8px 32px color-mix(in srgb, var(--shadow-color) 40%, transparent);
     z-index: 200;
     display: flex;
     flex-direction: column;
@@ -1487,7 +1434,7 @@ html, body {
 }
 
 .session-item.active {
-    background: rgba(137, 180, 250, 0.1);
+    background: color-mix(in srgb, var(--blue-soft) 10%, transparent);
     border-color: var(--accent);
 }
 
@@ -1534,7 +1481,7 @@ html, body {
 
 .session-item .session-delete:hover {
     color: var(--error);
-    background: rgba(243, 139, 168, 0.1);
+    background: color-mix(in srgb, var(--red-soft) 10%, transparent);
 }
 
 .sessions-empty {
@@ -1548,8 +1495,8 @@ html, body {
    Plan Card
    ═══════════════════════════════════════════ */
 .plan-card {
-    background: linear-gradient(135deg, rgba(203, 166, 247, 0.08), rgba(137, 180, 250, 0.08));
-    border: 1px solid rgba(203, 166, 247, 0.25);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--mauve-soft) 8%, transparent), color-mix(in srgb, var(--blue-soft) 8%, transparent));
+    border: 1px solid color-mix(in srgb, var(--mauve-soft) 25%, transparent);
     border-radius: var(--radius-lg);
     padding: 16px;
     margin-top: 8px;
@@ -1606,7 +1553,7 @@ html, body {
 }
 
 .plan-controls .btn-revise:hover {
-    background: rgba(249, 226, 175, 0.1);
+    background: color-mix(in srgb, var(--yellow-soft) 10%, transparent);
 }
 
 .plan-controls .btn-review {
@@ -1616,7 +1563,7 @@ html, body {
 }
 
 .plan-controls .btn-review:hover {
-    background: rgba(137, 180, 250, 0.1);
+    background: color-mix(in srgb, var(--blue-soft) 10%, transparent);
 }
 
 .plan-controls .btn-cancel {
@@ -1627,7 +1574,7 @@ html, body {
 
 .plan-controls .btn-cancel:hover {
     border-color: var(--error);
-    background: rgba(243, 139, 168, 0.1);
+    background: color-mix(in srgb, var(--red-soft) 10%, transparent);
 }
 
 /* ═══════════════════════════════════════════
@@ -1725,7 +1672,7 @@ html, body {
 }
 
 .quick-reply-btn:hover {
-    background: rgba(137, 180, 250, 0.1);
+    background: color-mix(in srgb, var(--blue-soft) 10%, transparent);
     border-color: var(--accent);
     color: var(--accent);
     transform: translateY(-1px);
@@ -1750,8 +1697,8 @@ html, body {
     align-items: center;
     gap: 4px;
     padding: 3px 10px;
-    background: rgba(166, 227, 161, 0.1);
-    border: 1px solid rgba(166, 227, 161, 0.2);
+    background: color-mix(in srgb, var(--green-soft) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--green-soft) 20%, transparent);
     border-radius: 20px;
     font-size: 11px;
     color: var(--success);
@@ -1772,8 +1719,8 @@ html, body {
 .delegate-card {
     border-radius: 12px;
     padding: 16px;
-    background: linear-gradient(135deg, rgba(180, 190, 254, 0.08), rgba(203, 166, 247, 0.08));
-    border: 1px solid rgba(180, 190, 254, 0.2);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--lavender-soft) 8%, transparent), color-mix(in srgb, var(--mauve-soft) 8%, transparent));
+    border: 1px solid color-mix(in srgb, var(--lavender-soft) 20%, transparent);
     animation: slideUp 0.3s ease;
     max-width: 400px;
 }
@@ -1814,10 +1761,10 @@ html, body {
     transition: all 0.3s ease;
 }
 
-.delegate-phase[data-status="running"] { background: rgba(250, 179, 135, 0.1); }
-.delegate-phase[data-status="success"] { background: rgba(166, 227, 161, 0.08); }
-.delegate-phase[data-status="error"] { background: rgba(243, 139, 168, 0.08); }
-.delegate-phase[data-status="waiting_approval"] { background: rgba(250, 227, 135, 0.1); }
+.delegate-phase[data-status="running"] { background: color-mix(in srgb, var(--peach-soft) 10%, transparent); }
+.delegate-phase[data-status="success"] { background: color-mix(in srgb, var(--green-soft) 8%, transparent); }
+.delegate-phase[data-status="error"] { background: color-mix(in srgb, var(--red-soft) 8%, transparent); }
+.delegate-phase[data-status="waiting_approval"] { background: color-mix(in srgb, var(--yellow-soft) 10%, transparent); }
 
 .dp-indicator {
     font-size: 16px;
@@ -1846,8 +1793,8 @@ html, body {
 .delegate-review {
     border-radius: 12px;
     padding: 16px;
-    background: linear-gradient(135deg, rgba(166, 227, 161, 0.06), rgba(148, 226, 213, 0.06));
-    border: 1px solid rgba(166, 227, 161, 0.2);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--green-soft) 6%, transparent), color-mix(in srgb, var(--teal-soft) 6%, transparent));
+    border: 1px solid color-mix(in srgb, var(--green-soft) 20%, transparent);
     animation: slideUp 0.4s ease;
     max-width: 450px;
 }
@@ -1864,8 +1811,8 @@ html, body {
     border-radius: 20px;
     font-size: 12px;
     font-weight: 600;
-    background: rgba(166, 227, 161, 0.15);
-    color: var(--success, #a6e3a1);
+    background: color-mix(in srgb, var(--green-soft) 15%, transparent);
+    color: var(--success);
     text-transform: uppercase;
 }
 
@@ -1873,8 +1820,8 @@ html, body {
     font-size: 11px;
     padding: 2px 8px;
     border-radius: 12px;
-    background: rgba(250, 179, 135, 0.15);
-    color: var(--warning, #fab387);
+    background: color-mix(in srgb, var(--peach-soft) 15%, transparent);
+    color: var(--warning);
 }
 
 .review-summary {
@@ -1890,7 +1837,7 @@ html, body {
     gap: 4px;
     margin-bottom: 10px;
     padding: 8px 10px;
-    background: rgba(0, 0, 0, 0.12);
+    background: color-mix(in srgb, var(--shadow-color) 12%, transparent);
     border-radius: 8px;
 }
 
@@ -1937,22 +1884,22 @@ html, body {
 }
 
 .review-btn.approve {
-    background: rgba(166, 227, 161, 0.2);
-    color: var(--success, #a6e3a1);
+    background: color-mix(in srgb, var(--green-soft) 20%, transparent);
+    color: var(--success);
 }
 
 .review-btn.approve:hover:not(:disabled) {
-    background: rgba(166, 227, 161, 0.35);
+    background: color-mix(in srgb, var(--green-soft) 35%, transparent);
     transform: translateY(-1px);
 }
 
 .review-btn.reject {
-    background: rgba(243, 139, 168, 0.15);
-    color: var(--error, #f38ba8);
+    background: color-mix(in srgb, var(--red-soft) 15%, transparent);
+    color: var(--error);
 }
 
 .review-btn.reject:hover:not(:disabled) {
-    background: rgba(243, 139, 168, 0.3);
+    background: color-mix(in srgb, var(--red-soft) 30%, transparent);
     transform: translateY(-1px);
 }
 
@@ -1973,7 +1920,7 @@ html, body {
 }
 
 .exploring-accordion {
-    background: rgba(30, 30, 46, 0.4);
+    background: color-mix(in srgb, var(--scrim) 40%, transparent);
     font-size: 13px;
 }
 
@@ -2074,17 +2021,17 @@ html, body {
     border-radius: 4px;
     min-width: 28px;
     height: 16px;
-    color: #fff;
+    color: var(--icon-badge-fg);
     text-transform: uppercase;
 }
 
-.file-badge.py { background-color: #3572A5; }
-.file-badge.js { background-color: #f1e05a; color: #000; }
-.file-badge.ts { background-color: #3178c6; }
-.file-badge.html { background-color: #e34c26; }
-.file-badge.css { background-color: #563d7c; }
-.file-badge.json { background-color: #24292e; border: 1px solid var(--surface-0); }
-.file-badge.md { background-color: #083fa1; }
+.file-badge.py { background-color: var(--icon-py); }
+.file-badge.js { background-color: var(--icon-js); color: var(--icon-js-fg); }
+.file-badge.ts { background-color: var(--icon-ts); }
+.file-badge.html { background-color: var(--icon-html); }
+.file-badge.css { background-color: var(--icon-css); }
+.file-badge.json { background-color: var(--icon-json); border: 1px solid var(--surface-0); }
+.file-badge.md { background-color: var(--icon-md); }
 .file-badge.generic { background-color: var(--text-muted); }
 
 @keyframes pulse {
@@ -2110,7 +2057,7 @@ html, body {
     align-items: center;
     gap: 10px;
     padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.03);
+    background: color-mix(in srgb, var(--hint-color) 3%, transparent);
     border-bottom: 1px solid var(--surface-0);
     font-size: 12px;
     font-weight: 600;
@@ -2139,7 +2086,7 @@ html, body {
 .terminal-command-line,
 .terminal-output {
     background: var(--terminal-box-bg);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid color-mix(in srgb, var(--hint-color) 6%, transparent);
     border-radius: 6px;
     padding: 10px 14px;
     color: var(--terminal-text);
@@ -2181,23 +2128,23 @@ html, body {
 }
 
 .terminal-btn.accept {
-    background: rgba(92, 255, 138, 0.15);
+    background: color-mix(in srgb, var(--green) 15%, transparent);
     color: var(--terminal-green);
-    border: 1px solid rgba(92, 255, 138, 0.3);
+    border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
 }
 
 .terminal-btn.accept:hover:not(:disabled) {
-    background: rgba(92, 255, 138, 0.25);
+    background: color-mix(in srgb, var(--green) 25%, transparent);
 }
 
 .terminal-btn.reject {
-    background: rgba(255, 95, 126, 0.1);
+    background: color-mix(in srgb, var(--red) 10%, transparent);
     color: var(--terminal-red);
-    border: 1px solid rgba(255, 95, 126, 0.25);
+    border: 1px solid color-mix(in srgb, var(--red) 25%, transparent);
 }
 
 .terminal-btn.reject:hover:not(:disabled) {
-    background: rgba(255, 95, 126, 0.2);
+    background: color-mix(in srgb, var(--red) 20%, transparent);
 }
 
 .terminal-output {
@@ -2249,7 +2196,7 @@ html, body {
     display: inline-block;
     width: 14px;
     height: 14px;
-    border: 2px solid rgba(110, 161, 255, 0.3);
+    border: 2px solid color-mix(in srgb, var(--blue) 30%, transparent);
     border-top: 2px solid var(--terminal-blue);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;

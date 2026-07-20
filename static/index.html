@@ -6,8 +6,26 @@
     <title>WebDev AI Editor</title>
     <meta name="description" content="محاكي تطوير ويب ذكي مستوحى من Antigravity — متخصص في المواقع والسكريبتات">
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="/static/style.css?v=17">
+    <!-- Theme bootstrap — T-060 (R-905): يضبط data-theme قبل أول paint
+         (لا FOUC): localStorage ← وإلا prefers-color-scheme ← وإلا dark. -->
+    <script>
+    (function () {
+        var t = null;
+        try { t = localStorage.getItem("webdev-ai-theme"); } catch (e) {}
+        if (!t) {
+            t = (window.matchMedia
+                 && window.matchMedia("(prefers-color-scheme: light)").matches)
+                ? "light" : "dark";
+        }
+        document.documentElement.setAttribute("data-theme", t);
+    })();
+    </script>
+
+    <!-- Styles — T-060 (R-905): tokens (بنيوية) + لوحات الثيمات ثم الأنماط -->
+    <link rel="stylesheet" href="/static/themes/tokens.css?v=1">
+    <link rel="stylesheet" href="/static/themes/dark.css?v=1">
+    <link rel="stylesheet" href="/static/themes/light.css?v=1">
+    <link rel="stylesheet" href="/static/style.css?v=18">
 
     <!-- highlight.js for syntax highlighting -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark-dimmed.min.css">

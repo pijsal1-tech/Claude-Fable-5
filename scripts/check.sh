@@ -91,6 +91,20 @@ if [ -n "$rglob_violations" ]; then
 fi
 echo "rglob clean"
 
+# T-060 (R-905): طبقة توكنز التصميم — ممنوع أي لون خام (hex/rgb/hsl)
+# خارج static/themes/. كل استهلاك عبر var(--token) أو color-mix.
+echo "== color token lint (no raw colors outside static/themes/) =="
+color_violations=$(grep -rnE '#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(' \
+  --include='*.css' --include='*.html' --include='*.js' \
+  static/ public/ \
+  | grep -v '^static/themes/' || true)
+if [ -n "$color_violations" ]; then
+  echo "raw color outside static/themes/ — use var(--token) / color-mix:"
+  echo "$color_violations"
+  exit 1
+fi
+echo "colors clean"
+
 echo "== pytest =="
 python3 -m pytest
 

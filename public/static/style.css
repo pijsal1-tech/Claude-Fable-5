@@ -1,12 +1,16 @@
+/* Legacy stylesheet (غير مخدوم — server.py يخدم static/ فقط).
+   T-060 (R-905): الألوان الخام استُبدلت بتوكنز الثيم للامتثال لبوابة
+   "صفر ألوان خام خارج static/themes/" — الملف يفترض تحميل tokens.css
+   وملف ثيم إن استُخدم مستقبلًا. */
 :root {
-  --bg-color: #f3f4f6;
-  --card-bg: #ffffff;
-  --text-color: #111827;
-  --muted-color: #6b7280;
-  --accent-color: #2563eb;
-  --accent-hover: #1d4ed8;
+  --bg-color: var(--bg-base);
+  --card-bg: var(--bg-surface);
+  --text-color: var(--text);
+  --muted-color: var(--text-muted);
+  --accent-color: var(--accent);
+  --accent-hover: var(--accent);
   --radius: 0.75rem;
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow: var(--shadow-md);
 }
 
 * {
@@ -58,7 +62,7 @@ input[type='text'] {
   width: 100%;
   padding: 0.75rem 1rem;
   font-size: 1rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--surface-1);
   border-radius: var(--radius);
   outline: none;
   transition: border-color 0.2s ease;
@@ -73,7 +77,7 @@ button {
   padding: 0.75rem 1rem;
   font-size: 1rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-on-accent);
   background-color: var(--accent-color);
   border: none;
   border-radius: var(--radius);

@@ -1,0 +1,81 @@
+/* ═══════════════════════════════════════════════════════════════
+   🌙 Dark Theme (الافتراضي) — T-060 (R-905)
+   اللوحة الأصلية (True Black / Catppuccin Mocha accents) منقولة
+   حرفيًا من style.css — قيم dark مطابقة لما قبل الترحيل
+   (regression snapshot يتحقق منها test_theme_tokens.py).
+   يُطبَّق كافتراضي (:root) وكاختيار صريح [data-theme="dark"].
+   ═══════════════════════════════════════════════════════════════ */
+
+:root,
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* Base colors — True Black */
+    --bg-base: #0d0d12;
+    --bg-surface: #111117;
+    --bg-overlay: #08080c;
+    --bg-mantle: #0a0a10;
+    --bg-crust: #060609;
+
+    /* Surface layers */
+    --surface-0: #1a1a24;
+    --surface-1: #252530;
+    --surface-2: #32323e;
+
+    /* Text */
+    --text: #e2e4f0;
+    --text-dim: #9598ad;
+    --text-muted: #555770;
+    --subtext: #c0c3d8;
+
+    /* Accent colors — Vibrant */
+    --blue: #6ea1ff;
+    --green: #5cff8a;
+    --red: #ff5f7e;
+    --yellow: #ffd866;
+    --mauve: #bf8aff;
+    --teal: #5cecc4;
+    --peach: #ff9e64;
+    --pink: #ff7eb6;
+    --sky: #6ad7f9;
+    --lavender: #9faeff;
+    --flamingo: #ff9ebc;
+
+    /* Soft accents (Catppuccin Mocha) — تظليلات الخلفيات الشفافة */
+    --blue-soft: #89b4fa;
+    --green-soft: #a6e3a1;
+    --red-soft: #f38ba8;
+    --peach-soft: #fab387;
+    --yellow-soft: #f9e2af;
+    --mauve-soft: #cba6f7;
+    --lavender-soft: #b4befe;
+    --teal-soft: #94e2d5;
+    --sky-soft: #74c7ec;
+
+    /* Shadows / overlays */
+    --shadow-color: #000000;
+    --hint-color: #ffffff;
+    --scrim: #1e1e2e;
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+    /* Run button gradients */
+    --run-btn-grad-a: #1a3a1a;
+    --run-btn-grad-b: #0f2a0f;
+    --run-btn-hover-a: #1f4f1f;
+    --run-btn-hover-b: #153a15;
+
+    /* On-accent text */
+    --text-on-accent: #0d0d12;
+
+    /* File-type icon/badge colors (R-903) — GitHub language colors */
+    --icon-py: #3572a5;
+    --icon-js: #f1e05a;
+    --icon-ts: #3178c6;
+    --icon-html: #e34c26;
+    --icon-css: #563d7c;
+    --icon-json: #24292e;
+    --icon-md: #083fa1;
+    --icon-badge-fg: #ffffff;
+    --icon-js-fg: #000000;
+}

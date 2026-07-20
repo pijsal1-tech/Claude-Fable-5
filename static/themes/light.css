@@ -1,0 +1,79 @@
+/* ═══════════════════════════════════════════════════════════════
+   ☀️ Light Theme — T-060 (R-905)
+   لوحة فاتحة (Catppuccin Latte-inspired) تعرّف نفس مجموعة توكنز
+   dark.css كاملة تحت [data-theme="light"] — تباين WCAG AA للنصوص
+   الأساسية على الخلفيات الأساسية.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root[data-theme="light"] {
+    color-scheme: light;
+
+    /* Base colors */
+    --bg-base: #eff1f5;
+    --bg-surface: #e6e9ef;
+    --bg-overlay: #dce0e8;
+    --bg-mantle: #e6e9ef;
+    --bg-crust: #dce0e8;
+
+    /* Surface layers */
+    --surface-0: #ccd0da;
+    --surface-1: #bcc0cc;
+    --surface-2: #acb0be;
+
+    /* Text */
+    --text: #4c4f69;
+    --text-dim: #5c5f77;
+    --text-muted: #8c8fa1;
+    --subtext: #5c5f77; /* غُمِّق عن Latte الأصلي (#6c6f85) لتباين AA ≥4.5 على bg-surface */
+
+    /* Accent colors */
+    --blue: #1e66f5;
+    --green: #40a02b;
+    --red: #d20f39;
+    --yellow: #df8e1d;
+    --mauve: #8839ef;
+    --teal: #179299;
+    --peach: #fe640b;
+    --pink: #ea76cb;
+    --sky: #04a5e5;
+    --lavender: #7287fd;
+    --flamingo: #dd7878;
+
+    /* Soft accents — تظليلات الخلفيات الشفافة */
+    --blue-soft: #1e66f5;
+    --green-soft: #40a02b;
+    --red-soft: #d20f39;
+    --peach-soft: #fe640b;
+    --yellow-soft: #df8e1d;
+    --mauve-soft: #8839ef;
+    --lavender-soft: #7287fd;
+    --teal-soft: #179299;
+    --sky-soft: #04a5e5;
+
+    /* Shadows / overlays */
+    --shadow-color: #9ca0b0;
+    --hint-color: #4c4f69;
+    --scrim: #ccd0da;
+    --shadow-md: 0 4px 20px rgba(156, 160, 176, 0.3);
+    --shadow-lg: 0 8px 32px rgba(156, 160, 176, 0.4);
+
+    /* Run button gradients */
+    --run-btn-grad-a: #d4f0d4;
+    --run-btn-grad-b: #c2e8c2;
+    --run-btn-hover-a: #baf0ba;
+    --run-btn-hover-b: #a8e0a8;
+
+    /* On-accent text */
+    --text-on-accent: #ffffff;
+
+    /* File-type icon/badge colors (R-903) */
+    --icon-py: #3572a5;
+    --icon-js: #b3a125;
+    --icon-ts: #3178c6;
+    --icon-html: #e34c26;
+    --icon-css: #563d7c;
+    --icon-json: #4c4f69;
+    --icon-md: #083fa1;
+    --icon-badge-fg: #ffffff;
+    --icon-js-fg: #000000;
+}
