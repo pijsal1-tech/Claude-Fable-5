@@ -27,8 +27,26 @@ from context.sources.mention import (
     MentionSource,
     render_legacy_injection,
 )
+from context.semantic_source import SemanticSource
 from context.sources.structure import STRUCTURE_PATH, StructureSource
 from context.sources.symbol import SymbolSource
+
+
+def _app_config() -> dict:
+    """قراءة config.yaml من جذر التطبيق — تسامحية (فشل ⇒ {}).
+
+    T-057: علم ``context.semantic`` يعيش في config.yaml بجوار الحزمة
+    (نفس الملف الذي يقرؤه server._read_config — جذر التطبيق هو أبو
+    مجلد context/).
+    """
+    try:
+        import yaml
+        cfg_path = pathlib.Path(__file__).resolve().parent.parent / "config.yaml"
+        with open(cfg_path, encoding="utf-8") as fh:
+            loaded = yaml.safe_load(fh)
+        return loaded if isinstance(loaded, dict) else {}
+    except Exception:
+        return {}
 
 
 @dataclass(frozen=True)
@@ -49,7 +67,11 @@ def _default_engine(index: Any = None) -> ContextEngine:
     # T-056 (R-205): SymbolSource بعد Keyword وقبل Structure — عناصره
     # بمسارات رمزية <symbol:...> فلا تدخل قائمة mentioned_files (الـ
     # facade يرشّح mention/keyword فقط) ⇒ goldens T-017 غير متأثرة.
+    # T-057 (R-206): SemanticSource بعد Symbol — مساراته <semantic:...>
+    # رمزية كذلك؛ العلم context.semantic.enabled (config.yaml) يوقفه
+    # نظيفًا؛ المهلة الصارمة تضمن ألا يعطّل الرد أبدًا.
     sources: list = [MentionSource(), KeywordSource(), SymbolSource(),
+                     SemanticSource.from_config(_app_config()),
                      StructureSource()]
     if index is not None:
         return ContextEngine(sources, scan_factory=lambda _root: index.scan())
