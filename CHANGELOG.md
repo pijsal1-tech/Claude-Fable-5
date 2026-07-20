@@ -27,6 +27,43 @@
     fallback path left.
 
 ### Added
+- **R-904 (T-064): Syntax highlighting engine + chat/file views.**
+  - **Engine decision (documented in module header): highlight.js 11.11.1,
+    not Shiki** — Shiki needs WASM + a bundling step; this project is
+    UMD-lite with no build step. Engine is **vendored locally**
+    (`static/vendor/highlight.min.js`, BSD-3 — the old cdnjs script *and*
+    its `github-dark-dimmed` CDN stylesheet were removed) plus a vendored
+    `dockerfile` grammar. Covers the full R-903 language list (21 grammars
+    asserted by test) and runs in node so tests exercise the real engine.
+  - `static/js/code_highlight.js`: the single engine consumption point.
+    `highlightCode(code, fenceTag)` (LRU-cached), `highlightContainer(el)`
+    for chat blocks (fence-tag override, else auto-detect),
+    `buildEditorHTML(text, path, firstLine, visible)` for the editor.
+    File language derives from `FileIcons.getFileIcon(path).id` — no second
+    extension map (T-063's single-source grep gate covers the new module
+    automatically). `app.js` no longer calls `hljs.` directly (test-banned);
+    the dead `marked.setOptions({highlight})` hook (removed in marked v5)
+    was deleted.
+  - **Streaming without flicker:** completed code blocks are served from an
+    LRU cache (max 500) returning the **identical string object** — zero
+    re-tokenization; only the still-open trailing block re-parses per chunk
+    (streaming-simulation test pins missDelta == chunk count).
+  - **Editor highlight layer:** `<pre id="editor-highlight">` behind a
+    text-transparent `textarea` (visible caret, metrics identical,
+    scroll-synced with the existing line numbers). Files >2000 lines use a
+    **lazy viewport path**: only ±200 lines around the viewport are
+    tokenized (rAF-throttled on scroll), the rest stays escaped plain
+    text — 5k-line file <500ms with total line count preserved
+    (scroll-height parity, asserted).
+  - Palettes are theme tokens: `.hljs-*` rules in `style.css` consume
+    `var(--syntax-*)` (defined for all 4 themes since T-060); missing
+    rules added (tag/name/selector-*/bullet/strong/emphasis/punctuation/
+    symbol/link). Theme switching restyles code instantly.
+  - `tests/unit/test_code_highlight.py` (16 tests): pinned per-language
+    class snapshots for 21 languages; every snapshot class styled by a
+    token rule; cache identity + LRU bound; large-file perf; language
+    derivation via FileIcons; script load order engine→icons→module→app;
+    unknown/no-language regression.
 - **R-903 (T-063): File-type icons rendered everywhere filenames appear.**
   - `static/app.js`: new `fileIconHTML(path)` — the **only** consumer entry
     point; delegates to `FileIcons.getFileIcon` (T-062 module) and renders
