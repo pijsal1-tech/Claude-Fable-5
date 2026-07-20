@@ -27,6 +27,33 @@
     fallback path left.
 
 ### Added
+- **R-703 (T-050): CI pipeline + coverage ratchet + sessions history purge.**
+  - New `.github/workflows/ci.yml`: single job running `scripts/check.sh`
+    (mypy + all 7 structural gates + full pytest — the one source of
+    truth, not duplicated in YAML), then a production-code coverage
+    measurement (`.coveragerc` omits tests/scripts/static), then the
+    ratchet gate.
+  - New `scripts/coverage_ratchet.py` + tracked `coverage_baseline.txt`:
+    increase-only coverage floor. `check` exits 1 if coverage drops
+    below the baseline; `update` raises the floor (never lowers it,
+    0.5pt safety margin below the measured value). Started at the
+    spec's 40%, ratcheted to the real measured floor **68.4%**
+    (current coverage 68.9%).
+  - New `scripts/purge_sessions_history.sh`: coordinated
+    `git filter-repo` runbook purging `sessions/*.json|jsonl|meta.json`
+    from **all history** (43 leaked user conversations) while keeping
+    the `sessions/` production code; safety pre-purge tag, built-in
+    verification (`git log --all -- 'sessions/*.json'` must be empty),
+    `DRY_RUN=1` mode, and force-push/re-clone team instructions.
+    **Rehearsed on a scratch clone: history empty, code kept, suite
+    green post-purge.** Owner runs it manually (history rewrite).
+  - `.gitignore`: coverage artifacts (`.coverage`, `coverage.json`,
+    `htmlcov/`) untracked; the baseline file stays tracked by design.
+  - Tests (`tests/unit/test_coverage_ratchet.py`, 16): pure ratchet
+    decision (block-on-regression verified), increase-only `update`,
+    CLI exit codes on fixture files, CI wiring assertions
+    (workflow gates present, baseline ≥40, coveragerc omits
+    non-production, fixtures canary).
 - **R-702 (T-049): ProjectIndex — inverted index kills O(files) per message.**
   - New `context/index.py`: `ProjectIndex` built once at project open
     (os.walk, sorted global order preserving T-017 golden order) with

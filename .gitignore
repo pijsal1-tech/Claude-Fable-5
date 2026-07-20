@@ -29,3 +29,8 @@ sessions/*.json
 sessions/*.jsonl
 sessions/*.meta.json
 sessions/*.tmp
+# T-050 (R-703): مخرجات قياس التغطية — تُولَّد في كل تشغيل، لا تُتتبَّع.
+# (coverage_baseline.txt متتبَّع عمدًا — هو الأرضية الرسمية للـ ratchet.)
+.coverage
+coverage.json
+htmlcov/
