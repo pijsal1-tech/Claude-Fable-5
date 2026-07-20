@@ -336,14 +336,6 @@ html, body {
 .tree-item.dir { color: var(--text-muted); }
 .tree-item.dir .icon { color: var(--yellow); }
 
-/* T-063 (R-903): أيقونة نوع الملف من sprite.svg — اللون من --icon-*
-   يُضبط inline لكل عنصر (يختلف حسب نوع الملف)؛ الحجم/الانتقال هنا فقط. */
-.file-icon {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-}
-
 .tree-indent { width: 16px; display: inline-block; flex-shrink: 0; }
 
 /* ═══════════════════════════════════════════

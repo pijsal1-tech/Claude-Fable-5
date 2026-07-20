@@ -27,36 +27,6 @@
     fallback path left.
 
 ### Added
-- **R-903 (T-063): Icons everywhere filenames render.**
-  - `static/app.js`: new shared `fileIconHTML(path)` helper consuming
-    `FileIcons.getFileIcon(path)` (T-062's module) → renders
-    `<svg class="file-icon"><use href="sprite.svg#icon-<id>"></use></svg>`
-    colored via `var(--icon-*)`. Consumed at the 3 real render sites:
-    file tree (`renderTreeNode`, replacing the old local emoji map),
-    editor tabs (`renderTabs`, icon added — none existed before), and
-    chat attachment pills (`renderAttachments`, replacing the hardcoded
-    `📄`). The old duplicate `getFileIcon(ext)` (extension→emoji object
-    literal) is deleted entirely — single source of truth restored.
-  - `static/index.html`: `file_icons.js` now loaded before `app.js`.
-  - `static/style.css`: minimal `.file-icon` sizing rule (tokens-only,
-    color set inline per-render — passes the color-lint gate).
-  - **Scope decision:** no `@mention` chips, diff-panel, or run-history
-    UI exist in this codebase yet (verified by search) — N/A per the
-    task's "(when they exist)" wording. `getFileBadgeHTML()` (chat
-    tool-activity badges: SRC/TREE/DIR + short text codes, including
-    tools with no file extension) is a deliberately separate, unrelated
-    concept and stays untouched — not in tree/tabs/mentions/diff/
-    run-history scope. Folder icons (📁/📂) stay emoji — folders aren't
-    "filenames".
-  - `tests/unit/test_icon_consumption.py` (8 tests): single-source grep
-    across all served `static/**/*.js` (no second ext→icon map outside
-    `file_icons.js`), old-mapping-signature removal, script load order,
-    all 3 consumption sites verified present, out-of-scope badge system
-    presence-checked, and a fixture-tree "visual snapshot" (25 paths
-    covering every T-062 category) rendered through the real
-    `fileIconHTML` via node with a stable expected-symbol snapshot.
-  - `./scripts/check.sh`: 1129 passed, 1 skipped — ALL GREEN
-    (was 1121 before T-063).
 - **R-903 (T-062): File-type icon system — module + SVG sprite.**
   - `static/js/file_icons.js`: the single extension→icon mapping.
     `FileIcons.getFileIcon(path)` → `{id, symbol, colorToken, label}`;

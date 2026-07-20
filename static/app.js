@@ -1202,7 +1202,8 @@ function renderTreeNode(container, node, depth) {
         for (let i = 0; i < depth; i++) indent += '<span class="tree-indent"></span>';
 
         if (isFile) {
-            item.innerHTML = `${indent}${fileIconHTML(val.path)}<span class="name">${key}</span>`;
+            const icon = getFileIcon(val.ext);
+            item.innerHTML = `${indent}<span class="icon">${icon}</span><span class="name">${key}</span>`;
             item.onclick = () => openFile(val.path);
             // Make file draggable to chat
             item.draggable = true;
@@ -1239,13 +1240,20 @@ function renderTreeNode(container, node, depth) {
     });
 }
 
-// T-063 (R-903): مصدر وحيد لأيقونة نوع الملف — يستهلك FileIcons.getFileIcon
-// (وحدة file_icons.js) في الشجرة/التبويبات/المرفقات. ممنوع أي mapping ثانٍ
-// (grep-gated في tests/unit/test_icon_consumption.py).
-function fileIconHTML(path) {
-    const icon = FileIcons.getFileIcon(path);
-    return `<svg class="file-icon" style="color: var(${icon.colorToken})" aria-hidden="true">` +
-        `<use href="/static/icons/sprite.svg${icon.symbol}"></use></svg>`;
+function getFileIcon(ext) {
+    const icons = {
+        ".html": "🌐", ".htm": "🌐",
+        ".css": "🎨", ".scss": "🎨",
+        ".js": "⚡", ".jsx": "⚡", ".mjs": "⚡",
+        ".ts": "💠", ".tsx": "💠",
+        ".py": "🐍",
+        ".json": "📋", ".yaml": "📋", ".yml": "📋",
+        ".md": "📝", ".txt": "📄",
+        ".svg": "🖼️", ".xml": "📃",
+        ".sh": "🖥️", ".bat": "🖥️",
+        ".env": "🔒", ".gitignore": "🔒",
+    };
+    return icons[ext] || "📄";
 }
 
 // ═══════════════════════════════════════════
@@ -1284,7 +1292,6 @@ function renderTabs() {
         const dirty = t.dirty ? "dirty" : "";
         return `
             <div class="tab ${active} ${dirty}" onclick="switchTab('${t.path}')">
-                ${fileIconHTML(t.path)}
                 <span>${name}</span>
                 <button class="close-btn" onclick="event.stopPropagation(); closeTab('${t.path}')">×</button>
             </div>
@@ -2594,8 +2601,7 @@ function renderAttachments() {
         }
         return `
             <div class="attached-file">
-                ${fileIconHTML(att.name)}
-                ${escapeHtml(att.name)}
+                📄 ${escapeHtml(att.name)}
                 <span class="remove-attach" onclick="removeAttachment(${i})">×</span>
             </div>
         `;
