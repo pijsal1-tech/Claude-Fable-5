@@ -27,6 +27,27 @@
     fallback path left.
 
 ### Added
+- **R-802 (T-103): Episodic memory layer — per-run summaries.**
+  - New `context/memory_layers.py`: `EpisodicLayer` appends one compact
+    episode record per finished run (`kind="episode"`, format 1: goal,
+    outcome, files touched, key decisions, timings) to a new
+    `sessions/<id>.episodes.jsonl` sidecar; module docstring carries the
+    three-layer model diagram (working = existing R-302/R-304 window,
+    referenced not duplicated; semantic = T-104/T-105 indexes these
+    same record shapes).
+  - `SessionStore` grows `append_episode` / `replay_episodes` /
+    `episodes_path` — same append-only + fsync + torn-tail-recovery
+    guarantees as the main log (shared `_truncate_torn_tail` /
+    `_replay_path` cores) but fully independent of the message log and
+    meta (`message_count` untouched; missing sidecar = empty, not an
+    error; `delete()` cleans it up).
+  - Degradation contract: `summarize_and_record` never raises —
+    summarizer or write failure yields no-episode + `last_error`, the
+    run is never blocked. Default `heuristic_key_decisions` summarizer
+    is deterministic (no model); provider-backed summarizers plug in
+    via the same `Summarizer` callable contract. `RunDigest` input is
+    plain data — zero `chain/` imports (no cycle), whoever owns the run
+    builds the digest. 17 tests; suite 1234 passed, 1 skipped.
 - **R-801 (T-102): Demo strategy package + routing integration.**
   - New installable `examples/demo_strategy/` package (pyproject +
     `webdev_ai.strategies` entry point): `DemoEchoStrategy` builds a
