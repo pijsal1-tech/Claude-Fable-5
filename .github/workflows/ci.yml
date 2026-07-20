@@ -1,0 +1,46 @@
+# CI — بوابة الجودة الكاملة (T-050 / R-703)
+#
+# تشغّل نفس بوابات scripts/check.sh السبع:
+#   1. mypy (providers/ chain/ core/ context/ sessions/)
+#   2. SafeReader grep
+#   3. strategy-vocab grep
+#   4. thresholds grep
+#   5. ws.send boundary grep
+#   6. handler-state lint (scripts/lint_handler_state.py)
+#   7. rglob-ban grep (context/) + pytest
+# ثم coverage ratchet (زيادة-فقط، baseline في coverage_baseline.txt).
+#
+# ملاحظة: اختباران زمنيان معروفان بالتذبذب (flaky) — أعد التشغيل مرة واحدة قبل اعتبار الفشل حقيقيًا:
+#   tests/unit/test_session_store.py::TestBenchmark::test_append_cost_does_not_grow_with_history
+#   tests/unit/test_parallel_execution.py::TestSpeedup::test_8_map_steps_at_parallel_4_at_least_3x
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install flask flask-sock requests websockets pytest pytest-timeout pytest-cov coverage mypy pyyaml
+
+      - name: Run quality gates (check.sh)
+        run: |
+          chmod +x scripts/check.sh
+          ./scripts/check.sh
+
+      - name: Coverage run (json report)
+        run: python -m pytest tests/ --cov=. --cov-report=json --cov-report=term --tb=no -q
+
+      - name: Coverage ratchet (increase-only)
+        run: python scripts/coverage_ratchet.py check
