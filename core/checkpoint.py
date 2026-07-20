@@ -320,6 +320,68 @@ class CheckpointManager:
                 out.append(rid)
         return out
 
+    # ------------------------------------------------------------------
+    # T-066 (R-902): read-only history/preview surface for the rollback UI
+    # ------------------------------------------------------------------
+    def run_summaries(self) -> list[dict]:
+        """Per-run summaries for the run-history panel — newest first.
+
+        One pass over the existing log; no new state.  Each summary:
+        ``{run_id, ts, files: [{path, pre_sha256, post_sha256, size}]}``
+        where ``ts`` is the earliest snapshot time of the run and the
+        seal (post-write) hash is joined in when present.
+        """
+        order: list[str] = []
+        runs: dict[str, dict] = {}
+        for rec in self._iter_log():
+            rid = str(rec.get("run_id", ""))
+            if not rid:
+                continue
+            if rid not in runs:
+                runs[rid] = {"run_id": rid, "ts": None, "files": {}}
+                order.append(rid)
+            info = runs[rid]
+            path = str(rec.get("path", ""))
+            if rec.get("type") == "snapshot":
+                ts = rec.get("ts")
+                if info["ts"] is None or (ts is not None and ts < info["ts"]):
+                    info["ts"] = ts
+                if path not in info["files"]:  # first snapshot wins
+                    info["files"][path] = {
+                        "path": path,
+                        "pre_sha256": rec.get("sha256"),
+                        "post_sha256": None,
+                        "size": int(rec.get("size", 0) or 0),
+                    }
+            elif rec.get("type") == "seal" and path in info["files"]:
+                info["files"][path]["post_sha256"] = rec.get("sha256")
+        return [
+            {"run_id": rid, "ts": runs[rid]["ts"],
+             "files": list(runs[rid]["files"].values())}
+            for rid in reversed(order)
+        ]
+
+    def snapshot_text(self, run_id: str, path: str | Path) -> Optional[str]:
+        """Pre-write text of ``path`` in ``run_id``'s checkpoint.
+
+        Returns ``None`` when the pre-state was "absent" (file created by
+        the run) or when nothing is recorded / blob is unreadable as text.
+        Used by the rollback-confirmation diff (renders via the T-065
+        panel: current-on-disk → snapshot text).
+        """
+        target = str(Path(path).resolve())
+        entry = next(
+            (e for e in self.entries_for_run(run_id) if e.path == target),
+            None,
+        )
+        if entry is None or entry.sha256 is None:
+            return None
+        blob = self._objects / entry.sha256
+        try:
+            return blob.read_text(encoding="utf-8")
+        except (FileNotFoundError, UnicodeDecodeError):
+            return None
+
     def prune(self, keep_run_ids: set[str] | frozenset[str]) -> int:
         """T-054 (R-106): retention hookup — drop runs outside ``keep_run_ids``.
 
