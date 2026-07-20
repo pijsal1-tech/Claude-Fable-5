@@ -736,11 +736,11 @@
 - **Files to Modify:** `docs/phase8_plan.md` (new), this file (T-053+ appended)
 - **Affected Modules:** none
 - **Acceptance Criteria:** plan reviewed; T-053+ entries follow this file's format with real estimates.
-- **Implementation:** [ ] plugin spike · [ ] embedding choice · [ ] redis shape · [ ] write plan
-- **Testing:** [ ] n/a (spike)
-- **Regression:** [ ] n/a
-- **Documentation:** [ ] the plan itself
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-100+ (Phase-8 breakdown created by this task; numbered from T-100 to avoid clashing with T-053+)
+- **Implementation:** [x] plugin spike · [x] embedding choice · [x] redis shape · [x] write plan
+- **Testing:** [x] n/a (spike)
+- **Regression:** [x] n/a
+- **Documentation:** [x] the plan itself
+- **Completion Status:** ✅ 2026-07-20 · **Reviewer Notes:** Spike executed as throwaway (toy `demo-strategy` package installed → discovery/quarantine/dry-run verified on Python 3.13.13 → uninstalled+deleted; no production code landed). Findings + decisions in `docs/phase8_plan.md`: entry-point loading confirmed safe (per-plugin `ep.load()` isolation gives host-safe quarantine); embedding backend = provider-backed `/embeddings` + pure-Python cosine over JSONL sidecar (no torch/faiss — rationale + rejected alternatives in plan §2); Redis = `redis>=5.0` optional extra, standalone instance via `REDIS_URL`, Streams for queue+EventBus (not Pub/Sub — replayability needed for frame parity), `SET NX PX` leases (plan §3). Breakdown T-100–T-114 appended (15 tasks, real 90–120 min estimates, deps resolved to actual task numbers); Quick Map + totals updated to 81. Suggested Phase-8 order: R-801→R-803→R-802→R-805→R-804; note R-802 needs T-057 first. · **Next Task:** T-053 (first incomplete in file order; the T-100+ track additionally unlocked by this task)
 
 ---
 
@@ -950,6 +950,197 @@
 
 ---
 
+# Phase 8 Breakdown — T-100 … T-114 (created by T-052; see `docs/phase8_plan.md`)
+
+---
+
+## T-100 — StrategyPluginRegistry Core (R-801)
+- **Description:** New `chain/plugin_registry.py` — discover plugins via `importlib.metadata.entry_points(group="webdev_ai.strategies")`; per-plugin `ep.load()` inside try/except; validation gate = shape check (class with `build()` + dict `routing_hints`) then dry-run plan on a canned fixture request; any failure → structured quarantine record (name, stage, reason), never a host crash. Registry exposes `loaded`, `quarantined`, `get(name)`.
+- **Reason:** Spike (T-052) proved the mechanics; the registry is the foundation every other R-801 piece hangs on.
+- **Priority:** Medium · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-035, T-041
+- **Files to Modify:** `chain/plugin_registry.py` (new), `tests/unit/test_plugin_registry.py`
+- **Affected Modules:** none yet (registry is standalone until T-102)
+- **Acceptance Criteria:** fixture entry points (good/bad-shape/import-error/dry-run-crash) → exactly the good one loads, three quarantine records with correct stage+reason; discovery with zero installed plugins yields empty registry, no error.
+- **Implementation:** [ ] entry-point discovery · [ ] load isolation · [ ] shape validation · [ ] dry-run gate · [ ] quarantine records
+- **Testing:** [ ] good plugin loads · [ ] each failure mode quarantined · [ ] empty group OK
+- **Regression:** [ ] suite green
+- **Documentation:** [ ] registry lifecycle in module docstring
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-101
+
+## T-101 — Capability-Scoped Plugin API (R-801)
+- **Description:** Define `PluginContext` — the *only* object handed to plugin `build()`: read-only ContextEngine views (bundle access, lookups), an emit hook for events, and request metadata. No `fm`, no raw session store, no server handles. Add a grep gate to `scripts/check.sh` forbidding `file_manager`/`fm` references in `chain/plugin_registry.py` and the plugin API module.
+- **Reason:** The roadmap mandates capability scoping ("plugins get ContextEngine views, never raw fm"); enforcing it by constructor signature + lint keeps it honest.
+- **Priority:** Medium · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-100
+- **Files to Modify:** `chain/plugin_api.py` (new), `chain/plugin_registry.py`, `scripts/check.sh`, `tests/unit/test_plugin_api.py`
+- **Affected Modules:** plugin registry
+- **Acceptance Criteria:** plugin receiving PluginContext can read context views + emit events but has no path to raw fm (asserted via attribute surface test); check.sh gate rejects a seeded violation.
+- **Implementation:** [ ] PluginContext dataclass · [ ] context views wiring · [ ] emit hook · [ ] check.sh gate
+- **Testing:** [ ] surface test · [ ] emit round-trip · [ ] gate rejects violation
+- **Regression:** [ ] check.sh still ALL GREEN
+- **Documentation:** [ ] plugin author contract
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-102
+
+## T-102 — Demo Strategy Package + Routing Integration (R-801)
+- **Description:** (a) `examples/demo_strategy/` — a real installable package (pyproject + entry point) shipping a toy StrategyBuilder. (b) Wire registry into routing: plugin `routing_hints` participate in strategy selection after built-ins; selected plugin executes through the normal Runner path. (c) Startup integration: registry load happens once at boot; quarantined plugins logged + surfaced, host always starts.
+- **Reason:** R-801 acceptance is end-to-end: "demo strategy from separate package routes+executes; broken plugin can't crash startup".
+- **Priority:** Medium · **Complexity:** 3/5 · **Time:** 120 min · **Dependencies:** T-101
+- **Files to Modify:** `examples/demo_strategy/` (new pkg), `chain/` routing seam, `server.py` (boot load), `tests/integration/test_plugin_e2e.py`
+- **Affected Modules:** routing, boot sequence
+- **Acceptance Criteria:** integration — pip-installed demo package routes a matching request and executes to completion; with a deliberately broken package installed, server boots green and reports the quarantine; uninstalling both restores baseline behavior byte-identically.
+- **Implementation:** [ ] demo package · [ ] routing-hints integration · [ ] boot-time load + logging
+- **Testing:** [ ] route+execute E2E · [ ] broken-plugin boot survival · [ ] no-plugins baseline unchanged
+- **Regression:** [ ] routing decision records (R-402) unchanged for built-ins
+- **Documentation:** [ ] examples/demo_strategy README
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-103
+
+## T-103 — Episodic Layer: Per-Run Summaries (R-802)
+- **Description:** New `context/memory_layers.py` — episodic layer over the JSONL session stream: post-run summarization job produces one compact episode record per run (goal, outcome, files touched, key decisions), appended to `sessions/<id>.episodes.jsonl`; working layer is the existing R-302 window (unchanged, referenced not duplicated).
+- **Reason:** Episodic is the cheapest of the three R-802 layers and defines the record shapes the semantic layer will index.
+- **Priority:** Medium · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-032, T-057
+- **Files to Modify:** `context/memory_layers.py` (new), `sessions/` store hookup, `tests/unit/test_memory_layers.py`
+- **Affected Modules:** session store (append-only sidecar)
+- **Acceptance Criteria:** multi-run fixture yields one episode per run with correct fields; episodes survive store reload; summarizer failure degrades to no-episode, never blocks the run.
+- **Implementation:** [ ] episode record schema · [ ] post-run summarization hook · [ ] sidecar persistence
+- **Testing:** [ ] per-run episodes · [ ] reload durability · [ ] failure degradation
+- **Regression:** [ ] session store suite green
+- **Documentation:** [ ] layer model + record schema
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-104
+
+## T-104 — Embedder Protocol + Semantic Index (R-802)
+- **Description:** `Embedder` protocol (`embed(texts) -> list[list[float]]`) with a provider-backed implementation (OpenAI-compatible `/embeddings` via existing `providers/` HTTP layer — decision rationale in `docs/phase8_plan.md` §2); vectors persisted to `sessions/<id>.embidx.jsonl`; retrieval = pure-Python cosine top-k over ≤5k vectors (no numpy, no vector DB). Unconfigured/unreachable provider → index cleanly reports unavailable.
+- **Priority:** Medium · **Complexity:** 4/5 · **Time:** 120 min · **Dependencies:** T-103
+- **Files to Modify:** `context/embedding.py` (new), `context/semantic_index.py` (new), `tests/unit/test_semantic_index.py`
+- **Affected Modules:** none yet (index standalone until T-105)
+- **Acceptance Criteria:** fake-embedder tests prove top-k ordering + persistence round-trip; provider-error path returns unavailable (no exception leak); index build over 1k chunks <1s.
+- **Implementation:** [ ] Embedder protocol · [ ] provider implementation · [ ] JSONL vector persistence · [ ] cosine top-k
+- **Testing:** [ ] top-k correctness · [ ] round-trip · [ ] unavailability path · [ ] perf bound
+- **Regression:** [ ] no new hard dependency (import-time grep)
+- **Documentation:** [ ] backend-choice pointer to phase8_plan §2
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-105
+
+## T-105 — Layered Retrieval Source at Opportunistic Tier (R-802)
+- **Description:** `MemorySource` ContextEngine source combining episodic (T-103) + semantic (T-104) retrieval, registered at `opportunistic` tier ONLY; retrieval runs async with fallback-to-skip (timeout/unavailable → source contributes nothing, bundle build proceeds).
+- **Reason:** Completes R-802; the acceptance test is the phase's causal-value proof.
+- **Priority:** Medium · **Complexity:** 4/5 · **Time:** 120 min · **Dependencies:** T-104
+- **Files to Modify:** `context/sources/memory.py` (new), `context/facade.py`, `tests/integration/test_layered_memory.py`
+- **Affected Modules:** ContextEngine source registration
+- **Acceptance Criteria:** 100-turn fixture — a question about a turn-10 decision is answered with retrieval on and fails without (both directions asserted); forced timeout skips the source with bundle still built; tier grep proves `opportunistic`-only registration.
+- **Implementation:** [ ] MemorySource · [ ] async + timeout fallback · [ ] tier-restricted registration
+- **Testing:** [ ] causal-value both directions · [ ] timeout skip · [ ] tier restriction
+- **Regression:** [ ] context goldens (T-017) unchanged when memory empty
+- **Documentation:** [ ] retrieval flow diagram in plan
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-106
+
+## T-106 — Planner Protocol + HeuristicPlanner Extraction (R-803)
+- **Description:** Define `Planner` protocol `plan(request, context, capacity) -> ExecutionPlan`; extract the current planning logic into `HeuristicPlanner` behind it with zero behavior change (golden-pinned); planner selection seam added to the dispatch path reading config (default `heuristic`).
+- **Priority:** Medium · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-036, T-041
+- **Files to Modify:** `chain/planner.py` (new), dispatch seam, `tests/unit/test_planner.py`
+- **Affected Modules:** dispatch path (seam only)
+- **Acceptance Criteria:** goldens prove byte-identical plans pre/post extraction; config `planner: heuristic` explicit and default paths equivalent; protocol conformance harness (mirrors T-039 pattern) passes.
+- **Implementation:** [ ] Planner protocol · [ ] HeuristicPlanner extraction · [ ] config seam
+- **Testing:** [ ] golden parity · [ ] conformance harness · [ ] config selection
+- **Regression:** [ ] dispatch suite green
+- **Documentation:** [ ] Planner contract
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-107
+
+## T-107 — LLMPlanner + HybridPlanner + Fallback (R-803)
+- **Description:** `LLMPlanner` — prompts a provider for a plan, schema-validates the JSON, capacity-checks against `CapacityModel`; any rejection (bad schema, over capacity, provider error) falls back to `HeuristicPlanner` and emits an R-402 decision record naming the fallback reason. `HybridPlanner` = heuristic for simple tiers, LLM for complex. Config-selected per request.
+- **Priority:** Medium · **Complexity:** 4/5 · **Time:** 120 min · **Dependencies:** T-106
+- **Files to Modify:** `chain/planner.py`, `chain/plan_schema.py` (new), `tests/unit/test_llm_planner.py`, `tests/integration/test_planner_swap.py`
+- **Affected Modules:** planner, decision records
+- **Acceptance Criteria:** planner swap via config with zero core edits (asserted by touching only config in the test); invalid LLM plan falls back cleanly with a decision record; capacity-exceeding plan rejected pre-execution.
+- **Implementation:** [ ] LLMPlanner + schema validation · [ ] capacity check · [ ] fallback + decision record · [ ] HybridPlanner
+- **Testing:** [ ] config swap zero-edit · [ ] invalid-plan fallback · [ ] capacity rejection · [ ] decision records emitted
+- **Regression:** [ ] heuristic-only config byte-identical to T-106
+- **Documentation:** [ ] plan schema + fallback matrix
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-108
+
+## T-108 — Pluggable Registry/EventBus Backends (R-804)
+- **Description:** Extract backend interfaces from the current Registry and EventBus (`RegistryBackend`, `EventBusBackend`); in-memory implementations become the default backends with zero behavior change (golden-pinned frame sequences); backend chosen via config (`backend: memory`). Single-process stays first-class.
+- **Priority:** Medium · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-047, T-048
+- **Files to Modify:** `core/backends.py` (new), `core/event_bus.py`, registry module, `tests/unit/test_backends.py`
+- **Affected Modules:** EventBus, Registry (interface extraction only)
+- **Acceptance Criteria:** frame-sequence goldens byte-identical pre/post extraction; backend conformance suite runs against the in-mem implementations; config default `memory` requires no new deps.
+- **Implementation:** [ ] backend interfaces · [ ] in-mem defaults · [ ] config selection · [ ] conformance suite
+- **Testing:** [ ] golden parity · [ ] conformance · [ ] config default
+- **Regression:** [ ] WS adapter suite (T-047) green
+- **Documentation:** [ ] backend contract
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-109
+
+## T-109 — Redis Backends via Streams (R-804)
+- **Description:** `redis>=5.0` as an **optional extra** (lazy import inside backend classes only — import-time grep enforced); `RedisEventBusBackend` = Stream per run (`ev:<run_id>`, XADD/XREAD ordered+replayable); work queue = Stream `wq:runs` + consumer group with XAUTOCLAIM reclaim; standalone instance via `REDIS_URL` (shape rationale in `docs/phase8_plan.md` §3). Tested against a real local Redis in CI (service container) + skip-if-unavailable locally.
+- **Priority:** Medium · **Complexity:** 4/5 · **Time:** 120 min · **Dependencies:** T-108
+- **Files to Modify:** `core/backends_redis.py` (new), `.github/workflows/ci.yml` (redis service), `tests/integration/test_redis_backends.py`
+- **Affected Modules:** backends (additive)
+- **Acceptance Criteria:** conformance suite from T-108 passes on Redis backends; ordered replay of an event stream matches emission order; queue entry from a killed consumer is reclaimed; no `redis` import without the extra installed (grep + import test).
+- **Implementation:** [ ] Redis EventBus backend · [ ] Streams work queue + consumer group · [ ] lazy-import guard · [ ] CI service container
+- **Testing:** [ ] conformance on Redis · [ ] ordered replay · [ ] reclaim · [ ] optional-dep guard
+- **Regression:** [ ] memory-backend suite untouched
+- **Documentation:** [ ] REDIS_URL config + shape pointer to plan §3
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-110
+
+## T-110 — Worker Process + Per-Project Lease (R-804)
+- **Description:** `worker.py` entry point — consumes `wq:runs`, executes Runner runs in a worker process, streams events back over the bus; per-project lease `SET lease:<project_id> <worker_id> NX PX <ttl>` with ownership-checked renewal; lease expiry frees the project for another worker. Dispatch path gains a `dispatch: worker` config mode (default remains in-proc).
+- **Priority:** Medium · **Complexity:** 4/5 · **Time:** 120 min · **Dependencies:** T-109, T-041, T-046
+- **Files to Modify:** `worker.py` (new), dispatch seam, `core/lease.py` (new), `tests/integration/test_worker_dispatch.py`
+- **Affected Modules:** dispatch (new mode), Runner execution host
+- **Acceptance Criteria:** chain run dispatched to a worker completes with events arriving at the server; two workers + one project → exactly one holds the lease; lease TTL expiry after worker kill lets the second worker take over; `dispatch: in-proc` (default) byte-identical to pre-task behavior.
+- **Implementation:** [ ] worker consume loop · [ ] event streaming back · [ ] lease acquire/renew/expire · [ ] dispatch config mode
+- **Testing:** [ ] E2E worker run · [ ] lease exclusivity · [ ] TTL takeover · [ ] in-proc default parity
+- **Regression:** [ ] parallel execution suite (T-046) green
+- **Documentation:** [ ] worker runbook
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-111
+
+## T-111 — Frame-Parity Harness + WS Latency Guard (R-804)
+- **Description:** Recording harness capturing the full WS frame sequence of a fixture chain run; assert **byte-identical** sequence for in-proc vs worker dispatch (the R-804 acceptance); latency benchmark asserting WS-visible latency unaffected within tolerance (marked flaky-rerun like existing benches).
+- **Priority:** Medium · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-110
+- **Files to Modify:** `tests/integration/test_worker_parity.py` (new), harness helper in `tests/`
+- **Affected Modules:** none (tests only)
+- **Acceptance Criteria:** parity test green on both dispatch modes; deliberate frame mutation makes it fail (harness sensitivity proven); latency bench within tolerance.
+- **Implementation:** [ ] frame recorder · [ ] parity assertion · [ ] sensitivity check · [ ] latency bench
+- **Testing:** [ ] parity green · [ ] mutation caught · [ ] latency bound
+- **Regression:** [ ] full suite green both modes
+- **Documentation:** [ ] parity harness usage
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-112
+
+## T-112 — ProjectMemoryStore + remember_fact Tool (R-805)
+- **Description:** Per-`project_id` durable store `projects/<id>/memory.jsonl` — typed entries (architectural fact, convention, decision, run summary) each with provenance (source run/turn, timestamp) and a content hash-link to the ProjectIndex snapshot it was derived from; `remember_fact` agent tool appends entries from within runs.
+- **Priority:** Medium · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-031, T-049
+- **Files to Modify:** `core/project_memory.py` (new), agent tool registration, `tests/unit/test_project_memory.py`
+- **Affected Modules:** agent toolset (additive)
+- **Acceptance Criteria:** entries survive reload keyed by project_id; `remember_fact` from a fixture run lands a well-formed entry with provenance; hash-link recorded against the current ProjectIndex state.
+- **Implementation:** [ ] entry schema + provenance · [ ] JSONL store · [ ] remember_fact tool · [ ] ProjectIndex hash-link
+- **Testing:** [ ] durability · [ ] tool round-trip · [ ] provenance fields · [ ] hash-link presence
+- **Regression:** [ ] agent tool suite green
+- **Documentation:** [ ] memory entry schema
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-113
+
+## T-113 — Post-Run Distillation + Budgeted Memory Source (R-805)
+- **Description:** Post-run distillation job proposes memory entries from run episodes (reuses T-103 summaries); `ProjectMemorySource` ContextEngine source serves entries under an explicit budget (R-203 tiers); staleness check — entries whose ProjectIndex hash-link no longer matches are flagged and down-ranked, never silently served as fresh.
+- **Priority:** Medium · **Complexity:** 4/5 · **Time:** 120 min · **Dependencies:** T-112, T-105
+- **Files to Modify:** `core/project_memory.py`, `context/sources/project_memory.py` (new), `tests/integration/test_project_memory_source.py`
+- **Affected Modules:** ContextEngine sources, post-run pipeline
+- **Acceptance Criteria:** **R-805 headline test** — second session answers a conventions question without re-reading files (tool-call count asserted lower with memory on); budget respected under a crowded bundle; stale entry flagged after fixture file change.
+- **Implementation:** [ ] distillation job · [ ] ProjectMemorySource + budget · [ ] staleness flag + down-rank
+- **Testing:** [ ] second-session tool-count assertion · [ ] budget bound · [ ] staleness flip
+- **Regression:** [ ] context goldens unchanged when memory empty
+- **Documentation:** [ ] distillation + staleness semantics
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-114
+
+## T-114 — Memory Panel: Inspect + Edit (R-805)
+- **Description:** WS frames `memory_list(project_id)` / `memory_edit(entry_id, ...)` / `memory_delete(entry_id)` + a front-end panel listing entries with type, provenance, staleness badge; edits round-trip to the store; deletions honored by the ContextEngine source immediately.
+- **Priority:** Medium · **Complexity:** 3/5 · **Time:** 90 min · **Dependencies:** T-113
+- **Files to Modify:** `server.py` (WS frames), `public/` (memory panel), `tests/integration/test_memory_panel.py`
+- **Affected Modules:** WS protocol (additive frames), UI
+- **Acceptance Criteria:** panel lists entries with provenance + staleness badge; edit persists and is served in the next bundle; deleted entry never appears in retrieval; frames additive (no existing-frame changes, grep-guarded).
+- **Implementation:** [ ] WS frames · [ ] panel UI · [ ] edit/delete round-trip
+- **Testing:** [ ] list/edit/delete E2E · [ ] post-delete retrieval · [ ] frame additivity
+- **Regression:** [ ] ws.send boundary gate green
+- **Documentation:** [ ] memory panel frames
+- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** — (Phase 8 complete → Phase 8 DoD review)
+
+---
+
 # Task Dependency Quick Map
 
 ```
@@ -972,6 +1163,12 @@ T-012 → T-053 → T-054(+T-016) → {T-058, T-066}
 T-018 → T-055 → T-056(+T-023) ;  T-023 → T-057
 T-041 + T-015 + T-054 → T-058 → T-059(+T-043)
 T-060 → {T-061, T-062 → T-063, T-064 → T-065(+T-012, T-063) → T-066(+T-054, T-036/T-038)}
+T-052 → {T-100..T-114}
+T-035 + T-041 → T-100 → T-101 → T-102
+T-032 + T-057 → T-103 → T-104 → T-105
+T-036 + T-041 → T-106 → T-107
+T-047 + T-048 → T-108 → T-109 → T-110(+T-041, T-046) → T-111
+T-031 + T-049 → T-112 → T-113(+T-105) → T-114
 ```
 
-**Totals:** 66 tasks · Phase 1: 16+2 (T-053/T-054) · Phase 2: 10+3 (T-055–T-057) · Phase 3: 7 · Phase 4: 5 · Phase 5: 5+2 (T-058/T-059) · Phase 6: 4 · Phase 7: 4 · Phase 8: 1 (spike) · Phase 9: 7 (T-060–T-066, parallel UI/UX track)
+**Totals:** 81 tasks · Phase 1: 16+2 (T-053/T-054) · Phase 2: 10+3 (T-055–T-057) · Phase 3: 7 · Phase 4: 5 · Phase 5: 5+2 (T-058/T-059) · Phase 6: 4 · Phase 7: 4 · Phase 8: 1 (spike) + 15 (T-100–T-114, breakdown by T-052) · Phase 9: 7 (T-060–T-066, parallel UI/UX track)
