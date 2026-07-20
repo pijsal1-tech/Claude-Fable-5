@@ -27,6 +27,22 @@
     fallback path left.
 
 ### Added
+- **Phase 8 Scoping (T-052): spike findings + task breakdown — no production code.**
+  - New `docs/phase8_plan.md`: (1) entry-point plugin loading for R-801
+    **validated by throwaway experiment** on Python 3.13.13 — per-plugin
+    `ep.load()` isolation confirmed host-safe quarantine of broken plugins
+    while good ones load and dry-run; (2) R-802 embedding backend decision:
+    provider-backed `/embeddings` + pure-Python cosine over a JSONL vector
+    sidecar (no torch/faiss/vector DB — rationale + rejected alternatives
+    documented); (3) R-804 Redis decision: `redis>=5.0` as optional extra,
+    standalone instance via `REDIS_URL`, **Streams** for work queue +
+    EventBus (replayable ordering needed for frame parity; Pub/Sub rejected),
+    `SET NX PX` per-project leases.
+  - `DEVELOPMENT_TASKS.md`: Phase 8 breakdown **T-100 … T-114** appended
+    (15 tasks covering R-801..R-805 with real estimates and dependencies
+    resolved to actual task numbers; numbered from T-100 because T-053+
+    was already taken by the Review-Merge and Phase 9 tracks); Dependency
+    Quick Map and totals (66 → 81) updated.
 - **R-703 (T-051): Truthful README + config default reconciliation.**
   - `README.md`: the false "125/125 tests ✅" claim and the stale
     hand-written per-file test counts are **gone** — replaced by a
