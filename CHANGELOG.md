@@ -27,6 +27,20 @@
     fallback path left.
 
 ### Added
+- **R-205 (T-056): SymbolSource — symbol-aware context in the standard composition.**
+  - New `context/sources/symbol.py`: message terms resolve to
+    `<symbol:definition:X>` / `<symbol:callers:X>` / `<symbol:imports:rel>`
+    items via the T-055 SymbolIndex — syntactically-precise definitions
+    and call sites instead of string-match noise.
+  - Standard composition is now `[Mention, Keyword, Symbol, Structure]`;
+    symbolic paths never enter `mentioned_files`, so T-017 goldens are
+    byte-identical.
+  - Fallback = literal silence: files without symbol data contribute
+    nothing and remain covered by KeywordSource (equality-tested).
+  - Budget tier `high` — a compliance test proves `must_have` is never
+    displaced by symbol items.
+  - Freshness: per-root shared index + stat-guard per collect
+    (mtime/size change or deletion invalidates lazily).
 - **R-205 (T-055): SymbolIndex — per-file symbol tables via tree-sitter.**
   - New `context/symbol_index.py`: definitions / references / imports
     extracted per file for Python, JS (.js/.mjs/.cjs/.jsx), TS/TSX,
