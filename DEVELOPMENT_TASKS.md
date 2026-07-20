@@ -717,11 +717,11 @@
 - **Files to Modify:** `README.md`, `server.py`, config
 - **Affected Modules:** startup defaults
 - **Acceptance Criteria:** README claims all verifiable; changing config default observably changes startup provider (test); hardcode gone (grep).
-- **Implementation:** [ ] README rewrite · [ ] config read · [ ] delete hardcode
-- **Testing:** [ ] default-provider test
-- **Regression:** [ ] boot smoke
-- **Documentation:** [ ] this IS documentation
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-052
+- **Implementation:** [x] README rewrite · [x] config read · [x] delete hardcode
+- **Testing:** [x] default-provider test
+- **Regression:** [x] boot smoke
+- **Documentation:** [x] this IS documentation
+- **Completion Status:** ✅ (2026-07-20) · **Reviewer Notes:** `README.md` — ادعاء **"125/125 ✅" الكاذب محذوف** مع جدول الأعداد اليدوي البائت (كان يصف ملفات اختبار لم تعد موجودة بهذه الأسماء)؛ بديله **مبدأ الصدق**: لا أرقام مكتوبة يدويًا — العدد/النتيجة الحقيقيان مصدرهما تشغيل CI الفعلي أو `./scripts/check.sh`، والتغطية محروسة بالـ ratchet التصاعدي (T-050). قسم البنية يعرض تخطيط `tests/` الحقيقي (unit/integration/contracts/goldens/fixtures + fakes) وسطر CI، ومثال config يعرض القيمة الحقيقية `default_provider: "use_ai"` (كان يعرض `"genspark"` — نفس تناقض الكود). `server.py` — **الـ hardcode `"genspark:claude-sonnet-5"` محذوف، config يفوز**: 🆕 `_read_config()` (تسامحية — فشل القراءة يعيد `{}` ولا يمنع الإقلاع) + 🆕 `_resolve_default_provider(cli_model, cfg)` (نقية قابلة للاختبار — نقطة قرار الإقلاع الوحيدة): الأولوية `--model prov:model` الصريح > `--model model` بلا مزود (يذهب لمزود **config** لا genspark المضمّن — الـ quirk القديم أُزيل) > `config.default_provider` + موديل قسم `providers.<id>.model` > افتراضي صنف المزود نفسه (None يمرَّر ككواِرغ غائب — مصدر واحد لكل قيمة، لا نسخ ثانية في server.py)؛ الملاذ الأخير عند config معطوب = "use_ai" (مرآة القيمة المشحونة، للإقلاع فقط). Evidence: 🆕 `tests/unit/test_default_provider.py` (10): config-يفوز ×4 (**تغيير config يغيّر مزود الإقلاع observably** — معيار القبول) · أسبقية CLI ×2 (الصريح يتقدم؛ الموديل العاري يذهب لمزود config) · boot smoke ×2 (config.yaml الحقيقي يُحل لقيمه؛ تسامح الملف المفقود) · **greps بنيوية ×2: الـ hardcode مختفٍ من كود server.py** + main يفوّض للحلّال. check.sh ALL GREEN: **963 passed, 1 skipped** (+10)، mypy Success. ملاحظة نقل: الـ Auto-update لا يلتقط `.github/` — **انقل `.github/workflows/ci.yml` يدويًا** (أُعيد إنشاؤه هذه الجلسة، T-050). · **Next Task:** T-052
 
 ---
 

@@ -27,6 +27,27 @@
     fallback path left.
 
 ### Added
+- **R-703 (T-051): Truthful README + config default reconciliation.**
+  - `README.md`: the false "125/125 tests ✅" claim and the stale
+    hand-written per-file test counts are **gone** — replaced by a
+    truth-principle note: real counts/results come from CI
+    (`.github/workflows/ci.yml`) or `./scripts/check.sh`, coverage
+    guarded by the increase-only ratchet. The structure section now
+    shows the real `tests/` layout (unit/integration/contracts/goldens/
+    fixtures) and the config example shows the real
+    `default_provider: "use_ai"` (was showing `"genspark"`).
+  - `server.py`: the hardcoded startup default
+    `"genspark:claude-sonnet-5"` is **deleted** — **config wins**. New
+    `_read_config()` (tolerant) + `_resolve_default_provider(cli, cfg)`
+    (pure, testable): precedence `--model prov:model` > `--model model`
+    (goes to the *config* provider, not hardcoded genspark) >
+    `config.default_provider` + `config.providers.<id>.model` >
+    provider-class default (single source per value; model kwarg only
+    passed when config supplies one).
+  - Tests (`tests/unit/test_default_provider.py`, 10): config-wins ×4
+    (changing config observably changes the startup provider),
+    CLI precedence ×2, boot smoke against the real config.yaml ×2,
+    hardcode-gone structural greps ×2.
 - **R-703 (T-050): CI pipeline + coverage ratchet + sessions history purge.**
   - New `.github/workflows/ci.yml`: single job running `scripts/check.sh`
     (mypy + all 7 structural gates + full pytest — the one source of
