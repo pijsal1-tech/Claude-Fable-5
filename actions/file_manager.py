@@ -41,6 +41,17 @@ class FileManager:
         self.root = pathlib.Path(project_root).resolve()
         if not self.root.exists():
             raise FileNotFoundError(f"مسار المشروع غير موجود: {self.root}")
+        # T-049 (R-702): خطافات write-through — تُنادى بالمسار النسبي
+        # بعد كل كتابة ذرّية ناجحة (ProjectIndex يسجّل نفسه هنا).
+        self._write_hooks: list = []
+
+    def add_write_hook(self, fn) -> None:
+        """تسجيل خطاف يُنادى بـ (rel_path: str) بعد كل كتابة ناجحة.
+
+        T-049 (R-702): يغطي write_file وedit_file معًا (edit_file يفوّض
+        إلى write_file). فشل خطاف لا يُفشل الكتابة نفسها.
+        """
+        self._write_hooks.append(fn)
 
     # ════════════════════════════════════════════
     # قراءة
@@ -101,7 +112,14 @@ class FileManager:
                 tmp.unlink()
             raise
 
-        return str(full_path.relative_to(self.root))
+        rel_path = str(full_path.relative_to(self.root))
+        # T-049: إبلاغ الخطافات بعد نجاح os.replace — طزاجة فورية للفهرس.
+        for hook in getattr(self, "_write_hooks", ()):
+            try:
+                hook(rel_path)
+            except Exception:
+                pass   # خطاف معطوب لا يُفشل الكتابة
+        return rel_path
 
     # ════════════════════════════════════════════
     # تعديل جراحي

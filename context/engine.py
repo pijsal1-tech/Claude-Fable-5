@@ -25,6 +25,7 @@ Wiring diagram (بعد التوصيل في مهام R-201 اللاحقة):
 """
 from __future__ import annotations
 
+import os
 import pathlib
 from dataclasses import dataclass
 from typing import Callable, Protocol, runtime_checkable
@@ -54,19 +55,38 @@ class ContextRequest:
 class ProjectScan:
     """قائمة ملفات المشروع — تُبنى **مرة واحدة** لكل gather وتُشارَك.
 
-    مسح rglob واحد مفروز (نفس ترتيب goldens T-017: فرز Path يعطي
-    العناصر المطابقة بنفس ترتيب sorted(rglob(pattern)) بعد الفلترة).
-    المصادر تفلتر هذه القائمة في الذاكرة — لا تمشي الشجرة أبدًا.
+    مشية os.walk واحدة مفروزة (T-049: كان rglob؛ نفس ترتيب goldens
+    T-017 — فرز Path يعطي العناصر المطابقة بنفس ترتيب
+    ``sorted(walk-results)`` بعد الفلترة). المصادر تستعلم عبر
+    ``lookup_name``/``lookup_stem`` — لا تمشي الشجرة أبدًا.
     """
 
     def __init__(self, root: pathlib.Path) -> None:
         self.root = root
-        self.files: list[pathlib.Path] = sorted(
-            p for p in root.rglob("*") if p.is_file()
-        )
+        files: list[pathlib.Path] = []
+        for dirpath, _dirnames, filenames in os.walk(root):
+            base = pathlib.Path(dirpath)
+            for fname in filenames:
+                p = base / fname
+                if p.is_file():
+                    files.append(p)
+        files.sort()
+        self.files: list[pathlib.Path] = files
 
     def rel(self, p: pathlib.Path) -> str:
         return str(p.relative_to(self.root)).replace("\\", "/")
+
+    # ── واجهة الاستعلام الموحّدة (T-049 / R-702) ──
+    # المصادر تنادي lookup_* بدل المسح الخطي المباشر؛ ``IndexedScan``
+    # (context/index.py) يعيد تعريفهما بقواميس الفهرس المقلوب.
+
+    def lookup_name(self, basename: str) -> list[pathlib.Path]:
+        """مطابقة اسم كامل (مكافئ نمط glob بالـ basename) — خطية هنا."""
+        return [p for p in self.files if p.name == basename]
+
+    def lookup_stem(self, stem: str) -> list[pathlib.Path]:
+        """مطابقة جذع (substring في الاسم) — خطية هنا."""
+        return [p for p in self.files if stem in p.name]
 
 
 ScanFactory = Callable[[pathlib.Path], ProjectScan]

@@ -114,11 +114,14 @@ class MentionSource:
         exact_names, _stems = extract_search_terms(request.message)
 
         mentioned: list[str] = []
-        # البحث بالاسم الكامل أو المسار الفرعي (يطابق rglob(basename))
+        # البحث بالاسم الكامل أو المسار الفرعي — T-049: عبر
+        # ``scan.lookup_name`` (قاموسية O(1) على IndexedScan، خطية على
+        # ProjectScan العادي) بدل المسح الخطي المباشر. lookup_name يعيد
+        # المطابقات بالترتيب العالمي المفروز — نفس ترتيب legacy تمامًا.
         for name in sorted(exact_names):
             basename = name.split('/')[-1] if '/' in name else name
-            for p in scan.files:
-                if p.name == basename and p.suffix in WEB_EXTENSIONS:
+            for p in scan.lookup_name(basename):
+                if p.suffix in WEB_EXTENSIONS:
                     rel_path = scan.rel(p)
                     if rel_path not in mentioned:
                         mentioned.append(rel_path)

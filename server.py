@@ -332,11 +332,21 @@ def _server_handle_factory(root: str) -> ProjectHandle:
 
     Matches main()'s wiring (auto_approve=True) so ctx.switch_project()
     produces handles identical in behavior to the boot-time ones.
+
+    T-049 (R-702): builds the ProjectIndex at project open, attaches its
+    write-through hook to the FileManager, and fills the handle's
+    ``index`` slot — per-message context queries hit the inverted index
+    instead of walking the tree.
     """
+    from context.index import ProjectIndex
+    fm = FileManager(root)
+    index = ProjectIndex(root)
+    index.attach(fm)
     return ProjectHandle(
         root=root,
-        fm=FileManager(root),
+        fm=fm,
         cmd_runner=CommandRunner(cwd=root, auto_approve=True),
+        index=index,
     )
 
 
@@ -1121,7 +1131,8 @@ def _handle_ws_message(ctx, sctx, msg):
         # بمسح نظام ملفات واحد لكل رسالة. الـ parity مضمون بـ goldens
         # T-017 عبر tests/unit/test_context_engine.py.
         try:
-            _msg_ctx = gather_message_context(sctx.fm.root, user_text)
+            _msg_ctx = gather_message_context(sctx.fm.root, user_text,
+                                              index=sctx.project.index)
             mentioned_files = _msg_ctx.mentioned_files
             user_text_with_files = _msg_ctx.user_text_with_files
             project_context = _msg_ctx.project_context

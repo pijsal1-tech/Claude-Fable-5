@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import pathlib
 from dataclasses import dataclass
+from typing import Any
 
 from context.engine import ContextEngine, ContextItem, ContextRequest
 from context.sources.keyword import KeywordSource
@@ -37,15 +38,28 @@ class MessageContext:
     project_context: str
 
 
-def _default_engine() -> ContextEngine:
-    return ContextEngine([MentionSource(), KeywordSource(), StructureSource()])
+def _default_engine(index: Any = None) -> ContextEngine:
+    """التركيبة القياسية — T-049: مع فهرس اختياري (R-702).
+
+    إذا مُرّر ``index`` (ProjectIndex من ``ProjectHandle.index``) يصبح
+    الـ scan_factory هو ``index.scan()`` — sweep طزاجة + صفر مشيات
+    شجرية. بدونه (مسارات الاختبارات/ctx-less) يبقى ProjectScan.
+    """
+    sources = [MentionSource(), KeywordSource(), StructureSource()]
+    if index is not None:
+        return ContextEngine(sources, scan_factory=lambda _root: index.scan())
+    return ContextEngine(sources)
 
 
 def gather_message_context(project_root: str | pathlib.Path, user_text: str,
                            engine: ContextEngine | None = None,
-                           max_files: int = MAX_MENTIONED_FILES) -> MessageContext:
-    """النداء الوحيد الذي يحتاجه معالج WS (معيار قبول T-019)."""
-    eng = engine or _default_engine()
+                           max_files: int = MAX_MENTIONED_FILES,
+                           index: Any = None) -> MessageContext:
+    """النداء الوحيد الذي يحتاجه معالج WS (معيار قبول T-019).
+
+    T-049: مرّر ``index=sctx.project.index`` لاستعلام الفهرس المقلوب
+    بدل مشية شجرية لكل رسالة. ``engine`` الصريح يتقدّم على الفهرس."""
+    eng = engine or _default_engine(index)
     bundle = eng.gather(ContextRequest(
         message=user_text,
         project_root=pathlib.Path(project_root),

@@ -33,10 +33,12 @@ class KeywordSource:
         _exact_names, stems = extract_search_terms(request.message)
 
         matched: list[str] = []
-        # البحث بالجذع للماتش المرن (يطابق rglob(f"*{stem}*"))
+        # البحث بالجذع للماتش المرن — T-049: عبر ``scan.lookup_stem``
+        # (مسح ذاكرة على الأسماء في الفهرس) بدل المسح الخطي المباشر.
+        # النتائج بالترتيب العالمي المفروز — نفس ترتيب legacy تمامًا.
         for stem in sorted(stems):
-            for p in scan.files:
-                if stem in p.name and p.suffix in WEB_EXTENSIONS:
+            for p in scan.lookup_stem(stem):
+                if p.suffix in WEB_EXTENSIONS:
                     rel_path = scan.rel(p)
                     if rel_path not in matched:
                         matched.append(rel_path)
