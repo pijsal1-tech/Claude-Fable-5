@@ -215,6 +215,32 @@ class CheckpointManager:
                 fh.write(json.dumps(entry.to_record(), ensure_ascii=False) + "\n")
         return entries
 
+    def snapshot_absent(self, run_id: str,
+                        paths: list[str | Path]) -> list[SnapshotEntry]:
+        """Record that ``paths`` did **not** exist before the run's mutation.
+
+        T-059 (R-504/R-106): command side-effects create files that are
+        only discovered *after* the command ran — by then the file exists,
+        so a regular ``snapshot`` would wrongly capture the post state.
+        The caller (who diffed the workspace) asserts the pre-state was
+        "absent"; restore then deletes the file.  ``entries_for_run``'s
+        first-snapshot-wins rule keeps any real earlier snapshot of the
+        same path authoritative.
+        """
+        if not run_id:
+            raise ValueError("run_id must be non-empty")
+        now = time.time()
+        entries = [
+            SnapshotEntry(run_id=run_id, path=str(Path(raw).resolve()),
+                          sha256=None, size=0, ts=now)
+            for raw in paths
+        ]
+        with open(self._log_path, "a", encoding="utf-8") as fh:
+            for entry in entries:
+                fh.write(json.dumps(entry.to_record(),
+                                    ensure_ascii=False) + "\n")
+        return entries
+
     def seal(self, run_id: str, paths: list[str | Path]) -> None:
         """Record the post-write state of ``paths`` for ``run_id``.
 

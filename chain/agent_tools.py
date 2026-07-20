@@ -448,6 +448,14 @@ class AgentTools:
             try:
                 changed = self._changed_paths(pre_sigs)
                 if changed:
+                    # ملفات أنشأها الأمر (غائبة قبله): سجل الغياب صراحةً —
+                    # snapshot عادي الآن سيلتقط حالة ما-بعد خطأً؛
+                    # snapshot_absent يجعل الاستعادة تحذفها.
+                    created = [p for p in changed if p not in pre_sigs
+                               and os.path.exists(p)]
+                    if created:
+                        self._checkpoint.snapshot_absent(ckpt_run_id,
+                                                         created)
                     self._checkpoint.seal(ckpt_run_id, changed)
                     _LOG.info("run_command side-effects checkpointed: "
                               "%d file(s) under run %s",
