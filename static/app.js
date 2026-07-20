@@ -361,6 +361,19 @@ function handleWSMessage(data) {
             toast(data.text, data.ok ? "success" : "info");
             break;
 
+        // ── T-065 (R-901): لوحة مراجعة الـ diff لطلبات الموافقة ──
+        case "chain_approval_request":
+            openDiffPanel(data);
+            break;
+
+        case "chain_approval_verdict":
+            closeDiffPanel();
+            toast(data.approved
+                ? "✅ تمت الموافقة — جارٍ التطبيق"
+                : `❌ مرفوض (${data.reason || "denied"}) — لا كتابات`,
+                data.approved ? "success" : "info");
+            break;
+
         case "chain_status":
             if (data.active) {
                 toast(`🔗 Chain نشط: ${data.step || "..."}`, "info");
@@ -1410,6 +1423,146 @@ function updateLineNumbers() {
     }
     lineNumEl.textContent = html;
 }
+
+// ═══════════════════════════════════════════
+// T-065 (R-901): لوحة مراجعة الـ Diff — DOM glue فوق وحدة DiffPanel
+// (المنطق النقي في static/js/diff_panel.js — مُختبَر في node).
+// القرار ذرّي على مستوى الطلب (بروتوكول ApprovalGate): toggles الملفات
+// أداة مراجعة؛ "تأكيد القرار" يرسل approved:true فقط لو كلها مقبولة.
+// ═══════════════════════════════════════════
+let diffPanelState = null;
+const DIFF_WINDOW_ROWS = 80; // صفوف مرسومة لكل ملف (virtualization)
+
+async function openDiffPanel(frame) {
+    // المحتوى القديم لكل ملف write/delete — لحساب diff حقيقي.
+    const oldContents = {};
+    const fileActions = (frame.actions || []).filter(
+        a => a.kind === "write" || a.kind === "delete");
+    await Promise.all(fileActions.map(async a => {
+        try {
+            const r = await fetch(`/api/file/${a.target}`);
+            const d = await r.json();
+            oldContents[a.target] = d.ok ? d.content : "";
+        } catch (e) {
+            oldContents[a.target] = "";
+        }
+    }));
+    diffPanelState = DiffPanel.openState(frame, oldContents);
+    document.getElementById("diff-panel-overlay").classList.remove("hidden");
+    renderDiffPanel();
+}
+
+function closeDiffPanel() {
+    diffPanelState = null;
+    document.getElementById("diff-panel-overlay").classList.add("hidden");
+}
+
+function sendDiffDecision(overrideAll) {
+    if (!diffPanelState) return;
+    state.ws.send(JSON.stringify(DiffPanel.decisionFrame(diffPanelState, overrideAll)));
+    // الإغلاق الفعلي عند وصول chain_approval_verdict (مصدر الحقيقة البوابة).
+}
+
+function renderDiffPanel() {
+    if (!diffPanelState) return;
+    const st = diffPanelState;
+    document.getElementById("diff-mode-toggle").textContent =
+        st.mode === "unified" ? "↔ Split" : "≡ Unified";
+    const filesEl = document.getElementById("diff-panel-files");
+    let html = "";
+    st.files.forEach((file, idx) => {
+        html += DiffPanel.renderFileHeaderHTML(file, idx, st);
+        if (st.collapsed[idx]) return;
+        if (!file.rows) {
+            html += `<pre class="diff-command-payload"><code>${escapeHtml(file.payload || file.summary)}</code></pre>`;
+            return;
+        }
+        const total = DiffPanel.rowCount(file, st.mode);
+        const winStart = file._winStart || 0;
+        const render = st.mode === "split"
+            ? DiffPanel.renderSplitRowsHTML : DiffPanel.renderUnifiedRowsHTML;
+        // virtualization: spacers تحفظ ارتفاع التمرير، والنافذة فقط تُرسم.
+        html += `<div class="diff-file-body" data-idx="${idx}" data-total="${total}">` +
+            `<div style="height:${winStart * DiffPanel.ROW_HEIGHT}px"></div>` +
+            render(file, winStart, DIFF_WINDOW_ROWS) +
+            `<div style="height:${Math.max(0, total - winStart - DIFF_WINDOW_ROWS) * DiffPanel.ROW_HEIGHT}px"></div>` +
+            `</div>`;
+    });
+    filesEl.innerHTML = html;
+
+    // أحداث الرؤوس/الأزرار (delegation بسيط بعد كل رسم)
+    filesEl.querySelectorAll(".diff-collapse-btn").forEach(btn => {
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            const i = +btn.dataset.idx;
+            st.collapsed[i] = !st.collapsed[i];
+            renderDiffPanel();
+        };
+    });
+    filesEl.querySelectorAll(".diff-file-decision").forEach(btn => {
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            const i = +btn.dataset.idx;
+            DiffPanel.setFileDecision(st, i, !st.accepted[i]);
+            renderDiffPanel();
+        };
+    });
+    filesEl.querySelectorAll(".diff-file-header").forEach(h => {
+        h.onclick = () => { st.activeFile = +h.dataset.idx; renderDiffPanel(); };
+    });
+    // virtualization scroll — rAF-throttled لكل body
+    filesEl.querySelectorAll(".diff-file-body").forEach(body => {
+        body.onscroll = () => {
+            const file = st.files[+body.dataset.idx];
+            const newStart = Math.floor(body.scrollTop / DiffPanel.ROW_HEIGHT);
+            if (Math.abs(newStart - (file._winStart || 0)) < DIFF_WINDOW_ROWS / 4) return;
+            if (file._raf) return;
+            file._raf = requestAnimationFrame(() => {
+                file._raf = null;
+                const keep = body.scrollTop;
+                file._winStart = Math.max(0, newStart - DIFF_WINDOW_ROWS / 4);
+                renderDiffPanel();
+                const nb = document.querySelector(`.diff-file-body[data-idx="${body.dataset.idx}"]`);
+                if (nb) nb.scrollTop = keep;
+            });
+        };
+    });
+}
+
+// أزرار اللوحة + اختصارات اللوحة (تعمل فقط واللوحة مفتوحة)
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("diff-approve-all").onclick = () => sendDiffDecision(true);
+    document.getElementById("diff-reject-all").onclick = () => sendDiffDecision(false);
+    document.getElementById("diff-confirm").onclick = () => sendDiffDecision(null);
+    document.getElementById("diff-mode-toggle").onclick = () => {
+        if (!diffPanelState) return;
+        diffPanelState.mode = diffPanelState.mode === "unified" ? "split" : "unified";
+        renderDiffPanel();
+    };
+});
+
+document.addEventListener("keydown", (e) => {
+    if (!diffPanelState) return;
+    if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
+    const act = DiffPanel.handleKey(diffPanelState, e.key);
+    if (!act) return;
+    e.preventDefault();
+    switch (act.action) {
+        case "approve_all": sendDiffDecision(true); break;
+        case "reject_all": sendDiffDecision(false); break;
+        case "confirm": sendDiffDecision(null); break;
+        case "toggle_mode":
+            diffPanelState.mode = diffPanelState.mode === "unified" ? "split" : "unified";
+            renderDiffPanel(); break;
+        case "toggle_file":
+            DiffPanel.setFileDecision(diffPanelState, act.idx,
+                !diffPanelState.accepted[act.idx]);
+            renderDiffPanel(); break;
+        case "focus_file":
+            diffPanelState.activeFile = act.idx;
+            renderDiffPanel(); break;
+    }
+});
 
 // T-064 (R-904): طبقة إبراز المحرر — <pre> خلف الـ textarea (نصه شفاف)
 // تُرسم عبر CodeHighlight.buildEditorHTML: إبراز كامل للملفات الصغيرة،

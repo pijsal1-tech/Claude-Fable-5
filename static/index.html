@@ -46,6 +46,10 @@
     <!-- Syntax highlighting — T-064 (R-904): نقطة الاستهلاك الوحيدة للمحرك؛
          تستهلك hljs + FileIcons فتُحمَّل بعدهما وقبل app.js. -->
     <script src="/static/js/code_highlight.js?v=1"></script>
+
+    <!-- Diff-review panel — T-065 (R-901): منطق اللوحة (يستهلك
+         CodeHighlight + FileIcons فيُحمَّل بعدهما وقبل app.js). -->
+    <script src="/static/js/diff_panel.js?v=1"></script>
 </head>
 <body>
 
@@ -240,6 +244,23 @@
 </div>
 
 <!-- Toast container -->
+<!-- T-065 (R-901): لوحة مراجعة الـ diff لطلبات الموافقة (chain_approval_request) -->
+<div id="diff-panel-overlay" class="hidden">
+    <div id="diff-panel">
+        <div id="diff-panel-toolbar">
+            <span id="diff-panel-title">🔍 مراجعة التغييرات</span>
+            <button id="diff-mode-toggle" title="u">↔ Split</button>
+            <div class="spacer"></div>
+            <span id="diff-panel-timer" title="مهلة البوابة"></span>
+            <button id="diff-approve-all" title="a">✅ قبول الكل</button>
+            <button id="diff-reject-all" title="r / Esc">❌ رفض الكل</button>
+            <button id="diff-confirm" title="Enter">📨 تأكيد القرار</button>
+        </div>
+        <div id="diff-panel-files"></div>
+        <div id="diff-panel-help">a قبول الكل · r رفض الكل · x تبديل قرار الملف · j/k تنقل · u وضع العرض · Enter تأكيد</div>
+    </div>
+</div>
+
 <div class="toast-container" id="toast-container"></div>
 
 <script src="/static/app.js?v=20"></script>
