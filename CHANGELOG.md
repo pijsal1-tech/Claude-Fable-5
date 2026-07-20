@@ -27,6 +27,32 @@
     fallback path left.
 
 ### Added
+- **R-903 (T-063): File-type icons rendered everywhere filenames appear.**
+  - `static/app.js`: new `fileIconHTML(path)` — the **only** consumer entry
+    point; delegates to `FileIcons.getFileIcon` (T-062 module) and renders
+    `<svg class="file-icon"><use href="/static/icons/sprite.svg#icon-…">`
+    colored via `var(--icon-*)` theme tokens. The old local emoji
+    `getFileIcon(ext)` mapping is **deleted** — one import, zero duplicated
+    mappings.
+  - Three consumption points wired: file tree (`renderTreeNode`), editor
+    tabs (`renderTabs`), and `@mention` attachment chips
+    (`renderAttachments`, replacing the generic 📄). Diff-panel headers and
+    run-history don't exist yet (T-065) — in scope "when they exist".
+    `getFileBadgeHTML` (SRC/TREE/DIR chat tool-activity badges) is a
+    separate system, intentionally untouched.
+  - `static/index.html`: loads `file_icons.js?v=1` before `app.js`
+    (order asserted by test). `static/style.css`: `.file-icon`
+    sizing rule (14×14, flex-shrink 0) — no raw colors.
+  - `tests/unit/test_icon_consumption.py` (11 tests): grep gate over all
+    served `.js` proving no second extension→icon mapping outside the
+    module; old emoji-literal signatures banned; the three consumption
+    points asserted; script load order; and a fixture-tree snapshot of
+    25 paths covering every icon class, executed through the **real**
+    `fileIconHTML` (extracted from app.js) + real module in node, pinned
+    to a literal `#icon-*` expectation table.
+  - Note: this implementation was captured at f260b9b, reverted at
+    d19f124, then restored verbatim from f260b9b after full re-verification
+    (`check.sh` 1129 passed, 1 skipped — ALL GREEN).
 - **R-903 (T-062): File-type icon system — module + SVG sprite.**
   - `static/js/file_icons.js`: the single extension→icon mapping.
     `FileIcons.getFileIcon(path)` → `{id, symbol, colorToken, label}`;
