@@ -16,6 +16,7 @@ import json
 import time
 import pathlib
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable
 
 from .models import (
@@ -99,6 +100,11 @@ class ChainExecutor:
         self._run_dir = pathlib.Path(run_dir) if run_dir else None
         self._state_lock = threading.Lock()
         self._ticket: RunTicket | None = None
+        # T-046 (R-603): كل اندماج نتائج في ChainRun يمر عبر
+        # _apply_step_result/_apply_step_failure تحت هذا القفل —
+        # نقطة الدمج الوحيدة (لا كتابة حالة متفرقة من worker threads).
+        self._merge_lock = threading.Lock()
+        self._events_lock = threading.Lock()
 
     def _check_cancelled(self, run: ChainRun) -> None:
         """T-015 (R-105): نقطة تفتيش موحّدة — تذكرة السجل + token السلسلة.
@@ -201,9 +207,17 @@ class ChainExecutor:
 
     def _execute_loop(self, run: ChainRun,
                       on_event: Callable | None):
-        """DAG topological execution loop"""
+        """DAG topological execution loop — bounded parallel (T-046, R-603).
+
+        ``max_parallel_steps=1`` ⇒ نفس المسار القديم حرفيًّا (خطوة
+        واحدة لكل دورة). ‏>1 ⇒ دفعة من المجموعة الجاهزة (بسقف
+        ``max_parallel_steps`` — capacity cap) تُنفَّذ على
+        ThreadPoolExecutor؛ الدمج كله عبر ``_apply_step_result``/
+        ``_apply_step_failure`` تحت قفل الدمج.
+        """
         max_iterations = len(run.steps) * 3  # Safety: prevent infinite loops
         iteration = 0
+        max_workers = max(1, run.policy.max_parallel_steps)
 
         while not run.is_complete() and iteration < max_iterations:
             iteration += 1
@@ -234,9 +248,12 @@ class ChainExecutor:
                     self._skip_blocked_steps(run, on_event)
                 break
 
-            # ── Execute first ready step (sequential) ──
-            step = ready[0]
-            self._execute_step(run, step, on_event)
+            if max_workers == 1 or len(ready) == 1:
+                # ── Legacy lane: parallel=1 → ready[0] بالضبط كما كان ──
+                self._execute_step(run, ready[0], on_event)
+            else:
+                self._execute_batch(run, ready[:max_workers], max_workers,
+                                    on_event)
 
             # ── Check stop condition ──
             if run.policy.stop_condition == "all_required":
@@ -247,6 +264,37 @@ class ChainExecutor:
                             s.status = "skipped"
                             s.error_message = "Critical dependency failed"
                     break
+
+    def _execute_batch(self, run: ChainRun, batch: list[ChainStep],
+                       max_workers: int, on_event: Callable | None) -> None:
+        """T-046 (R-603): تنفيذ دفعة جاهزة على pool محدود.
+
+        - نقطة تفتيش إلغاء قبل كل submit (per-task checkpoint) —
+          الإلغاء منتصف الدفعة يوقف الإرسال فورًا.
+        - كل worker ينفّذ ``_execute_step`` (الذي يفحص الإلغاء قبل كل
+          retry) — إلغاء token يوقف الإخوة عند أقرب حد retry.
+        - الـ pool يُصرَّف بالكامل (drain) قبل تمرير ChainCancelled —
+          لا worker يتيم يكتب حالة بعد خروج الحلقة.
+        """
+        cancelled: ChainCancelled | None = None
+        with ThreadPoolExecutor(max_workers=max_workers,
+                                thread_name_prefix=f"step-{run.run_id}") as pool:
+            futures = []
+            for step in batch:
+                try:
+                    self._check_cancelled(run)   # pre-submit checkpoint
+                except ChainCancelled as e:
+                    cancelled = e
+                    break
+                futures.append(pool.submit(self._execute_step, run, step,
+                                           on_event))
+            for f in as_completed(futures):
+                try:
+                    f.result()
+                except ChainCancelled as e:
+                    cancelled = e      # نُكمل التصريف — لا رفع مبكر
+        if cancelled is not None:
+            raise cancelled
 
     def _execute_step(self, run: ChainRun, step: ChainStep,
                       on_event: Callable | None):
@@ -298,21 +346,11 @@ class ChainExecutor:
                                   input_tokens=response.input_tokens or 0,
                                   output_tokens=response.output_tokens or 0)
 
-                step.status = "success"
-                step.result = response.text
-                step.provider_calls = attempt + 1
-                step.duration_ms = int((time.monotonic() - start_time) * 1000)
-                run.results[step.id] = response.text
-
-                self._emit(run, on_event, ChainEvent("step_completed", step_id=step.id, data={
-                    "duration_ms": step.duration_ms,
-                    "provider_calls": step.provider_calls,
-                    "result_size": len(response.text),
-                }))
-
-                # Save result to file
-                self._save_result(run, step)
-                self._save_state(run)
+                self._apply_step_result(
+                    run, step, response.text,
+                    provider_calls=attempt + 1,
+                    duration_ms=int((time.monotonic() - start_time) * 1000),
+                    on_event=on_event)
                 return
 
             except ProviderError as e:
@@ -342,14 +380,53 @@ class ChainExecutor:
                 break  # Unknown errors are not retryable
 
         # ── All retries failed ──
-        step.status = "error"
-        step.error_message = last_error or "Unknown error"
-        step.provider_calls = min(attempt + 1, 1 + max_retries)
-        step.duration_ms = int((time.monotonic() - start_time) * 1000)
+        self._apply_step_failure(
+            run, step, last_error or "Unknown error",
+            provider_calls=min(attempt + 1, 1 + max_retries),
+            duration_ms=int((time.monotonic() - start_time) * 1000),
+            on_event=on_event)
+
+    # ═══════════════════════════════════════════════════
+    #   Guarded State Merge — T-046 (R-603)
+    # ═══════════════════════════════════════════════════
+    # كل تحوّل حالة/نتيجة على ChainRun بعد انتهاء خطوة يمر من هنا
+    # حصريًّا — تحت _merge_lock. الـ workers المتوازية لا تلمس
+    # step.status/run.results مباشرة في مسار الإنهاء.
+
+    def _apply_step_result(self, run: ChainRun, step: ChainStep,
+                           result_text: str, *, provider_calls: int,
+                           duration_ms: int,
+                           on_event: Callable | None) -> None:
+        """اندماج نجاح خطوة — نقطة الدمج الوحيدة (lock-guarded)."""
+        with self._merge_lock:
+            step.status = "success"
+            step.result = result_text
+            step.provider_calls = provider_calls
+            step.duration_ms = duration_ms
+            run.results[step.id] = result_text
+
+        self._emit(run, on_event, ChainEvent("step_completed", step_id=step.id, data={
+            "duration_ms": duration_ms,
+            "provider_calls": provider_calls,
+            "result_size": len(result_text),
+        }))
+        self._save_result(run, step)
+        self._save_state(run)
+
+    def _apply_step_failure(self, run: ChainRun, step: ChainStep,
+                            error_message: str, *, provider_calls: int,
+                            duration_ms: int,
+                            on_event: Callable | None) -> None:
+        """اندماج فشل خطوة — نفس نقطة الدمج المحروسة."""
+        with self._merge_lock:
+            step.status = "error"
+            step.error_message = error_message
+            step.provider_calls = provider_calls
+            step.duration_ms = duration_ms
 
         self._emit(run, on_event, ChainEvent("step_failed", step_id=step.id, data={
-            "error": step.error_message,
-            "attempts": step.provider_calls,
+            "error": error_message,
+            "attempts": provider_calls,
         }))
         self._save_state(run)
 
@@ -455,9 +532,12 @@ class ChainExecutor:
 
         if self._run_dir:
             try:
+                # T-046: قفل الأحداث — workers متوازية تُلحق بنفس الملف
                 events_file = self._run_dir / "events.jsonl"
-                with open(events_file, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(event.to_dict(), ensure_ascii=False) + "\n")
+                with self._events_lock:
+                    with open(events_file, "a", encoding="utf-8") as f:
+                        f.write(json.dumps(event.to_dict(),
+                                           ensure_ascii=False) + "\n")
             except Exception:
                 pass
 
