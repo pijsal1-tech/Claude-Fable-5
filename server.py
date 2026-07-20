@@ -168,7 +168,7 @@ def _json_sender(ws):
     not by frame sniffing (T-015)."""
     def _ws_send(msg):
         try:
-            ws.send(json.dumps(msg, ensure_ascii=False))
+            _ws_frame(msg)
         except Exception:
             pass
     return _ws_send
@@ -863,7 +863,7 @@ def ws_handler(ws):
         if msg_type == "ping":
             # T-006 (R-102): ctx (composition root) is reachable in the WS
             # handler; extra field is ignored by the frontend.
-            ws.send(json.dumps({"type": "pong", "ctx": ctx is not None}))
+            _ws_frame({"type": "pong", "ctx": ctx is not None})
             continue
 
         # ── Agent: المستخدم وافق/رفض أمر terminal ──
@@ -902,7 +902,7 @@ def ws_handler(ws):
             mode = data.get("mode", "chat")
 
             if not user_text:
-                ws.send(json.dumps({"type": "error", "text": "رسالة فارغة"}))
+                _ws_frame({"type": "error", "text": "رسالة فارغة"})
                 continue
 
             # ── 1. كشف ذكي للمسارات (ملفات + مجلدات) ──
@@ -975,7 +975,7 @@ def ws_handler(ws):
                     if session_mgr:
                         session_mgr.update_project_path(detected_dir)
 
-                    ws.send(json.dumps({
+                    _ws_frame({
                         "type": "project_switched",
                         "project": {
                             "root": str(fm.root),
@@ -983,22 +983,22 @@ def ws_handler(ws):
                             "total_files": scan["total_files"],
                             "total_size_kb": scan["total_size_kb"],
                         }
-                    }))
+                    })
 
-                    ws.send(json.dumps({"type": "start"}))
-                    ws.send(json.dumps({
+                    _ws_frame({"type": "start"})
+                    _ws_frame({
                         "type": "chunk",
                         "text": f"حاضر يا صاحبي! أنا غيرت مجلد العمل دلوقتي للمجلد ده: `{detected_dir}` 📂\n\nلقيت فيه {scan['total_files']} ملف. تقدر تطلب مني أي حاجة بخصوصهم دلوقتي! 👍"
-                    }))
-                    ws.send(json.dumps({
+                    })
+                    _ws_frame({
                         "type": "done",
                         "actions": [],
                         "options": [],
                         "summary": "Switched project directory"
-                    }))
+                    })
                     continue
                 except Exception as e:
-                    ws.send(json.dumps({"type": "error", "text": f"فشل فتح المجلد: {e}"}))
+                    _ws_frame({"type": "error", "text": f"فشل فتح المجلد: {e}"})
                     continue
 
             # ── 2. جمع السياق — ContextEngine (T-019, R-201) ──
@@ -1058,7 +1058,7 @@ def ws_handler(ws):
                     # الترجمة label→tier تعيش في RoutingDecision.tier وحدها.
                     routing_tier = routing.tier
                     if routing_tier is not RoutingTier.DIRECT:
-                        ws.send(json.dumps({
+                        _ws_frame({
                             "type": "chain_started",
                             "text": (
                                 f"🧠 Smart Router: اختار **{routing.strategy}** "
@@ -1066,14 +1066,14 @@ def ws_handler(ws):
                                 + (f"\n⚠️ {routing.downgrade_reason}" if routing.downgraded else "")
                             ),
                             "routing": routing.to_dict(),
-                        }))
+                        })
 
                     # ── توجيه لـ chain_bridge ──
                     if routing_tier is RoutingTier.CHAINED:
                         # T-015 (R-105): registry ticket — single-run policy
                         chain_ticket = _begin_run_ticket(
                             "chain",
-                            lambda m: ws.send(json.dumps(m, ensure_ascii=False)))
+                            lambda m: _ws_frame(m))
                         if chain_ticket is None:
                             continue
                         _ws_send = _json_sender(ws)
@@ -1122,7 +1122,7 @@ def ws_handler(ws):
                         # T-015 (R-105): registry ticket — delegate أصبح قابلاً للإلغاء
                         delegate_ticket = _begin_run_ticket(
                             "delegate",
-                            lambda m: ws.send(json.dumps(m, ensure_ascii=False)))
+                            lambda m: _ws_frame(m))
                         if delegate_ticket is None:
                             continue
                         # T-041 (R-501): عبر DelegateRunner — نفس الجسر ونفس
@@ -1158,7 +1158,7 @@ def ws_handler(ws):
                         """إرسال WebSocket thread-safe"""
                         try:
                             with _ws_lock:
-                                ws.send(json.dumps(msg_dict))
+                                _ws_frame(msg_dict)
                         except Exception as e:
                             print(f"  ⚠️ Agent WS send error: {e}")
 
@@ -1182,7 +1182,7 @@ def ws_handler(ws):
                         session_mgr.append_message("user", user_text)
 
                     # إرسال بداية
-                    ws.send(json.dumps({"type": "start"}))
+                    _ws_frame({"type": "start"})
                     print(f"  🤖 Agent Loop started (mode={mode})")
 
                     # T-015 (R-105): registry ticket — agent تحت نفس السجل
@@ -1304,7 +1304,7 @@ def ws_handler(ws):
             system_prompt = get_system_prompt()
 
             # إرسال بداية
-            ws.send(json.dumps({"type": "start"}))
+            _ws_frame({"type": "start"})
 
             # T-041 (R-501): المسار الوحيد — DirectRunner (نفس النداء stream
             # ونفس إطارات chunk/error عبر _RunnerWSAdapter؛ التذكرة بنوع
@@ -1326,10 +1326,10 @@ def ws_handler(ws):
             # للتحليل بالنص الجزئي (لا continue) — نفس فرع "error" القديم.
             full_response = _direct_result.text
             if _direct_result.status != RESULT_COMPLETED:
-                ws.send(json.dumps({
+                _ws_frame({
                     "type": "error",
                     "text": _direct_result.error or "الرد لم يكتمل",
-                }))
+                })
 
             # تحليل الرد
             chat_history.append(Message(role="assistant", content=full_response))
@@ -1368,25 +1368,25 @@ def ws_handler(ws):
 
             # ── نظام Plan First ──
             if mode in ("plan", "build", "edit") and actions:
-                ws.send(json.dumps({
+                _ws_frame({
                     "type": "plan",
                     "actions": actions,
                     "options": options,
                     "summary": parsed.summary(),
-                }))
+                })
             else:
-                ws.send(json.dumps({
+                _ws_frame({
                     "type": "done",
                     "actions": actions,
                     "options": options,
                     "summary": parsed.summary(),
-                }))
+                })
 
         elif msg_type == "apply_action":
             # تطبيق إجراء محدد (مع باك-أب تلقائي)
             action = data.get("action", {})
             result = _apply_single_action(action)
-            ws.send(json.dumps({"type": "action_result", **result}))
+            _ws_frame({"type": "action_result", **result})
 
         elif msg_type == "apply_all_actions":
             # تطبيق كل الإجراءات خطوة بخطوة
@@ -1395,31 +1395,31 @@ def ws_handler(ws):
             total = len(actions)
             for i, action in enumerate(actions):
                 # إرسال progress
-                ws.send(json.dumps({
+                _ws_frame({
                     "type": "task_progress",
                     "current": i + 1,
                     "total": total,
                     "action": action,
                     "status": "running",
-                }))
+                })
                 result = _apply_single_action(action)
-                ws.send(json.dumps({
+                _ws_frame({
                     "type": "task_progress",
                     "current": i + 1,
                     "total": total,
                     "action": action,
                     "status": "done" if result["ok"] else "error",
                     "message": result.get("message", ""),
-                }))
+                })
                 if not result["ok"]:
-                    ws.send(json.dumps({
+                    _ws_frame({
                         "type": "error",
                         "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"
-                    }))
+                    })
                     break
 
             _backup_done_for_batch = False
-            ws.send(json.dumps({"type": "all_actions_done", "total": total}))
+            _ws_frame({"type": "all_actions_done", "total": total})
 
         elif msg_type == "execute_plan":
             # تنفيذ خطة معتمدة (نفس apply_all_actions)
@@ -1427,31 +1427,31 @@ def ws_handler(ws):
             _backup_done_for_batch = False
             total = len(actions)
             for i, action in enumerate(actions):
-                ws.send(json.dumps({
+                _ws_frame({
                     "type": "task_progress",
                     "current": i + 1,
                     "total": total,
                     "action": action,
                     "status": "running",
-                }))
+                })
                 result = _apply_single_action(action)
-                ws.send(json.dumps({
+                _ws_frame({
                     "type": "task_progress",
                     "current": i + 1,
                     "total": total,
                     "action": action,
                     "status": "done" if result["ok"] else "error",
                     "message": result.get("message", ""),
-                }))
+                })
                 if not result["ok"]:
-                    ws.send(json.dumps({
+                    _ws_frame({
                         "type": "error",
                         "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"
-                    }))
+                    })
                     break
 
             _backup_done_for_batch = False
-            ws.send(json.dumps({"type": "all_actions_done", "total": total}))
+            _ws_frame({"type": "all_actions_done", "total": total})
 
         # ═══════════════════════════════════════════
         #  M5: Chain System — WebSocket Handlers
@@ -1461,7 +1461,7 @@ def ws_handler(ws):
             # تشغيل chain ذكي (بديل لـ message العادية للمهام المعقدة)
             user_text = data.get("text", "").strip()
             if not user_text:
-                ws.send(json.dumps({"type": "error", "text": "رسالة فارغة"}))
+                _ws_frame({"type": "error", "text": "رسالة فارغة"})
                 continue
 
             force_strategy = data.get("strategy", None)  # اختياري
@@ -1478,22 +1478,22 @@ def ws_handler(ws):
 
                 # ملخص أولاً
                 summary = get_folder_summary(folder_path)
-                ws.send(json.dumps({
+                _ws_frame({
                     "type": "folder_scanned",
                     "folder": summary,
                     "text": f"📂 تم مسح المجلد: {summary.get('name', '')} "
                             f"({summary.get('total_files', 0)} ملف، "
                             f"{summary.get('total_size_kb', 0)}KB)",
-                }, ensure_ascii=False))
+                })
 
                 # قراءة المحتوى
                 files = scan_folder_for_chain(folder_path)
 
                 if not files:
-                    ws.send(json.dumps({
+                    _ws_frame({
                         "type": "error",
                         "text": "المجلد فاضي أو مفيش ملفات نصية قابلة للقراءة",
-                    }))
+                    })
                     continue
 
             # ── قراءة ملف واحد ──
@@ -1505,13 +1505,13 @@ def ws_handler(ws):
                     pass
 
             if not chain_bridge:
-                ws.send(json.dumps({"type": "error", "text": "Chain system غير مفعّل"}))
+                _ws_frame({"type": "error", "text": "Chain system غير مفعّل"})
                 continue
 
             # T-015 (R-105): registry ticket — single-run policy
             chain_ticket = _begin_run_ticket(
                 "chain",
-                lambda m: ws.send(json.dumps(m, ensure_ascii=False)))
+                lambda m: _ws_frame(m))
             if chain_ticket is None:
                 continue
             _ws_send = _json_sender(ws)
@@ -1540,46 +1540,46 @@ def ws_handler(ws):
                     # التذكرة تُنهى بدقة في finally الخاص بالـ bridge
                     for _t in execution_registry.list_active():
                         _t.cancel(reason)
-                ws.send(json.dumps({
+                _ws_frame({
                     "type": "chain_cancel_result",
                     "ok": ok,
                     "text": "تم إلغاء السلسلة" if ok else "مفيش سلسلة نشطة",
-                }))
+                })
             else:
-                ws.send(json.dumps({"type": "error", "text": "Chain system غير مفعّل"}))
+                _ws_frame({"type": "error", "text": "Chain system غير مفعّل"})
 
         elif msg_type == "chain_status":
             # حالة chain النشط
             if chain_bridge:
                 status = chain_bridge.get_status()
-                ws.send(json.dumps({"type": "chain_status", **status}))
+                _ws_frame({"type": "chain_status", **status})
             else:
-                ws.send(json.dumps({"type": "chain_status", "active": False}))
+                _ws_frame({"type": "chain_status", "active": False})
 
         # ── T-044 (R-601): Crash Resume surface ──
         elif msg_type == "resume_scan":
             # مسح runs_dir عن runs منقطعة قابلة للاستكمال
             if chain_bridge:
-                ws.send(json.dumps({
+                _ws_frame({
                     "type": "resumable_runs",
                     "runs": chain_bridge.list_resumable(),
-                }, ensure_ascii=False))
+                })
             else:
-                ws.send(json.dumps({"type": "resumable_runs", "runs": []}))
+                _ws_frame({"type": "resumable_runs", "runs": []})
 
         elif msg_type == "resume_run":
             # استكمال run منقطع — تحقق انجراف البصمات قبل أي تنفيذ
             if not chain_bridge:
-                ws.send(json.dumps({"type": "error",
-                                    "text": "Chain system غير مفعّل"}))
+                _ws_frame({"type": "error",
+                                    "text": "Chain system غير مفعّل"})
                 continue
             resume_id = data.get("run_id", "").strip()
             if not resume_id:
-                ws.send(json.dumps({"type": "error", "text": "run_id مطلوب"}))
+                _ws_frame({"type": "error", "text": "run_id مطلوب"})
                 continue
             resume_ticket = _begin_run_ticket(
                 "chain",
-                lambda m: ws.send(json.dumps(m, ensure_ascii=False)))
+                lambda m: _ws_frame(m))
             if resume_ticket is None:
                 continue
             ok = chain_bridge.resume_run(
@@ -1591,37 +1591,37 @@ def ws_handler(ws):
         elif msg_type == "discard_run":
             # حذف حالة run منقطع نهائيًا
             if not chain_bridge:
-                ws.send(json.dumps({"type": "error",
-                                    "text": "Chain system غير مفعّل"}))
+                _ws_frame({"type": "error",
+                                    "text": "Chain system غير مفعّل"})
                 continue
             discard_id = data.get("run_id", "").strip()
             ok = chain_bridge.discard_run(discard_id)
-            ws.send(json.dumps({
+            _ws_frame({
                 "type": "discard_result",
                 "run_id": discard_id,
                 "ok": ok,
                 "text": ("🗑️ حُذفت حالة الـ run" if ok
                          else "⚠️ لا يوجد run بهذا المعرّف"),
-            }, ensure_ascii=False))
+            })
 
         # ── T-016 (R-105): Registry control surface ──
         elif msg_type == "list_runs":
             # كل الـ runs التي يعرفها السجل (نشطة ومنتهية) — id/mode/state/started_at
-            ws.send(json.dumps(_list_runs_frame(), ensure_ascii=False))
+            _ws_frame(_list_runs_frame())
 
         elif msg_type == "cancel_run":
             # إلغاء تعاوني لـ run محدد بمعرّفه — acknowledged / not_found
-            ws.send(json.dumps(
+            _ws_frame(
                 _cancel_run_frame(data.get("run_id", ""), data.get("reason", "")),
                 ensure_ascii=False,
-            ))
+            )
 
         # ── M6: Delegate System ──
         elif msg_type == "delegate_message":
             # تفويض مهمة معقدة
             user_text = data.get("text", "").strip()
             if not user_text:
-                ws.send(json.dumps({"type": "error", "text": "الرسالة فارغة"}))
+                _ws_frame({"type": "error", "text": "الرسالة فارغة"})
                 continue
 
             if not delegate_bridge:
@@ -1676,7 +1676,7 @@ def ws_handler(ws):
             if delegate_bridge and delegate_bridge.is_active:
                 def approval_handler(et, ed):
                     try:
-                        ws.send(json.dumps({"type": et, **ed}))
+                        _ws_frame({"type": et, **ed})
                     except Exception:
                         pass
 
@@ -1685,32 +1685,32 @@ def ws_handler(ws):
                     # أرسل الرد للمعالجة العادية
                     run = delegate_bridge.current_run
                     if run.result:
-                        ws.send(json.dumps({
+                        _ws_frame({
                             "type": "start",
-                        }))
-                        ws.send(json.dumps({
+                        })
+                        _ws_frame({
                             "type": "chunk",
                             "text": run.result.response,
-                        }))
+                        })
                         # تحليل الأكشنز
                         try:
                             actions = parser.extract_actions(run.result.response)
                             options = parser.extract_options(run.result.response)
-                            ws.send(json.dumps({
+                            _ws_frame({
                                 "type": "done",
                                 "actions": actions,
                                 "options": options,
                                 "summary": f"✅ تم اعتماد التعديلات (delegation #{run.run_id})",
-                            }))
+                            })
                         except Exception:
-                            ws.send(json.dumps({
+                            _ws_frame({
                                 "type": "done",
                                 "actions": [],
                                 "options": [],
                                 "summary": f"✅ تم اعتماد التعديلات",
-                            }))
+                            })
             else:
-                ws.send(json.dumps({"type": "error", "text": "لا يوجد تفويض نشط"}))
+                _ws_frame({"type": "error", "text": "لا يوجد تفويض نشط"})
 
         elif msg_type == "delegate_reject":
             # المستخدم رفض التعديلات
@@ -1720,7 +1720,7 @@ def ws_handler(ws):
                     json.dumps({"type": et, **ed})
                 ))
             else:
-                ws.send(json.dumps({"type": "error", "text": "لا يوجد تفويض نشط"}))
+                _ws_frame({"type": "error", "text": "لا يوجد تفويض نشط"})
 
     # ── WebSocket Disconnected Cleanup ──
     print("🔌 WebSocket disconnected. Cleaning up and cancelling active tasks...")
