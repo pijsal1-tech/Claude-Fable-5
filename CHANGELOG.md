@@ -27,6 +27,74 @@
     fallback path left.
 
 ### Added
+- **R-801 (T-100): StrategyPluginRegistry core.**
+  - New standalone `chain/plugin_registry.py`: `StrategyPluginRegistry`
+    discovers plugins via
+    `importlib.metadata.entry_points(group="webdev_ai.strategies")` —
+    discovery itself is lazy (never imports plugin code); the import is
+    isolated inside per-plugin `ep.load()` (spike T-052 §1 conclusion).
+  - **Three-stage validation gate**, any exception → structured
+    `QuarantineRecord(name, stage, reason)` (with `to_dict()`), never a
+    host crash: `import` (ep.load) → `shape` (object is a **class**
+    exposing callable `build()` + dict `routing_hints`) → `dry_run`
+    (instantiate + `build()` on a canned fixture request; returning
+    `None` also quarantines).
+  - Duplicate plugin names: first valid wins, later ones quarantined at
+    `shape` with an explicit "duplicate" reason; `discover()` is
+    idempotent-by-reset; `loaded` / `quarantined` are defensive copies;
+    `entry_points_fn` is constructor-injectable so the full failure
+    matrix is testable without installing real packages.
+  - Registry is standalone until T-102 (no router / core/strategy.py /
+    server.py changes). New `tests/unit/test_plugin_registry.py` =
+    13 tests (acceptance matrix, all-fail host safety, empty group,
+    gate edge cases, lifecycle). Full gate:
+    **1194 passed, 1 skipped — ALL GREEN**.
+- **R-902/R-906 (T-066): Rollback UI + observability status chip.**
+  - Two new UMD-lite modules (pure logic, node-testable; DOM glue only in
+    `static/app.js`): `static/js/run_history.js` (`RunHistory`:
+    `buildEntries` / `renderPanelHTML` / `rollbackFrame` / `confirmActions` /
+    `applyRollbackResult` / `conflictReportHTML`) and
+    `static/js/status_chip.js` (`StatusChip`: `createState` / `noteFrame` /
+    `updateCapacity` / `shouldRender` / `renderChipHTML` / `renderPanelHTML`).
+  - **Read-only backend**: `CheckpointManager.run_summaries()` (single pass
+    over the existing checkpoint log, newest first, seal hashes joined,
+    `pre_sha256=null` marks files created by the run) and
+    `snapshot_text(run_id, path)` (pre-write text from the blob store), plus
+    two GET-only endpoints `/api/rollback/history` and
+    `/api/rollback/preview?run_id=&path=`.
+  - **Zero new WS frame types**: execution reuses the T-054 commands
+    `rollback_run` / `rollback_file` verbatim — frames are built exclusively
+    in `RunHistory.rollbackFrame` (a regression test bans manual construction
+    in app.js) — and results arrive on the existing `rollback_result` frame
+    (`RestoreReport.to_dict()`).
+  - **≤2-click rollback with confirmation diff reusing the T-065 panel**:
+    click 1 fetches snapshots and opens `DiffPanel.openState` with synthetic
+    actions in the same schema (write with snapshot payload to restore,
+    delete for run-created files); click 2 (confirm) is intercepted by
+    `consumeRollbackDecision` inside `sendDiffDecision` — a local
+    confirmation with no `request_id`, so no approval response is ever sent
+    to the gate.
+  - **Human-readable conflict reports**: `conflictReportHTML` renders
+    path + reason as text (a test bans leaking raw JSON such as
+    `expected_sha256`); `applyRollbackResult` marks files restored/conflict
+    and entries rolled_back/partial/refused (restored entries' buttons are
+    disabled). Retention-pruned runs disappear automatically since the
+    history source is the checkpoint log itself.
+  - **StatusChip (R-906)** consumes only existing data: routing from the
+    `routing` field of the existing `chain_started` frame
+    (`RoutingDecision.to_dict()`), capacity/breakers from the existing
+    `/api/capacity` (polled every 30s), budget from any frame carrying
+    `budget` (`BudgetTracker.to_dict()` fields). Renders are throttled to
+    one per 500ms with a trailing pending render — a 100-frame burst yields
+    ≤3 renders (tested). Collapsed by default; zero new backend for it.
+  - Token-only CSS additions (`rh-*` / `sc-*` classes) pass the color-token
+    lint; new `tests/unit/test_rollback_ui.py` = 15 tests (real E2E through
+    the gate + `server._handle_ws_message` with frames produced by the
+    actual node module, conflict refusal rendering, newest-first summaries,
+    golden panel render with T-063 icons, T-065 panel reuse with computed
+    diff rows, chip rendering from real `RoutingDecision`/`CapacityReport`
+    dicts, burst throttling, and consume-only wiring regressions).
+    Full gate: **1181 passed, 1 skipped — ALL GREEN**.
 - **R-901 (T-065): Diff-review panel for the approval gate.**
   - New `DiffPanel` module (`static/js/diff_panel.js`, UMD-lite, node-testable)
     holding all pure logic; DOM glue lives in `static/app.js`
