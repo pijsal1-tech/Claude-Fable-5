@@ -1,0 +1,78 @@
+/* ═══════════════════════════════════════════════════════════════
+   🎨 Design-Token Layer — T-060 (R-905)
+   ═══════════════════════════════════════════════════════════════
+   عقد التسمية (naming convention):
+     --bg-*        خلفيات الطبقات (base/surface/overlay/mantle/crust)
+     --surface-*   طبقات السطوح التفاعلية (0 = الأدنى)
+     --text*       نصوص (text / text-dim / text-muted / subtext)
+     --accent      لون التفاعل الرئيسي (alias للوحة)
+     --diff-*      ألوان الـ diff (add/del × fg/bg)
+     --syntax-*    لوحة إبراز الصياغة (R-904 يستهلكها)
+     --icon-*      ألوان أيقونات/شارات أنواع الملفات (R-903 يستهلكها)
+     --shadow-*    ظلال جاهزة كقيم كاملة
+     --run-btn-*   تدرجات زر التشغيل
+
+   القاعدة (CI-lintable — بوابة في scripts/check.sh):
+     صفر ألوان خام (hex / rgb / hsl) خارج static/themes/ —
+     كل استهلاك عبر var(--token) أو color-mix(in srgb, var(--token) N%, transparent).
+
+   البنية:
+     - هذا الملف: توكنز بنيوية (بلا ألوان) + أسماء أدوار (aliases)
+       تشير إلى لوحة الثيم — تُعاد تعبئتها تلقائيًا عند تبديل الثيم.
+     - dark.css:  اللوحة الداكنة — الافتراضي (:root بلا سمة + [data-theme="dark"]).
+     - light.css: اللوحة الفاتحة — [data-theme="light"].
+     - إضافة ثيم = ملف بيانات جديد يعرّف نفس مجموعة التوكنز تحت
+       [data-theme="<name>"] — صفر تعديل على المكوّنات.
+
+   منع الـ FOUC: سكربت مضمّن في <head> بـ index.html يضبط data-theme
+   قبل أول paint (localStorage ← وإلا prefers-color-scheme ← وإلا dark).
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+    /* ── Sizing (بنيوية — لا تتغير بين الثيمات) ── */
+    --sidebar-width: 260px;
+    --chat-width: 420px;
+    --terminal-height: 200px;
+    --header-height: 48px;
+    --radius: 8px;
+    --radius-lg: 12px;
+
+    /* ── Transitions ── */
+    --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* ── Functional role aliases (تشير للوحة الثيم النشط) ── */
+    --accent: var(--blue);
+    --success: var(--green);
+    --error: var(--red);
+    --warning: var(--yellow);
+
+    /* ── Terminal roles ── */
+    --terminal-bg: var(--bg-surface);
+    --terminal-box-bg: var(--bg-overlay);
+    --terminal-text: var(--text);
+    --terminal-green: var(--green);
+    --terminal-blue: var(--blue);
+    --terminal-red: var(--red);
+    --terminal-yellow: var(--yellow);
+    --terminal-gray: var(--text-muted);
+
+    /* ── Syntax roles (R-904) — تُعاد تعبئتها مع لوحة كل ثيم ── */
+    --syntax-bg: var(--bg-crust);
+    --syntax-text: var(--text);
+    --syntax-keyword: var(--mauve);
+    --syntax-type: var(--teal);
+    --syntax-string: var(--green);
+    --syntax-number: var(--peach);
+    --syntax-function: var(--blue);
+    --syntax-comment: var(--text-muted);
+    --syntax-meta: var(--pink);
+    --syntax-variable: var(--text);
+    --syntax-operator: var(--red);
+    --syntax-attribute: var(--yellow);
+    --syntax-regexp: var(--flamingo);
+
+    /* ── Diff foregrounds (الخلفيات ذات الشفافية في ملفات الثيم) ── */
+    --diff-add-fg: var(--green);
+    --diff-del-fg: var(--red);
+}
