@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "webdev-ai-demo-strategy"
+version = "0.1.0"
+description = "Demo strategy plugin for WebDev AI Editor (T-102 / R-801)"
+requires-python = ">=3.10"
+# لا اعتماديات: الحزمة تستورد chain.* من المضيف نفسه وقت التشغيل —
+# الإضافة بلا مضيف لا معنى لها (راجع README).
+dependencies = []
+
+[project.entry-points."webdev_ai.strategies"]
+demo_echo = "demo_strategy:DemoEchoStrategy"
+
+[tool.setuptools.packages.find]
+include = ["demo_strategy*"]
