@@ -74,6 +74,24 @@
     --icon-css: #563d7c;
     --icon-json: #4c4f69;
     --icon-md: #083fa1;
+    /* File-type icon tokens — T-062 (R-903) sprite colors */
+    --icon-jsx: #04a5e5;
+    --icon-yaml: #8839ef;
+    --icon-java: #fe640b;
+    --icon-c: #7287fd;
+    --icon-cpp: #1e66f5;
+    --icon-csharp: #40a02b;
+    --icon-go: #179299;
+    --icon-rust: #fe640b;
+    --icon-php: #7287fd;
+    --icon-ruby: #d20f39;
+    --icon-sql: #df8e1d;
+    --icon-shell: #40a02b;
+    --icon-docker: #04a5e5;
+    --icon-config: #8c8fa1;
+    --icon-image: #8839ef;
+    --icon-lock: #df8e1d;
+    --icon-file: #8c8fa1;
     --icon-badge-fg: #ffffff;
     --icon-js-fg: #000000;
 }

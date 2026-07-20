@@ -27,6 +27,26 @@
     fallback path left.
 
 ### Added
+- **R-903 (T-062): File-type icon system — module + SVG sprite.**
+  - `static/js/file_icons.js`: the single extension→icon mapping.
+    `FileIcons.getFileIcon(path)` → `{id, symbol, colorToken, label}`;
+    accepts full paths (both separators); special filenames beat
+    extensions (`package-lock.json` → lock not json, `Dockerfile` →
+    docker, `.env.*` → config, `Makefile` → shell); browser + node.
+  - `static/icons/sprite.svg`: one file = one HTTP request
+    (`<use href="sprite.svg#icon-<id>">`), 24 original symbols drawn
+    for this project (23 categories + fallback `file` glyph) — no
+    external icon-set license obligations. All shapes use
+    `currentColor` only (test-enforced), so icons recolor with the
+    theme.
+  - 17 new `--icon-*` tokens added to **all four** themes; a parity
+    test proves every colorToken the module emits is defined in every
+    shipped theme. Coverage table + license note in the module header.
+  - `tests/unit/test_file_icons.py` (10 tests) executes the real
+    module via node: 40-path matrix, distinctness, fallback,
+    special-name priority, sprite completeness, currentColor-only,
+    token parity. (Consuming the module in tree/tabs/mentions is
+    T-063's scope.)
 - **R-905 (T-061): Theme switcher, persistence + 2 extra themes.**
   - Header theme picker (🎨 dropdown) driven by a single `THEMES`
     registry in `static/app.js` — the one source of truth for shipped

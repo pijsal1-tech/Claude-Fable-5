@@ -890,11 +890,11 @@
 - **Files to Modify:** `public/js/file_icons.js` (new), `static/icons/sprite.svg` (new)
 - **Affected Modules:** none yet (module + assets only)
 - **Acceptance Criteria:** unit — every listed extension maps to a distinct icon, unknowns hit fallback; sprite loads as one request; icons legible in all shipped themes.
-- **Implementation:** [ ] mapping module · [ ] sprite build · [ ] token-driven colors · [ ] license note
-- **Testing:** [ ] mapping unit matrix · [ ] fallback
-- **Regression:** [ ] n/a (new module)
-- **Documentation:** [ ] icon set license + extension table
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-063
+- **Implementation:** [x] mapping module · [x] sprite build · [x] token-driven colors · [x] license note
+- **Testing:** [x] mapping unit matrix · [x] fallback
+- **Regression:** [x] n/a (new module)
+- **Documentation:** [x] icon set license + extension table
+- **Completion Status:** ✅ 2026-07-20 · **Reviewer Notes:** (1) الوحدة: `static/js/file_icons.js` — **ملاحظة مسار**: حقل Files ذكر `public/js/` لكن `public/` كود ميت غير مخدوم (server.py يخدم `static/` فقط — مثبت في T-060)، فوُضعت تحت المسار المخدوم؛ `FileIcons.getFileIcon(path)` يقبل مسارًا كاملًا (يشقّ على `/` و`\`) ويعيد `{id, symbol, colorToken, label}`؛ أولوية أسماء الملفات الخاصة على الامتداد (package-lock.json → lock لا json؛ Dockerfile/docker-compose → docker؛ Makefile → shell؛ `.env.*` → config)؛ UMD-lite (window + module.exports) فتشتغل بالمتصفح وnode معًا. (2) الـ sprite: `static/icons/sprite.svg` — ملف واحد = طلب HTTP واحد (`<use href="sprite.svg#icon-<id>">`)، 24 رمزًا (23 صنفًا + fallback file) **أشكال أصلية رُسمت للمشروع** (لا مجموعة خارجية = لا التزام ترخيص خارجي؛ الملاحظة في رأسي الملفين = license checkbox)، كل fill/stroke = currentColor حصرًا (اختبار يمنع أي لون مضمّن). (3) الألوان: 17 توكن `--icon-*` جديدًا أُضيف لكل ثيمات الأربعة (اختبار تكافؤ: كل colorToken تستهلكه الوحدة معرّف في dark/light/high-contrast/monokai = "legible in all shipped themes" بنيويًا) — بوابة color-lint خضراء (الوحدة نفسها بلا ألوان خام). (4) جدول التغطية الكامل (24 صنفًا: JS/TS/JSX-TSX/Python/HTML/CSS-SCSS/JSON/YAML-TOML/MD/Java/C/C++/C#/Go/Rust/PHP/Ruby/SQL/Shell/Dockerfile/env-config/images/locks/fallback) موثّق رأس الوحدة. (5) `tests/unit/test_file_icons.py` = **10 اختبارات** تشغّل الوحدة **الفعلية** بـ node (subprocess): مصفوفة 40 مسارًا، تميّز الأصناف، مسارات كاملة وwindows، أولوية الأسماء الخاصة، fallback للمجهول/الفارغ، اكتمال رموز الـ sprite، currentColor فقط، تكافؤ التوكنز، ملاحظتا الترخيص (skip آمن لو node غاب). getFileIcon(ext) القديمة بـ app.js (إيموجي) تُستبدل في T-063 — استهلاك الوحدة الجديدة نطاق تلك المهمة ("Affected Modules: none yet" هنا). `./scripts/check.sh` = **1121 passed, 1 skipped — ALL GREEN**. · **Next Task:** T-063
 
 ## T-063 — Icons Everywhere Filenames Render (R-903)
 - **Description:** Consume `getFileIcon` in the file tree, editor tabs, `@mention` chips, and (when they exist) diff-panel headers and run-history file lists — one import, no duplicated mappings.
