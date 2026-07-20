@@ -27,6 +27,35 @@
     fallback path left.
 
 ### Added
+- **R-701 (T-048): SessionContext per WS connection — two-tab isolation.**
+  🆕 `core/session_context.py`: per-connection `SessionContext` (own
+  `ProjectHandle`, independent `chat_history`, per-tab model selection,
+  approval inbox — `active_agent_loop`/`delegate_bridge`/`chain_bridge` —
+  per-connection EventBus subscription, per-batch backup flag) layered
+  over shared `AppContext` services; `switch_project()` swaps **this
+  connection's** handle only (shared `ctx.project` untouched, other
+  tabs' handles keep identity — id()-asserted); idempotent `close()`
+  cancels the active loop + chain bridge and unsubscribes the adapter.
+  `server.py`: `ws_handler` split into `_build_session_context(ws)`
+  (composition point — the only sanctioned module-global read site) +
+  `_handle_ws_message(ctx, sctx, msg)` (the full 19-type dispatch
+  ladder, all conversation state via `sctx`); conversation-scoped
+  globals swept (`_backup_done_for_batch` and `_active_agent_loop`
+  module globals **deleted**; `_apply_single_action(action, sctx)` now
+  connection-scoped); disconnect cleanup runs in `finally` via
+  `sctx.close()`. 🆕 `scripts/lint_handler_state.py`: AST-based lint
+  banning `global` statements and module-level mutable-state reads
+  inside handler functions (UPPER_CASE constants exempt; local shadowing
+  respected) — wired into `check.sh` as a gate and verified against a
+  violation fixture (`tests/fixtures/lint_handler_state_violation.py`).
+  State-scoping rules documented in `core/session_context.py`. Tests
+  (`tests/integration/test_session_context.py`, 14): two-tab E2E
+  (B switches project via a real WS message; A's handle identity,
+  validity and scan unaffected; frames routed to the owning client
+  only; independent histories/models/approval inboxes), disconnect
+  cleanup (loop cancelled, bridge cancelled with the legacy reason,
+  `subscriber_count == 0`, idempotent), lint gate pass/fail, and
+  single-tab regression (pong/list_runs byte-identical contract).
 - **R-604 (T-047): Typed EventBus + single WS Adapter — execution
   decoupled from transport.** 🆕 `core/events.py`: in-process `EventBus`
   (per-run **FIFO** delivery under a per-run lock; subscriber **isolation**
