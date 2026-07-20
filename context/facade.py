@@ -63,7 +63,8 @@ class MessageContext:
     project_context: str
 
 
-def _default_engine(index: Any = None) -> ContextEngine:
+def _default_engine(index: Any = None,
+                    memory_source: Any = None) -> ContextEngine:
     """التركيبة القياسية — T-049: مع فهرس اختياري (R-702).
 
     إذا مُرّر ``index`` (ProjectIndex من ``ProjectHandle.index``) يصبح
@@ -79,6 +80,12 @@ def _default_engine(index: Any = None) -> ContextEngine:
     sources: list = [MentionSource(), KeywordSource(), SymbolSource(),
                      SemanticSource.from_config(_app_config()),
                      StructureSource()]
+    # T-105 (R-802): MemorySource اختياري — يُحقن بطبقتي جلسة حيّة
+    # (حلقي + دلالي) من المستدعي؛ غيابه (الافتراضي) = التركيبة
+    # القديمة بايت-بايت (goldens T-017 محفوظة بالبناء). مساراته
+    # <memory:...> رمزية فلا تدخل mentioned_files بنفس القاعدة.
+    if memory_source is not None:
+        sources.insert(len(sources) - 1, memory_source)
     if index is not None:
         return ContextEngine(sources, scan_factory=lambda _root: index.scan())
     return ContextEngine(sources)
@@ -87,12 +94,15 @@ def _default_engine(index: Any = None) -> ContextEngine:
 def gather_message_context(project_root: str | pathlib.Path, user_text: str,
                            engine: ContextEngine | None = None,
                            max_files: int = MAX_MENTIONED_FILES,
-                           index: Any = None) -> MessageContext:
+                           index: Any = None,
+                           memory_source: Any = None) -> MessageContext:
     """النداء الوحيد الذي يحتاجه معالج WS (معيار قبول T-019).
 
     T-049: مرّر ``index=sctx.project.index`` لاستعلام الفهرس المقلوب
-    بدل مشية شجرية لكل رسالة. ``engine`` الصريح يتقدّم على الفهرس."""
-    eng = engine or _default_engine(index)
+    بدل مشية شجرية لكل رسالة. ``engine`` الصريح يتقدّم على الفهرس.
+    T-105: ``memory_source`` (MemorySource محقون بطبقتي الجلسة) يُضاف
+    للتركيبة عند تمريره — الافتراضي None = السلوك القديم حرفيًا."""
+    eng = engine or _default_engine(index, memory_source=memory_source)
     bundle = eng.gather(ContextRequest(
         message=user_text,
         project_root=pathlib.Path(project_root),

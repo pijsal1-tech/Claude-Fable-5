@@ -88,6 +88,37 @@ with pure-Python cosine (lists of floats; no numpy).
 (`embed(texts) -> list[list[float]]`) so a local backend can be swapped in
 later without touching the index or the ContextEngine source.
 
+### 2.1 Retrieval flow (T-105 — as built)
+
+```
+user message
+     │
+     ▼
+ContextEngine.gather(request)
+     │  sources: [Mention, Keyword, Symbol, Semantic(R-206),
+     │            MemorySource(T-105)*, Structure]
+     │  (*) optional — injected per session; absent = legacy composition
+     ▼
+MemorySource.collect(request, scan)          tier: opportunistic ONLY
+     │
+     │  worker thread ── future.result(timeout=1.0s)
+     │  timeout / any failure ⇒ []  (bundle build proceeds without us)
+     ▼
+  ┌──────────────────────────────┬──────────────────────────────────┐
+  │ semantic layer (T-104)       │ episodic layer (T-103)           │
+  │ SemanticIndex.search(msg)    │ word-overlap over episode        │
+  │  → cosine top-k              │  goal/outcome/decisions          │
+  │  provider down ⇒ available=  │  → best MAX_EPISODES, newest-    │
+  │  False ⇒ contributes nothing │  first tie-break                 │
+  │ items: <memory:sem:chunk_id> │ items: <memory:episode:run_id>   │
+  └──────────────────────────────┴──────────────────────────────────┘
+     │
+     ▼
+ContextItems (kind="memory", symbolic paths — never enter
+mentioned_files; budgeted at "opportunistic" so must_have/high
+are never displaced)
+```
+
 ---
 
 ## 3. Decision — Redis Client + Deployment Shape for R-804 (Worker Pool)
