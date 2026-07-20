@@ -3,3 +3,13 @@ pytest>=8.0
 pytest-timeout>=2.3
 pytest-cov>=5.0
 mypy>=1.10
+
+# SymbolIndex grammars (T-055 / R-205) — تبعية اختيارية:
+# غيابها لا يكسر التشغيل (SymbolIndex يتدهور إلى "بلا رموز"
+# واختباراته تتخطى نفسها)، لكنها مطلوبة لتغطية goldens في CI.
+tree-sitter>=0.25
+tree-sitter-python>=0.23
+tree-sitter-javascript>=0.23
+tree-sitter-typescript>=0.23
+tree-sitter-html>=0.23
+tree-sitter-css>=0.23

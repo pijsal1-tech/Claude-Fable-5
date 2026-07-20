@@ -27,6 +27,20 @@
     fallback path left.
 
 ### Added
+- **R-205 (T-055): SymbolIndex — per-file symbol tables via tree-sitter.**
+  - New `context/symbol_index.py`: definitions / references / imports
+    extracted per file for Python, JS (.js/.mjs/.cjs/.jsx), TS/TSX,
+    HTML (id/class attrs) and CSS (class/id selectors + `@import`).
+  - **Graceful degradation by design**: tree-sitter is an *optional*
+    dependency — missing lib/grammar, unsupported extension, missing
+    file, secret-redacted content (SafeReader R-204) or broken syntax
+    all yield an empty `FileSymbols` table, never an exception.
+  - Freshness follows the T-049 pattern: `attach(fm)` registers
+    `notify_write` in `FileManager.add_write_hook` — writes invalidate
+    the cache entry, re-parse is lazy on next query.
+  - Agreed perf ceiling: 2 000-file index build ≤ 10 s (≈1 s measured).
+  - `requirements-dev.txt` + CI pip line gained the six
+    `tree-sitter*` packages; tests skip themselves when absent.
 - **R-106 (T-054): checkpoints wired into every gated apply + rollback WS commands.**
   - `ActionApplier.apply_step` gained `run_id=` / `checkpoint=` params:
     snapshot of every file path in the batch **before** the first write,

@@ -175,10 +175,12 @@ class TestGracefulDegradation:
 
     @requires_grammars
     def test_secret_file_redacted_not_parsed(self, tmp_path):
-        # ملف بامتداد مدعوم لكن denylist بالاسم (SafeReader R-204)
-        (tmp_path / "credentials.py").write_text(
-            "SECRET = 'x'\ndef leak(): pass\n", encoding="utf-8")
-        table = SymbolIndex(tmp_path).symbols_for("credentials.py")
+        # ملف بامتداد مدعوم لكن يُحجب بشمّ المحتوى (SafeReader R-204):
+        # مفتاح AWS معروف النمط ⇒ يصل stub محجوب فلا يُفهرَس شيء.
+        (tmp_path / "config.py").write_text(
+            "KEY = \"AKIAIOSFODNN7EXAMPLE\"\ndef leak(): pass\n",
+            encoding="utf-8")
+        table = SymbolIndex(tmp_path).symbols_for("config.py")
         assert table.empty                      # المحتوى المحجوب لا يُفهرَس
         assert table.error == "redacted"
 
