@@ -66,6 +66,15 @@ from runners.direct import DirectRunner
 from core.approval import ApprovalGate
 from chain.knowledge import KnowledgeAccumulator
 from core.execution import ExecutionRegistry, RunBusyError
+from core.events import (
+    ApprovalRequested,
+    BudgetChanged,
+    EventBus,
+    RoutingDecided,
+    RunFinished,
+    RunStarted,
+    StepProgress,
+)
 from core.app_context import AppContext, ProjectHandle
 
 # ════════════════════════════════════════════════════
@@ -108,6 +117,74 @@ MAX_SMART_FILE_SIZE = 100 * 1024  # حد أقصى لحجم ملف يقرأه Sma
 # ticket cancellation reaches the loops at their checkpoints.
 execution_registry = ExecutionRegistry()
 
+# T-047 (R-604): الـ bus الرصدي العام — RunStarted/RunFinished/
+# RoutingDecided/BudgetChanged تُنشر هنا لأي مستهلك داخلي (logging/
+# metrics/سجلات R-402) دون أي علاقة بالنقل. إطارات الواجهة تمشي على
+# bus خاص بكل اتصال يستهلكه _WSAdapter وحده.
+event_bus = EventBus()
+
+# أنواع إطارات الموافقة — تُنشر ApprovalRequested (بقية الإطارات StepProgress)
+_APPROVAL_FRAME_TYPES = ("approval_request", "chain_approval_request",
+                         "agent_approval_request")
+
+
+class _WSAdapter:
+    """T-047 (R-604): بوابة النقل الوحيدة — **موقع ws.send الأوحد**.
+
+    يشترك في bus الاتصال ويحوّل الأحداث المكتوبة الأنواع إلى إطارات
+    الواجهة القديمة حرفيًّا: ``{"type": frame_type, **payload}``.
+    الأحداث الرصدية (RunStarted/RunFinished/RoutingDecided/
+    BudgetChanged) لا تُنتج إطارًا — نفس دلالة القديم.
+    check.sh يمنع بالـ grep أي ``ws.send`` خارج هذا الصنف.
+    """
+
+    def __init__(self, ws, bus: EventBus):
+        self._ws = ws
+        self._lock = threading.Lock()
+        self._unsubscribe = bus.subscribe(self._on_event)
+
+    def close(self) -> None:
+        self._unsubscribe()
+
+    def _on_event(self, event) -> None:
+        if isinstance(event, (StepProgress, ApprovalRequested)):
+            self._send({"type": event.frame_type, **event.payload})
+        # RunStarted/RunFinished/RoutingDecided/BudgetChanged → لا إطار
+
+    def _send(self, frame: dict) -> None:
+        try:
+            with self._lock:
+                self._ws.send(json.dumps(frame, ensure_ascii=False))
+        except Exception:
+            pass  # WS مقفول/معطوب — نفس ابتلاع القديم
+
+
+def _frame_publisher(bus: EventBus, conn_key: str | None = None):
+    """T-047: يحوّل إطار dict قديم → حدث مكتوب النوع على الـ bus.
+
+    الإطار لا يُعاد تشكيله: ``type`` يصبح ``frame_type`` والبقية
+    ``payload`` كما هي — المحوّل يعيد بناءه بايت-بايت. إطارات الموافقة
+    تُنشر :class:`ApprovalRequested`؛ أي إطار يحمل ``budget`` يُشتق منه
+    :class:`BudgetChanged` رصدي على الـ bus العام.
+    """
+    key = conn_key or f"ws-{uuid.uuid4().hex[:8]}"
+
+    def _publish_frame(msg: dict) -> None:
+        ftype = str(msg.get("type", ""))
+        payload = {k: v for k, v in msg.items() if k != "type"}
+        rid = str(msg.get("run_id") or key)
+        if ftype in _APPROVAL_FRAME_TYPES:
+            bus.publish(ApprovalRequested(run_id=rid, frame_type=ftype,
+                                          payload=payload))
+        else:
+            bus.publish(StepProgress(run_id=rid, frame_type=ftype,
+                                     payload=payload))
+        if isinstance(msg.get("budget"), dict):
+            event_bus.publish(BudgetChanged(run_id=rid,
+                                            payload={"budget": msg["budget"]}))
+
+    return _publish_frame
+
 
 class _RunnerWSAdapter:
     """T-040/T-041: EventSink يترجم أحداث Runner → إطارات WS حرفيًا.
@@ -123,7 +200,17 @@ class _RunnerWSAdapter:
         self._send = send_fn
 
     def emit(self, event: RunEvent) -> None:
-        if event.type in (EVENT_RUN_STARTED, EVENT_RUN_FINISHED):
+        if event.type == EVENT_RUN_STARTED:
+            # T-047: لا إطار واجهة (كما كان) — حدث رصدي على الـ bus العام
+            event_bus.publish(RunStarted(run_id=event.run_id,
+                                         mode=str(event.data.get("mode", "")),
+                                         payload=dict(event.data)))
+            return
+        if event.type == EVENT_RUN_FINISHED:
+            event_bus.publish(RunFinished(
+                run_id=event.run_id,
+                status=str(event.data.get("reason", "")),
+                payload=dict(event.data)))
             return
         if event.type == EVENT_RUN_OUTPUT:
             self._send({"type": "chunk", "text": event.data.get("text", "")})
@@ -163,15 +250,13 @@ def _begin_run_ticket(kind, send_fn):
 
 
 def _json_sender(ws):
-    """Wrap ws.send: JSON-encode only — ticket lifecycle is owned by the
-    executing bridge (finished with the precise final state in its finally),
-    not by frame sniffing (T-015)."""
-    def _ws_send(msg):
-        try:
-            _ws_frame(msg)
-        except Exception:
-            pass
-    return _ws_send
+    """T-047 (R-604): كان يلفّ ws.send مباشرة — الآن يبني خط أنابيب
+    كامل لنفس الاتصال: bus → :class:`_WSAdapter` (موقع الإرسال الأوحد)
+    → ناشر إطارات. نفس العقد القديم بالضبط: JSON فقط، ابتلاع أخطاء
+    الإرسال، ولا مساس بدورة حياة التذكرة (T-015)."""
+    bus = EventBus()
+    _WSAdapter(ws, bus)   # يبقى حيًّا عبر اشتراكه في الـ bus
+    return _frame_publisher(bus)
 
 
 def _list_runs_frame():
@@ -849,6 +934,10 @@ def ws_handler(ws):
     global chat_history, _backup_done_for_batch, fm, cmd_runner, delegate_bridge
     global _active_agent_loop
 
+    # T-047 (R-604): كل إطارات هذا الاتصال تمر عبر bus الاتصال →
+    # _WSAdapter (موقع ws.send الأوحد). _ws_frame = ناشر الإطارات.
+    _ws_frame = _json_sender(ws)
+
     while True:
         try:
             raw = ws.receive()
@@ -1057,6 +1146,12 @@ def ws_handler(ws):
                     # T-035 (R-401): الفصل على الطبقة (tier) لا النص —
                     # الترجمة label→tier تعيش في RoutingDecision.tier وحدها.
                     routing_tier = routing.tier
+                    # T-047 (R-604): قرار التوجيه حدث رصدي على الـ bus
+                    # العام (سجلات R-402) — لا إطار واجهة منه.
+                    event_bus.publish(RoutingDecided(
+                        run_id=f"route-{uuid.uuid4().hex[:8]}",
+                        strategy=str(routing.strategy),
+                        payload=routing.to_dict()))
                     if routing_tier is not RoutingTier.DIRECT:
                         _ws_frame({
                             "type": "chain_started",
@@ -1716,8 +1811,8 @@ def ws_handler(ws):
             # المستخدم رفض التعديلات
             reason = data.get("reason", "")
             if delegate_bridge and delegate_bridge.is_active:
-                delegate_bridge.reject(reason, on_event=lambda et, ed: ws.send(
-                    json.dumps({"type": et, **ed})
+                delegate_bridge.reject(reason, on_event=lambda et, ed: _ws_frame(
+                    {"type": et, **ed}
                 ))
             else:
                 _ws_frame({"type": "error", "text": "لا يوجد تفويض نشط"})
