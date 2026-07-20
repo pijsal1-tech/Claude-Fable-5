@@ -768,11 +768,11 @@
 - **Files to Modify:** `chain/bridge.py`, `chain/action_applier.py`, `server.py` (WS frames), `core/retention.py`, `tests/integration/test_rollback.py`
 - **Affected Modules:** apply path, WS protocol (additive frames), retention
 - **Acceptance Criteria:** integration — apply 3-file batch via gate then `rollback_run` restores bytes; no apply path bypasses snapshot (grep + test); retention sweep bounds checkpoint storage across 50 fixture runs.
-- **Implementation:** [ ] snapshot-before-apply in both paths · [ ] WS handlers · [ ] retention hookup
-- **Testing:** [ ] E2E rollback · [ ] per-file rollback · [ ] conflict frame · [ ] retention bound
-- **Regression:** [ ] approval matrix E2E from T-012 still green
-- **Documentation:** [ ] WS rollback frames
-- **Completion Status:** ☐ · **Reviewer Notes:** — · **Next Task:** T-055
+- **Implementation:** [x] snapshot-before-apply in both paths · [x] WS handlers · [x] retention hookup
+- **Testing:** [x] E2E rollback · [x] per-file rollback · [x] conflict frame · [x] retention bound
+- **Regression:** [x] approval matrix E2E from T-012 still green
+- **Documentation:** [x] WS rollback frames
+- **Completion Status:** ✅ 2026-07-20 · **Reviewer Notes:** Wiring lives INSIDE `ActionApplier.apply_step(run_id=, checkpoint=)` — snapshot of every file path in the batch before the first write, `seal` after the last — so **any** caller of the gated apply gets checkpoints for free (chain path via `_gated_apply` passes `checkpoint=self.checkpoint_manager`; the agent path's file writes go through the same applier seam). `ChainBridge.checkpoint_manager` is a call-time property (R-102 pattern) rooted at `<runs_dir>/checkpoints` — the name doesn't match `run-*` so the R-305 sweep never touches it; instead `CheckpointManager.prune(keep_run_ids)` (new) rewrites the log + GCs unreferenced blobs and is invoked right after the live (non-dry-run) sweep in server boot with the sweep's surviving set. WS: `rollback_run(run_id)` / `rollback_file(run_id, path)` → `rollback_result` frame = `RestoreReport.to_dict()` (status success/partial/refused + structured conflicts with expected/actual sha256 + reason); arg/bridge-missing errors refused explicitly. 9 integration tests in `tests/integration/test_rollback.py`: 3-file gated batch E2E byte-restore (created file deleted on rollback), per-file leaves siblings, external-edit → partial + conflict frame, structural no-bypass assertion (apply_step in `_gated_apply` must carry `checkpoint=`; snapshot < write < seal source order), behavioral snapshot presence, 50-run prune bound (40 pruned, survivors still restorable, refusal still honest post-prune). Suite: 991 passed, 1 skipped — ALL GREEN (T-012 approval matrix untouched). Frames additive — no existing frame changed. · **Next Task:** T-055
 
 ---
 

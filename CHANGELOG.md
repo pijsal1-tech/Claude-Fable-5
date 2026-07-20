@@ -27,6 +27,24 @@
     fallback path left.
 
 ### Added
+- **R-106 (T-054): checkpoints wired into every gated apply + rollback WS commands.**
+  - `ActionApplier.apply_step` gained `run_id=` / `checkpoint=` params:
+    snapshot of every file path in the batch **before** the first write,
+    `seal` **after** the last — the hookup lives inside the applier so no
+    apply path can bypass it (structurally asserted in tests).
+  - `ChainBridge.checkpoint_manager`: call-time property rooted at
+    `<runs_dir>/checkpoints`; `_gated_apply` passes it on every apply.
+  - New WS commands `rollback_run(run_id)` / `rollback_file(run_id, path)`
+    → `rollback_result` frame (status success/partial/refused + structured
+    conflict reports with expected/actual sha256). Additive frames only.
+  - Retention hookup: new `CheckpointManager.prune(keep_run_ids)` rewrites
+    the checkpoint log and GCs unreferenced blobs; invoked after the live
+    R-305 sweep at boot with the sweep's surviving run set (dry-run mode
+    prunes nothing — same safety default as the sweep).
+  - 9 integration tests (`tests/integration/test_rollback.py`): 3-file
+    gated batch → byte-exact rollback (created file deleted), per-file
+    restore leaves siblings, external edit → partial + conflict frame,
+    no-bypass structural check, 50-run prune bound.
 - **R-106 (T-053): CheckpointManager core — content-addressed pre-write snapshots.**
   - New `core/checkpoint.py`: `snapshot(run_id, paths)` stores pre-write
     copies in a content-addressed `objects/<sha256>` store (duplicate
