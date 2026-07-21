@@ -27,6 +27,56 @@
     fallback path left.
 
 ### Added
+- **R-805 (T-113): Post-run distillation + budgeted `ProjectMemorySource`.**
+  - `core/project_memory.py` extended: `distill_episode(episode)` — a
+    pure proposal function over T-103 episode records (duck-typed:
+    `run_id/goal/outcome/files_touched/key_decisions`; zero context/
+    imports, so no dependency cycle) yielding one `run_summary`
+    (reusing the T-103 summary verbatim: goal → outcome + files
+    touched) plus up to `MAX_DISTILLED_DECISIONS=3` `decision`
+    entries; an empty episode yields nothing. `distill_and_record`
+    is the post-run hook: every distilled entry is stamped
+    `source="distillation"` + the episode's `run_id` + the live
+    index hash-link (full provenance), and the hook **never raises**
+    (same degradation contract as T-103's `summarize_and_record`:
+    distillation is an optional derivative — losing an entry is
+    cheaper than failing a run).
+  - `is_stale(entry, index)` — the staleness verdict next to the
+    fingerprint it compares: `True` only when two *present*
+    fingerprints differ; a missing link (`index_hash=""`) or a
+    missing live index is an explicit "no verdict" (never a false
+    flag).
+  - New `context/sources/project_memory.py` — `ProjectMemorySource`
+    on the standard R-201 seat (`kind="project_memory"`): the store
+    is injected and all `memory.jsonl` I/O stays in core/ (zero raw
+    reads in the module — the R-204 SafeReader grep gate stays
+    clean, self-tested); symbolic `<memory:project:entry_id>` paths
+    never enter `mentioned_files` (T-017 goldens preserved by the
+    same rule as T-105); `PROJECT_MEMORY_TIER = "opportunistic"`
+    **exclusively** (grep-guarded — memory never displaces
+    must_have/high under an R-203 budget); deterministic
+    word-overlap ranking capped at `MAX_ENTRIES=5`; strict
+    async fallback-to-skip timeout in the exact R-206 pattern
+    (slow or corrupt store ⇒ `[]`, the bundle builds without us).
+  - Staleness is **flagged and down-ranked, never silently served
+    as fresh**: rendered content of a drifted entry starts with
+    `[STALE ...]` plus an explicit warning line, and the sort key
+    orders *all* fresh entries above *all* stale ones regardless of
+    overlap — under cap or budget pressure stale drops first.
+    Entries are never deleted by the engine; that verdict belongs
+    to the user (memory panel, T-114).
+  - `tests/integration/test_project_memory_source.py` (18 tests) —
+    the three acceptance criteria verbatim: the **R-805 headline
+    test** drives a real `AgentLoop` through the production path
+    (scripted `send_fn` → `parse_tool_calls` → counted `execute`) —
+    first session pays `read_file ≥ 1`, second session with memory
+    context answers with **zero** `read_file` (count asserted
+    strictly lower); budget respected under a crowded bundle
+    (`ContextBudget(model_window=80)` keeps must_have/high, drops
+    `<memory:project:...>` first) plus the `MAX_ENTRIES` cap; and
+    the staleness flip after a fixture file change (+ absolute
+    down-rank + both no-verdict edges). Regression: empty memory
+    through the facade is byte-identical to no memory source.
 - **R-805 (T-112): ProjectMemoryStore + `remember_fact` agent tool.**
   - New `core/project_memory.py` — per-`project_id` durable memory:
     append-only `projects/<project_id>/memory.jsonl` in the same
