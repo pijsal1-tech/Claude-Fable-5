@@ -27,6 +27,51 @@
     fallback path left.
 
 ### Added
+- **R-803 (T-107): LLMPlanner + HybridPlanner + guarded fallback.**
+  - New `chain/plan_schema.py`: strict plan schema for model-proposed
+    plans — `ALLOWED_STRATEGIES` covers the five step-builders
+    (delegate deliberately excluded: its path is DelegateBridge),
+    `ALLOWED_STAGES = {analyze, plan, execute, review}`,
+    `MAX_PLAN_STEPS = 12`, and `PlanSchemaError(reason)` with a
+    loggable `.reason`. `parse_plan_json` tolerates ```json fences
+    only (`invalid_json:` otherwise); `validate_plan_payload` checks
+    in a fixed order (dict → strategy → steps list ≤ cap → per-step
+    non-empty strings → stage vocabulary → unique ids →
+    **depends_on referencing prior steps only = a DAG by
+    construction**, no cycle scan needed).
+    `ValidatedPlan.to_strategy_result()` builds executable ChainSteps
+    with default ExecutionPolicy — no model injection into policies.
+  - `LLMPlanner` (name=`"llm"`): prompts the provider with a
+    JSON-only contract (`PLAN_PROMPT_TEMPLATE`), schema-validates the
+    reply, and capacity-checks step count against
+    `capacity.total_available` (None capacity = no check, allowed).
+    The **fallback matrix** (documented in the plan_schema header):
+    forced → `forced_heuristic` (no model call); provider exception →
+    `provider_error: <type>`; non-JSON → `invalid_json:`; schema
+    break → `schema:`; over capacity → `capacity: needs N > M`.
+    Every row falls back to the HeuristicPlanner plan and emits a
+    `PlannerDecisionRecord` (R-402 RoutingRecord pattern) in
+    `plan.metadata["planner_record"]`; pure heuristic plans carry
+    **no** record, keeping the T-106 goldens byte-identical.
+  - `HybridPlanner` (name=`"hybrid"`): heuristic gate via
+    `analyze_complexity(...).recommended` — simple tiers
+    (direct/context_window) adopt the heuristic plan with a
+    `simple_tier: X` record and **zero model calls**; complex tiers
+    go through the full guarded LLM path; forced requests take the
+    single LLM-planner force path (`forced_heuristic`).
+  - Config seam extended: `KNOWN_PLANNERS = ("heuristic", "llm",
+    "hybrid")`; `planner_from_config(..., provider=)` raises a loud
+    ValueError for llm/hybrid without a provider; server.py passes
+    `provider=provider` at the same T-106 boot seam.
+  - Tests: `tests/unit/test_llm_planner.py` (schema negatives,
+    accept path, every fallback row compared step-for-step against
+    the heuristic plan, hybrid gate both sides, T-106
+    `PlannerContractMixin` on both new planners) +
+    `tests/integration/test_planner_swap.py` (three-way planner swap
+    by **config value only** — the zero-core-edits acceptance
+    criterion — plus heuristic-only regression: plans dataclass-equal
+    to direct `select_strategy` calls, no planner_record). Full gate
+    1395 passed, 1 skipped — ALL GREEN.
 - **R-803 (T-106): Planner protocol + HeuristicPlanner extraction.**
   - New `chain/planner.py`: `Planner` protocol
     (`plan(request, context, capacity) -> ExecutionPlan`) with the

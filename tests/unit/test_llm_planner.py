@@ -72,7 +72,11 @@ class FakeCapacity:
         self.total_available = total
 
 
-REQ = PlanRequest("أعد هيكلة نظام المصادقة كاملًا")
+# طلب «معقّد» مثبّت: يطابق أنماط التعقيد (إعادة.*هيكلة/معمارية/عبر.*ملفات)
+# والمخاطر ⇒ توصية المحلل chunk_chain — يعبر بوابة Hybrid لمسار LLM.
+REQ = PlanRequest(
+    "إعادة هيكلة معمارية المصادقة عبر كل الملفات "
+    "مع حذف قاعدة البيانات القديمة وتشفير كل token")
 
 
 def record_of(plan) -> dict:
