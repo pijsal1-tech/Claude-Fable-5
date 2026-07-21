@@ -27,6 +27,53 @@
     fallback path left.
 
 ### Added
+- **R-804 (T-110): Worker process + per-project lease.**
+  - New `core/lease.py` — `ProjectLease`, the literal embodiment of
+    the lease row in `docs/phase8_plan.md` §3: acquisition via
+    `SET lease:<project_id> <worker_id> NX PX <ttl_ms>` (atomic — no
+    lease over a live lease), **ownership-checked renewal and release
+    via Lua scripts** (a worker never touches another's lease), TTL
+    expiry = automatic failover. The client is injected — the module
+    imports no redis at all.
+  - New `worker.py` — three roles: `resolve_dispatch_mode` (config
+    seam for the `dispatch:` key — absent/`in-proc` = the historical
+    default, unknown = loud boot `ValueError`, same contract as
+    `backend:`); `Worker` (consume loop claim → lease → execute →
+    stream → ack: lease held elsewhere ⇒ requeue+ack — no PEL
+    starvation, no loss; renewal thread at a third of the TTL during
+    execution; runner built by an injected factory — default is the
+    reference EchoRunner, production-runner wiring is a documented
+    later deployment concern); `WorkerDispatchClient` (**Runner-
+    compatible** — enqueues the payload then tails `ev:<run_id>` via
+    XREAD so no frame is lost past the MAXLEN cap, decodes with the
+    T-109 catalog and re-emits through the exact inverse of the
+    worker-side mapping — which itself mirrors `_RunnerWSAdapter` —
+    so frames arrive as if produced locally; the final RunFinished
+    carries the full `RunResult`, and the ticket is finished with the
+    same status — the T-039 rule 5 contract preserved across
+    processes).
+  - `server.py` dispatch seam (surgical): `dispatch:` read next to
+    `backend:`, `_chain_runner_for_dispatch(bridge)` returns the
+    historical `RUNNERS["chain"]` **itself** for in-proc (identity
+    asserted by type in tests — no wrapper) or the dispatch client
+    for worker mode; the chain dispatch site (thread +
+    `_RunnerWSAdapter`) unchanged apart from the factory swap; boot
+    banner `📮 Dispatch:`. `config.yaml` documents both modes
+    (shipped default: `in-proc`).
+  - New `docs/worker_runbook.md` — when to use worker mode,
+    requirements, run commands, lifecycle diagram, diagnostics table,
+    and current scope limits (cross-process approval/cancel and
+    production-runner wiring are later extensions; byte-identical
+    frame parity is proven by T-111's harness).
+  - New `tests/integration/test_worker_dispatch.py` — 27 tests
+    against real Redis (T-109 skipif pattern, uuid key isolation)
+    covering all four acceptance criteria: E2E worker run with events
+    arriving in order, lease exclusivity (direct + in-loop requeue),
+    TTL-expiry takeover (lease-level and full E2E, plus the renewal
+    thread keeping a 300ms lease alive through a 900ms run), and the
+    in-proc default parity guard (absent ≡ explicit, loud on bad
+    values, runner type identity, no top-level redis import).
+    T-046 parallel-execution suite green as regression.
 - **R-804 (T-109): Redis backends via Streams (optional extra).**
   - New `core/backends_redis.py` — purely additive: the in-memory
     defaults from T-108 stay the defaults, single-process stays
