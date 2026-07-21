@@ -27,6 +27,47 @@
     fallback path left.
 
 ### Added
+- **R-804 (T-108): Pluggable Registry/EventBus backends.**
+  - New `core/backends.py`: two structural `@runtime_checkable`
+    protocols extracted 1:1 from the existing classes —
+    `EventBusBackend` (subscribe returning an unsubscribe callable,
+    publish, history, subscriber_count; per-run FIFO, subscriber
+    isolation and history caps are **part of the contract**, enforced
+    by the conformance suite on every backend) and `RegistryBackend`
+    (register/lookup/list_active/list_all/finish/cancel/reap_stale;
+    state diagram, cooperative cancellation and TTL semantics
+    inherited verbatim from core/execution.py). Construction stays
+    outside the contract — consumers go through
+    `backends_from_config` only. Backend contract documented in the
+    module header.
+  - **In-memory defaults are aliases, not new classes**:
+    `InMemoryEventBusBackend is EventBus` and
+    `InMemoryRegistryBackend is ExecutionRegistry` — identity-pinned
+    by test, which is stronger than measured byte-parity: zero
+    wrappers = zero drift by construction (the T-106 extraction
+    philosophy).
+  - Config seam: top-level `backend:` key in config.yaml —
+    `resolve_backend_name` validates strictly (unknown name / wrong
+    type = loud boot ValueError; absent = `memory`);
+    `KNOWN_BACKENDS = ("memory",)` is the single T-109 extension
+    point; frozen `BackendPair` result. server.py builds the pair at
+    module load and assigns `execution_registry` / `event_bus` from
+    it (the historical no-arg defaults), plus a `🗄 Backend:` boot
+    banner. Scope decision documented: per-connection buses
+    (`_json_sender`/`ws_handler`) are inherently in-process local
+    transport and stay direct `EventBus()` — T-109 distributes
+    observability, not transport.
+  - Tests: `tests/unit/test_backends.py` — two inheritable
+    conformance mixins (`EventBusBackendContractMixin`,
+    `RegistryBackendContractMixin`) that T-109 will run Redis
+    backends through unchanged; zero-drift identity + historical
+    constructor parameters + server globals built via the seam; a
+    frame-sequence golden (bus → `_WSAdapter` over a seam-built bus
+    byte-identical to the legacy `ws.send(json.dumps(...))`
+    recording); config seam (absent ≡ explicit, five bad values loud,
+    real config.yaml resolves) and an import-grep proving `memory`
+    needs no new deps (stdlib + core only). Full gate 1420 passed,
+    1 skipped — ALL GREEN.
 - **R-803 (T-107): LLMPlanner + HybridPlanner + guarded fallback.**
   - New `chain/plan_schema.py`: strict plan schema for model-proposed
     plans — `ALLOWED_STRATEGIES` covers the five step-builders

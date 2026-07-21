@@ -112,17 +112,31 @@ _binding_banner: str = ""
 MAX_SMART_FILE_SIZE = 100 * 1024  # حد أقصى لحجم ملف يقرأه Smart Path (100KB)
 
 # ── Chain System Infrastructure (M0 + M5) ──
+# T-108 (R-804): درزة الـ backends — السجل والناقل الرصدي العام يُبنيان
+# من مفتاح ``backend:`` في config (غائب/memory = الافتراضيان التاريخيان
+# حرفيًّا؛ اسم مجهول = فشل إقلاع صاخب). ملاحظة نطاق: buses الاتصالات
+# (_json_sender/ws_handler) نقلٌ محلي داخل-العملية بطبيعته — تبقى
+# EventBus() مباشرة خارج الدرزة (T-109 يوزّع الرصد لا النقل).
+from core.backends import backends_from_config
+try:
+    import yaml as _yaml_backends
+    with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
+        _backend_cfg = (_yaml_backends.safe_load(_cf) or {}).get("backend")
+except OSError:
+    _backend_cfg = None  # قراءة متعذرة ⇒ الافتراضي (نفس تسامح الإقلاع)
+_backends = backends_from_config(_backend_cfg)
+
 # R-105 (T-015): ExecutionRegistry supersedes the R-101 interim
 # ActiveRunHolder (deleted). Every dispatch — chain / agent / delegate —
 # registers a RunTicket; the registry enforces the single-run policy and
 # ticket cancellation reaches the loops at their checkpoints.
-execution_registry = ExecutionRegistry()
+execution_registry = _backends.registry
 
 # T-047 (R-604): الـ bus الرصدي العام — RunStarted/RunFinished/
 # RoutingDecided/BudgetChanged تُنشر هنا لأي مستهلك داخلي (logging/
 # metrics/سجلات R-402) دون أي علاقة بالنقل. إطارات الواجهة تمشي على
 # bus خاص بكل اتصال يستهلكه _WSAdapter وحده.
-event_bus = EventBus()
+event_bus = _backends.event_bus
 
 # أنواع إطارات الموافقة — تُنشر ApprovalRequested (بقية الإطارات StepProgress)
 _APPROVAL_FRAME_TYPES = ("approval_request", "chain_approval_request",
@@ -2168,6 +2182,9 @@ def main():
         SmartOrchestrator(plugin_registry=plugin_registry),
         provider=provider)
     print(f"  🧭 Planner: {chain_planner.name}")
+    # T-108 (R-804): بانر backend — الاختيار تم عند تحميل الوحدة
+    # (الدرزة أعلى الملف)؛ هنا الإفصاح عند الإقلاع فقط.
+    print(f"  🗄 Backend: {_backends.name}")
 
     # ── Chain Bridge (M5) ──
     chain_bridge = ChainBridge(
