@@ -130,6 +130,19 @@ planner: "heuristic"
 # حتى حينها القيمة الصالحة الوحيدة memory.
 backend: "memory"
 
+# الإرسال (T-110 / R-804) — resolve_dispatch_mode (worker.py) يقرأ هذا
+# المفتاح عند تحميل server.py. حذف المفتاح = in-proc (الصريح والافتراضي
+# متكافئان)؛ اسم مجهول = فشل إقلاع صاخب لا سقوط صامت.
+#   in-proc: السلوك التاريخي حرفيًّا — الـ runner يعمل في thread داخل
+#            عملية الخادم (نفس الكائن، نفس الإطارات بايت-بايت).
+#   worker:  تشغيلات السلسلة تُوضع في قائمة العمل wq:runs (Redis
+#            Streams — T-109) ويستهلكها worker منفصل
+#            (`python worker.py`) يبث الأحداث رجوعًا عبر ev:<run_id>
+#            مع حجز per-project (core/lease.py — SET NX PX + تجديد
+#            مشروط بالملكية). يتطلب Redis متاحًا (REDIS_URL) وworker
+#            واحدًا على الأقل يعمل. دليل التشغيل: docs/worker_runbook.md
+dispatch: "in-proc"
+
 # عتبات التوجيه (T-036 / R-402) — RequestRouter يقرأ هذا القسم عبر
 # thresholds_from_config (تحقق صارم: مفتاح مجهول/نوع خاطئ/ترتيب مكسور
 # = فشل صاخب عند الإقلاع). القيم أدناه هي الافتراضات التاريخية —

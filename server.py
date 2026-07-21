@@ -121,10 +121,37 @@ from core.backends import backends_from_config
 try:
     import yaml as _yaml_backends
     with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
-        _backend_cfg = (_yaml_backends.safe_load(_cf) or {}).get("backend")
+        _cfg_root = _yaml_backends.safe_load(_cf) or {}
+    _backend_cfg = _cfg_root.get("backend")
+    _dispatch_cfg = _cfg_root.get("dispatch")
 except OSError:
     _backend_cfg = None  # قراءة متعذرة ⇒ الافتراضي (نفس تسامح الإقلاع)
+    _dispatch_cfg = None
 _backends = backends_from_config(_backend_cfg)
+
+# T-110 (R-804): درزة الإرسال — ``dispatch:`` من config (غائب/in-proc =
+# السلوك التاريخي حرفيًّا؛ اسم مجهول = فشل إقلاع صاخب — نفس عقد
+# ``backend:``). عند worker: تشغيلات السلسلة تُفوَّض عبر
+# WorkerDispatchClient (worker.py) — نفس توقيع Runner ونفس موقع
+# الإرسال، فالإطارات تُعاد كما هي عبر _RunnerWSAdapter.
+from worker import WorkerDispatchClient, resolve_dispatch_mode
+_dispatch_mode = resolve_dispatch_mode(_dispatch_cfg)
+
+
+def _chain_runner_for_dispatch(bridge):
+    """T-110: اختيار منفّذ السلسلة حسب وضع الإرسال.
+
+    in-proc (الافتراضي) = ``RUNNERS["chain"]`` التاريخي حرفيًّا؛
+    worker = عميل التفويض (enqueue + متابعة أحداث ذيلية) — نفس توقيع
+    ``Runner.run`` فيبقى موقع الإرسال (thread + _RunnerWSAdapter) كما هو.
+    """
+    if _dispatch_mode == "worker":
+        from core.backends_redis import (RedisWorkQueue,
+                                         redis_client_from_env)
+        _wq_client = redis_client_from_env()
+        return WorkerDispatchClient(RedisWorkQueue(client=_wq_client),
+                                    _wq_client)
+    return RUNNERS["chain"](bridge=bridge)
 
 # R-105 (T-015): ExecutionRegistry supersedes the R-101 interim
 # ActiveRunHolder (deleted). Every dispatch — chain / agent / delegate —
@@ -1322,8 +1349,12 @@ def _handle_ws_message(ctx, sctx, msg):
                             "force_strategy": routing.chain_strategy,
                         },
                     )
+                    # T-110 (R-804): المنفّذ يُختار حسب dispatch —
+                    # in-proc = RUNNERS["chain"] حرفيًّا؛ worker =
+                    # WorkerDispatchClient بنفس التوقيع والموقع.
                     threading.Thread(
-                        target=RUNNERS["chain"](bridge=sctx.chain_bridge).run,
+                        target=_chain_runner_for_dispatch(
+                            sctx.chain_bridge).run,
                         args=(_chain_req, chain_ticket,
                               _RunnerWSAdapter(_ws_send)),
                         daemon=True,
@@ -2185,6 +2216,9 @@ def main():
     # T-108 (R-804): بانر backend — الاختيار تم عند تحميل الوحدة
     # (الدرزة أعلى الملف)؛ هنا الإفصاح عند الإقلاع فقط.
     print(f"  🗄 Backend: {_backends.name}")
+    # T-110 (R-804): بانر dispatch — in-proc افتراضيًّا؛ worker يتطلب
+    # Redis + عامل يعمل (docs/worker_runbook.md).
+    print(f"  📮 Dispatch: {_dispatch_mode}")
 
     # ── Chain Bridge (M5) ──
     chain_bridge = ChainBridge(
