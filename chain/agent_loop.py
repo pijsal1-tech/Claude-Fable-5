@@ -446,6 +446,11 @@ path: مسار/الملف
 max_depth: 3 (اختياري)
 ```
 
+```TOOL: remember_fact
+kind: fact | convention | decision | run_summary
+text: الحقيقة/العرف/القرار المراد حفظه في ذاكرة المشروع الدائمة
+```
+
 ```TOOL: run_command
 command: الأمر لتنفيذه
 reason: سبب تشغيل الأمر
@@ -455,6 +460,7 @@ reason: سبب تشغيل الأمر
 1. استخدم الأدوات فقط عند الحاجة الحقيقية.
 2. لا تشغل run_command إلا إذا كنت متأكدًا تمامًا وتريد بناء، اختبار، أو تثبيت حزم.
 3. التزم تمامًا بالصيغة المذكورة.
+4. استخدم remember_fact عند اكتشاف حقيقة معمارية أو عرف أو قرار يستحق التذكر عبر الجلسات — لا للحقائق العابرة.
 """
 
     def _request_approval(self, call: ToolCall, run_id: str = "", step_id: str = "") -> bool:

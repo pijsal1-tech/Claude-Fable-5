@@ -31,7 +31,10 @@ def compute_payload_hash(tool: str, args: dict, cwd: str, env: dict | None) -> s
     return hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
 
 # أنواع الأدوات: safe = تنفيذ فوري, approval = تحتاج موافقة
-SAFE_TOOLS = {"read_file", "list_dir", "search_code", "get_file_info", "get_project_tree"}
+# T-112 (R-805): remember_fact آمنة — إلحاق نصي لملف ذاكرة المشروع
+# (لا shell ولا كتابة على ملفات workspace) ⇒ لا تحتاج بوابة موافقة.
+SAFE_TOOLS = {"read_file", "list_dir", "search_code", "get_file_info",
+              "get_project_tree", "remember_fact"}
 APPROVAL_TOOLS = {"run_command"}
 ALL_TOOLS = SAFE_TOOLS | APPROVAL_TOOLS
 
@@ -148,7 +151,7 @@ class AgentTools:
     def __init__(self, file_manager=None, command_runner=None,
                  project_root: str = ".", ctx=None,
                  command_policy: CommandPolicy | None = None,
-                 checkpoint=None):
+                 checkpoint=None, memory_store=None):
         # R-102 (T-007) — pattern: "resolve at call time".
         # When ctx (AppContext) is provided, fm/cmd/project_root are
         # properties resolving ctx.project.* on EVERY access — never cached —
@@ -170,6 +173,9 @@ class AgentTools:
         # لا مسار طفرة بلا بوابة: الأمر نفسه لا يصل هنا إلا بعد موافقة
         # ApprovalGate (T-013)، وآثاره على الملفات قابلة للاستعادة (T-053).
         self._checkpoint = checkpoint
+        # T-112 (R-805): ProjectMemoryStore — بلا مخزن الأداة تعتذر
+        # بوضوح (لا صمت ولا كسر: نفس مبدأ «بلا بوابة ⇒ رفض آمن»).
+        self._memory_store = memory_store
 
     # حدود مسح الملفات قبل/بعد الأمر (T-059) — مشاريع أكبر من
     # السقف تفقد التغطية للزائد فقط (لا فشل) — موثّق في docstring.
@@ -358,6 +364,39 @@ class AgentTools:
     def tool_get_project_tree(self, max_depth: int = 3) -> str:
         """شجرة المشروع كاملة"""
         return self.tool_list_dir(".", depth=max_depth)
+
+    def tool_remember_fact(self, kind: str = "fact", text: str = "") -> str:
+        """T-112 (R-805): حفظ حقيقة/عرف/قرار في ذاكرة المشروع الدائمة.
+
+        provenance تلقائي: run_id من تذكرة التنفيذ الحالية، وindex_hash
+        من ProjectIndex الحي (ctx.project.index) — رابط staleness لـ T-113.
+        project_id = بصمة R-303 نفسها (sessions.store.project_fingerprint)
+        — هوية مشروع واحدة عبر الربط والذاكرة (استيراد كسول: chain لا
+        يعتمد على sessions وقت الاستيراد — نفس نمط knowledge/delegate).
+        """
+        store = self._memory_store
+        if store is None:
+            return ("❌ ذاكرة المشروع غير مفعّلة "
+                    "(لا ProjectMemoryStore مهيأ)")
+        if not (text or "").strip():
+            return "❌ نص فارغ — أرسل text يحمل الحقيقة المراد تذكّرها"
+        from sessions.store import project_fingerprint
+        project_id = project_fingerprint(self.project_root)
+        if not project_id:
+            return "❌ لا مشروع مفتوح — لا هوية لربط الذاكرة بها"
+        index = self._ctx.project.index if self._ctx is not None else None
+        ticket = self.run_ticket
+        run_id = ticket.run_id if ticket is not None else ""
+        try:
+            entry = store.remember(project_id, kind, text,
+                                   source="agent_tool", run_id=run_id,
+                                   index=index)
+        except ValueError as e:
+            return f"❌ {e}"
+        _LOG.info("remember_fact: %s entry %s for project %s",
+                  entry.kind, entry.entry_id, project_id)
+        return (f"✅ حُفظت في ذاكرة المشروع "
+                f"({entry.kind} · id={entry.entry_id[:8]})")
     
     def tool_run_command(self, command: str, reason: str = "") -> str:
         """تنفيذ أمر في Terminal — موافقة + allowlist (T-058 / R-504).
@@ -588,6 +627,7 @@ class AgentTools:
         "search_code": tool_search_code,
         "get_file_info": tool_get_file_info,
         "get_project_tree": tool_get_project_tree,
+        "remember_fact": tool_remember_fact,
         "run_command": tool_run_command,
     }
 

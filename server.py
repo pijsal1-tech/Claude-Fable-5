@@ -2333,6 +2333,10 @@ def main():
     # T-058 (R-504): سياسة أوامر الـ agent من config.yaml — الـ allowlist
     # ملكية المشروع لا الـ agent؛ قسم غائب = وضع legacy (بوابة الموافقة فقط).
     _cmd_policy = command_policy_from(_read_config())
+    # T-112 (R-805): ذاكرة المشاريع الدائمة — مخزن JSONL لكل project_id
+    # تحت projects/ بجانب sessions/ (نفس جذر بيانات التطبيق).
+    from core.project_memory import ProjectMemoryStore
+    project_memory = ProjectMemoryStore(str(_DIR / "projects"))
     agent_tools = AgentTools(
         file_manager=fm,
         command_runner=cmd_runner,
@@ -2342,6 +2346,8 @@ def main():
         # T-059 (R-106): كتابات الأوامر الجانبية تُلتقط في نفس مخزن
         # checkpoints الذي يخدم كتابات السلسلة (T-054) — مسار استعادة واحد.
         checkpoint=chain_bridge.checkpoint_manager,
+        # T-112 (R-805): أداة remember_fact تكتب هنا — provenance كاملة.
+        memory_store=project_memory,
     )
     if _cmd_policy.enforce:
         print(f"  🤖 Agent System: active "
