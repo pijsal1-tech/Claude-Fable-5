@@ -299,6 +299,71 @@ class ProjectMemoryStore:
         self.append(project_id, entry)
         return entry
 
+    # ── التحرير (T-114 / R-805: الذاكرة ملك المستخدم) ──
+    #
+    # التعديل/الحذف يعيدان كتابة الملف **ذرّيًّا** (tmp + fsync +
+    # os.replace) — الإلحاق يبقى O(1) للمسار الساخن، والتحرير عملية
+    # مستخدم نادرة على ملف صغير؛ الذرّية تحفظ عقد «لا سطر ممزّق إلا
+    # ذيل صدمة» حرفيًّا (لا حالة وسطى مرئية أبدًا).
+
+    def edit(self, project_id: str, entry_id: str, *,
+             text: str | None = None, kind: str | None = None,
+             index: Any = None) -> MemoryEntry | None:
+        """تعديل مدخلة بهويتها — يعيد المدخلة الجديدة أو None إن غابت.
+
+        provenance التعديل: ``source="user"`` (المستخدم أكّدها الآن)
+        مع الإبقاء على ``entry_id``/``created_at``/``run_id`` الأصلية
+        (تاريخ المنشأ لا يُزوَّر). ``index`` الحي (اختياري) يعيد ختم
+        ``index_hash`` — تعديل المستخدم إعادة تأكيد على البنية الحالية
+        (يمسح علم staleness قديمًا عن قصد). نص فارغ/نوع مجهول =
+        ``ValueError`` صاخب (نفس صرامة المخطط).
+        """
+        current = self.entries(project_id)
+        updated: MemoryEntry | None = None
+        out: list[MemoryEntry] = []
+        for e in current:
+            if e.entry_id == entry_id:
+                updated = MemoryEntry(
+                    kind=kind if kind is not None else e.kind,
+                    text=text if text is not None else e.text,
+                    entry_id=e.entry_id,
+                    created_at=e.created_at,
+                    source="user",
+                    run_id=e.run_id,
+                    index_hash=(index_fingerprint(index)
+                                if index is not None else e.index_hash),
+                )
+                out.append(updated)
+            else:
+                out.append(e)
+        if updated is None:
+            return None
+        self._rewrite(project_id, out)
+        return updated
+
+    def delete(self, project_id: str, entry_id: str) -> bool:
+        """حذف مدخلة بهويتها — يعيد True إن وُجدت وحُذفت."""
+        current = self.entries(project_id)
+        out = [e for e in current if e.entry_id != entry_id]
+        if len(out) == len(current):
+            return False
+        self._rewrite(project_id, out)
+        return True
+
+    def _rewrite(self, project_id: str, entries: list[MemoryEntry]) -> None:
+        """إعادة كتابة ذرّية: tmp بجوار الملف → fsync → os.replace."""
+        path = self.memory_path(project_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".jsonl.tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            for e in entries:
+                f.write(json.dumps(e.to_dict(), ensure_ascii=False,
+                                   sort_keys=True) + "\n")
+            f.flush()
+            if self._fsync == "always":
+                os.fsync(f.fileno())
+        os.replace(tmp, path)
+
     # ── القراءة ──
 
     def entries(self, project_id: str) -> list[MemoryEntry]:
