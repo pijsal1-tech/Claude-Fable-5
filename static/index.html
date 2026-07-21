@@ -55,6 +55,9 @@
          (RunHistory يستهلك FileIcons؛ StatusChip مستقل) قبل app.js. -->
     <script src="/static/js/run_history.js?v=1"></script>
     <script src="/static/js/status_chip.js?v=1"></script>
+
+    <!-- Memory Panel — T-114 (R-805): منطق نقي (مستقل) قبل app.js. -->
+    <script src="/static/js/memory_panel.js?v=1"></script>
 </head>
 <body>
 
@@ -68,6 +71,7 @@
         <button class="header-btn" onclick="openFolder()" title="فتح مجلد">📂 Open Folder</button>
         <button class="header-btn" onclick="toggleSessions()" title="الجلسات السابقة" id="sessions-btn">📋 Sessions</button>
         <button class="header-btn" id="run-history-btn" title="تاريخ الـ runs والاستعادة — T-066">↩ History</button>
+        <button class="header-btn" id="memory-panel-btn" title="ذاكرة المشروع: فحص وتحرير — T-114">🧠 Memory</button>
         <div class="model-selector">
             <button class="header-btn" onclick="toggleModelPicker()" id="model-btn" title="تغيير النموذج">🤖 <span id="current-model-label">Loading...</span></button>
             <div class="sessions-dropdown hidden" id="model-dropdown" style="left:16px;right:auto;width:320px">
@@ -260,6 +264,16 @@
     <div id="run-history-list"></div>
 </div>
 
+<!-- T-114 (R-805): لوحة ذاكرة المشروع — فحص + تحرير + حذف -->
+<div id="memory-panel" class="hidden">
+    <div id="memory-panel-head">
+        <span>🧠 ذاكرة المشروع</span>
+        <span class="spacer"></span>
+        <button id="memory-panel-close" onclick="document.getElementById('memory-panel').classList.add('hidden')">✕</button>
+    </div>
+    <div id="memory-panel-list"></div>
+</div>
+
 <!-- T-066 (R-906): شريحة حالة التوجيه/السعة — مطوية افتراضيًا، عرض قراءة فقط -->
 <div id="status-chip">
     <div id="status-chip-label" title="حالة التوجيه والسعة — اضغط للتفاصيل">📊 الحالة</div>
@@ -286,6 +300,6 @@
 
 <div class="toast-container" id="toast-container"></div>
 
-<script src="/static/app.js?v=20"></script>
+<script src="/static/app.js?v=21"></script>
 </body>
 </html>

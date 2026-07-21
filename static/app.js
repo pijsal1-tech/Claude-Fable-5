@@ -382,6 +382,19 @@ function handleWSMessage(data) {
             handleRollbackResult(data);
             break;
 
+        // ── T-114 (R-805): لوحة ذاكرة المشروع — إطارات إضافية ──
+        case "memory_list_result":
+            handleMemoryListResult(data);
+            break;
+
+        case "memory_edit_result":
+            handleMemoryEditResult(data);
+            break;
+
+        case "memory_delete_result":
+            handleMemoryDeleteResult(data);
+            break;
+
         case "chain_status":
             if (data.active) {
                 toast(`🔗 Chain نشط: ${data.step || "..."}`, "info");
@@ -3175,6 +3188,103 @@ function handleRollbackResult(frame) {
 }
 
 // ═══════════════════════════════════════════
+// T-114 (R-805): لوحة ذاكرة المشروع — DOM glue فوق وحدة MemoryPanel
+// (المنطق النقي في static/js/memory_panel.js). كل الطلبات عبر أطر WS
+// الإضافية memory_list/memory_edit/memory_delete — صفر endpoints جديدة.
+// ═══════════════════════════════════════════
+let memoryPanelEntries = [];
+let memoryEditingIdx = null; // فهرس المدخلة قيد التحرير (null = لا تحرير)
+
+function toggleMemoryPanel() {
+    const panel = document.getElementById("memory-panel");
+    if (!panel.classList.contains("hidden")) {
+        panel.classList.add("hidden");
+        return;
+    }
+    memoryEditingIdx = null;
+    state.ws.send(JSON.stringify(MemoryPanel.listFrame()));
+    panel.classList.remove("hidden");
+    document.getElementById("memory-panel-list").innerHTML =
+        '<div class="mp-empty">⏳ جارٍ تحميل الذاكرة...</div>';
+}
+
+function renderMemoryPanel() {
+    const listEl = document.getElementById("memory-panel-list");
+    listEl.innerHTML = MemoryPanel.renderPanelHTML(
+        memoryPanelEntries, memoryEditingIdx);
+    listEl.querySelectorAll(".mp-edit-btn").forEach(btn => {
+        btn.onclick = () => {
+            memoryEditingIdx = +btn.dataset.idx;
+            renderMemoryPanel();
+        };
+    });
+    listEl.querySelectorAll(".mp-delete-btn").forEach(btn => {
+        btn.onclick = () => {
+            const entry = memoryPanelEntries[+btn.dataset.idx];
+            if (!entry) return;
+            state.ws.send(JSON.stringify(MemoryPanel.deleteFrame(entry)));
+        };
+    });
+    listEl.querySelectorAll(".mp-save-btn").forEach(btn => {
+        btn.onclick = () => {
+            const idx = +btn.dataset.idx;
+            const entry = memoryPanelEntries[idx];
+            if (!entry) return;
+            const text = listEl.querySelector(
+                `.mp-text-edit[data-idx="${idx}"]`).value;
+            const kind = listEl.querySelector(
+                `.mp-kind-select[data-idx="${idx}"]`).value;
+            if (!text.trim()) {
+                toast("نص المدخلة فارغ — لا تُحفظ ذاكرة بلا محتوى", "info");
+                return;
+            }
+            state.ws.send(JSON.stringify(
+                MemoryPanel.editFrame(entry, text, kind)));
+        };
+    });
+    listEl.querySelectorAll(".mp-cancel-btn").forEach(btn => {
+        btn.onclick = () => {
+            memoryEditingIdx = null;
+            renderMemoryPanel();
+        };
+    });
+}
+
+function handleMemoryListResult(frame) {
+    if (frame.error) {
+        document.getElementById("memory-panel-list").innerHTML =
+            '<div class="mp-empty">⚠️ الذاكرة غير متاحة</div>';
+        return;
+    }
+    memoryPanelEntries = MemoryPanel.buildEntries(frame.entries);
+    memoryEditingIdx = null;
+    renderMemoryPanel();
+}
+
+function handleMemoryEditResult(frame) {
+    if (!frame.acknowledged) {
+        toast(`❌ فشل التعديل: ${frame.error || "غير معروف"}`, "info");
+        return;
+    }
+    MemoryPanel.applyEditResult(memoryPanelEntries, frame);
+    memoryEditingIdx = null;
+    renderMemoryPanel();
+    toast("✅ حُفظ التعديل — provenance: المستخدم", "success");
+}
+
+function handleMemoryDeleteResult(frame) {
+    if (!frame.acknowledged) {
+        toast(`❌ فشل الحذف: ${frame.error || "غير معروف"}`, "info");
+        return;
+    }
+    memoryPanelEntries = MemoryPanel.applyDeleteResult(
+        memoryPanelEntries, frame);
+    memoryEditingIdx = null;
+    renderMemoryPanel();
+    toast("🗑 حُذفت المدخلة — لن تظهر في أي سياق تالٍ", "success");
+}
+
+// ═══════════════════════════════════════════
 // T-066 (R-906): شريحة حالة التوجيه/السعة — DOM glue فوق StatusChip.
 // عرض قراءة فقط من إطارات موجودة + /api/capacity — صفر endpoints جديدة.
 // الرسم مُخنوق عبر StatusChip.shouldRender (عاصفة أحداث ≠ عاصفة رسومات).
@@ -3226,6 +3336,7 @@ async function refreshCapacity() {
 
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("run-history-btn").onclick = toggleRunHistory;
+    document.getElementById("memory-panel-btn").onclick = toggleMemoryPanel;
     document.getElementById("status-chip-label").onclick = toggleStatusChip;
     refreshCapacity();
     setInterval(refreshCapacity, CAPACITY_POLL_MS);

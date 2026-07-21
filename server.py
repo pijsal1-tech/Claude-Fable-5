@@ -64,6 +64,9 @@ from runners.chain import ChainRunner
 from runners.delegate import DelegateRunner
 from runners.direct import DirectRunner
 from core.approval import ApprovalGate
+from core.project_memory import (
+    ProjectMemoryStore, CorruptMemoryError, is_stale as _memory_is_stale,
+)
 from chain.knowledge import KnowledgeAccumulator
 from core.execution import ExecutionRegistry
 from core.execution import RunBusyError
@@ -348,6 +351,118 @@ def _cancel_run_frame(run_id, reason=""):
     return frame
 
 
+# ── Memory Panel frames (T-114, R-805) — الذاكرة ملك المستخدم ──
+# نفس نمط _list_runs_frame/_cancel_run_frame (T-016): دوال وحدوية نقية
+# تعيد dicts؛ الـ handler ينشر عبر sctx.send فقط. إطارات **إضافية** —
+# لا مساس بأي إطار قائم. متسامحة: لا مخزن/لا مشروع ⇒ حقل error، لا رفع.
+
+
+def _memory_project_id(project_root):
+    """اشتقاق project_id من جذر المشروع — نفس هوية sessions/store."""
+    if not project_root:
+        return ""
+    from sessions.store import project_fingerprint
+    return project_fingerprint(str(project_root))
+
+
+def _memory_list_frame(project_root, index=None):
+    """T-114: ``memory_list_result`` — كل مدخلات ذاكرة المشروع.
+
+    كل مدخلة: entry_id/kind/text/created_at/source/run_id (provenance
+    كاملة) + ``stale`` عبر is_stale ضد الفهرس الحي (غياب أي بصمة =
+    «لا حكم» ⇒ False — نفس دلالات core/project_memory).
+    """
+    frame = {"type": "memory_list_result", "entries": []}
+    project_id = _memory_project_id(project_root)
+    if project_memory is None or not project_id:
+        frame["error"] = "memory_unavailable"
+        return frame
+    frame["project_id"] = project_id
+    try:
+        entries = project_memory.entries(project_id)
+    except CorruptMemoryError as e:
+        frame["error"] = f"corrupt_memory: {e}"
+        return frame
+    for entry in entries:
+        frame["entries"].append({
+            "entry_id": entry.entry_id,
+            "kind": entry.kind,
+            "text": entry.text,
+            "created_at": entry.created_at,
+            "source": entry.source,
+            "run_id": entry.run_id,
+            "stale": _memory_is_stale(entry, index),
+        })
+    return frame
+
+
+def _memory_edit_frame(project_root, entry_id, text=None, kind=None,
+                       index=None):
+    """T-114: ``memory_edit_result`` — تعديل يعاد فورًا للمخزن.
+
+    provenance تصبح ``user`` (يفرضه المخزن)؛ الفهرس الحي يعيد ختم
+    index_hash (تعديل المستخدم إعادة تأكيد ⇒ يمسح staleness عمدًا).
+    """
+    frame = {"type": "memory_edit_result", "acknowledged": False}
+    project_id = _memory_project_id(project_root)
+    if project_memory is None or not project_id:
+        frame["error"] = "memory_unavailable"
+        return frame
+    entry_id = (entry_id or "").strip()
+    if not entry_id:
+        frame["error"] = "missing_entry_id"
+        return frame
+    frame["entry_id"] = entry_id
+    try:
+        updated = project_memory.edit(
+            project_id, entry_id, text=text, kind=kind, index=index)
+    except (ValueError, CorruptMemoryError) as e:
+        frame["error"] = str(e)
+        return frame
+    if updated is None:
+        frame["error"] = "not_found"
+        return frame
+    frame["acknowledged"] = True
+    frame["entry"] = {
+        "entry_id": updated.entry_id,
+        "kind": updated.kind,
+        "text": updated.text,
+        "created_at": updated.created_at,
+        "source": updated.source,
+        "run_id": updated.run_id,
+        "stale": _memory_is_stale(updated, index),
+    }
+    return frame
+
+
+def _memory_delete_frame(project_root, entry_id):
+    """T-114: ``memory_delete_result`` — حذف نهائي من المخزن.
+
+    ContextEngine source يقرأ المخزن عند كل collect ⇒ المدخلة المحذوفة
+    لا تظهر في أي bundle تالٍ فورًا (شرط القبول R-805).
+    """
+    frame = {"type": "memory_delete_result", "acknowledged": False}
+    project_id = _memory_project_id(project_root)
+    if project_memory is None or not project_id:
+        frame["error"] = "memory_unavailable"
+        return frame
+    entry_id = (entry_id or "").strip()
+    if not entry_id:
+        frame["error"] = "missing_entry_id"
+        return frame
+    frame["entry_id"] = entry_id
+    try:
+        deleted = project_memory.delete(project_id, entry_id)
+    except CorruptMemoryError as e:
+        frame["error"] = str(e)
+        return frame
+    if not deleted:
+        frame["error"] = "not_found"
+        return frame
+    frame["acknowledged"] = True
+    return frame
+
+
 # ── AppContext — Composition Root (T-006, R-102) ──
 # Migration note: during R-102 the legacy module globals (fm, cmd_runner,
 # provider, provider_pool, session_mgr, account_budget) remain assigned but
@@ -425,6 +540,11 @@ plugin_registry = None                       # T-102 (R-801): سجل الإضا�
 
 # ── Agent System ──
 agent_tools: AgentTools = None              # أدوات الـ Agent
+
+# ── Project Memory (T-114, R-805) — نفس المخزن المحقون في AgentTools ──
+# service global (نمط execution_registry): الـ handlers لا تلمسه مباشرة؛
+# دوال الإطارات الوحدوية أدناه هي الوسيط الوحيد.
+project_memory: ProjectMemoryStore = None
 
 # ── ApprovalGate (T-012, R-104) — نقطة الموافقة الوحيدة قبل أي كتابة ──
 approval_gate: ApprovalGate = None
@@ -1975,6 +2095,23 @@ def _handle_ws_message(ctx, sctx, msg):
         else:
             sctx.send({"type": "error", "text": "لا يوجد تفويض نشط"})
 
+    # ── Memory Panel (T-114, R-805) — إطارات إضافية عبر الوسطاء الوحدويين ──
+    elif msg_type == "memory_list":
+        _root = sctx.project.root if sctx.project else None
+        _index = sctx.project.index if sctx.project else None
+        sctx.send(_memory_list_frame(_root, _index))
+
+    elif msg_type == "memory_edit":
+        _root = sctx.project.root if sctx.project else None
+        _index = sctx.project.index if sctx.project else None
+        sctx.send(_memory_edit_frame(
+            _root, msg.get("entry_id", ""),
+            text=msg.get("text"), kind=msg.get("kind"), index=_index))
+
+    elif msg_type == "memory_delete":
+        _root = sctx.project.root if sctx.project else None
+        sctx.send(_memory_delete_frame(_root, msg.get("entry_id", "")))
+
 def ws_handler(ws):
     """WebSocket للتواصل الحي مع AI — T-048: الحالة في SessionContext."""
     sctx = _build_session_context(ws)
@@ -2093,6 +2230,7 @@ def main():
     global provider_pool, account_budget, request_router, action_applier, orchestrator
     global capacity_model
     global agent_tools
+    global project_memory
 
     arg_parser = argparse.ArgumentParser(description="WebDev AI Editor — Web Server")
     arg_parser.add_argument("--project", "-p", type=str, default=".",
@@ -2335,7 +2473,8 @@ def main():
     _cmd_policy = command_policy_from(_read_config())
     # T-112 (R-805): ذاكرة المشاريع الدائمة — مخزن JSONL لكل project_id
     # تحت projects/ بجانب sessions/ (نفس جذر بيانات التطبيق).
-    from core.project_memory import ProjectMemoryStore
+    # T-114: صار service global — إطارات لوحة الذاكرة تصل له عبر
+    # الوسطاء الوحدويين (_memory_*_frame)؛ نفس الكائن محقون في AgentTools.
     project_memory = ProjectMemoryStore(str(_DIR / "projects"))
     agent_tools = AgentTools(
         file_manager=fm,
