@@ -46,8 +46,8 @@ from .strategies import StrategyResult
 # والسياسات عبر policy) — alias لا صنف جديد: صفر تحويل = صفر انحراف.
 ExecutionPlan = StrategyResult
 
-#: أسماء المخطِّطات المعروفة — T-107 يضيف "llm"/"hybrid" هنا فقط.
-KNOWN_PLANNERS: tuple[str, ...] = ("heuristic",)
+#: أسماء المخطِّطات المعروفة (T-107 أضاف llm/hybrid كما خُطط).
+KNOWN_PLANNERS: tuple[str, ...] = ("heuristic", "llm", "hybrid")
 
 DEFAULT_PLANNER = "heuristic"
 
@@ -129,6 +129,195 @@ class HeuristicPlanner:
 
 
 # ═══════════════════════════════════════════════════════
+#   T-107 (R-803): LLMPlanner — خطة من الموديل خلف حراسة صلبة
+# ═══════════════════════════════════════════════════════
+
+@dataclass(frozen=True)
+class PlannerDecisionRecord:
+    """سجل قرار تخطيط واحد (نمط R-402 RoutingRecord) — الإجابة الكاملة
+    على «لماذا هذه الخطة؟»: أي مخطِّط اختير، هل سقط ولماذا.
+
+    يعيش في ``plan.metadata["planner_record"]`` (dict عبر to_dict) —
+    خارج عقود السلك القديمة (corpus T-034 لا يلمس metadata الجديدة).
+    """
+    planner: str                    # llm / hybrid
+    used: str                       # llm / heuristic — من أنتج الخطة فعلًا
+    fallback_reason: str | None     # None = خطة LLM قُبلت
+    strategy: str                   # strategy_name النهائية
+    steps_count: int
+    capacity_available: int | None  # total_available وقت القرار (None = بلا فحص)
+
+    def to_dict(self) -> dict:
+        return {
+            "planner": self.planner,
+            "used": self.used,
+            "fallback_reason": self.fallback_reason,
+            "strategy": self.strategy,
+            "steps_count": self.steps_count,
+            "capacity_available": self.capacity_available,
+        }
+
+
+#: برومبت طلب الخطة — عقد الإخراج JSON فقط (يطابق chain/plan_schema.py).
+PLAN_PROMPT_TEMPLATE = """أنت مخطِّط مهام برمجية. حلّل الطلب وأنتج خطة تنفيذ.
+
+أخرج JSON فقط (بلا أي نص خارجه) بهذا الشكل حرفيًّا:
+{{"strategy": "<direct|context_window|chunk_chain|map_reduce|pipeline>",
+ "steps": [{{"id": "s1", "name": "...", "stage": "<analyze|plan|execute|review>",
+            "agent_role": "...", "prompt": "...", "depends_on": []}}]}}
+
+القواعد: خطوات ≤ {max_steps}؛ depends_on تشير لخطوات سابقة فقط؛
+الطلبات البسيطة = خطوة execute واحدة.
+
+الطلب:
+{user_request}
+"""
+
+
+class LLMPlanner:
+    """T-107: الموديل يقترح الخطة — الحراسة تقرر قبولها.
+
+    المسار: برومبت → ``provider.send`` → ``parse_plan_json`` →
+    ``validate_plan_payload`` → فحص السعة (خطوات الخطة مقابل
+    ``capacity.total_available``) → ExecutionPlan. **أي عائق** في أي
+    مرحلة ⇒ خطة ``HeuristicPlanner`` (بند القبول: خطة LLM فاسدة لا
+    تصل التنفيذ أبدًا) وسجل قرار يسمّي السبب — انظر مصفوفة السقوط في
+    رأس ``chain/plan_schema.py``.
+
+    ``force_strategy``: تجاوز يدوي = قرار مستخدم — لا يُستشار الموديل
+    أصلًا (heuristic مباشرة بسجل ``forced_heuristic``): يوفّر نداءً
+    ويحفظ دلالة الفرض المثبتة في corpus T-034 حرفيًّا.
+    """
+
+    name = "llm"
+
+    def __init__(self, provider: Any,
+                 orchestrator: SmartOrchestrator | None = None) -> None:
+        """provider: كائن بـ ``send(prompt) -> str`` (عقد BaseProvider).
+        orchestrator: يُمرَّر لمخطِّط السقوط — نفس دلالة T-106."""
+        self._provider = provider
+        self._fallback = HeuristicPlanner(orchestrator)
+
+    # ── مراحل الحراسة (كل مرحلة ترفع PlanSchemaError بسبب مسمّى) ──
+
+    def _propose(self, request: PlanRequest) -> str:
+        from .plan_schema import MAX_PLAN_STEPS, PlanSchemaError
+        prompt = PLAN_PROMPT_TEMPLATE.format(
+            max_steps=MAX_PLAN_STEPS, user_request=request.user_request)
+        try:
+            return str(self._provider.send(prompt))
+        except Exception as exc:  # لا استثناء مزود يهرب للطلب أبدًا
+            raise PlanSchemaError(
+                f"provider_error: {type(exc).__name__}: {exc}") from exc
+
+    @staticmethod
+    def _capacity_check(steps_count: int, capacity: Any) -> int | None:
+        """خطة تحتاج أكثر من السعة المتاحة تُرفض **قبل** التنفيذ.
+
+        capacity: ``CapacityReport`` (T-038) أو None = لا فحص (مسموح —
+        الفحص فرصة إضافية لا شرط تشغيل).
+        """
+        from .plan_schema import PlanSchemaError
+        if capacity is None:
+            return None
+        available = int(capacity.total_available)
+        if steps_count > available:
+            raise PlanSchemaError(
+                f"capacity: needs {steps_count} > {available}")
+        return available
+
+    def plan(self, request: PlanRequest,
+             context: Any = None,
+             capacity: Any = None) -> ExecutionPlan:
+        from .plan_schema import (PlanSchemaError, parse_plan_json,
+                                  validate_plan_payload)
+
+        if request.force_strategy:
+            plan = self._fallback.plan(request, context, capacity)
+            plan.metadata["planner_record"] = PlannerDecisionRecord(
+                planner=self.name, used="heuristic",
+                fallback_reason="forced_heuristic",
+                strategy=plan.strategy_name,
+                steps_count=len(plan.steps),
+                capacity_available=None).to_dict()
+            return plan
+
+        try:
+            raw = self._propose(request)
+            validated = validate_plan_payload(parse_plan_json(raw))
+            available = self._capacity_check(len(validated.steps), capacity)
+            plan = validated.to_strategy_result()
+            plan.metadata["planner_record"] = PlannerDecisionRecord(
+                planner=self.name, used="llm", fallback_reason=None,
+                strategy=plan.strategy_name,
+                steps_count=len(plan.steps),
+                capacity_available=available).to_dict()
+            return plan
+        except PlanSchemaError as exc:
+            plan = self._fallback.plan(request, context, capacity)
+            plan.metadata["planner_record"] = PlannerDecisionRecord(
+                planner=self.name, used="heuristic",
+                fallback_reason=exc.reason,
+                strategy=plan.strategy_name,
+                steps_count=len(plan.steps),
+                capacity_available=None).to_dict()
+            return plan
+
+
+class HybridPlanner:
+    """T-107: بوابة استدلالية → صقل LLM (heuristic gate → LLM refine).
+
+    التوصية الاستدلالية أولًا (صفر كلفة): إن كانت بسيطة
+    (direct/context_window) تُعتمد خطتها كما هي — لا نداء موديل
+    لطلب لا يحتاجه؛ المعقدة (chunk_chain/map_reduce/pipeline) تمر
+    لـ LLMPlanner بكل حراسته (فساد خطته ⇒ سقوط heuristic بسجل).
+    ``force_strategy`` يمر للـ LLM planner الذي يحوّله heuristic
+    بسجل ``forced_heuristic`` (مسار الفرض واحد لا مساران).
+    """
+
+    name = "hybrid"
+
+    #: الاستراتيجيات «البسيطة» — توصيتها تُعتمد بلا موديل.
+    SIMPLE_STRATEGIES: frozenset[str] = frozenset(
+        {"direct", "context_window"})
+
+    def __init__(self, provider: Any,
+                 orchestrator: SmartOrchestrator | None = None) -> None:
+        self._orchestrator = orchestrator or SmartOrchestrator()
+        self._heuristic = HeuristicPlanner(self._orchestrator)
+        self._llm = LLMPlanner(provider, self._orchestrator)
+
+    def plan(self, request: PlanRequest,
+             context: Any = None,
+             capacity: Any = None) -> ExecutionPlan:
+        if request.force_strategy:
+            plan = self._llm.plan(request, context, capacity)
+            plan.metadata["planner_record"]["planner"] = self.name
+            return plan
+
+        recommended = self._orchestrator.analyze_complexity(
+            user_request=request.user_request,
+            files=request.files,
+            file_content=request.file_content,
+            file_path=request.file_path,
+        ).recommended.value
+
+        if recommended in self.SIMPLE_STRATEGIES:
+            plan = self._heuristic.plan(request, context, capacity)
+            plan.metadata["planner_record"] = PlannerDecisionRecord(
+                planner=self.name, used="heuristic",
+                fallback_reason=f"simple_tier: {recommended}",
+                strategy=plan.strategy_name,
+                steps_count=len(plan.steps),
+                capacity_available=None).to_dict()
+            return plan
+
+        plan = self._llm.plan(request, context, capacity)
+        plan.metadata["planner_record"]["planner"] = self.name
+        return plan
+
+
+# ═══════════════════════════════════════════════════════
 #   درزة الاختيار من config
 # ═══════════════════════════════════════════════════════
 
@@ -148,13 +337,21 @@ def resolve_planner_name(value: Any) -> str:
 
 def planner_from_config(value: Any,
                         orchestrator: SmartOrchestrator | None = None,
-                        ) -> Planner:
+                        provider: Any = None) -> Planner:
     """بناء المخطِّط من قيمة ``planner:`` — درزة الإقلاع الوحيدة.
 
-    orchestrator: يُمرَّر لـ HeuristicPlanner (سجل الإضافات المُحمَّل
-    عند الإقلاع يعيش فيه) — None = افتراضي بلا إضافات.
+    orchestrator: يُمرَّر للمخطِّط (سجل الإضافات المُحمَّل عند
+    الإقلاع يعيش فيه) — None = افتراضي بلا إضافات.
+    provider: مطلوب لـ llm/hybrid (عقد ``send``) — طلبهما بدونه =
+    ValueError صاخب (ضبط ناقص لا يُسكت عنه)؛ heuristic يتجاهله.
     """
     name = resolve_planner_name(value)
-    # T-106: heuristic هو الوحيد — T-107 يوسّع الفصل هنا.
-    assert name == "heuristic"
-    return HeuristicPlanner(orchestrator)
+    if name == "heuristic":
+        return HeuristicPlanner(orchestrator)
+    if provider is None:
+        raise ValueError(
+            f"planner: {name!r} يحتاج provider — الضبط ناقص")
+    if name == "llm":
+        return LLMPlanner(provider, orchestrator)
+    assert name == "hybrid"
+    return HybridPlanner(provider, orchestrator)

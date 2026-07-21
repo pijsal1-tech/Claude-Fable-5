@@ -236,13 +236,14 @@ class TestConfigSeam:
     def test_explicit_heuristic_accepted(self):
         assert resolve_planner_name("heuristic") == "heuristic"
 
-    @pytest.mark.parametrize("bad", ["llm", "magic", "", 3, ["heuristic"]])
+    @pytest.mark.parametrize("bad", ["magic", "LLM", "", 3, ["heuristic"]])
     def test_unknown_value_fails_loudly(self, bad):
         with pytest.raises(ValueError):
             resolve_planner_name(bad)
 
     def test_known_planners_is_single_source(self):
-        assert KNOWN_PLANNERS == ("heuristic",)  # T-107 يوسّعها
+        # T-107 وسّعها كما خُطّط — heuristic يبقى الافتراضي.
+        assert KNOWN_PLANNERS == ("heuristic", "llm", "hybrid")
 
     def test_factory_builds_heuristic_over_given_orchestrator(self):
         orch = SmartOrchestrator()
