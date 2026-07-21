@@ -27,6 +27,56 @@
     fallback path left.
 
 ### Added
+- **R-805 (T-112): ProjectMemoryStore + `remember_fact` agent tool.**
+  - New `core/project_memory.py` — per-`project_id` durable memory:
+    append-only `projects/<project_id>/memory.jsonl` in the same
+    format family as `SessionStore` (R-301) with its three contracts
+    copied verbatim: O(1) single-JSON-line append (fsync), a crash
+    produces at most one torn tail line (skipped on read, truncated
+    before the next write), and a corrupt non-tail line raises a loud
+    `CorruptMemoryError`. Frozen `MemoryEntry` with the four kinds
+    from the R-805 text (`fact` / `convention` / `decision` /
+    `run_summary`) — unknown kind or empty text is a loud
+    `ValueError` at construction, so malformed memory is never
+    written. **Provenance** on every entry (the R-805 risk item —
+    wrong facts persisting): who asserted it (`source` + `run_id`)
+    and when (`created_at`, ISO-8601 UTC). **Hash-link**:
+    `index_fingerprint(index)` = sha256 of the sorted relative file
+    paths (first 16 hex) — a *structure* fingerprint of the live
+    ProjectIndex, duck-typed (`files` + `rel` suffice; zero import
+    from `context/` — no dependency cycle). Staleness *detection*
+    is T-113's scope; here the link is recorded so drift becomes
+    measurable. The memory-entry schema is fully documented in the
+    module docstring.
+  - `remember_fact` tool in `chain/agent_tools.py` — joins
+    `SAFE_TOOLS` (a text append to a memory file outside the
+    workspace: no shell, no project-file writes ⇒ no approval gate,
+    documented at the definition). Provenance is stamped
+    automatically: `run_id` from the current `RunTicket` (the T-058
+    seam), `index_hash` from the live `ctx.project.index`
+    (resolve-at-call-time, the T-007 pattern), and `project_id` =
+    the **same R-303 fingerprint** (`sessions.store
+    .project_fingerprint`, lazy import) so binding and memory share
+    one project identity. Usage errors return structured `❌`
+    messages for the AI to self-correct (no exception kills the
+    loop); a missing store is a clear refusal (the "no gate ⇒ safe
+    refusal" principle). Tool advertised in the agent prompt with a
+    durable-facts-only instruction. Two-line `server.py` seam:
+    build `ProjectMemoryStore(_DIR / "projects")` and inject it
+    into `AgentTools`.
+  - New `tests/unit/test_project_memory.py` — 31 tests covering the
+    three acceptance criteria verbatim: entries survive reload keyed
+    by `project_id` (fresh store on the same dir = "second
+    session"; cross-project isolation); `remember_fact` from a
+    fixture run lands a well-formed entry with full provenance
+    through the production path (AI reply → `parse_tool_calls` →
+    `execute` with a real `RunTicket`); hash-link recorded against
+    the current ProjectIndex state (real T-049 index, deterministic,
+    sensitive to structure drift, insertion-order insensitive).
+    Plus strict-schema, triple crash-recovery, and structured tool
+    refusals (zero writes in every refusal case). Agent tool suite
+    (94 tests) green as regression; full gate 1509 passed, 1
+    skipped — ALL GREEN.
 - **R-804 (T-111): Frame-parity harness + WS latency guard (tests only).**
   - New `tests/frame_harness.py` — records the complete WS frame
     sequence of a chain run through the **production**
