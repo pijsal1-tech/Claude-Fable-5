@@ -27,6 +27,46 @@
     fallback path left.
 
 ### Added
+- **R-804 (T-111): Frame-parity harness + WS latency guard (tests only).**
+  - New `tests/frame_harness.py` — records the complete WS frame
+    sequence of a chain run through the **production**
+    `server._RunnerWSAdapter` (no mock adapter):
+    `record_inproc_chain_frames` drives `ChainRunner` directly,
+    `record_worker_chain_frames` drives the full worker path against
+    real Redis (Worker in a separate thread running a `ChainRunner`
+    over an equivalent bridge, frames returning via `ev:<run_id>`
+    XREAD tailing, uuid stream/queue isolation per recording).
+    `assert_frame_parity` canonicalizes each frame to sorted-key JSON
+    and **compares raw bytes** — the literal embodiment of the R-804
+    "byte-identical WS frame sequence" acceptance. Normalization is
+    surgical and limited to the list inherited from T-040's dispatch
+    parity (`duration_ms`, `elapsed_seconds`, `budget`, `run_id` +
+    timed display text); everything else must match byte-for-byte.
+    Failure messages are diagnostic (frame index + both byte strings,
+    or both frame-type lists on count mismatch).
+  - New `tests/integration/test_worker_parity.py` — 14 tests covering
+    the three acceptance criteria verbatim: byte-identical parity
+    in-proc vs worker on the **success and failure paths** against
+    real Redis (plus final `RunResult` status/text equality); harness
+    sensitivity proven by five deliberate mutations (single-character
+    value change, injected field, frame-type swap, dropped frame,
+    reordering — sequence order is part of the contract) **and**
+    no-false-positive controls (identical copy passes,
+    nondeterministic-only diffs pass, normalization removes only the
+    declared keys, dict key order inside a frame is irrelevant —
+    sorted JSON compares semantics, not insertion order); latency
+    guard — worker first-frame arrival within in-proc + 2s tolerance
+    and a heavy 40-line stream delivered under 10s, both with the
+    established rerun-once-before-failing benchmark convention.
+    Sensitivity tests run without Redis by design (the property
+    belongs to the comparator, not the transport).
+  - Both parity suites (`test_worker_parity` + `test_dispatch_parity`)
+    also run green with `dispatch: "worker"` in `config.yaml`
+    (temporary swap, restored — 25 passed).
+  - `tests/README.md` — new "Frame-Parity Harness" usage section
+    (API, consumers, Redis skip condition). Zero production code
+    touched; one dead test helper removed. Full gate 1478 passed,
+    1 skipped — ALL GREEN.
 - **R-804 (T-110): Worker process + per-project lease.**
   - New `core/lease.py` — `ProjectLease`, the literal embodiment of
     the lease row in `docs/phase8_plan.md` §3: acquisition via
