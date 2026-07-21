@@ -27,6 +27,62 @@
     fallback path left.
 
 ### Added
+- **R-805 (T-114): Memory Panel — inspect + edit; the memory belongs
+  to the user.**
+  - `core/project_memory.py`: `ProjectMemoryStore.edit(project_id,
+    entry_id, text=, kind=, index=)` and `.delete(project_id,
+    entry_id)` over an **atomic** `_rewrite` (tmp file beside the
+    store → fsync per policy → `os.replace`) — append stays O(1) for
+    the hot path; edits are rare user operations and atomicity keeps
+    the "at most one torn tail" crash contract intact. Edit
+    provenance: `source` becomes `"user"` (the user just vouched for
+    it) while `entry_id`/`created_at`/`run_id` are preserved (origin
+    history is never forged); passing the live index re-stamps
+    `index_hash` — a user edit re-affirms the current project
+    structure and deliberately clears the staleness flag. Unknown
+    kind / empty text raise `ValueError` (same schema strictness);
+    missing `entry_id` returns `None`/`False` without writing.
+  - `server.py`: three **additive** WS frames in the T-016 pattern —
+    module-pure helpers `_memory_list_frame` / `_memory_edit_frame` /
+    `_memory_delete_frame` returning dicts, dispatched via new
+    `elif`s that publish through `sctx.send` exclusively.
+    `memory_list_result` carries full provenance per entry
+    (`entry_id/kind/text/created_at/source/run_id`) plus `stale`
+    judged by `is_stale` against the live `sctx.project.index`;
+    edit/delete results carry `acknowledged` + error fields
+    (`not_found` / `missing_entry_id` / `memory_unavailable`) — the
+    helpers are tolerant and never raise (`ValueError` /
+    `CorruptMemoryError` become error fields). The store is now a
+    service global (`project_memory`, same object injected into
+    AgentTools since T-112); `project_id` derives from
+    `sessions.store.project_fingerprint` — the store's own identity.
+    Existing frames untouched (grep-guarded byte-for-byte in tests).
+  - Front-end: new `static/js/memory_panel.js` (UMD-lite pure logic,
+    node-testable, run_history.js pattern) — entry cards with kind
+    badge, `⚠ قديمة` staleness badge (tooltip explains: the project
+    structure drifted, not "the entry is wrong"), provenance row
+    (source / run / timestamp), inline edit form (textarea + kind
+    select), and request frames built exclusively in the module;
+    `app.js` gets the three dispatch cases + DOM glue (opening the
+    panel always requests a fresh `memory_list`); header button
+    `🧠 Memory`; panel styles in `style.css` mirror the T-066 panel —
+    theme tokens only. Note: the spec said `public/` but the live
+    served front-end is `static/` (Flask `static_folder="static"`) —
+    implemented in `static/` (project files are the source of truth).
+  - `tests/integration/test_memory_panel.py` — 16 tests covering the
+    acceptance criteria verbatim: provenance + staleness badge in the
+    list frame (real `ProjectScan` drift flips `stale`); edit
+    round-trips E2E through `server._handle_ws_message` and persists
+    (`source="user"`, re-stamped hash flips `stale` back to False);
+    a deleted entry never appears in retrieval (`ProjectMemorySource
+    .collect` before/after the WS delete — the source re-reads the
+    store per collect, no cache keeps deleted entries alive); frame
+    additivity (T-016 frames byte-identical, unknown messages still
+    silently ignored); full tolerance paths.
+  - `./scripts/check.sh` = **1543 passed, 1 skipped — ALL GREEN**
+    (1527→1543 = +16), including the ws.send-boundary, handler-state
+    and color-token gates.
+
 - **R-805 (T-113): Post-run distillation + budgeted `ProjectMemorySource`.**
   - `core/project_memory.py` extended: `distill_episode(episode)` — a
     pure proposal function over T-103 episode records (duck-typed:
