@@ -83,7 +83,8 @@ class Planner(Protocol):
     ما لا يحتاجه HeuristicPlanner — T-107 يضيّق النوع عند مستهلكه.
     """
 
-    #: اسم المخطِّط — يظهر في metadata["planner"] لكل خطة (تتبع A/B).
+    #: اسم المخطِّط — معرّف الاختيار في config وسجلات قرار T-107
+    #: لاحقًا (A/B). لا يُكتب في metadata هنا: T-106 تطابق بايتي.
     name: str
 
     def plan(self, request: PlanRequest,

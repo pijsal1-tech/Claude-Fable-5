@@ -28,6 +28,7 @@ from providers.base import BaseProvider
 from .models import ChainRun, ChainStep, ExecutionPolicy, ProviderSnapshot, ProjectSnapshot
 from .executor import ChainExecutor, ChainEvent
 from .orchestrator import SmartOrchestrator
+from .planner import HeuristicPlanner, Planner, PlanRequest
 from .agent_loader import AgentLoader
 from .action_applier import ActionApplier
 from core.approval import ApprovalGate, ApprovalRequest, ProposedAction
@@ -192,7 +193,8 @@ class ChainBridge:
                  action_applier: ActionApplier | None = None,
                  approval_gate: ApprovalGate | None = None,
                  ctx=None,
-                 plugin_registry=None):
+                 plugin_registry=None,
+                 planner: "Planner | None" = None):
         """
         provider: المزود الحالي
         project_root: مجلد المشروع
@@ -204,6 +206,10 @@ class ChainBridge:
         plugin_registry: StrategyPluginRegistry (T-102, R-801) — سجل
             الإضافات المُحمَّل عند الإقلاع؛ None = لا إضافات (السلوك
             الأساسي بايت-بايت). يُمرَّر للأوركستريتور الداخلي.
+        planner: Planner (T-106, R-803) — درزة الاختيار. None (الافتراضي)
+            = HeuristicPlanner فوق الأوركستريتور الداخلي نفسه — نفس
+            المنطق التاريخي حرفيًّا (goldens تثبته)؛ server.py يبنيه
+            من ``planner:`` في config عبر planner_from_config.
         """
         # R-102 (T-008): provider also resolves at call time via ctx —
         # api_switch_model publishes once on the context; no private pokes.
@@ -218,6 +224,10 @@ class ChainBridge:
         self._explicit_runs_dir = pathlib.Path(runs_dir) if runs_dir else None
         self._orchestrator = SmartOrchestrator(
             plugin_registry=plugin_registry)
+        # T-106 (R-803): درزة المخطِّط — الافتراضي غلاف تمرير خالص فوق
+        # الأوركستريتور أعلاه (نفس المسار القديم بالبناء، بايت-بايت).
+        self._planner: Planner = planner or HeuristicPlanner(
+            self._orchestrator)
         self._agent_loader = AgentLoader()
         self._action_applier = action_applier
         self._approval_gate = approval_gate
@@ -312,15 +322,18 @@ class ChainBridge:
                 return ""
 
         # ── Create run ──
+        # T-106 (R-803): التخطيط عبر درزة الـ Planner — الافتراضي يكافئ
+        # النداء القديم create_run حرفيًّا (plan = select_strategy ثم
+        # to_chain_run؛ التطابق البايتي مثبَّت في tests/unit/test_planner.py).
         run_id = f"run-{uuid.uuid4().hex[:8]}"
-        run = self._orchestrator.create_run(
+        plan = self._planner.plan(PlanRequest(
             user_request=user_request,
             files=files,
             file_content=file_content,
             file_path=file_path,
             force_strategy=force_strategy,
-            run_id=run_id,
-        )
+        ))
+        run = plan.to_chain_run(run_id)
 
         # ── Snapshots ──
         run.provider_snapshot = ProviderSnapshot(

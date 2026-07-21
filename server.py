@@ -2154,6 +2154,19 @@ def main():
     for _q in plugin_registry.quarantined:
         print(f"  ⚠️ Plugin quarantined: {_q.name} [{_q.stage}] {_q.reason}")
 
+    # ── Planner seam (T-106, R-803) ──
+    # اختيار المخطِّط من مفتاح ``planner:`` في config — تحقق صارم
+    # (اسم مجهول = فشل إقلاع صاخب، نفس فلسفة routing_config)؛ مفتاح
+    # غائب = heuristic (الافتراضي التاريخي، متكافئ مع الصريح).
+    from chain.planner import planner_from_config
+    import yaml as _yaml
+    with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
+        _planner_cfg = (_yaml.safe_load(_cf) or {}).get("planner")
+    chain_planner = planner_from_config(
+        _planner_cfg,
+        SmartOrchestrator(plugin_registry=plugin_registry))
+    print(f"  🧭 Planner: {chain_planner.name}")
+
     # ── Chain Bridge (M5) ──
     chain_bridge = ChainBridge(
         provider=provider,
@@ -2161,6 +2174,7 @@ def main():
         approval_gate=approval_gate,
         ctx=ctx,
         plugin_registry=plugin_registry,
+        planner=chain_planner,
     )
     print(f"  🔗 Chain System: active")
 
