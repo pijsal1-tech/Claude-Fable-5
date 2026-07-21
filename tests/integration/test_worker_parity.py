@@ -216,19 +216,6 @@ class TestLatencyGuard:
     #: تفرض أرقام microbenchmark — الأزمنة ملك الجهاز.
     TOLERANCE_S = 2.0
 
-    def _measure_worker_first_frame(self, tmp_path) -> float:
-        t0 = time.monotonic()
-        holder: dict = {}
-        orig_frames_append: list = []
-
-        rec = record_worker_chain_frames(
-            tmp_path, _provider_factory, REQ, _client())
-        # record_worker يعيد الإطارات مجمعة — نقيس بالمجرى الكامل:
-        # الزمن الكلي حتى النتيجة ثم نطرح كلفة التشغيلة نفسها لاحقًا
-        # في الحارس (المقارنة النسبية أدناه).
-        assert rec.frames
-        return time.monotonic() - t0
-
     def test_worker_first_frame_within_tolerance(self, tmp_path):
         """وصول أول إطار عبر worker خلال in-proc + سماحية —
         يُعاد القياس مرة واحدة قبل الحكم بالفشل (نمط البنشات)."""
