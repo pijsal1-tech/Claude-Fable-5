@@ -59,6 +59,24 @@ GOLDEN_SCENARIOS: list[tuple[str, PlanRequest]] = [
         force_strategy="direct")),
     ("forced_pipeline", PlanRequest(
         "أصلح خطأ إملائيًا", force_strategy="pipeline")),
+    # فرض صريح يضمن المرور بفروع البناء الستة كلها في select_strategy
+    # مهما تحركت عتبات التوصية (التغطية بالفرض لا بالصدفة):
+    ("forced_context_window", PlanRequest(
+        "راجع", file_content=_BIG, file_path="big.py",
+        force_strategy="context_window")),
+    ("forced_context_window_files", PlanRequest(
+        "راجع", files={"a.py": "x = 1\n", "b.py": "y = 2\n"},
+        force_strategy="context_window")),
+    ("forced_chunk_chain", PlanRequest(
+        "راجع الملف الضخم", file_content=_BIG, file_path="big.py",
+        force_strategy="chunk_chain")),
+    ("forced_chunk_chain_files", PlanRequest(
+        "راجع", files=_HUGE_FILES, force_strategy="chunk_chain")),
+    ("forced_map_reduce", PlanRequest(
+        "حلل", files=_HUGE_FILES, force_strategy="map_reduce")),
+    ("forced_pipeline_with_file", PlanRequest(
+        "أعد تصميم auth", file_content=_BIG, file_path="auth.py",
+        force_strategy="pipeline")),
     ("forced_unknown_falls_direct", PlanRequest(
         "أي طلب", force_strategy="no_such_strategy")),
     ("forced_delegate_falls_direct", PlanRequest(
@@ -100,6 +118,17 @@ class TestGoldenParity:
         assert planned_run.run_id == legacy_run.run_id
         assert planned_run.steps == legacy_run.steps
         assert planned_run.policy == legacy_run.policy
+
+
+class TestGoldenCoverage:
+    """قفل التغطية: السيناريوهات تمر فعلًا بالبنّائين الخمسة كلهم
+    (delegate خارجها — مساره DelegateBridge لا select_strategy)."""
+
+    def test_scenarios_cover_all_builder_strategies(self):
+        p = HeuristicPlanner()
+        seen = {p.plan(req).strategy_name for _, req in GOLDEN_SCENARIOS}
+        assert seen == {"direct", "context_window", "chunk_chain",
+                        "map_reduce", "pipeline"}
 
 
 class TestGoldenParityWithPlugins:

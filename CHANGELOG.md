@@ -27,6 +27,43 @@
     fallback path left.
 
 ### Added
+- **R-803 (T-106): Planner protocol + HeuristicPlanner extraction.**
+  - New `chain/planner.py`: `Planner` protocol
+    (`plan(request, context, capacity) -> ExecutionPlan`) with the
+    contract documented in the module header — deterministic plans,
+    `force_strategy` always honored, unknown force strings fall back
+    to direct (the corpus-pinned T-034 quirk). `PlanRequest` is a
+    frozen one-to-one mirror of the historical `select_strategy`
+    signature; `ExecutionPlan = StrategyResult` (an alias, not a new
+    class — zero conversion, zero drift). `context`/`capacity` accept
+    `None` everywhere; T-107's LLM/Hybrid planners will consume them
+    through the same signature with no caller edits.
+  - `HeuristicPlanner` is a pure pass-through wrapper over
+    `SmartOrchestrator.select_strategy` — no planning logic of its
+    own (regex scoring, thresholds and T-102 plugin routing all stay
+    in the orchestrator), so pre/post-extraction byte-parity holds
+    **by construction** and is pinned by goldens.
+  - Config seam: new top-level `planner:` key in config.yaml
+    (documented; default `heuristic`); `planner_from_config` /
+    `resolve_planner_name` validate strictly — unknown name = loud
+    boot failure (routing_config philosophy), missing key = the
+    historical default, explicit and default paths provably
+    equivalent. `server.py` builds the planner at boot (🧭 banner)
+    and injects it into `ChainBridge(planner=...)`; a bridge without
+    one wraps its own orchestrator (same plugin registry, no second
+    composition). `start_chain` now plans via the seam —
+    `plan()` + `to_chain_run(run_id)` ≡ the old `create_run` path.
+  - `tests/unit/test_planner.py` (59 tests): 17 golden scenarios × 2
+    (plan + ChainRun equality vs direct `select_strategy`) with a
+    coverage lock proving all five builder strategies are exercised
+    (via explicit force — not threshold luck); reusable
+    `PlannerContractMixin` conformance harness (mirrors the T-039
+    runner pattern) ready for T-107; strict config-seam tests (bad
+    values ×5 raise, real config.yaml validated); bridge-seam tests
+    (default planner shares the bridge's orchestrator; injected
+    planner honored). Dispatch parity, gated-apply and the T-034
+    routing corpus stay green untouched. Full gate: **1323 passed,
+    1 skipped — ALL GREEN.**
 - **R-802 (T-105): Layered retrieval source at the opportunistic tier —
   R-802 complete.**
   - New `context/sources/memory.py`: `MemorySource` combines the
