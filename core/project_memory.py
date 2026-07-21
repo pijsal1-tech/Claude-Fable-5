@@ -50,6 +50,37 @@
 
 **الحدود:** المخزن لا يستورد sessions ولا context — ``index`` يُمرَّر
 duck-typed (يكفي ``files`` + ``rel``)؛ صفر اعتماد دائري.
+
+═══════════════ التقطير ما-بعد-الـ-run (T-113 / R-805) ═══════════════
+
+``distill_and_record(store, project_id, episode, index=...)`` هو خطاف
+ما-بعد-الـ-run: يقترح مدخلات ذاكرة من سجل حلقة T-103 (``EpisodeRecord``
+— duck-typed هنا: يكفي ``run_id/goal/outcome/files_touched/
+key_decisions``؛ لا استيراد من context ⇒ لا دورة اعتماد):
+
+- ``run_summary`` واحدة: الهدف → النتيجة (+ الملفات الملموسة) —
+  إعادة استخدام ملخص T-103 حرفيًا (بند R-805: reuses summaries).
+- ``decision`` لكل قرار من ``key_decisions`` (بحد
+  ``MAX_DISTILLED_DECISIONS`` — التقطير ضغط لا نسخ).
+
+كل مدخلة مقطّرة تحمل ``source="distillation"`` + ``run_id`` الحلقة
+(provenance كامل) + hash-link لحالة الفهرس وقت التقطير.
+
+**عقد التدهور** (نفس عقد ``EpisodicLayer.summarize_and_record``):
+التقطير مشتق اختياري — أي فشل ⇒ ما كُتب حتى الآن يُعاد **بلا
+استثناء يتسرب**؛ فقدان مدخلة أرخص من إسقاط run.
+
+═══════════════ دلالات الـ staleness (T-113 / R-805) ═══════════════
+
+``is_stale(entry, index)`` = بصمة الفهرس الحي تخالف ``index_hash``
+المسجّل وقت الاشتقاق. القاعدة (بند مخاطر R-805 — «حقائق خاطئة تبقى»):
+مدخلة قديمة **تُعلَّم وتُنزَّل رتبتها، لا تُقدَّم كطازجة بصمت أبدًا**
+— ولا تُحذف: المستخدم (لوحة T-114) هو من يقرر مصيرها.
+
+حالتا «لا حكم» صريحتان (ليستا staleness):
+- ``entry.index_hash == ""`` — المدخلة كُتبت بلا فهرس ⇒ لا رابط
+  أصلًا فلا انحراف يُقاس.
+- بصمة الفهرس الحي ``""`` (لا فهرس متاح الآن) ⇒ لا مرجع للمقارنة.
 """
 from __future__ import annotations
 
@@ -130,6 +161,70 @@ def new_entry(kind: str, text: str, *, source: str = "agent_tool",
         run_id=run_id,
         index_hash=index_hash,
     )
+
+
+# حد قرارات الحلقة المقطّرة — التقطير ضغط لا نسخ ثانية من الحلقة
+MAX_DISTILLED_DECISIONS = 3
+
+
+def is_stale(entry: MemoryEntry, index: Any) -> bool:
+    """هل انحرفت بنية المشروع عن رابط المدخلة؟ (دلالات برأس الوحدة).
+
+    ``True`` فقط عند بصمتين حاضرتين **مختلفتين** — غياب أي طرف
+    (``index_hash`` فارغ أو لا فهرس متاح) = «لا حكم» ⇒ ``False``.
+    """
+    if not entry.index_hash:
+        return False
+    live = index_fingerprint(index)
+    if not live:
+        return False
+    return live != entry.index_hash
+
+
+def distill_episode(episode: Any) -> list[tuple[str, str]]:
+    """اقتراح مدخلات ``(kind, text)`` من سجل حلقة — نقي بلا كتابة.
+
+    ``episode`` duck-typed (يكفي ``run_id/goal/outcome/files_touched/
+    key_decisions`` — شكل ``EpisodeRecord`` من T-103). حلقة بلا هدف
+    ولا نتيجة ⇒ لا اقتراحات (لا ذاكرة بلا محتوى).
+    """
+    goal = str(getattr(episode, "goal", "") or "").strip()
+    outcome = str(getattr(episode, "outcome", "") or "").strip()
+    proposals: list[tuple[str, str]] = []
+    if goal or outcome:
+        summary = f"run: {goal or '(بلا هدف)'} → {outcome or '(بلا نتيجة)'}"
+        files = tuple(getattr(episode, "files_touched", ()) or ())
+        if files:
+            summary += " · files: " + ", ".join(str(f) for f in files)
+        proposals.append(("run_summary", summary))
+    decisions = tuple(getattr(episode, "key_decisions", ()) or ())
+    for decision in decisions[:MAX_DISTILLED_DECISIONS]:
+        text = str(decision or "").strip()
+        if text:
+            proposals.append(("decision", text))
+    return proposals
+
+
+def distill_and_record(store: "ProjectMemoryStore", project_id: str,
+                       episode: Any, *, index: Any = None
+                       ) -> list[MemoryEntry]:
+    """خطاف ما-بعد-الـ-run: تقطير حلقة وإلحاق المقترحات بالمخزن.
+
+    كل مدخلة تحمل ``source="distillation"`` + ``run_id`` الحلقة +
+    hash-link لحالة الفهرس وقت التقطير. **لا يرفع أبدًا** (عقد
+    التدهور برأس الوحدة): أي فشل ⇒ يعيد ما كُتب حتى الآن.
+    """
+    written: list[MemoryEntry] = []
+    try:
+        run_id = str(getattr(episode, "run_id", "") or "")
+        for kind, text in distill_episode(episode):
+            written.append(store.remember(
+                project_id, kind, text,
+                source="distillation", run_id=run_id, index=index,
+            ))
+    except Exception:
+        pass          # التقطير مشتق اختياري — فقدانه أرخص من إسقاط run
+    return written
 
 
 def index_fingerprint(index: Any) -> str:
