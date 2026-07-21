@@ -27,6 +27,48 @@
     fallback path left.
 
 ### Added
+- **R-804 (T-109): Redis backends via Streams (optional extra).**
+  - New `core/backends_redis.py` — purely additive: the in-memory
+    defaults from T-108 stay the defaults, single-process stays
+    first-class. Shape decisions from `docs/phase8_plan.md` §3 pinned
+    in the module header: `redis>=5.0` as an **optional extra with
+    lazy imports only** (zero top-level `import redis`;
+    `_require_redis()` inside functions with a clear error when the
+    extra is missing), standalone instance via `REDIS_URL`
+    (default `redis://localhost:6379/0`) through
+    `redis_client_from_env` — the single construction point.
+  - `RedisEventBusBackend`: one Stream per run (`ev:<run_id>`,
+    injectable prefix for test isolation) — publish = XADD (exact
+    MAXLEN = the in-process history-cap semantics) plus synchronous
+    local delivery, both under the per-run lock (stream order =
+    delivery order = publish order); `history` reads XRANGE from
+    Redis ⇒ **ordered replay visible across processes** (the R-804
+    distribution point). Subscriber isolation and the unsubscribe
+    contract as in T-047. Events encode as `kind` + JSON `data` with
+    a six-type catalog — unknown kind fails loud. Pub/Sub rejected by
+    design (fire-and-forget drops frames, breaking the byte-identical
+    frame-sequence acceptance).
+  - `RedisWorkQueue`: Stream `wq:runs` + consumer group `workers`
+    (idempotent creation — BUSYGROUP swallowed) — enqueue (XADD) →
+    claim (XREADGROUP `>`, entry enters the PEL) → ack (XACK); a
+    worker that dies before ack leaves its entry pending until
+    another worker `reclaim`s it via XAUTOCLAIM after `min_idle_ms` —
+    at-least-once delivery by construction, strictly better than
+    LPUSH/BRPOP which loses in-flight jobs. Frozen `QueueEntry`
+    (entry_id for ack) + `pending_count` for observability.
+  - CI: `redis:7-alpine` service container with a health check; the
+    extra is installed in CI only — the app never imports it.
+  - Tests: `tests/integration/test_redis_backends.py` — all
+    integration cases against a **real Redis** (uuid key isolation,
+    no flushdb), skip-if-unavailable locally (skip path verified by
+    actually stopping the service). The four acceptance criteria
+    verbatim: T-108 conformance mixin inherited unchanged on Redis;
+    ordered replay incl. a second backend simulating another process;
+    killed-consumer reclaim (same entry rescued and completed, idle
+    threshold protects active entries); optional-dep guard (grep +
+    runtime proof that importing the module leaves `redis` out of
+    sys.modules). Memory-backend suite untouched. Full gate 1437
+    passed, 1 skipped — ALL GREEN.
 - **R-804 (T-108): Pluggable Registry/EventBus backends.**
   - New `core/backends.py`: two structural `@runtime_checkable`
     protocols extracted 1:1 from the existing classes —

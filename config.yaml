@@ -121,7 +121,13 @@ planner: "heuristic"
 # إقلاع صاخب لا سقوط صامت.
 #   memory: الافتراضيان التاريخيان داخل-العملية حرفيًّا (aliases لا
 #           أغلفة) — صفر تبعيات جديدة، أحادي-العملية درجة أولى.
-# T-109 يضيف redis (Streams) — نفس الواجهات، المستهلكون لا يتغيرون.
+# T-109 أضاف أصناف Redis Streams (core/backends_redis.py — ناقل أحداث
+# stream-لكل-run + قائمة عمل بمجموعة مستهلكين): extra اختياري
+# `pip install "redis>=5.0"`، والعنوان من متغير البيئة REDIS_URL
+# (الافتراضي redis://localhost:6379/0). مسوَّغات الشكل (standalone،
+# لا Cluster/Sentinel في v1) في docs/phase8_plan.md §3. ربطها بقيمة
+# `backend:` هنا يكتمل في T-110 مع سجل Redis وliase المشاريع —
+# حتى حينها القيمة الصالحة الوحيدة memory.
 backend: "memory"
 
 # عتبات التوجيه (T-036 / R-402) — RequestRouter يقرأ هذا القسم عبر
