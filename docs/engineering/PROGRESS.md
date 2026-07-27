@@ -6,7 +6,40 @@
 ---
 
 ## HEADER
+## Scope Policy
 
+This engineering program intentionally excludes the Provider subsystem from architecture review, implementation planning, bug discovery, QA planning, roadmap generation, and task decomposition unless a task explicitly targets providers.
+
+The following directories are considered OUT OF SCOPE by default:
+
+- providers/
+- provider integrations
+- provider authentication
+- provider accounts
+- provider routing
+- provider fallback
+- provider budgets
+- provider capacity
+- provider streaming
+- provider retries
+
+Do not spend analysis time or planning budget on these components unless the current task explicitly requires modifications to them.
+
+Focus analysis on:
+
+- core/
+- chain/
+- actions/
+- context/
+- runners/
+- server.py
+- static/
+- tests/
+- architecture
+- reliability
+- maintainability
+- security
+- performance
 | Field | Value |
 |---|---|
 | last-updated | 2026-07-27 (Session 1) |
@@ -37,7 +70,7 @@
 |---|---|---|
 | P1a | Repo map & module responsibilities (major dirs = executed code/config) | ⬜ |
 | P1b | Runtime flows: WebSocket lifecycle, AI request lifecycle, streaming, session lifecycle | ⬜ |
-| P1c | Provider architecture & context builder (all 11 provider files: full-read base/registry + 2 most-used; skim rest, declare skimmed) | ⬜ |
+|P1c | Context builder architecture and runtime context flow (Provider subsystem is OUT OF SCOPE unless explicitly ) | ⬜ |
 | P1d | Parser + edit/plan/build pipelines | ⬜ |
 | P1e | Security boundaries, backup, config loading, error handling | ⬜ |
 | P1f | Dependency map — Mermaid graph + adjacency table (both) | ⬜ |
@@ -130,8 +163,13 @@
 - **Decisions:**
   - Repo `Claude-Fable-5` identified as the editor_v4 project (contains all CONTEXT-listed files); other repos (Zizo = older copy, 27-07 = QA archive mirror) treated as external evidence only, not part of this workspace.
   - Context drift on app.js line count logged (see header).
-- **RESUME POINT:** `P1a — begin repo map: full read of server.py from L1; then actions/, providers/base.py+registry.py, config.yaml structure (redact values).`
+- RESUME POINT:
 
+P1a — continue repository mapping.
+
+Read only the files required for the current checkpoint.
+
+Skip Provider subsystem entirely unless the current checkpoint explicitly requires it.
 ---
 
 ## STATUS LEGEND
