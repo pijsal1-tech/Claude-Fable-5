@@ -1859,70 +1859,12 @@ def _handle_ws_message(ctx, sctx, msg):
         result = _apply_single_action(action, sctx)
         sctx.send({"type": "action_result", **result})
 
-    elif msg_type == "apply_all_actions":
-        # تطبيق كل الإجراءات خطوة بخطوة
-        actions = msg.get("actions", [])
-        sctx.backup_done_for_batch = False
-        total = len(actions)
-        for i, action in enumerate(actions):
-            # إرسال progress
-            sctx.send({
-                "type": "task_progress",
-                "current": i + 1,
-                "total": total,
-                "action": action,
-                "status": "running",
-            })
-            result = _apply_single_action(action, sctx)
-            sctx.send({
-                "type": "task_progress",
-                "current": i + 1,
-                "total": total,
-                "action": action,
-                "status": "done" if result["ok"] else "error",
-                "message": result.get("message", ""),
-            })
-            if not result["ok"]:
-                sctx.send({
-                    "type": "error",
-                    "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"
-                })
-                break
-
-        sctx.backup_done_for_batch = False
-        sctx.send({"type": "all_actions_done", "total": total})
-
-    elif msg_type == "execute_plan":
-        # تنفيذ خطة معتمدة (نفس apply_all_actions)
-        actions = msg.get("actions", [])
-        sctx.backup_done_for_batch = False
-        total = len(actions)
-        for i, action in enumerate(actions):
-            sctx.send({
-                "type": "task_progress",
-                "current": i + 1,
-                "total": total,
-                "action": action,
-                "status": "running",
-            })
-            result = _apply_single_action(action, sctx)
-            sctx.send({
-                "type": "task_progress",
-                "current": i + 1,
-                "total": total,
-                "action": action,
-                "status": "done" if result["ok"] else "error",
-                "message": result.get("message", ""),
-            })
-            if not result["ok"]:
-                sctx.send({
-                    "type": "error",
-                    "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"
-                })
-                break
-
-        sctx.backup_done_for_batch = False
-        sctx.send({"type": "all_actions_done", "total": total})
+    elif msg_type in ("apply_all_actions", "execute_plan"):
+        # TSK-201 (NF-23.1): مسار موحّد — apply_all_actions (شريط الإجراءات)
+        # وexecute_plan (اعتماد الخطة) كانا كتلتين متطابقتين نصيًا؛
+        # الآن كلاهما يمر عبر _apply_batch (سلوك الإطارات مثبَّت بـ golden
+        # tests/integration/test_apply_batch_golden.py).
+        _apply_batch(sctx, msg.get("actions", []))
 
     # ═══════════════════════════════════════════
     #  M5: Chain System — WebSocket Handlers
@@ -2238,6 +2180,47 @@ sock.route("/ws")(ws_handler)
 
 # ── حد أقصى لحجم ملف يقرأه Smart Path (100KB) ──
 MAX_SMART_FILE_SIZE = 100 * 1024
+
+
+def _apply_batch(sctx, actions: list) -> None:
+    """تطبيق دفعة إجراءات خطوة بخطوة مع إطارات progress — TSK-201.
+
+    المصدر الوحيد لمسارَي WS ``apply_all_actions`` و``execute_plan``
+    (كانا كتلتين مكررتين حرفيًا). تسلسل الإطارات الصادر مطابق بايت-بايت
+    للسلوك التاريخي (golden: tests/goldens/apply_batch_frames.json):
+    task_progress(running) → task_progress(done|error) لكل إجراء،
+    error + break عند أول فشل، ثم all_actions_done دائمًا.
+
+    TSK-304 لاحقًا يضيف نقطة تفتيش إلغاء بين الإجراءات هنا — موضع واحد.
+    """
+    sctx.backup_done_for_batch = False
+    total = len(actions)
+    for i, action in enumerate(actions):
+        sctx.send({
+            "type": "task_progress",
+            "current": i + 1,
+            "total": total,
+            "action": action,
+            "status": "running",
+        })
+        result = _apply_single_action(action, sctx)
+        sctx.send({
+            "type": "task_progress",
+            "current": i + 1,
+            "total": total,
+            "action": action,
+            "status": "done" if result["ok"] else "error",
+            "message": result.get("message", ""),
+        })
+        if not result["ok"]:
+            sctx.send({
+                "type": "error",
+                "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"
+            })
+            break
+
+    sctx.backup_done_for_batch = False
+    sctx.send({"type": "all_actions_done", "total": total})
 
 
 def _apply_single_action(action: dict, sctx) -> dict:

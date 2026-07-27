@@ -1,0 +1,214 @@
+{
+  "apply_all_actions/ok": [
+    {
+      "type": "task_progress",
+      "current": 1,
+      "total": 3,
+      "action": {
+        "action": "create_file",
+        "path": "a.txt",
+        "content": "hello"
+      },
+      "status": "running"
+    },
+    {
+      "type": "task_progress",
+      "current": 1,
+      "total": 3,
+      "action": {
+        "action": "create_file",
+        "path": "a.txt",
+        "content": "hello"
+      },
+      "status": "done",
+      "message": "تم حفظ: a.txt"
+    },
+    {
+      "type": "task_progress",
+      "current": 2,
+      "total": 3,
+      "action": {
+        "action": "run_command",
+        "command": "echo hi"
+      },
+      "status": "running"
+    },
+    {
+      "type": "task_progress",
+      "current": 2,
+      "total": 3,
+      "action": {
+        "action": "run_command",
+        "command": "echo hi"
+      },
+      "status": "done",
+      "message": "ran: echo hi"
+    },
+    {
+      "type": "task_progress",
+      "current": 3,
+      "total": 3,
+      "action": {
+        "action": "edit_file",
+        "path": "a.txt",
+        "old_text": "hello",
+        "new_text": "bye"
+      },
+      "status": "running"
+    },
+    {
+      "type": "task_progress",
+      "current": 3,
+      "total": 3,
+      "action": {
+        "action": "edit_file",
+        "path": "a.txt",
+        "old_text": "hello",
+        "new_text": "bye"
+      },
+      "status": "done",
+      "message": "تم تعديل: a.txt"
+    },
+    {
+      "type": "all_actions_done",
+      "total": 3
+    }
+  ],
+  "execute_plan/ok": [
+    {
+      "type": "task_progress",
+      "current": 1,
+      "total": 3,
+      "action": {
+        "action": "create_file",
+        "path": "a.txt",
+        "content": "hello"
+      },
+      "status": "running"
+    },
+    {
+      "type": "task_progress",
+      "current": 1,
+      "total": 3,
+      "action": {
+        "action": "create_file",
+        "path": "a.txt",
+        "content": "hello"
+      },
+      "status": "done",
+      "message": "تم حفظ: a.txt"
+    },
+    {
+      "type": "task_progress",
+      "current": 2,
+      "total": 3,
+      "action": {
+        "action": "run_command",
+        "command": "echo hi"
+      },
+      "status": "running"
+    },
+    {
+      "type": "task_progress",
+      "current": 2,
+      "total": 3,
+      "action": {
+        "action": "run_command",
+        "command": "echo hi"
+      },
+      "status": "done",
+      "message": "ran: echo hi"
+    },
+    {
+      "type": "task_progress",
+      "current": 3,
+      "total": 3,
+      "action": {
+        "action": "edit_file",
+        "path": "a.txt",
+        "old_text": "hello",
+        "new_text": "bye"
+      },
+      "status": "running"
+    },
+    {
+      "type": "task_progress",
+      "current": 3,
+      "total": 3,
+      "action": {
+        "action": "edit_file",
+        "path": "a.txt",
+        "old_text": "hello",
+        "new_text": "bye"
+      },
+      "status": "done",
+      "message": "تم تعديل: a.txt"
+    },
+    {
+      "type": "all_actions_done",
+      "total": 3
+    }
+  ],
+  "apply_all_actions/fail_step2": [
+    {
+      "type": "task_progress",
+      "current": 1,
+      "total": 3,
+      "action": {
+        "action": "create_file",
+        "path": "a.txt",
+        "content": "x"
+      },
+      "status": "running"
+    },
+    {
+      "type": "task_progress",
+      "current": 1,
+      "total": 3,
+      "action": {
+        "action": "create_file",
+        "path": "a.txt",
+        "content": "x"
+      },
+      "status": "done",
+      "message": "تم حفظ: a.txt"
+    },
+    {
+      "type": "task_progress",
+      "current": 2,
+      "total": 3,
+      "action": {
+        "action": "create_file",
+        "path": "b.txt",
+        "content": "y"
+      },
+      "status": "running"
+    },
+    {
+      "type": "task_progress",
+      "current": 2,
+      "total": 3,
+      "action": {
+        "action": "create_file",
+        "path": "b.txt",
+        "content": "y"
+      },
+      "status": "error",
+      "message": "disk full"
+    },
+    {
+      "type": "error",
+      "text": "فشل في الخطوة 2: disk full"
+    },
+    {
+      "type": "all_actions_done",
+      "total": 3
+    }
+  ],
+  "execute_plan/empty": [
+    {
+      "type": "all_actions_done",
+      "total": 0
+    }
+  ]
+}
