@@ -10,11 +10,11 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-27 (Session 5 — P5 complete) |
+| last-updated | 2026-07-27 (Session 5 — P6 complete) |
 | stage | PLANNING (MODE A) |
-| current-phase | P6 — QA Master Plan |
-| current-task | P6(a) QA-T01–T04 inherited baseline |
-| completion % (planning) | 82.5% (33 / 40 in-scope phase-checkpoints) |
+| current-phase | P7 — Future Improvements |
+| current-task | P7(a) all categories with benefit/cost/prerequisite |
+| completion % (planning) | 95% (38 / 40 in-scope phase-checkpoints) |
 | completion % (execution) | N/A (task table empty until P5) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
@@ -127,11 +127,11 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 ### P6 — QA_MASTER_PLAN.md (5 checkpoints) — budget 10%
 | # | Checkpoint | Status |
 |---|---|---|
-| P6a | QA-T01–T04 inherited as historical baseline; provider-substance tests retired | ⬜ |
-| P6b | QA-T03R redesigned | ⬜ |
-| P6c | QA-T05–T10 fully specified (out-of-scope boundary STUBBED — zero external AI calls) | ⬜ |
-| P6d | QA-T11+ coverage added per Section 6 list | ⬜ |
-| P6e | Traceability spot-check: 5 chains BUG→TSK→QA-T both directions | ⬜ |
+| P6a | QA-T01–T04 inherited as historical baseline; provider-substance tests retired | ✅ |
+| P6b | QA-T03R redesigned | ✅ (in-scope payload mechanics, stubbed) |
+| P6c | QA-T05–T10 fully specified (out-of-scope boundary STUBBED — zero external AI calls) | ✅ |
+| P6d | QA-T11+ coverage added per Section 6 list | ✅ QA-T11–T14 (incl. A6 closure) |
+| P6e | Traceability spot-check: 5 chains BUG→TSK→QA-T both directions | ✅ |
 
 ### P7 — FUTURE_IMPROVEMENTS.md (1 checkpoint) — budget 5%
 | # | Checkpoint | Status |
@@ -340,3 +340,20 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
   P6d add QA-T11+ (streaming/frontend, security, perf, regression for
   NF-19/24, A6 closure test), P6e 5 traceability chains both directions;
   output file: docs/engineering/QA_MASTER_PLAN.md.
+
+### Session 5 (cont.) — P6 complete → QA_MASTER_PLAN.md
+- **Checkpoints completed**: P6a–P6e → `docs/engineering/QA_MASTER_PLAN.md`
+  (QA-T03R + QA-T05…T14; reuses tests/ infra: contracts/fakes/goldens).
+- **Decisions**:
+  1. Provider-substance criteria of historical T01/T03 formally retired;
+     engineering-automatable parts remapped (search perf → QA-T13,
+     contamination → QA-T09, mode confusion → QA-T05).
+  2. A6/NF-17 final closure assigned to QA-T14 (disk-level path-fidelity test).
+  3. Every QA-T↔TSK mapping is one-to-one with Validated-by column — verified.
+- **EXACT RESUME POINT**: P7a — FUTURE_IMPROVEMENTS.md: cover all in-scope
+  categories (architecture: NF-03 REST/WS unification, NF-05 shutdown
+  discipline; scalability: g9 redis/worker seam; maintainability: server.py
+  god-module split g1; DX/tooling; docs) each with benefit/cost/prerequisite
+  + SHORT/MID/LONG tags; provider abstraction EXCLUDED per 0.8;
+  output file: docs/engineering/FUTURE_IMPROVEMENTS.md. Then P8a →
+  RELEASE_READINESS_REPORT.md (gates G1–G5, Go/No-Go, reconcile PROGRESS).
