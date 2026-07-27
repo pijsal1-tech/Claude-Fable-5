@@ -10,11 +10,11 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-27 (Session 4 — P3 complete) |
+| last-updated | 2026-07-27 (Session 4 — P4 complete) |
 | stage | PLANNING (MODE A) |
-| current-phase | P4 — Master Roadmap |
-| current-task | P4(a) Milestones drafted with full fields |
-| completion % (planning) | 65% (26 / 40 in-scope phase-checkpoints) |
+| current-phase | P5 — Implementation Tasks |
+| current-task | P5(a) Atomic tasks for every Confirmed issue + every C4 |
+| completion % (planning) | 72.5% (29 / 40 in-scope phase-checkpoints) |
 | completion % (execution) | N/A (task table empty until P5) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
@@ -112,9 +112,9 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 ### P4 — MASTER_ROADMAP.md (3 checkpoints) — budget 10%
 | # | Checkpoint | Status |
 |---|---|---|
-| P4a | Milestones drafted with full fields (no milestone touches out-of-scope code) | ⬜ |
-| P4b | M1 RULE applied & justified from actual P2/P3 output | ⬜ |
-| P4c | DoD verified | ⬜ |
+| P4a | Milestones drafted with full fields (no milestone touches out-of-scope code) | ✅ M1–M5 + DAG |
+| P4b | M1 RULE applied & justified from actual P2/P3 output | ✅ (S2-confirmed set only) |
+| P4c | DoD verified | ✅ |
 
 ### P5 — IMPLEMENTATION_TASKS.md (4 checkpoints) — budget 15%
 | # | Checkpoint | Status |
@@ -285,3 +285,19 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
   apply M1 RULE (first milestone = highest-severity confirmed fixes: BUG-01
   cluster + NF-15 S2 items) with justification; then P4b/P4c DoD;
   output file: docs/engineering/MASTER_ROADMAP.md.
+
+### Session 4 (cont.) — P4 complete → MASTER_ROADMAP.md
+- **Checkpoints completed**: P4a–P4c → `docs/engineering/MASTER_ROADMAP.md`.
+- **Milestones**: M1 Safety (BUG-01+NF-13, BUG-03, NF-15) · M2 Consolidation
+  (BUG-04 via unified ignore-list + NF-23 dedup) · M3 Runtime Robustness
+  (NF-01/02/04/06/07/14) · M4 Frontend/Streaming UX (NF-10/11/12+A3/18) ·
+  M5 Performance/Search (NF-20/21/16). DAG acyclic: M1→M3, M2→M5, M4 independent.
+- **Decisions**: M1 RULE = exactly the confirmed-S2 set; NF-03/05 deferred to
+  P7 as architectural decisions; NF-17/A6 closes via QA-T only; positives
+  NF-19/24 get regression QA-T only.
+- **EXACT RESUME POINT**: P5a — IMPLEMENTATION_TASKS.md: create atomic TSK
+  table (id, milestone, Fixes:BUG/NF, Validated-by:QA-T placeholder, deps);
+  cover: BUG-01, BUG-03, BUG-04, A3 + NF rows flagged "TSK✓" in
+  NEW_FINDINGS.md summary table; then P5b traceability, P5c acyclic dep
+  graph, P5d copy task table into PROGRESS.md TASK TABLE section;
+  output file: docs/engineering/IMPLEMENTATION_TASKS.md.
