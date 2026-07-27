@@ -1,157 +1,236 @@
 # NEW_FINDINGS.md — editor_v4 (P3 — CORE-ONLY SCOPE v4.1)
 
 > الحالة تُدار في PROGRESS.md فقط. النطاق محكوم بـ SECTION 0.8 — Provider Layer مستبعد.
-> كل اقتباس ملف:دالة:سطر أُخذ من قراءة فعلية بهذه الجلسة (Session 4).
-> ترقيم الاكتشافات: NF-XX. سلّم الثقة C1–C4 والشدة S1–S4 كما في VERIFIED_BUGS.md.
+> كل اقتباس ملف:دالة:سطر مُتحقق منه ساكنًا بهذه الجلسة. المعرّفات NF-xx تُغذي P4/P5.
+> سلّم الثقة C1–C4 والشدة S1–S4 كما في VERIFIED_BUGS.md.
 
 ---
 
-## (a) Race conditions & threading
+## (a) Race conditions & Threading
 
-### NF-01 — سباق تنظيف `pending_path_requests` خارج القفل — **C4 / S3**
-- `server.py:_clean_expired_pending_requests:L106–114` — الدالة **تمشي على القاموس
-  وتحذف منه بلا أي قفل**، بينما `store_pending_path_request:L138–141`
-  و`pop_pending_path_request:L144–147` يطفّران نفس القاموس تحت
-  `_pending_path_lock` (L133). التنظيف يُستدعى من `store_...` **قبل** دخول القفل.
-- السيناريو: خيطا WS (تبويبان) — أحدهما يخزّن (فيُنظّف بلا قفل: comprehension على
-  `items()`) والآخر يعمل `pop` تحت القفل → `RuntimeError: dictionary changed size
-  during iteration` أو حذف مزدوج صامت.
-- الإصلاح البديهي: نقل جسم التنظيف داخل `with _pending_path_lock`. → TSK (P5).
+### NF-01 — تنظيف `pending_path_requests` يمشي خارج القفل — سباق تكرار/طفر
+**C3 / S3.** `server.py:_clean_expired_pending_requests:L106–114` يبني قائمة المنتهين
+بتكرار على `pending_path_requests.items()` **دون** حمل `_pending_path_lock`، بينما
+`pop_pending_path_request:L146–148` يطفّر القاموس تحت القفل من خيوط أخرى؛
+`store_pending_path_request:L136–139` يستدعي التنظيف **قبل** دخول القفل.
+تكرار متزامن مع pop → احتمال `RuntimeError: dictionary changed size during iteration`
+أو حذف مزدوج. الإصلاح: نقل التنظيف داخل القفل. → TSK (P5).
 
-### NF-02 — Lost-update في `SessionManager.append_message` (قراءة-تعديل-كتابة كاملة بلا قفل) — **C4 / S3**
-- `actions/session_manager.py:append_message:L53–75` — النمط: `_load` الملف كاملًا
-  → append في الذاكرة → `_save_full` (ذري بحد ذاته L156–169). **لا قفل حول
-  السلسلة**.
-- من يستدعيها بالتوازي فعليًا: خيط الـ agent المنبثق
-  (`server.py:_run_agent:L1590–1592` عبر `sctx.session_mgr.append_message`)
-  وخيط حلقة WS نفسه (L1455–1456, L1531–1532, L1640–1641) — نفس `session_mgr`
-  مرجع مشترك مثبّت وقت الاتصال، وتبويبان قد يشيران لنفس الجلسة.
-- النتيجة: رسالة تُفقد بصمت (الكتابة الأخيرة تفوز). ليست إفسادًا للملف
-  (الكتابة ذرية) بل فقدان سجل. → TSK.
-- ملاحظة نطاق: `sessions/store.py:append_message:L294–299` (المخزن الأحدث JSONL)
-  إلحاقي بطبيعته وأقل عرضة — الخطر في `actions/session_manager.py` القديم.
+### NF-02 — خانة الـ run الحصرية عالمية عبر كل التبويبات (project_id="")
+**C3 / S3.** `_begin_run_ticket` (`server.py:L319–331`) يستدعي
+`execution_registry.register(kind)` **بلا project_id** → الافتراضي `""`
+(`core/execution.py:register:L233`)، والسجل `exclusive_per_project=True` افتراضيًا
+(`backends_from_config` core/backends.py:L126–139 يبني `ExecutionRegistry()` بلا وسائط).
+النتيجة: **كل الاتصالات/التبويبات تتنافس على خانة واحدة** — تبويب يشغّل chain يمنع
+تبويبًا آخر على مشروع مختلف من أي run (يستلم `busy`). يتقاطع مع هدف T-048
+(عزل الجلسات). قد يكون سياسة مقصودة لعملية واحدة، لكن الدلالة "لكل مشروع"
+في التسمية لا تتحقق فعليًا. → TSK توضيح/تمرير project_id.
 
-### NF-03 — `sctx.chat_history` يُطفَّر من خيطين بلا انضباط معلن — **C3 / S3**
-- الإلحاق يحدث من خيط WS (`server.py:L1454, L1483, L1531, L1639`) **ومن خيط
-  الـ agent المنبثق** (`_run_agent:L1590`)، والقراءة بنسخ شريحة
-  `sctx.chat_history[:-1]` (L1559, L1654) من خيط WS.
-- `list.append` ذري تحت GIL فلا انهيار، لكن الترتيب غير محدد: رسالة مستخدم
-  جديدة (حلقة WS تستقبل أثناء عمل agent) قد تسبق رد assistant للطلب الأقدم →
-  تاريخ محادثة مُشوّه التسلسل يصل للنموذج التالي. → TSK (توثيق/تسلسل لكل جلسة).
+### NF-03 — ازدواجية حالة REST-globals مقابل WS-SessionContext (تثبيت g5)
+**C4 / S3.** موثَّق عمدًا في `core/session_context.py:L14–27`: تبديل مشروع عبر
+REST `/api/switch-project` (`server.py:L1096–1189`) يبدّل `fm`/globals عالميًّا،
+بينما WS يبدّل لكل تبويب. REST `api_search`/`api_restore_backup` تعمل على
+`fm` العالمي حتى لو كان تبويب المستخدم على مشروع آخر → نتائج/استعادة على
+مشروع غير المقصود. سطح التباس مؤكد وإن كان قرارًا واعيًا. → P4 (توحيد لاحق).
 
-### NF-04 — ازدواجية الحالة REST-globals مقابل WS-SessionContext (ترقية g5) — **C4 / S3**
-- REST يعمل على globals: `server.py:L119–124` (`fm`, `cmd_runner`, `chat_history`)
-  و`api_switch_project:L1096–1189` يبدّل **عالميًّا** (`global fm, cmd_runner,
-  chat_history` L1099)، بينما WS معزول لكل اتصال
-  (`core/session_context.py:L14–27` — سلوك مقصود T-048/R-701 وموثَّق).
-- الخطر المتبقي رغم القصدية: `api_restore_backup:L947–960` وendpoints القراءة
-  (L847, L852–854) تقرأ/تكتب حالة عالمية قد لا تطابق ما يراه أي تبويب —
-  التباس تشغيلي وليس عيب تزامن خالص. → TSK توثيق + تحذير UI.
-
-### NF-05 — حلقة `ws_handler` متزامنة: `apply_all_actions` يحجب الاتصال (ترقية g6) — **C4 / S3**
-- `server.py:ws_handler:L2213–2225` — حلقة `receive→handle` متزامنة واحدة.
-  المسارات الثقيلة (chain L1469، agent L1619، بث مباشر L2127) مُخيَّطة، لكن
-  `apply_all_actions`/`execute_plan` (L1862–1893, L1895–1925) تنفّذ الكتابات
-  والأوامر **داخل الحلقة**: أمر بطيء (`cmd_runner.run` مهلة 120s) يجمّد
-  استقبال أي إطار — بما فيها `cancel`. → TSK.
+### NF-04 — حلقة ws_handler متزامنة: أي handler غير مُخيَّط يحجب الاتصال (تثبيت g6)
+**C4 / S3.** `ws_handler` (`server.py:L2213–2229`) حلقة `ws.receive()` تسلسلية.
+المسارات الثقيلة مُخيَّطة (chain L1469، agent L1619، delegate L2127 — كلها
+`daemon=True`)، لكن `apply_all_actions`/`execute_plan` (L1862–1925) تعمل
+**داخل الحلقة**: تطبيق 17 ملفًا + أوامر يجمّد استقبال أي رسالة (ومنها `cancel`)
+حتى النهاية. → TSK.
 
 ## (b) Async issues
 
-### NF-06 — لا طبقة async فعلية؛ التوقف الوحيد القابل للأذى هو NF-05 — **C3 / ملاحظة**
-- الخادم flask_sock خيطي متزامن بالكامل (لا asyncio). لا كوروتينات معلّقة ولا
-  await-races. البند يُغلق بإحالة إلى NF-05 (حجب الحلقة) وNF-13 (الواجهة).
-  لا TSK مستقل.
+### NF-05 — لا طبقة async؛ خيوط daemon تُقتل بلا join عند الإيقاف
+**C3 / S4.** المشروع sync بالكامل (flask_sock + threads) — لا asyncio (grep: صفر
+`async def` في server.py). كل خيوط الـ runners `daemon=True` (L1469/L1619/L2127)
+بلا join عند shutdown → إيقاف العملية أثناء كتابة إجراءات قد يقطعها في المنتصف
+(تخفف الكتابة الذرية أثر الملف الواحد — انظر NF-13). ملاحظة معمارية أكثر منها
+عيبًا؛ تُسجَّل لـ P7.
 
 ## (c) Memory leaks
 
-### NF-07 — `ExecutionRegistry._tickets` ينمو بلا حدود (لا حصاد للتذاكر المنتهية) — **C4 / S3**
-- `core/execution.py:ExecutionRegistry` — `_tickets: dict` (L227) يُضاف إليه في
-  `register()` (L246) **ولا يوجد أي مسار حذف**: `finish()` L281–299 يحرّر خانة
-  المشروع فقط ويبقي التذكرة؛ `reap_stale()` L320–346 يغيّر الحالة ولا يحذف؛
-  grep على `del self._tickets|pop|clear` = موضع واحد فقط لـ `_active_by_project`.
-- عملية خادم طويلة العمر = تذكرة لكل رسالة direct/chain/agent → نمو خطي دائم.
-  `list_all()` موثّقة كميزة (runs_list) فالحل اقتطاع بحد أقصى للمنتهية. → TSK.
+### NF-06 — `ExecutionRegistry._tickets` لا يُطهَّر أبدًا — نمو غير محدود
+**C4 / S3.** `core/execution.py` كامل: لا يوجد أي `pop/del` على `_tickets`
+(grep صفر نتائج)؛ `finish()` يحرر خانة المشروع فقط ويُبقي التذكرة؛ `reap_stale()`
+يعلّم `failed` ويُبقيها. كل run (وكل رسالة chat = run "direct" منذ T-040)
+يضيف تذكرة تعيش حتى نهاية العملية. جلسة طويلة بمئات الرسائل = نمو خطي دائم،
+و`_list_runs_frame` (`server.py:L348`) يكبر معها. → TSK (طَهْر terminal الأقدم).
 
-### NF-08 — نمو غير محدود لتواريخ المحادثة (global + per-session) — **C4 / S3**
-- `server.py:L123` — `chat_history` العالمي بلا أي حد؛ `sctx.chat_history`
-  (session_context) كذلك؛ ويُمرَّر كاملًا لكل طلب (L1559, L1654 —
-  تقاطع مع BUG-03). لا اقتطاع في أي موضع إلحاق. → TSK (حد + نافذة).
+### NF-07 — `chat_history` بلا حد أعلى (لكل جلسة + العالمي)
+**C3 / S3.** `sctx.chat_history` يُلحق به كل دور (L1638، L1667) ويُمرَّر كاملًا
+لكل طلب (`L1654: {"history": sctx.chat_history[:-1]}`، وكذلك L1559) — لا اقتطاع
+في نقطة الإرسال (grep: لا MAX_HISTORY/trim في server.py وprompts/templates.py).
+يتضافر مع BUG-03 (حمولة) ويشكّل نموًا ذاكريًا لكل اتصال معمّر.
 
-### NF-09 — `RetentionPolicy` مشحونة بوضع dry_run افتراضيًا → `.ai_runs/` يتراكم فعليًا — **C3 / S4**
-- `sessions/retention.py:L38–48` — `dry_run: bool = True` («الافتراضي الآمن»)؛
-  التنظيف الحقيقي يتطلب `retention.dry_run: false` يدويًا في config. سلوك مقصود
-  وموثَّق، لكن أثره العملي = التسريب مستمر حتى تفعيل صريح. → P7 (تفعيل موجَّه).
+### NF-08 — TTL `pending_path_requests` يعمل عند الإضافة فقط
+**C2 / S4.** التنظيف يُستدعى حصريًا من `store_pending_path_request:L137` —
+بلا إضافات جديدة تبقى المداخل المنتهية (300s) بالذاكرة إلى أجل غير مسمى.
+أثر ضئيل (مداخل صغيرة) لكنه نمط "تنظيف مشروط بالنشاط".
 
 ## (d) Large-context handling
 
-### NF-10 — (مُغطى جوهريًا بـ BUG-03) + ثغرة تفتيش الأسرار في مسارات الحقن المباشر — **C4 / S2**
-- `context/safe_reader.py:L86–120` — تفتيش الأسرار بالإنتروبيا يعمل **فقط** في
-  مسار `context/` (`facade.py:L46–48` هو المستهلك). أما مسارا الحقن المباشر في
-  الخادم — قراءة ملف مكتشف `server.py:L1332–1339` وإرفاق مجلد L1782–1791 —
-  فيقرآن **بلا SafeReader**: ملف أسرار يذكره المستخدم بمساره يُحقن نصه في
-  البرومبت متجاوزًا بوابة R-204 (و`is_secret_file` في path_policy تُطبَّق على
-  أدوات الوكيل لا على هذا المسار). تقاطع مع (i). → TSK.
+### NF-09 — (تقاطع BUG-03) مسارات الحقن المباشر خارج الميزانية
+مُوثَّق ومصنَّف C4/S2 في `VERIFIED_BUGS.md#BUG-03` — لا يُكرَّر هنا؛ الفئة
+تُحال بالكامل إليه + NF-07 (التاريخ الكامل).
 
 ## (e) In-app streaming (server→frontend)
 
-### NF-11 — انضباط الإرسال سليم بنيويًا (موقع send أوحد بقفل) — لا اكتشاف سلبي
-- `server.py:_WSAdapter:L210–238` — قفل لكل اتصال حول `ws.send`، وcheck.sh
-  يمنع بالـ grep أي send خارجه؛ `_agent_ws_send` L1516–1522 يضيف قفلًا ثانيًا
-  متداخلًا (زائد عن الحاجة لكنه غير ضار). يُسجَّل كنقطة قوة.
+### NF-10 — `appendStreamChunk` يعيد بناء الرسالة كاملة عند كل chunk — O(n²)
+**C4 / S3.** `static/app.js:appendStreamChunk:L928–962`: كل chunk →
+`currentStreamText += text` ثم `parseResponseChannels(النص الكامل)` ثم
+`content.innerHTML = renderMarkdown(النص الكامل)` ثم `highlightContainer`.
+رد بطول 50KB على chunks صغيرة = آلاف عمليات parse/render التراكمية —
+تجمّد الواجهة مع الردود الطويلة (يضخّمه BUG-03). التخفيف الجزئي الوحيد هو
+كاش الإبراز (T-064). → TSK (append تدريجي/throttle).
 
-### NF-12 — غياب أي إشارة مبكرة قبل إطار `start` (ترقية A3) — **C3 / S4**
-- لا يوجد إطار `scan_start`/typing في `server.py` (grep صفر)؛ أول إطار مرئي
-  `{"type": "start"}` يُرسل **بعد** اكتمال بناء السياق (L1645) الذي قد يستغرق
-  ثواني (فحص ملفات + فهرسة). المستخدم يرى صمتًا (شكوى «اول برومت» حرفيًا). → TSK.
+### NF-11 — إعادة اتصال WS بثابت 3s بلا backoff + `JSON.parse` بلا حماية (تثبيت g10)
+**C4 / S3.** `static/app.js:initWebSocket:L154–159` — `setTimeout(initWebSocket, 3000)`
+دائمًا (لا jitter/backoff/حد أقصى → قصف الخادم عند سقوطه)؛
+`onmessage:L166–169` — `JSON.parse(event.data)` بلا try/catch: إطار مشوّه واحد
+يرمي استثناء يقتل معالجة الرسالة. → TSK.
 
-### NF-13 — إعادة اتصال الواجهة بثابت 3s بلا backoff + `JSON.parse` بلا حماية — **C4 / S3**
-- `static/app.js:initWebSocket:L154–159` — `setTimeout(initWebSocket, 3000)`
-  ثابت بلا jitter/حد محاولات (عاصفة إعادة اتصال عند سقوط الخادم)؛
-  `onmessage:L166–169` — `JSON.parse(event.data)` بلا try/catch: إطار مشوّه
-  واحد يرمي استثناءً ويُسقط معالجة الرسالة. → TSK.
+### NF-12 — لا إشارة `scan_start` قبل بناء السياق (تقاطع A3)
+مُصنَّف C3/S4 في `VERIFIED_BUGS.md#P2e-A3` — أول إطار مرئي هو `start`
+(`server.py:L1645`) بعد اكتمال الجمع؛ طلب المستخدم التاريخي (Spinner) قائم.
 
 ## (f) Parser ambiguity & mode handling
 
-### NF-14 — (مُغطى بـ BUG-01) + حقن قوالب في `build_prompt` عبر `.replace` المتسلسل — **C3 / S3**
-- `prompts/templates.py:build_prompt:L104–135` — القوالب تُملأ بسلسلة
-  `.replace("{user_request}", user_request).replace("{project_context}", context)`.
-  إذا احتوى **نص المستخدم نفسه** الرمز `{project_context}` (أو
-  `{target_files}` في وضع edit) فإن الاستبدال اللاحق يستبدله أيضًا →
-  حقن سياق المشروع في موضع من اختيار المستخدم/النموذج (template injection).
-  الإصلاح: استبدال واحد ممرّر بقاموس أو `str.format_map` محصّن. → TSK.
+### تقاطع BUG-01 (C4/S2)
+الفئة محكومة بالكامل بـ `VERIFIED_BUGS.md#BUG-01` (parser mode-agnostic +
+fallback عدواني + إطار done يحمل actions في chat + الواجهة تعرض بلا فحص وضع).
+إضافة واحدة:
+
+### NF-13 — fallback الأوامر يحوّل أسطر بلوكات bash التوضيحية لأوامر قابلة للتنفيذ
+**C3 / S2.** `actions/response_parser.py:L153–161`: داخل الـ fallback، كل سطر
+غير-تعليق في أي بلوك ```bash يصبح `CommandBlock` — شرح تعليمي يعرض
+`rm -rf build/` كمثال يتحول لعنصر قابل للنقر "تشغيل". يقيّده جزئيًا فحص
+`DANGEROUS_COMMANDS` (`actions/command_runner.py:L37–42`) لكن مواقع
+`need_approval=False` (`server.py:L769, L1246, L2275`) تضعف البوابة. → TSK مع BUG-01.
 
 ## (g) Error handling
 
-### NF-15 — ابتلاع أخطاء واسع وصامت في server.py — **C4 / S3**
-- إحصاء هذه الجلسة: **41 موضع `except Exception` + 1 `except:` عارٍ** في
-  server.py وحده؛ مواضع حرجة تبتلع بـ `pass` بلا أي log:
-  `_WSAdapter._send:L233–238` (كل أخطاء الإرسال)، قراءة الملف المكتشف
-  L1338–1339 («تجاهل أخطاء القراءة»)، L1092، L1975. فشل صامت = تشخيص مستحيل
-  ميدانيًا (نمط T01 التاريخي: «فشلت الأداة 8 مرات» بلا أثر). → TSK (سياسة log
-  دنيا موحّدة على الأقل).
+### NF-14 — ابتلاع صامت واسع النطاق للاستثناءات
+**C4 / S3.** 41 موضع `except Exception` في server.py وحده؛ الأنماط الأخطر:
+- `server.py:L1338–1339` — فشل قراءة ملف مكتشف → `pass` صامت (المستخدم يظن
+  المحتوى أُرفق وهو لم يُرفق).
+- `_WSAdapter._send` (`server.py:L233–238`) — أي فشل إرسال يُبتلع (مقصود
+  للاتصال المقفول، لكنه يخفي أيضًا أخطاء serialization).
+- أثر واجهة: NF-11 (JSON.parse). التوصية: تضييق الأنواع + log موحّد. → TSK.
 
-## (h) Path traversal & security
+## (h) Path traversal & Security
 
-### NF-16 — إعادة فحص ادعاء A6 «قص المسارات»: **لم يُعثر على قصّ في مسار الكتابة — Refuted (ساكنًا)**
-- المسار الكامل: `parser` يحافظ على `path` كما التُقط (`response_parser.py:L112–117`
-  — `match.group(1).strip()` فقط) → `_apply_single_action:L2265–2270` يمرّره
-  حرفيًا → `fm.write_file` → `_resolve` (`file_manager.py:L265–267`) →
-  `resolve_workspace_path` (`chain/path_policy.py:L51`) الذي يطبّع ويقيّد داخل
-  الجذر **دون بتر مقاطع فرعية**. الادعاء التاريخي يبقى غير مُثبت؛ إن ظهر
-  ميدانيًا فمصدره المرجّح fallback التسمية المقترحة (BUG-01: اسم بلا مسار فرعي
-  أصلًا) لا «قص». يُسجَّل Refuted-static + توصية QA-T لإعادة السيناريو. → P6.
+### NF-15 — استعادة الباك-أب تفك ZIP بلا فحص أعضاء (Zip-Slip) (تثبيت g8)
+**C4 / S2.** `server.py:api_restore_backup:L947–960` — `zf.extractall(fm.root)`
+مباشرة: عضو باسم `../../x` أو مسار مطلق يكتب خارج جذر المشروع. الخطر مشروط
+بمصدر الـ ZIP (ينشئه `create_full_backup` file_manager.py:L213–236 محليًا)،
+لكن endpoint REST بلا auth يقبل أي `backup_name` موجود بالمجلد. → TSK
+(فحص أعضاء قبل الفك).
 
-### NF-17 — استعادة الباك-أب بـ `extractall` بلا فحص أعضاء (Zip-Slip) (ترقية g8-1) — **C4 / S2**
-- `server.py:api_restore_backup:L947–960` — `zf.extractall(fm.root)` مباشرة:
-  أرشيف يحوي عضوًا `../../x` أو مسارًا مطلقًا يكتب خارج الجذر. الأرشيفات
-  ينتجها النظام نفسه عادة (`create_full_backup` file_manager.py:L213–236) لكن
-  الـ endpoint يقبل أي اسم ملف موجود في مجلد الباك-أب، وREST كله بلا
-  مصادقة (NF-18) — سطح هجوم فعلي إن كان المنفذ مكشوفًا. → TSK (فحص أعضاء
-  قبل الاستخراج).
+### NF-16 — REST بلا مصادقة + مواقع `need_approval=False`
+**C4 / S3.** كل REST endpoints بلا أي auth (تصميم أداة محلية)؛ تنفيذ الأوامر
+من REST/apply يمرّ بـ `need_approval=False` (`server.py:L769, L1246, L2275`) —
+حارس `DANGEROUS_COMMANDS` الساكن هو الخط الوحيد. مقبول لأداة localhost،
+خطر فوري إن رُبطت على 0.0.0.0. → P7 (توثيق حدود النشر) + TSK خفيف.
 
-### NF-18 — REST بلا أي مصادقة + تنفيذ أوامر بـ `need_approval=False` (ترقية g8-2/3) — **C4 / S2 (بافتراض تشغيل محلي، S1 إن كُشف المنفذ)**
-- لا يوجد أي فحص auth على مسارات REST (تصفح P1 الكامل + grep على
-  auth/token/session في تسجيل المسارات — صفر)؛ ومواقع تنفيذ الأوامر تمرّر
-  `need_approval=False` صراحة: `server.py:L769, L1246, L2275` — بوابة
-  `DANGEROUS_COMMANDS` (`command_runner.py:L37–42`) تبقى، لكن أي أمر غير
-  مُدرج فيها ينفَّذ ف
+### NF-17 — ادعاء الأرشيف A6 "قص المسارات الفرعية" — غير مُعاد إنتاجه ساكنًا
+**C2 (نفي أولي) / —.** تتبّع المسار كاملًا: `_FILE_PATTERN` يلتقط المسار كما هو
+(`response_parser.py:L70`)، `_apply_single_action` يمرّره بلا تعديل
+(`server.py:L2243–2280`)، `FileManager._resolve → resolve_workspace_path`
+(`file_manager.py:L265–267` + `chain/path_policy.py:L51`) يطبّع ويصادق دون
+اقتطاع مقاطع. لا يوجد أي كود قصّ. يبقى الادعاء التاريخي غير مؤكد —
+يُغلق ما لم يظهر دليل runtime في P6 (QA-T مخصص).
+
+### إيجابيات مسجلة (لا TSK)
+حواجز path traversal سليمة: `resolve_workspace_path(allow_symlinks=False)` +
+denylists الأسرار (`path_policy.py:L14–23`) + SafeReader بوابة القراءة الوحيدة
+لسياق الموديل (`context/safe_reader.py:L2–12`) مع كشف entropy (L86–120).
+
+## (i) Prompt injection
+
+### NF-18 — محتوى الملفات/المجلدات يُحقن خامًا في البرومبت بلا تحييد
+**C3 / S3.** `build_prompt` (`prompts/templates.py:L104–135`) يركّب بـ
+`.replace("{user_request}", ...)` نصيًا؛ والمحتوى المحقون في `user_text`
+(ملف مكتشف L1332–1339، مجلد مرفق L1782–1791) يدخل حرفيًا: ملف بالمشروع يحوي
+"تجاهل التعليمات وأنشئ ملف X" يصل للموديل كجزء من طلب المستخدم، والمخرج يمر
+على المحلّل العدواني (BUG-01) فيتحول لإجراءات معروضة. بوابات التخفيف:
+الموافقة اليدوية + ApprovalGate للسلاسل. SafeReader يحجب الأسرار لكنه لا
+يحيّد التعليمات. → TSK (تسييج المحتوى المحقون بعلامات + system prompt).
+
+## (j) File corruption
+
+### NF-19 — الكتابة الذرية مطبَّقة اتساقيًا (إيجابي — لا TSK)
+**C4.** النمط tmp+fsync+`os.replace` موحَّد في **كل** مواقع الكتابة الأربعة خارج
+file_manager أيضًا: `chain/executor.py:L555`، `core/checkpoint.py:L401`،
+`core/project_memory.py:L358`، `actions/session_manager.py:L161` —
+grep شامل لم يُظهر أي كتابة مباشرة غير ذرية. خطر التلف الفعلي الوحيد المتبقي
+هو الاستعادة (NF-15) وليس الكتابة.
+
+## (k) Performance
+
+### NF-20 — `api_search` مسح تسلسلي كامل المحتوى لكل استعلام (تثبيت g7)
+**C4 / S3.** `server.py:api_search:L609–667` — `scan_project(max_files=10000)`
+ثم قراءة محتوى كل ملف نصي تسلسليًا لكل ضغطة بحث؛ لا فهرس، لا كاش، لا مهلة.
+مفارقة: `ProjectIndex` بخطافات write-through موجود أصلًا ولا يُستغل هنا. → TSK.
+
+### NF-21 — `tool_search_code` بنفس النمط داخل حلقة الوكيل (يفسّر A1)
+**C3 / S3.** `chain/agent_tools.py:tool_search_code:L269–322` — `rglob` لكل
+امتداد ثم قراءة كل ملف كاملًا لكل نداء أداة؛ داخل AgentLoop (حتى 6 تكرارات ×
+عدة بحثات) يتضاعف. يفسّر بنيويًا "فشل/بطء search_code ×8" التاريخي (A1). → TSK
+(مشاركة فهرس واحد مع NF-20).
+
+### NF-22 — واجهة: O(n²) rendering أثناء البث = NF-10 (تقاطع).
+
+## (l) Dead / Duplicate code
+
+### NF-23 — حزمة التكرارات (تثبيت g2/g3/g4 + BUG-04)
+**C4 / S3–S4.**
+1. كتلتا `apply_all_actions` / `execute_plan` شبه متطابقتين (`server.py:L1862–1893`
+   vs `L1895–1925`) — أي إصلاح (مثل BUG-01) يجب أن يُطبَّق مرتين.
+2. `MAX_SMART_FILE_SIZE` معرَّف مرتين (`L128`, `L2240`) — تعديل أحدهما فقط = سلوك متشعب.
+3. config.yaml يُقرأ inline ≥6 مواضع (`L159, L1083, L2412, L2444, L2489, L2539`).
+4. **ثلاث قوائم تجاهل مستقلة غير متزامنة** (file_manager L27–31 / bridge L655–662 /
+   agent_tools L300–302) — هي نفسها آلية BUG-04. → TSK توحيد (يفكّ 4 مشاكل معًا).
+
+## (m) Circular dependencies
+
+### NF-24 — لا دورات استيراد (إيجابي — لا TSK)
+**C3.** فحص AST آلي هذه الجلسة على 82 موديول داخلي (استبعاد providers/tests/static):
+**صفر دورات**. يتسق مع الانضباط المعلن (`core/execution.py:L37`: "core stays
+dependency-free of chain") ونمط الحقن في AppContext. يُعاد التحقق في P6 بأداة
+CI (pycycle/grimp) ضمن QA-T.
+
+---
+
+## جدول تجميعي (مدخل P4/P5)
+
+| NF | الفئة | C | S | TSK مطلوب؟ |
+|---|---|---|---|---|
+| NF-01 | سباق تنظيف pending | C3 | S3 | نعم |
+| NF-02 | خانة run عالمية | C3 | S3 | نعم (توضيح/إصلاح) |
+| NF-03 | ازدواجية REST/WS | C4 | S3 | P4 قرار معماري |
+| NF-04 | حلقة WS محجوبة بـ apply | C4 | S3 | نعم |
+| NF-05 | خيوط daemon بلا join | C3 | S4 | P7 |
+| NF-06 | تذاكر السجل لا تُطهَّر | C4 | S3 | نعم |
+| NF-07 | تاريخ بلا حد | C3 | S3 | نعم (مع BUG-03) |
+| NF-08 | TTL مشروط بالنشاط | C2 | S4 | لا (ملاحظة) |
+| NF-10 | بث O(n²) بالواجهة | C4 | S3 | نعم |
+| NF-11 | reconnect ثابت + JSON.parse | C4 | S3 | نعم |
+| NF-13 | fallback الأوامر | C3 | S2 | نعم (مع BUG-01) |
+| NF-14 | ابتلاع استثناءات | C4 | S3 | نعم |
+| NF-15 | Zip-Slip بالاستعادة | C4 | S2 | نعم |
+| NF-16 | REST بلا auth / need_approval=False | C4 | S3 | P7 + TSK خفيف |
+| NF-17 | ادعاء A6 غير مُعاد إنتاجه | C2 | — | QA-T فقط |
+| NF-18 | حقن برومبت خام | C3 | S3 | نعم |
+| NF-19 | كتابة ذرية متسقة | C4 | ✅ | لا |
+| NF-20 | api_search تسلسلي | C4 | S3 | نعم |
+| NF-21 | tool_search_code تسلسلي | C3 | S3 | نعم (مع NF-20) |
+| NF-23 | حزمة التكرارات | C4 | S3 | نعم |
+| NF-24 | لا دورات استيراد | C3 | ✅ | لا |
+
+(NF-09/12/22 تقاطعات مُحالة — بلا صفوف مستقلة.)
+
+## DoD
+كل بند باقتباس ملف:دالة:سطر فعلي؛ صفر أسرار؛ `providers/` لم يُمس؛
+كل C4 غير-إيجابي مُعلَّم "نعم TSK" ويُستوفى في P5.

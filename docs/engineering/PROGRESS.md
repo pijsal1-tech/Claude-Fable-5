@@ -10,11 +10,11 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-27 (Session 3 — P2 complete) |
+| last-updated | 2026-07-27 (Session 4 — P4 complete) |
 | stage | PLANNING (MODE A) |
-| current-phase | P3 — New Findings |
-| current-task | P3(a) Race conditions & threading |
-| completion % (planning) | 32.5% (13 / 40 in-scope phase-checkpoints) |
+| current-phase | P5 — Implementation Tasks |
+| current-task | P5(a) Atomic tasks for every Confirmed issue + every C4 |
+| completion % (planning) | 72.5% (29 / 40 in-scope phase-checkpoints) |
 | completion % (execution) | N/A (task table empty until P5) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
@@ -95,26 +95,26 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 ### P3 — NEW_FINDINGS.md (13 checkpoints = categories) — budget 15%
 | # | Category | Status |
 |---|---|---|
-| P3a | Race conditions & threading (ws_handler / recv workers / queues) | ⬜ |
-| P3b | Async issues | ⬜ |
-| P3c | Memory leaks | ⬜ |
-| P3d | Large-context handling | ⬜ |
-| P3e | In-app streaming (server→frontend) | ⬜ |
-| P3f | Parser ambiguity & mode handling | ⬜ |
-| P3g | Error handling | ⬜ |
-| P3h | Path traversal & security | ⬜ |
-| P3i | Prompt injection | ⬜ |
-| P3j | File corruption | ⬜ |
-| P3k | Performance | ⬜ |
-| P3l | Dead/duplicate code | ⬜ |
-| P3m | Circular dependencies | ⬜ |
+| P3a | Race conditions & threading (ws_handler / recv workers / queues) | ✅ NF-01–04 |
+| P3b | Async issues | ✅ NF-05 |
+| P3c | Memory leaks | ✅ NF-06–08 |
+| P3d | Large-context handling | ✅ NF-09 (→ BUG-03) + NF-07 |
+| P3e | In-app streaming (server→frontend) | ✅ NF-10–12 |
+| P3f | Parser ambiguity & mode handling | ✅ (→ BUG-01) + NF-13 |
+| P3g | Error handling | ✅ NF-14 |
+| P3h | Path traversal & security | ✅ NF-15–17 + positives |
+| P3i | Prompt injection | ✅ NF-18 |
+| P3j | File corruption | ✅ NF-19 (positive) |
+| P3k | Performance | ✅ NF-20–22 |
+| P3l | Dead/duplicate code | ✅ NF-23 |
+| P3m | Circular dependencies | ✅ NF-24 (zero cycles, AST-verified) |
 
 ### P4 — MASTER_ROADMAP.md (3 checkpoints) — budget 10%
 | # | Checkpoint | Status |
 |---|---|---|
-| P4a | Milestones drafted with full fields (no milestone touches out-of-scope code) | ⬜ |
-| P4b | M1 RULE applied & justified from actual P2/P3 output | ⬜ |
-| P4c | DoD verified | ⬜ |
+| P4a | Milestones drafted with full fields (no milestone touches out-of-scope code) | ✅ M1–M5 + DAG |
+| P4b | M1 RULE applied & justified from actual P2/P3 output | ✅ (S2-confirmed set only) |
+| P4c | DoD verified | ✅ |
 
 ### P5 — IMPLEMENTATION_TASKS.md (4 checkpoints) — budget 15%
 | # | Checkpoint | Status |
@@ -246,3 +246,58 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
   (2) EventBus/_WSAdapter lock discipline server.py:L210–238 + L331,
   (3) chat_history/session_mgr concurrent append paths; then proceed P3b–P3m;
   output file: docs/engineering/NEW_FINDINGS.md (13 categories, single doc).
+
+### Session 4 — 2026-07-27 (P3 complete → NEW_FINDINGS.md)
+- **Checkpoints completed**: P3a–P3m (all 13) → `docs/engineering/NEW_FINDINGS.md`
+  (NF-01…NF-24, incl. 2 positives NF-19/NF-24 and 3 cross-refs to P2 bugs).
+- **TIER A actions** (sandbox reset → repo re-cloned):
+  - Full read: core/execution.py (346 lines — RunTicket/Registry lock model,
+    no ticket purge, reap_stale keeps tickets); core/session_context.py
+    header + state-scoping rules; core/backends.py L120–140 (registry built
+    with defaults → exclusive slot on project_id="").
+  - server.py targeted: pending_path TTL L106–148 (cleanup outside lock);
+    thread launch sites L1469/L1619/L2127 (all daemon, no join); ws_handler
+    loop L2213–2229; _begin_run_ticket L319–331 (no project_id);
+    41× `except Exception` counted; history pass-through L1559/L1654
+    (no trim — grep MAX_HISTORY/trim zero).
+  - app.js: appendStreamChunk L928–962 (full re-render per chunk),
+    renderMarkdown L2281–2295 (marked.parse, **no sanitizer** — noted inside
+    NF-10 scope), reconnect L154–159, unguarded JSON.parse L166–169.
+  - Write-path corruption sweep: grep all `open(..,"w")` — 4 sites outside
+    file_manager, all atomic tmp+replace (executor L555, checkpoint L401,
+    project_memory L358, session_manager L161) → NF-19 positive.
+  - Circular-import check: AST script over 82 internal modules → zero cycles
+    → NF-24 positive.
+  - prompts/templates.py build_prompt L104–135 (raw .replace composition)
+    → NF-18.
+- **TIER B actions**: none (AST script is read-only analysis, ran in /tmp-free
+  inline python — no repo writes outside docs/).
+- **Decisions**:
+  1. Categories fully covered by P2 bugs recorded as cross-refs (NF-09→BUG-03,
+     P3f→BUG-01, NF-12→A3) — no duplicate classification.
+  2. A6 (backend subpath claim): static trace found NO truncation code —
+     recorded NF-17 as preliminary refutation; final closure via QA-T in P6.
+  3. Highest-impact consolidation candidate flagged for P4: NF-23 item 4
+     (single shared ignore-list) resolves BUG-04 + 3 duplication debts at once.
+- **EXACT RESUME POINT**: P4a — MASTER_ROADMAP.md: draft milestones from
+  P2/P3 output; inputs → Confirmed set {BUG-01, BUG-03(mechanism), BUG-04,
+  A3} + TSK-required NF rows (NF-01,02,04,06,07,10,11,13,14,15,16,18,20,21,23);
+  apply M1 RULE (first milestone = highest-severity confirmed fixes: BUG-01
+  cluster + NF-15 S2 items) with justification; then P4b/P4c DoD;
+  output file: docs/engineering/MASTER_ROADMAP.md.
+
+### Session 4 (cont.) — P4 complete → MASTER_ROADMAP.md
+- **Checkpoints completed**: P4a–P4c → `docs/engineering/MASTER_ROADMAP.md`.
+- **Milestones**: M1 Safety (BUG-01+NF-13, BUG-03, NF-15) · M2 Consolidation
+  (BUG-04 via unified ignore-list + NF-23 dedup) · M3 Runtime Robustness
+  (NF-01/02/04/06/07/14) · M4 Frontend/Streaming UX (NF-10/11/12+A3/18) ·
+  M5 Performance/Search (NF-20/21/16). DAG acyclic: M1→M3, M2→M5, M4 independent.
+- **Decisions**: M1 RULE = exactly the confirmed-S2 set; NF-03/05 deferred to
+  P7 as architectural decisions; NF-17/A6 closes via QA-T only; positives
+  NF-19/24 get regression QA-T only.
+- **EXACT RESUME POINT**: P5a — IMPLEMENTATION_TASKS.md: create atomic TSK
+  table (id, milestone, Fixes:BUG/NF, Validated-by:QA-T placeholder, deps);
+  cover: BUG-01, BUG-03, BUG-04, A3 + NF rows flagged "TSK✓" in
+  NEW_FINDINGS.md summary table; then P5b traceability, P5c acyclic dep
+  graph, P5d copy task table into PROGRESS.md TASK TABLE section;
+  output file: docs/engineering/IMPLEMENTATION_TASKS.md.
