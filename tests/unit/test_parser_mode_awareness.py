@@ -8,8 +8,6 @@
 - TSK-101: parse(response, mode="chat") يعطّل الـ fallback العدواني؛
   أوضاع plan/build/edit وmode=None بلا تغيير سلوكي.
 - TSK-102: بلوكات bash داخل الـ fallback لا تتحول لأوامر إلا بوسم CMD: صريح.
-- طبقة الخادم: إطار done في chat بلا actions (فحص مسار _dispatch مباشرة
-  يتطلب تشغيل provider — يُغطى هنا على مستوى الوحدة بمنطق الإسقاط نفسه).
 """
 from actions.response_parser import ResponseParser
 
