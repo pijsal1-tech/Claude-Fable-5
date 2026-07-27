@@ -114,8 +114,13 @@ editor_v4 هو محرر أكواد مدعوم بالذكاء الاصطناعي:
 
 ---
 
-## 3. P1c — معمارية المزودين ومحرك السياق
+## 3. Provider Architecture (Out of Scope)
 
+The Provider subsystem is intentionally excluded from this engineering review.
+
+No implementation review, performance review, security review, architecture review, roadmap planning, task generation or QA planning should spend time analyzing Provider internals unless explicitly requested.
+
+Only its public interfaces may be referenced when necessary.
 ### 3.1 العقد الأساسي — قراءة كاملة
 
 **`providers/base.py` (451L، قراءة كاملة):**
