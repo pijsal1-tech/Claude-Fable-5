@@ -10,11 +10,11 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-27 (Session 4 — P4 complete) |
+| last-updated | 2026-07-27 (Session 5 — P6 complete) |
 | stage | PLANNING (MODE A) |
-| current-phase | P5 — Implementation Tasks |
-| current-task | P5(a) Atomic tasks for every Confirmed issue + every C4 |
-| completion % (planning) | 72.5% (29 / 40 in-scope phase-checkpoints) |
+| current-phase | P7 — Future Improvements |
+| current-task | P7(a) all categories with benefit/cost/prerequisite |
+| completion % (planning) | 95% (38 / 40 in-scope phase-checkpoints) |
 | completion % (execution) | N/A (task table empty until P5) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
@@ -119,19 +119,19 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 ### P5 — IMPLEMENTATION_TASKS.md (4 checkpoints) — budget 15%
 | # | Checkpoint | Status |
 |---|---|---|
-| P5a | Atomic tasks for every Confirmed in-scope issue + every C4 | ⬜ |
-| P5b | Bidirectional traceability fields filled (Fixes / Validated-by) | ⬜ |
-| P5c | Dependency graph acyclic | ⬜ |
-| P5d | Task table copied into PROGRESS.md (status column here only) | ⬜ |
+| P5a | Atomic tasks for every Confirmed in-scope issue + every C4 | ✅ 19 TSKs (101–502) |
+| P5b | Bidirectional traceability fields filled (Fixes / Validated-by) | ✅ matrix both directions |
+| P5c | Dependency graph acyclic | ✅ DAG, zero cycles |
+| P5d | Task table copied into PROGRESS.md (status column here only) | ✅ below |
 
 ### P6 — QA_MASTER_PLAN.md (5 checkpoints) — budget 10%
 | # | Checkpoint | Status |
 |---|---|---|
-| P6a | QA-T01–T04 inherited as historical baseline; provider-substance tests retired | ⬜ |
-| P6b | QA-T03R redesigned | ⬜ |
-| P6c | QA-T05–T10 fully specified (out-of-scope boundary STUBBED — zero external AI calls) | ⬜ |
-| P6d | QA-T11+ coverage added per Section 6 list | ⬜ |
-| P6e | Traceability spot-check: 5 chains BUG→TSK→QA-T both directions | ⬜ |
+| P6a | QA-T01–T04 inherited as historical baseline; provider-substance tests retired | ✅ |
+| P6b | QA-T03R redesigned | ✅ (in-scope payload mechanics, stubbed) |
+| P6c | QA-T05–T10 fully specified (out-of-scope boundary STUBBED — zero external AI calls) | ✅ |
+| P6d | QA-T11+ coverage added per Section 6 list | ✅ QA-T11–T14 (incl. A6 closure) |
+| P6e | Traceability spot-check: 5 chains BUG→TSK→QA-T both directions | ✅ |
 
 ### P7 — FUTURE_IMPROVEMENTS.md (1 checkpoint) — budget 5%
 | # | Checkpoint | Status |
@@ -147,11 +147,29 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 
 ## TASK TABLE
 
-> فارغ حتى تكتمل P5 (per SECTION 5 STEP 0).
+> ملئ من P5 (IMPLEMENTATION_TASKS.md) — عمود Status هنا هو الوحيد.
 
 | TSK-ID | Type | Title | Milestone | Status |
 |---|---|---|---|---|
-| — | — | (populated by P5) | — | — |
+| TSK-101 | fix | تمرير mode للمحلّل + فلترة actions في chat (BUG-01) | M1 | ⬜ pending |
+| TSK-102 | fix | تهذيب fallback الأوامر (NF-13) | M1 | ⬜ pending |
+| TSK-103 | fix | توحيد مسارات حقن السياق تحت ContextBudget (BUG-03) | M1 | ⬜ pending |
+| TSK-104 | fix | سقف تاريخ المحادثة (NF-07) | M1 | ⬜ pending |
+| TSK-105 | security | Zip-Slip guard للاستعادة (NF-15) | M1 | ⬜ pending |
+| TSK-201 | refactor | دمج apply_all_actions/execute_plan (NF-23.1) | M2 | ⬜ pending |
+| TSK-202 | fix | قائمة تجاهل موحّدة تشمل test---results (BUG-04) | M2 | ⬜ pending |
+| TSK-203 | refactor | توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) | M2 | ⬜ pending |
+| TSK-301 | fix | تنظيف pending_path داخل القفل (NF-01) | M3 | ⬜ pending |
+| TSK-302 | fix | سياسة خانة الـ run / project_id (NF-02) | M3 | ⬜ pending |
+| TSK-303 | fix | طَهْر تذاكر terminal (NF-06) | M3 | ⬜ pending |
+| TSK-304 | fix | استجابة الإلغاء أثناء apply (NF-04) | M3 | ⬜ pending |
+| TSK-305 | quality | تضييق except الحرجة + log (NF-14) | M3 | ⬜ pending |
+| TSK-401 | perf | بث تدريجي بدل إعادة render (NF-10) | M4 | ⬜ pending |
+| TSK-402 | fix | backoff+jitter + حماية onmessage (NF-11) | M4 | ⬜ pending |
+| TSK-403 | feature | إطار scan_start + مؤشر فوري (NF-12/A3) | M4 | ⬜ pending |
+| TSK-404 | security | تسييج المحتوى المحقون (NF-18) | M4 | ⬜ pending |
+| TSK-501 | perf | فهرس بحث مشترك فوق ProjectIndex (NF-20/21) | M5 | ⬜ pending |
+| TSK-502 | docs/config | حدود النشر + force_command_approval (NF-16) | M5 | ⬜ pending |
 
 ---
 
@@ -301,3 +319,41 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
   NEW_FINDINGS.md summary table; then P5b traceability, P5c acyclic dep
   graph, P5d copy task table into PROGRESS.md TASK TABLE section;
   output file: docs/engineering/IMPLEMENTATION_TASKS.md.
+
+### Session 5 — 2026-07-27 (P5 complete → IMPLEMENTATION_TASKS.md)
+- **Checkpoints completed**: P5a–P5d → `docs/engineering/IMPLEMENTATION_TASKS.md`
+  (19 atomic TSKs: 101–105 / 201–203 / 301–305 / 401–404 / 501–502).
+- **TIER A actions** (sandbox reset → repo re-cloned): tasks derived from
+  frozen P2/P3/P4 outputs — no new code reading needed; all file:line anchors
+  reused from verified evidence.
+- **TIER B actions**: none.
+- **Decisions**:
+  1. Every non-positive C4 covered (completeness check in P5b matrix).
+  2. QA-T ids referenced as QA-T05…QA-T13 placeholders — to be specified in P6
+     (matching the v4.1 numbering that inherits QA-T01–T04 as baseline).
+  3. Task table copied to PROGRESS.md TASK TABLE with all statuses ⬜ pending
+     (execution stage completion = 0/19 until MODE B).
+- **EXACT RESUME POINT**: P6a — QA_MASTER_PLAN.md: inherit QA-T01–T04 as
+  historical baseline (retire provider-substance criteria from T01/T03);
+  next → P6b redesign QA-T03R (in-scope payload mechanics, provider stubbed),
+  P6c specify QA-T05–T10 fully (zero external AI calls, boundary stubbed),
+  P6d add QA-T11+ (streaming/frontend, security, perf, regression for
+  NF-19/24, A6 closure test), P6e 5 traceability chains both directions;
+  output file: docs/engineering/QA_MASTER_PLAN.md.
+
+### Session 5 (cont.) — P6 complete → QA_MASTER_PLAN.md
+- **Checkpoints completed**: P6a–P6e → `docs/engineering/QA_MASTER_PLAN.md`
+  (QA-T03R + QA-T05…T14; reuses tests/ infra: contracts/fakes/goldens).
+- **Decisions**:
+  1. Provider-substance criteria of historical T01/T03 formally retired;
+     engineering-automatable parts remapped (search perf → QA-T13,
+     contamination → QA-T09, mode confusion → QA-T05).
+  2. A6/NF-17 final closure assigned to QA-T14 (disk-level path-fidelity test).
+  3. Every QA-T↔TSK mapping is one-to-one with Validated-by column — verified.
+- **EXACT RESUME POINT**: P7a — FUTURE_IMPROVEMENTS.md: cover all in-scope
+  categories (architecture: NF-03 REST/WS unification, NF-05 shutdown
+  discipline; scalability: g9 redis/worker seam; maintainability: server.py
+  god-module split g1; DX/tooling; docs) each with benefit/cost/prerequisite
+  + SHORT/MID/LONG tags; provider abstraction EXCLUDED per 0.8;
+  output file: docs/engineering/FUTURE_IMPROVEMENTS.md. Then P8a →
+  RELEASE_READINESS_REPORT.md (gates G1–G5, Go/No-Go, reconcile PROGRESS).
