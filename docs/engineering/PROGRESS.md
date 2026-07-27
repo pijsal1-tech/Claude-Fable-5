@@ -10,11 +10,11 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-27 (Session 5 — P6 complete) |
-| stage | PLANNING (MODE A) |
-| current-phase | P7 — Future Improvements |
-| current-task | P7(a) all categories with benefit/cost/prerequisite |
-| completion % (planning) | 95% (38 / 40 in-scope phase-checkpoints) |
+| last-updated | 2026-07-27 (Session 6 — P7+P8 complete — PLANNING 100%) |
+| stage | PLANNING COMPLETE (MODE A done — awaiting user decision to enter MODE B) |
+| current-phase | — (all P1–P8 complete) |
+| current-task | GATE: user approval for MODE B → start TSK-201 then TSK-101 (M1) |
+| completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
 | completion % (execution) | N/A (task table empty until P5) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
@@ -136,12 +136,12 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 ### P7 — FUTURE_IMPROVEMENTS.md (1 checkpoint) — budget 5%
 | # | Checkpoint | Status |
 |---|---|---|
-| P7a | All categories covered with benefit/cost/prerequisite + SHORT/MID/LONG tags (provider abstraction excluded) | ⬜ |
+| P7a | All categories covered with benefit/cost/prerequisite + SHORT/MID/LONG tags (provider abstraction excluded) | ✅ |
 
 ### P8 — RELEASE_READINESS_REPORT.md (1 checkpoint) — budget 5%
 | # | Checkpoint | Status |
 |---|---|---|
-| P8a | Gates G1–G5 assessed; Go/No-Go verdict stated (CORE SYSTEM only); PROGRESS.md reconciled | ⬜ |
+| P8a | Gates G1–G5 assessed; Go/No-Go verdict stated (CORE SYSTEM only); PROGRESS.md reconciled | ✅ |
 
 ---
 
@@ -357,3 +357,30 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
   + SHORT/MID/LONG tags; provider abstraction EXCLUDED per 0.8;
   output file: docs/engineering/FUTURE_IMPROVEMENTS.md. Then P8a →
   RELEASE_READINESS_REPORT.md (gates G1–G5, Go/No-Go, reconcile PROGRESS).
+
+### Session 6 — 2026-07-27 (P7 + P8 complete → PLANNING 100%)
+- **Checkpoints completed**: P7a → `docs/engineering/FUTURE_IMPROVEMENTS.md`
+  (FI-01…FI-12: architecture FI-01/02/03, scalability FI-04/05,
+  maintainability FI-06/07/08, DX/frontend FI-09/10, docs FI-11/12; each
+  with benefit/cost/prerequisite + SHORT/MID/LONG; provider abstraction
+  explicitly excluded per 0.8). P8a →
+  `docs/engineering/RELEASE_READINESS_REPORT.md` (G1 core correctness
+  ⚠️ conditional-fail on BUG-01; G2 security ⚠️ on NF-15/NF-18; G3 stability
+  ⚠️ on BUG-03/NF-06/07/01/04; G4 maintainability ⚠️ non-blocking;
+  G5 QA/traceability ✅ PASS).
+- **Decisions**:
+  1. Verdict: public release **NO-GO** on current codebase; transition to
+     **MODE B GO immediately**. Shortest lift path: M1 → QA-T05/06/07 →
+     M2 → QA-T08/09 → re-assess G1–G3.
+  2. Reconciliation recorded in the report: 40/40 planning, 0/19 execution,
+     BUG-02 excluded once, providers/ never read, zero secrets quoted,
+     9 documents produced, MODE A write-boundary respected.
+  3. FI-10 (client-side sanitizer) logged as the one new P7-stage finding
+     (renderMarkdown app.js:L2281–2295 unsanitized innerHTML) — non-blocking,
+     SHORT, independent.
+- **EXACT RESUME POINT**: PLANNING COMPLETE (40/40). Program is gated on an
+  explicit user decision to enter MODE B (execution). Upon approval, start:
+  **TSK-201 (merge apply paths → _apply_batch) then TSK-101 (mode-aware
+  parser + drop actions from chat done-frame) then TSK-102** — M1 path;
+  first QA gate after the trio = QA-T05. Task table above is the execution
+  SSOT (0/19 done). No further MODE A work remains.
