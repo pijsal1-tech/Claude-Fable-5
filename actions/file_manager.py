@@ -27,7 +27,7 @@ WEB_EXTENSIONS = {
 IGNORE_DIRS = {
     "node_modules", ".git", "__pycache__", ".next", ".nuxt",
     "dist", "build", ".cache", ".vscode", ".idea",
-    "venv", ".venv", "env", ".env",
+    "venv", ".venv", "env", ".env", "test-results",
 }
 
 # ── حد أقصى لحجم الملف (500 KB) ──

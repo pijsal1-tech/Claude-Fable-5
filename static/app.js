@@ -22,7 +22,13 @@ const state = {
     terminals: [],      // [{id, name, shell, output}]
     activeTerminal: null,
     terminalIdCounter: 0,
+    // ── إدارة البث والإيقاف ──
+    currentRequestId: null,       // UUID الطلب الحالي لمطابقة ردود الـ WS
+    activeGenerationKind: null,   // "chat" | "chain" — نوع التوليد النشط
+    stopRequested: false,         // منع تكرار إرسال طلب الإيقاف
+    _stopFallbackTimer: null,     // مؤقت أمان 6 ثوانٍ لإعادة واجهة العميل
 };
+
 
 // ═══════════════════════════════════════════
 // Init
@@ -214,8 +220,7 @@ function handleWSMessage(data) {
             break;
 
         case "project_switched":
-            document.getElementById("project-name").textContent =
-                `📂 ${data.project.name} (${data.project.total_files} files)`;
+            setProjectCrumb(data.project.name, data.project.total_files);
             state.openTabs = [];
             state.activeTab = null;
             document.getElementById("tabs").innerHTML = "";
@@ -226,8 +231,37 @@ function handleWSMessage(data) {
             toast(`تم فتح: ${data.project.name}`, "success");
             break;
 
+        case "path_detected_options": {
+            const reqId = data.request_id;
+            const detectedPath = data.path;
+            const container = document.getElementById("chat-messages");
+            const card = document.createElement("div");
+            card.className = "chat-msg assistant path-decision-card";
+            card.dataset.reqId = reqId;
+            card.innerHTML = `
+                <div class="msg-label">📂 مسار مكتشف</div>
+                <div class="msg-content">
+                    <p>اكتشفت مسار مجلد في رسالتك:<br>
+                       <code style="word-break:break-all">${escapeHtml(detectedPath)}</code></p>
+                    <p>ماذا تريد أن أفعل؟</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+                        <button class="action-btn" onclick="sendPathAction('${reqId}','switch',this)">🔄 تغيير مجلد العمل</button>
+                        <button class="action-btn" onclick="sendPathAction('${reqId}','attach',this)">📎 إرفاق كسياق فقط</button>
+                        <button class="action-btn" style="background:var(--surface-1)" onclick="sendPathAction('${reqId}','continue',this)">💬 تجاهل والمتابعة</button>
+                    </div>
+                </div>`;
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+            break;
+        }
+
+        case "confirm_path_failed":
+            toast(`⚠️ ${data.error || "فشل تأكيد المسار"}`, "error");
+            break;
+
         case "pong":
             break;
+
 
         // ── Chain System Events ──
 
@@ -927,7 +961,7 @@ function appendStreamChunk(text) {
     container.scrollTop = container.scrollHeight;
 }
 
-function finalizeStreamMessage(data) {
+function finalizeStreamMessage(data = {}) {
     if (currentStreamMsg) {
         // إزالة streaming dot
         const label = currentStreamMsg.querySelector(".msg-label");
@@ -992,6 +1026,126 @@ function finalizeStreamMessage(data) {
     document.getElementById("send-btn").disabled = false;
     currentStreamMsg = null;
     currentStreamText = "";
+}
+
+// ═══════════════════════════════════════════
+// UUID + Stop Generation + Send Button
+// ═══════════════════════════════════════════
+
+function generateUUID() {
+    if (typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    // Fallback قوي مبني على crypto.getRandomValues
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    arr[6] = (arr[6] & 0x0f) | 0x40; // UUID Version 4
+    arr[8] = (arr[8] & 0x3f) | 0x80; // Variant 10xx
+    return [...arr].map((b, i) => {
+        const s = b.toString(16).padStart(2, '0');
+        return (i === 4 || i === 6 || i === 8 || i === 10) ? '-' + s : s;
+    }).join('');
+}
+
+function updateSendButtonState() {
+    const btn = document.getElementById('send-btn');
+    if (!btn) return;
+    if (state.streaming) {
+        btn.innerHTML = '■';
+        btn.title = 'إيقاف التوليد';
+        btn.classList.add('stop-mode');
+    } else {
+        btn.innerHTML = '▶';
+        btn.title = 'إرسال';
+        btn.classList.remove('stop-mode');
+    }
+}
+
+function clearStopFallbackTimer() {
+    if (state._stopFallbackTimer) {
+        clearTimeout(state._stopFallbackTimer);
+        state._stopFallbackTimer = null;
+    }
+}
+
+function stopGeneration() {
+    if (state.stopRequested || !state.streaming) return;
+    state.stopRequested = true;
+    const kind = state.activeGenerationKind;
+    const reqId = state.currentRequestId;
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        if (kind === 'chain') {
+            state.ws.send(JSON.stringify({ type: 'chain_cancel', request_id: reqId }));
+        } else {
+            state.ws.send(JSON.stringify({ type: 'stop', request_id: reqId }));
+        }
+    }
+    // مؤقت أمان: إعادة الواجهة بعد 6 ثوانٍ إذا لم يرد السيرفر
+    state._stopFallbackTimer = setTimeout(() => {
+        resetStreamingUI();
+    }, 6000);
+}
+
+function resetStreamingUI() {
+    clearStopFallbackTimer();
+    state.streaming = false;
+    state.currentRequestId = null;
+    state.activeGenerationKind = null;
+    state.stopRequested = false;
+    updateSendButtonState();
+    if (typeof currentStreamMsg !== 'undefined' && currentStreamMsg) {
+        finalizeStreamMessage({});
+    }
+}
+
+function handleSendBtnClick() {
+    if (state.streaming) {
+        stopGeneration();
+    } else {
+        sendMessage();
+    }
+}
+
+// ═══════════════════════════════════════════
+// File Tree Toggle
+// ═══════════════════════════════════════════
+
+function toggleFileTree() {
+    const sidebar = document.getElementById('sidebar');
+    const title = document.getElementById('explorer-title');
+    const arrow = title ? title.querySelector('.tree-arrow') : null;
+    const fileTree = document.getElementById('file-tree');
+    if (!sidebar || !fileTree) return;
+    const isCollapsed = sidebar.classList.toggle('collapsed-full');
+    if (arrow) arrow.style.transform = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+    if (title) title.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+}
+
+function focusPathInTree(filePath) {
+    const treeItems = document.querySelectorAll('[data-path]');
+    let targetNode = null;
+    for (const item of treeItems) {
+        if (item.dataset.path === filePath) {
+            targetNode = item;
+            break;
+        }
+    }
+    if (!targetNode) return;
+    // فتح المجلدات الأبوية
+    let parent = targetNode.parentElement;
+    while (parent) {
+        if (parent.classList.contains('tree-folder-children')) {
+            parent.style.display = 'block';
+        }
+        parent = parent.parentElement;
+    }
+    targetNode.classList.add('tree-item-highlight');
+    requestAnimationFrame(() => {
+        if (document.body.contains(targetNode)) {
+            targetNode.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    });
+    setTimeout(() => targetNode.classList.remove('tree-item-highlight'), 2000);
 }
 
 function showErrorInChat(text) {
@@ -1250,13 +1404,15 @@ function renderTreeNode(container, node, depth) {
                 e.dataTransfer.effectAllowed = "copy";
             });
         } else {
-            item.innerHTML = `${indent}<span class="icon">📁</span><span class="name">${key}</span>`;
+            item.innerHTML = `${indent}<svg class="file-icon" style="color:var(--yellow)" aria-hidden="true"><use href="/static/icons/sprite.svg#icon-folder"></use></svg><span class="name">${key}</span>`;
             item.onclick = (e) => {
                 e.stopPropagation();
                 const children = item.nextElementSibling;
                 if (children && children.classList.contains("tree-children")) {
                     children.classList.toggle("hidden");
-                    item.querySelector(".icon").textContent = children.classList.contains("hidden") ? "📁" : "📂";
+                    const isOpen = !children.classList.contains("hidden");
+                    item.querySelector("use").setAttribute("href",
+                        `/static/icons/sprite.svg#icon-folder${isOpen ? "-open" : ""}`);
                 }
             };
             // Make folder draggable to chat
@@ -1367,7 +1523,15 @@ function showEditor(path, content) {
     // حفظ المحتوى الأصلي للمقارنة
     state.editorOriginal = content;
     textarea.value = content;
-    filenameEl.textContent = path;
+    
+    // Breadcrumb formatting (VSCode style)
+    const pathParts = path.split(/[\/\\]/);
+    const breadcrumbHtml = pathParts.map((part, idx) => {
+        const isLast = idx === pathParts.length - 1;
+        const icon = isLast ? fileIconHTML(path) : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+        return `<span class="crumb-item">${icon} <span>${part}</span></span>`;
+    }).join('<span class="crumb-sep">›</span>');
+    filenameEl.innerHTML = breadcrumbHtml;
     dirtyEl.classList.add("hidden");
 
     // تحديث أرقام الأسطر + طبقة الإبراز (T-064)
@@ -1896,17 +2060,31 @@ function autoResizeInput(el) {
 // ═══════════════════════════════════════════
 // Project Info
 // ═══════════════════════════════════════════
+// ── مساعد: تحديث breadcrumb المشروع في الـ titlebar الجديد ──
+function setProjectCrumb(name, filesCount) {
+    const el = document.getElementById('project-name');
+    if (!el) return;
+    // الـ span الداخلي في .project-crumb
+    const span = el.querySelector('span') || el;
+    span.textContent = filesCount !== undefined
+        ? `${name}  (${filesCount} files)`
+        : name;
+    el.title = `اضغط لتغيير المجلد\n${name}`;
+}
+
 function loadProjectInfo() {
     fetch("/api/info")
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
-                document.getElementById("project-name").textContent =
-                    `📂 ${data.project.name} (${data.project.total_files} files)`;
+                setProjectCrumb(data.project.name, data.project.total_files);
                 // T-066: جذر المشروع — لاختصار المسارات المطلقة في لوحة التاريخ
                 state.projectRoot = data.project.root || "";
-                if (data.provider.model) {
-                    document.getElementById("provider-name").textContent = data.provider.model;
+                if (data.provider.name || data.provider.model) {
+                    const provBadge = document.getElementById("provider-name");
+                    if (provBadge && !provBadge.dataset.userSwitched) {
+                        provBadge.textContent = data.provider.name || data.provider.model;
+                    }
                 }
             }
         })
@@ -2233,8 +2411,7 @@ function openFolder() {
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
-                document.getElementById("project-name").textContent =
-                    `📂 ${data.project.name} (${data.project.total_files} files)`;
+                setProjectCrumb(data.project.name, data.project.total_files);
                 // مسح tabs + editor
                 state.openTabs = [];
                 state.activeTab = null;
@@ -2455,9 +2632,20 @@ function loadModels() {
     fetch("/api/models")
         .then(r => r.json())
         .then(data => {
-            if (!data.ok) return;
+            if (!data.ok || !data.current) return;
             const label = document.getElementById("current-model-label");
-            label.textContent = `${data.current.provider}/${data.current.model}`;
+            const btn = document.getElementById("model-btn");
+            const provBadge = document.getElementById("provider-name");
+
+            const currModel = data.current.model || "Default";
+            const currProv = data.current.provider || "";
+
+            if (label) label.textContent = currModel;
+            if (btn) btn.title = `المزود: ${currProv} | النموذج: ${currModel}`;
+            if (provBadge && currProv) {
+                provBadge.textContent = currProv;
+                provBadge.dataset.userSwitched = "true";
+            }
             renderModelList(data.providers, data.current);
         })
         .catch(() => { });
@@ -2518,9 +2706,18 @@ function switchModel(providerId, modelName) {
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
-                toast(`✅ تم التغيير: ${providerId}/${modelName}`, "success");
-                document.getElementById("current-model-label").textContent = `${providerId}/${modelName}`;
-                document.getElementById("model-dropdown").classList.add("hidden");
+                toast(`✅ تم التغيير: ${modelName}`, "success");
+                const label = document.getElementById("current-model-label");
+                const btn = document.getElementById("model-btn");
+                const provBadge = document.getElementById("provider-name");
+                if (label) label.textContent = modelName;
+                if (btn) btn.title = `المزود: ${providerId} | النموذج: ${modelName}`;
+                if (provBadge) {
+                    provBadge.textContent = providerId;
+                    provBadge.dataset.userSwitched = "true";
+                }
+                const dropdown = document.getElementById("model-dropdown");
+                if (dropdown) dropdown.classList.add("hidden");
                 loadModels();
             } else {
                 toast(`❌ فشل: ${data.error}`, "error");
@@ -3071,8 +3268,10 @@ function showDelegateReview(data) {
 
 function delegateApprove() {
     if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-        state.ws.send(JSON.stringify({ type: "delegate_approve" }));
-        // Update UI
+        state.ws.send(JSON.stringify({
+            type: "delegate_approve",
+            request_id: state.currentRequestId  // ربط الموافقة بالـ request_id النشط
+        }));
         document.querySelectorAll(".review-btn").forEach(b => b.disabled = true);
         toast("⏳ جاري تطبيق التعديلات...", "info");
     }
@@ -3081,8 +3280,35 @@ function delegateApprove() {
 function delegateReject() {
     const reason = prompt("سبب الرفض (اختياري):");
     if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-        state.ws.send(JSON.stringify({ type: "delegate_reject", reason: reason || "" }));
+        state.ws.send(JSON.stringify({
+            type: "delegate_reject",
+            request_id: state.currentRequestId,  // ربط الرفض بالـ request_id النشط
+            reason: reason || ""
+        }));
         document.querySelectorAll(".review-btn").forEach(b => b.disabled = true);
+    }
+}
+
+function sendPathAction(reqId, action, btnEl) {
+    // تعطيل جميع أزرار بطاقة القرار المحددة
+    const card = btnEl ? btnEl.closest('.path-decision-card') : null;
+    if (card) card.querySelectorAll('button').forEach(b => b.disabled = true);
+
+    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+        toast('⚠️ الاتصال مقطوع', 'error');
+        return;
+    }
+    state.ws.send(JSON.stringify({
+        type: 'confirm_path_action',
+        request_id: reqId,
+        action: action   // 'switch' | 'attach' | 'continue'
+    }));
+    if (action === 'switch') {
+        toast('⏳ جاري تغيير مجلد العمل...', 'info');
+    } else if (action === 'attach') {
+        toast('📎 سيتم إرفاق المجلد كسياق', 'info');
+    } else {
+        if (card) card.style.opacity = '0.5';
     }
 }
 // ═══════════════════════════════════════════
@@ -3341,3 +3567,157 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshCapacity();
     setInterval(refreshCapacity, CAPACITY_POLL_MS);
 });
+
+// ═══════════════════════════════════════════
+// Activity Bar Navigation
+// ═══════════════════════════════════════════
+
+function setActivityView(view) {
+    // تحديث حالة الأزرار
+    document.querySelectorAll('.activity-btn').forEach(b => b.classList.remove('active'));
+
+    const sidebar = document.getElementById('sidebar');
+    const chatPanel = document.getElementById('chat-panel');
+
+    if (view === 'explorer') {
+        const btn = document.getElementById('act-explorer');
+        if (btn) btn.classList.add('active');
+        // إظهار الـ sidebar لو كان مخفياً
+        if (sidebar) {
+            sidebar.classList.remove('collapsed', 'collapsed-full');
+        }
+    } else if (view === 'chat') {
+        const btn = document.getElementById('act-chat');
+        if (btn) btn.classList.add('active');
+    }
+}
+
+// ═══════════════════════════════════════════
+// Global Project Search (Ctrl+K Quick Open)
+// ═══════════════════════════════════════════
+let quickOpenSearchTimer = null;
+let quickOpenSelectedIndex = 0;
+
+function openQuickOpenModal() {
+    const modal = document.getElementById("quick-open-modal");
+    const input = document.getElementById("quick-open-input");
+    if (!modal || !input) return;
+    modal.classList.remove("hidden");
+    input.value = "";
+    input.focus();
+    quickOpenSelectedIndex = 0;
+    performQuickOpenSearch("");
+}
+
+function closeQuickOpenModal() {
+    const modal = document.getElementById("quick-open-modal");
+    if (modal) modal.classList.add("hidden");
+}
+
+function closeQuickOpenOnOutside(e) {
+    if (e.target.id === "quick-open-modal") {
+        closeQuickOpenModal();
+    }
+}
+
+function performQuickOpenSearch(query) {
+    const resultsContainer = document.getElementById("quick-open-results");
+    if (!resultsContainer) return;
+
+    fetch(`/api/search?q=${encodeURIComponent(query)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok || !data.results) {
+                resultsContainer.innerHTML = '<div class="quick-open-empty">لا توجد نتائج</div>';
+                return;
+            }
+            if (data.results.length === 0) {
+                resultsContainer.innerHTML = '<div class="quick-open-empty">لا توجد نتائج مطابقة</div>';
+                return;
+            }
+
+            resultsContainer.innerHTML = data.results.map((res, idx) => {
+                const isSelected = idx === quickOpenSelectedIndex ? "selected" : "";
+                const icon = fileIconHTML(res.path);
+                const snippet = res.type === "content" 
+                    ? `<div class="quick-open-snippet">Line ${res.line}: <code>${escapeHTML(res.snippet)}</code></div>` 
+                    : "";
+                return `
+                    <div class="quick-open-item ${isSelected}" data-index="${idx}" onclick="selectQuickOpenResult('${res.path}', ${res.line || 0})">
+                        ${icon}
+                        <div class="quick-open-info">
+                            <span class="quick-open-name">${res.name || res.path}</span>
+                            <span class="quick-open-path">${res.path}</span>
+                            ${snippet}
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        })
+        .catch(() => {
+            resultsContainer.innerHTML = '<div class="quick-open-empty">خطأ أثناء البحث</div>';
+        });
+}
+
+function selectQuickOpenResult(path, line) {
+    closeQuickOpenModal();
+    openFile(path);
+}
+
+function escapeHTML(str) {
+    return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Shortcut listener for Ctrl+K
+document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        openQuickOpenModal();
+    } else if (e.key === "Escape") {
+        closeQuickOpenModal();
+    }
+});
+
+// Input & Keyboard navigation inside Quick Open
+document.addEventListener("DOMContentLoaded", () => {
+    const input = document.getElementById("quick-open-input");
+    if (input) {
+        input.addEventListener("input", (e) => {
+            clearTimeout(quickOpenSearchTimer);
+            quickOpenSearchTimer = setTimeout(() => {
+                quickOpenSelectedIndex = 0;
+                performQuickOpenSearch(e.target.value);
+            }, 150);
+        });
+
+        input.addEventListener("keydown", (e) => {
+            const items = document.querySelectorAll(".quick-open-item");
+            if (items.length === 0) return;
+
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                quickOpenSelectedIndex = (quickOpenSelectedIndex + 1) % items.length;
+                updateQuickOpenSelection(items);
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                quickOpenSelectedIndex = (quickOpenSelectedIndex - 1 + items.length) % items.length;
+                updateQuickOpenSelection(items);
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                const activeItem = items[quickOpenSelectedIndex];
+                if (activeItem) activeItem.click();
+            }
+        });
+    }
+});
+
+function updateQuickOpenSelection(items) {
+    items.forEach((item, idx) => {
+        item.classList.toggle("selected", idx === quickOpenSelectedIndex);
+        if (idx === quickOpenSelectedIndex) {
+            item.scrollIntoView({ block: "nearest" });
+        }
+    });
+}
+
+

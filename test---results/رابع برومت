@@ -1,0 +1,300 @@
+اشرحلي تدفق الرسالة (Message Flow) جوه المحرر من أول ما المستخدم يكتب في الواجهة لحد ما الرد يظهر:
+1) إيه اللي بيحصل في الواجهة (app.js والـ WebSocket)؟
+2) إيه الدالة في server.py اللي بتستقبل الرسالة؟
+3) إزاي الـ Orchestrator أو Router بيختار المزود والنموذج؟
+4) إزاي الـ ResponseParser بيعالج الرد ويرجعه للواجهة؟
+المطلوب: شرح هندسي متسلسل بالسطور والدوال الحقيقية في الكود، بدون أي تعديل.
+
+
+"الرد"
+
+شرح هندسي متسلسل لتدفق الرسالة — Message Flow
+بناءً على الكودين الكاملين اللذين أمامي (improvements/شامل/جديد/static/app.js و improvements/شامل/جديد/server.py)، سأشرح الدورة الكاملة من لحظة كتابة المستخدم حتى ظهور الرد.
+
+المرحلة الأولى: الواجهة (app.js) — من الإدخال إلى إرسال WebSocket
+1. تهيئة الاتصال — initWebSocket() (سطر 53)
+
+عند تحميل الصفحة، يُطلق الحدث DOMContentLoaded (سطر 36) فيستدعي initWebSocket(). داخل هذه الدالة يُنشأ كائن WebSocket على العنوان ws://host/ws أو wss:// عبر HTTPS. يُخزَّن هذا الكائن في state.ws (سطر 57). عند نجاح الاتصال (onopen) يُضبط state.connected = true، وعند انقطاعه تُعاد المحاولة تلقائياً بعد 3 ثوانٍ (سطر 71). كل رسالة واردة تمر عبر state.ws.onmessage التي تُحلِّل JSON وترسله لـhandleWSMessage() (سطر 81).
+
+2. الإرسال — sendMessage() (سطر 449)
+
+عندما يضغط المستخدم Enter أو زر الإرسال (عبر initChatInput() سطر 1400 أو handleSendBtnClick() سطر 2708)، تُستدعى sendMessage(). الدالة تمر بثلاثة فروع منطقية:
+
+javascript
+🧲 Copy
+📋 Apply
+// سطر 452 — الحراسات الأولية
+if (!text || state.streaming || !state.connected) return;
+if (!isWebSocketOpen()) { toast("❌ فشل الإرسال..."); return; }
+الفرع الأول — مجلد مرفق (chain_message): إذا كان في state.attachments مرفق من نوع مجلد (isFolder: true)، يُبنى كائن mergedFiles عبر buildMergedAttachmentFiles() (سطر 348) الذي يُطبِّع المسارات ويتحقق من التعارضات، ثم يُرسَل:
+
+javascript
+🧲 Copy
+📋 Apply
+state.ws.send(JSON.stringify({
+    type: "chain_message",
+    text: text,
+    files: mergedFiles,
+    mode: state.mode,
+    request_id: requestId,   // UUID فريد لكل طلب
+}));
+الفرع الثاني — رسالة عادية مع مرفقات نصية: تُدمج محتويات الملفات في نص الرسالة نفسه عبر markdown fence (سطر 499-507)، ثم:
+
+javascript
+🧲 Copy
+📋 Apply
+state.ws.send(JSON.stringify({
+    type: "message",
+    text: textToSend,
+    mode: state.mode,
+    request_id: requestId,
+}));
+3. إدارة حالة البث بعد الإرسال (سطر 523-530)
+
+javascript
+🧲 Copy
+📋 Apply
+state.currentRequestId = requestId;     // لمطابقة الردود
+state.activeGenerationKind = "chat";    // أو "chain"
+state.streaming = true;
+updateSendButtonState();                 // ← يحول الزر إلى ■ (إيقاف)
+المرحلة الثانية: server.py — استقبال الرسالة ومعالجتها
+1. المدخل الوحيد — ws_handler(ws) (سطر 983 في النسخة improvements/شامل/جديد)
+
+هذه الدالة مسجَّلة على المسار /ws عبر @sock.route("/ws"). تعمل داخل حلقة لا نهائية تستقبل الرسائل من ws_msg_queue (سطر 1016):
+
+python
+🧲 Copy
+📋 Apply
+ws_msg_queue = queue.Queue()
+
+def _recv_worker():
+    while True:
+        raw = ws.receive()
+        ws_msg_queue.put(raw)
+
+recv_thread = threading.Thread(target=_recv_worker, daemon=True)
+recv_thread.start()
+يُفصَل الاستقبال في thread منفصل لأن الرسائل الواردة (مثل طلب الإيقاف stop) يجب ألا تنتظر انتهاء البث.
+
+2. توجيه الرسالة حسب النوع
+
+بعد json.loads(raw) (سطر 1019)، تُقرأ msg_type ويُوجَّه الطلب:
+
+إذا كانت type == "message" → يُعالَج عبر _process_ai_chat()
+إذا كانت type == "chain_message" → يُوجَّه لـ chain_bridge.start_chain()
+3. كشف المسارات الذكي — داخل معالج "message" (سطر 1139-1224)
+
+قبل إرسال أي شيء للـ AI، يفحص السيرفر نص المستخدم بحثاً عن مسارات أنظمة الملفات الخارجية عبر _detect_external_directory() (سطر 100). إذا وجد مجلداً خارجياً يُرسل للواجهة:
+
+python
+🧲 Copy
+📋 Apply
+ws.send(json.dumps({
+    "type": "path_detected_options",
+    "request_id": request_id,
+    "path": detected_dir
+}))
+continue  # ← توقف التنفيذ — ينتظر قرار المستخدم
+وإذا لم يجد مجلداً، يستدعي _process_ai_chat() مباشرة (سطر 1228).
+
+4. المعالجة المركزية — _process_ai_chat() (سطر 599)
+
+هذه الدالة هي قلب النظام. تمر بالخطوات التالية بالترتيب:
+
+python
+🧲 Copy
+📋 Apply
+# أ) البحث عن ملفات مذكورة في النص (Smart File Detection)
+mentioned_files = []  # يبحث في fm.root.rglob() عن ملفات مذكورة باسمها
+# ب) قراءة محتوى الملفات وإلحاقها بالنص
+user_text_with_files = user_text + target_files_content
+# ج) بناء سياق المشروع
+project_context = fm.get_project_context()
+# د) بناء البرومبت
+prompt = build_prompt(mode=mode, user_request=user_text_with_files, project_context=project_context)
+# هـ) حفظ رسالة المستخدم في التاريخ
+chat_history.append(Message(role="user", content=user_text))
+المرحلة الثالثة: المزود والبث — provider.stream() والـ Queue
+1. نمط Thread + Queue (سطر 678-748)
+
+لدعم إيقاف التوليد أثناء البث دون تجميد الخيط الرئيسي، يُطلق thread منفصل:
+
+python
+🧲 Copy
+📋 Apply
+chunk_queue = queue.Queue()
+cancel_event = threading.Event()
+
+def _stream_worker():
+    try:
+        for chunk in provider.stream(prompt, chat_history[:-1], system_prompt):
+            if cancel_event.is_set():
+                break
+            chunk_queue.put(("chunk", chunk))
+        chunk_queue.put(("done", None))
+    except Exception as e:
+        chunk_queue.put(("error", str(e)))
+
+t = threading.Thread(target=_stream_worker, daemon=True)
+t.start()
+2. حلقة استهلاك الـ Chunks مع مراقبة طلبات الإيقاف (سطر 697-748)
+
+python
+🧲 Copy
+📋 Apply
+while True:
+    # فحص ws_msg_queue أولاً — هل جاء طلب إيقاف؟
+    if ws_msg_queue is not None:
+        ws_raw = ws_msg_queue.get_nowait()
+        ws_data = json.loads(ws_raw)
+        if ws_data.get("type") == "stop":
+            if ws_data.get("request_id") == request_id:
+                cancel_event.set()
+                termination = {"kind": "stopped"}
+    
+    # ثم قراءة chunk من stream worker
+    msg_type, payload = chunk_queue.get(timeout=0.05)
+    
+    if msg_type == "chunk":
+        full_response += payload
+        _safe_ws_send(ws, {"type": "chunk", "request_id": request_id, "text": payload})
+    elif msg_type == "done":
+        break
+3. _safe_ws_send() (سطر 590)
+
+كل إرسال يمر عبر هذه الدالة لامتصاص أي استثناء ينجم عن اتصال مقطوع:
+
+python
+🧲 Copy
+📋 Apply
+def _safe_ws_send(ws, payload: dict) -> bool:
+    try:
+        ws.send(json.dumps(payload, ensure_ascii=False))
+        return True
+    except Exception:
+        return False
+المرحلة الرابعة: ResponseParser — تحليل الرد وإرجاعه للواجهة
+1. استدعاء parser.parse() (سطر 793)
+
+بعد اكتمال البث، يُحلَّل full_response عبر ResponseParser من actions/response_parser.py:
+
+python
+🧲 Copy
+📋 Apply
+parsed = parser.parse(full_response)
+actions = []
+for fb in parsed.files:
+    actions.append({"action": "create_file", "path": fb.path, "content": fb.content})
+for eb in parsed.edits:
+    actions.append({"action": "edit_file", "path": eb.path, ...})
+for cb in parsed.commands:
+    actions.append({"action": "run_command", "command": cb.command})
+options = [opt.text for opt in parsed.options]
+2. إرسال إطار done أو plan (سطر 805-822)
+
+python
+🧲 Copy
+📋 Apply
+if mode in ("plan", "build", "edit") and actions:
+    _safe_ws_send(ws, {
+        "type": "plan",
+        "request_id": request_id,
+        "actions": actions,
+        "options": options,
+        "summary": parsed.summary()
+    })
+else:
+    _safe_ws_send(ws, {
+        "type": "done",
+        "request_id": request_id,
+        "actions": actions,
+        "options": options,
+        "summary": parsed.summary()
+    })
+المرحلة الخامسة: الواجهة تستقبل الرد — handleWSMessage()
+1. فلترة الطلبات الغريبة (سطر 92-101 في app.js)
+
+javascript
+🧲 Copy
+📋 Apply
+const generationEvents = ["start", "chunk", "done", "plan", "error", ...];
+if (generationEvents.includes(data.type)) {
+    if (data.request_id && data.request_id !== state.currentRequestId) {
+        return;  // ← تجاهل ردود طلبات قديمة/منتهية
+    }
+}
+2. معالجة "start" (سطر 105)
+
+javascript
+🧲 Copy
+📋 Apply
+case "start":
+    state.streaming = true;
+    updateSendButtonState();   // ← زر ■
+    startStreamingMessage();   // ← إنشاء div.chat-msg.assistant فارغ مع نقطة وميضية
+3. معالجة "chunk" عبر appendStreamChunk() (سطر 112 و 581)
+
+كل chunk يُلحق بـcurrentStreamText ثم يُحوَّل مباشرةً عبر renderMarkdown() (يستخدم marked.js + highlight.js) ويُكتَب في DOM:
+
+javascript
+🧲 Copy
+📋 Apply
+function appendStreamChunk(text) {
+    currentStreamText += text;
+    const content = currentStreamMsg.querySelector(".streaming-content");
+    content.innerHTML = renderMarkdown(currentStreamText);
+    container.scrollTop = container.scrollHeight;  // ← auto-scroll
+}
+4. معالجة "done" — resetStreamingUI() (سطر 115)
+
+javascript
+🧲 Copy
+📋 Apply
+case "done":
+    resetStreamingUI();  // ← state.streaming=false، زر ▶، finalizeStreamMessage()
+داخل finalizeStreamMessage() (سطر 593):
+
+تُزال نقطة الوميض
+يُطبَّق syntax highlighting نهائي على كل بلوكات الكود
+تُضاف أزرار "Apply" و"Copy" لكل كتلة كود عبر addApplyButtons()
+تُعرض Quick Reply buttons إذا كانت data.options موجودة
+يُضاف زر "📋 نسخ الرد"
+5. معالجة "plan" (سطر 119)
+
+javascript
+🧲 Copy
+📋 Apply
+case "plan":
+    resetStreamingUI();
+    showPlanCard(data.actions, data.summary);  // ← بطاقة الخطة مع أزرار الموافقة
+ملخص تسلسلي للتدفق
+$$\text{المستخدم يكتب} \xrightarrow{\text{Enter/Click}} \texttt{sendMessage()} \xrightarrow{\text{WS JSON}} \texttt{ws_handler()}$$
+
+$$\xrightarrow{\texttt{_process_ai_chat()}} \texttt{provider.stream()} \xrightarrow{\text{chunk queue}} \texttt{_safe_ws_send(chunk)}$$
+
+$$\xrightarrow{\texttt{handleWSMessage()}} \texttt{appendStreamChunk()} \xrightarrow{\text{finalizeStreamMessage()}} \text{عرض الرد كاملاً}$$
+
+code
+🧲 Copy
+📋 Apply
+[Browser]                    [server.py]                   [Provider]
+   │                              │                              │
+   │─── WS: {type:"message"} ───►│                              │
+   │                              │─ _process_ai_chat() ─────── │
+   │                              │◄── stream(chunk) ───────────│
+   │◄── WS: {type:"start"} ──────│                              │
+   │◄── WS: {type:"chunk"} ──────│                              │
+   │◄── WS: {type:"chunk"} ──────│ (تكرار لكل جزء)             │
+   │◄── WS: {type:"done"} ───────│ (بعد parser.parse())         │
+code
+🧲 Copy
+📋 Apply
+[OPTIONS]
+- [1] اشرح آلية `chain_message` وكيف يختلف مسار الـ ChainBridge عن المسار العادي
+- [2] اشرح نظام إيقاف التوليد (`stop`/`chain_cancel`) من البداية للنهاية
+- [3] اشرح كيف يعمل `RequestRouter` في server.py لاختيار المزود والاستراتيجية
+- [4] اشرح `ResponseParser` بالتفصيل — كيف يستخرج الملفات والأوامر من نص الـ AI
+- [5] فيه حاجة تانية محتاجها؟
+
+

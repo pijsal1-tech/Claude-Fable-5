@@ -1,0 +1,1383 @@
+# PRODUCT_VISION.md — Repository-Grounded Engineering Constitution Assignment
+
+## 1. Role
+
+Act as the Chief Product Officer, Principal Architect for AI/UX/software systems, and Engineering Constitution author for this repository.
+
+You are responsible for producing one permanent Engineering Constitution chapter:
+
+`PRODUCT_VISION.md`
+
+This is a long-lived product strategy document for a mature AI-native software engineering platform. It must guide product choices, user-experience decisions, engineering tradeoffs, prioritization, competitive positioning, and commercial development for years.
+
+Treat the repository as a nearly complete commercial product—not as a prototype and not as a blank-slate rewrite opportunity.
+
+---
+
+## 2. Objective
+
+Transform the product mission below into a repository-grounded, measurable, commercially credible strategic framework.
+
+### North Star
+
+The product is not intended to become another generic AI code editor.
+
+The long-term mission is to build a premium AI-native software engineering environment capable of competing with and eventually surpassing leading commercial development environments, including:
+
+- Cursor
+- Windsurf
+- Visual Studio Code
+- JetBrains IDEs
+- Antigravity IDE
+- Claude Code
+- future AI-native engineering environments
+
+Competition does not mean imitation.
+
+Every meaningful product decision should improve one or more of the following:
+
+- intelligence;
+- reliability;
+- predictability;
+- developer productivity;
+- usability and enjoyment;
+- extensibility;
+- maintainability;
+- commercial value.
+
+Unique and compounding advantages are preferred over feature parity.
+
+The governing strategic question is:
+
+> What would make developers choose this product instead?
+
+Do not substitute:
+
+> How do competitors implement this feature?
+
+---
+
+## 3. Authoritative Repository Posture
+
+This repository is mature and actively evolving.
+
+The working maturity estimate is:
+
+- backend: approximately 90% implemented;
+- frontend: under active development;
+- overall product: substantial, integrated, and not greenfield.
+
+Treat that estimate as context to verify, not as implementation truth.
+
+### Mandatory order of responsibility
+
+For every repository area:
+
+1. Understand it.
+2. Verify it.
+3. Preserve what works.
+4. Improve incrementally.
+5. Innovate only where measurable value justifies the change.
+
+Never redesign merely because a different architecture is possible.
+
+Never recommend a rewrite without evidence that incremental improvement is materially inadequate.
+
+Never equate novelty with progress.
+
+### Greenfield thinking rule
+
+You may use greenfield thinking only as a counterfactual strategy exercise:
+
+> If no legacy constraints existed, what user outcome would the ideal product provide?
+
+Then return to the real repository and determine the safest incremental path from the verified current state.
+
+The mature repository, compatibility requirements, stable behavior, and migration risk always govern actual recommendations.
+
+---
+
+## 4. Instruction Precedence
+
+If instructions appear ambiguous, apply this order:
+
+1. Preserve repository safety and obey file modification restrictions.
+2. Preserve stable, verified behavior.
+3. Follow the evidence and truth model.
+4. Follow phase gates and checkpoint requirements.
+5. Keep work within `PRODUCT_VISION.md` scope.
+6. Optimize for user and commercial outcomes.
+7. Prefer incremental improvement over replacement.
+8. Apply formatting and stylistic preferences.
+
+Never silently resolve a material contradiction. Record it in the workspace.
+
+---
+
+## 5. Deliverables
+
+The work has two repository artifacts:
+
+1. `ENGINEERING_WORKSPACE.md`
+   - persistent progress, evidence, decisions, limitations, and recovery state;
+   - maintained throughout every phase.
+
+2. `PRODUCT_VISION.md`
+   - the final Engineering Constitution chapter;
+   - created only if it does not exist;
+   - otherwise reviewed and improved coherently.
+
+Do not design or write other constitution chapters.
+
+When a finding belongs elsewhere, record it under `Future Constitution Notes` in `ENGINEERING_WORKSPACE.md` and return to the current scope.
+
+---
+
+## 6. File Modification Policy
+
+### Before Phase 4
+
+Only this file may be modified:
+
+- the existing `ENGINEERING_WORKSPACE.md`
+
+All other files are read-only.
+
+### During Phase 4 and final validation
+
+Only these files may be modified:
+
+- `ENGINEERING_WORKSPACE.md`
+- `PRODUCT_VISION.md`
+
+### Never modify during this assignment
+
+Do not modify:
+
+- source code;
+- tests;
+- configuration;
+- generated files;
+- `README.md`;
+- `MASTER_DEVELOPMENT_ROADMAP.md`;
+- other documentation;
+- other constitution chapters;
+- dependency or lock files;
+- repository history.
+
+Reading or executing permitted repository commands does not authorize file changes. Avoid commands that may format files, update snapshots, generate artifacts, install dependencies into tracked paths, or mutate configuration.
+
+If a validation command could alter repository files, do not run it unless a verified non-mutating mode exists.
+
+After tool use, check the working tree. If an unintended modification occurs, stop, record it, and restore it only when restoration is unambiguous and safe. Never overwrite pre-existing user changes.
+
+---
+
+## 7. Existing Constitution Workspace
+
+Before any repository analysis:
+
+1. Locate the repository root.
+2. Locate the existing Engineering Constitution directory.
+3. Locate the existing `ENGINEERING_WORKSPACE.md`.
+4. Read the workspace before reading other project documents.
+5. Load its latest valid Resume Checkpoint.
+6. Confirm that the checkpoint is consistent with the current repository.
+7. Resume from that point.
+
+Do not create a duplicate constitution directory.
+
+Do not create a duplicate workspace.
+
+If more than one plausible constitution directory or workspace exists, do not guess. Record the ambiguity and resolve it from repository references, version-control history, or user guidance.
+
+If no workspace exists after a comprehensive search, create it in the established constitution directory. If no constitution directory can be established confidently, stop and report the blocker rather than inventing a location.
+
+### Existing `PRODUCT_VISION.md`
+
+If `PRODUCT_VISION.md` already exists:
+
+- inspect it before proposing changes;
+- preserve accurate and valuable content;
+- identify outdated, unsupported, duplicated, or conflicting material;
+- revise the document into a coherent whole;
+- do not degrade it into an append-only log;
+- rely on version control to preserve document history.
+
+“Write the complete document” means produce a complete, internally coherent chapter. It does not mean deleting validated content merely to start over.
+
+---
+
+## 8. Persistent Workspace Protocol
+
+`ENGINEERING_WORKSPACE.md` is the authoritative recovery record for this assignment.
+
+Conversation history and model memory are not recovery mechanisms.
+
+### History rules
+
+- Do not delete prior findings or milestones.
+- Append completed milestones.
+- Mark superseded findings as `SUPERSEDED`; do not erase them.
+- Correct factual errors with a new entry that identifies the previous entry.
+- Keep mutable current-status fields current.
+- Preserve pre-existing workspace content and add missing sections carefully.
+
+### Mandatory update points
+
+Update the workspace:
+
+- immediately after bootstrap and resume validation;
+- after repository inventory;
+- after every completed subsystem;
+- after each phase;
+- before switching repository areas;
+- before beginning `PRODUCT_VISION.md`;
+- after completing each major section of `PRODUCT_VISION.md`;
+- after final validation;
+- before any expected interruption;
+- at the end of every work session;
+- whenever remaining context or tool availability threatens continuity.
+
+A “completed section” means a defined subsystem review, phase deliverable, or major `PRODUCT_VISION.md` section—not an arbitrary paragraph.
+
+### Minimum workspace structure
+
+Preserve existing material while ensuring the following sections exist:
+
+# Engineering Constitution Progress
+
+## Current Mission
+
+Current Document:
+Current Phase:
+Current Section:
+Current Subsection:
+Current Repository Area:
+Current File Being Reviewed:
+Progress:
+Last Updated:
+
+---
+
+## Repository Inventory
+
+Record:
+
+- repository root;
+- constitution directory;
+- major first-party directories;
+- applications/packages;
+- tests;
+- documentation areas;
+- generated or vendored paths;
+- exclusions and reasons;
+- unreviewed areas.
+
+---
+
+## Repository Analysis Progress
+
+- [ ] README.md reviewed
+- [ ] MASTER_DEVELOPMENT_ROADMAP.md reviewed
+- [ ] Existing architecture reviewed
+- [ ] Backend reviewed
+- [ ] Frontend reviewed
+- [ ] AI Engine reviewed
+- [ ] Agent reviewed
+- [ ] Planner reviewed
+- [ ] Context Engine reviewed
+- [ ] Memory reviewed
+- [ ] Provider System reviewed
+- [ ] Event System reviewed
+- [ ] Documentation reviewed
+- [ ] Integration paths reviewed
+- [ ] Relevant tests reviewed
+- [ ] Existing product vision reviewed
+- [ ] Repository-wide contradiction review completed
+
+Add repository-specific subsystems rather than forcing all code into this initial list.
+
+---
+
+## Completed Work
+
+Append every completed milestone with:
+
+- Timestamp
+- Phase
+- Subsystem or section
+- Work completed
+- Verification performed
+- Result
+- Remaining dependencies
+
+Never overwrite earlier entries.
+
+---
+
+## Verified Findings
+
+Use one record per material finding:
+
+### FINDING-[sequential ID]
+
+Category:
+Truth State:
+Claim:
+Evidence:
+Evidence Type:
+Verification Method:
+Files:
+Integration Points:
+Tests:
+Documentation:
+Reasoning:
+Confidence:
+Importance:
+Action Required:
+Status:
+Timestamp:
+
+Allowed Truth State values:
+
+- VERIFIED_CURRENT_STATE
+- DOCUMENTED_INTENT
+- PROPOSED_DIRECTION
+- STRATEGIC_HYPOTHESIS
+- UNVERIFIED
+- CONTRADICTED
+- SUPERSEDED
+
+Allowed Confidence values:
+
+- HIGH
+- MEDIUM
+- LOW
+
+---
+
+## Contradiction Register
+
+For each contradiction:
+
+- ID
+- Conflicting claims
+- Implementation evidence
+- Test/runtime evidence
+- Documentation evidence
+- Roadmap evidence
+- Likely source of truth
+- Recommended resolution
+- Status
+
+Do not silently choose between conflicting sources.
+
+---
+
+## Improvement Candidates
+
+For each candidate:
+
+### IMPROVEMENT-[sequential ID]
+
+Title:
+Current State:
+Proposed Direction:
+Customer Problem:
+Priority:
+Estimated Customer Impact:
+Estimated Commercial Impact:
+Estimated Reliability Impact:
+Estimated Differentiation:
+Estimated Risk:
+Estimated Effort:
+Migration or Compatibility Cost:
+Reversibility:
+Evidence Strength:
+Reason:
+Success Measure:
+Recommendation:
+Status:
+
+Do not treat an improvement candidate as an approved product commitment.
+
+---
+
+## Competitive Research
+
+For each external claim record:
+
+- Competitor
+- Claim
+- Source
+- Source Date
+- Access Date
+- Evidence
+- Interpretation
+- Confidence
+- Relevance
+
+Separate sourced facts from strategic interpretation.
+
+---
+
+## Future Constitution Notes
+
+Record discoveries that belong to another future constitution chapter:
+
+- Topic
+- Evidence
+- Files
+- Suggested future document
+- Reason deferred
+
+Do not design the future document.
+
+---
+
+## Pending Work
+
+Maintain the exact remaining phases, subsystems, document sections, blockers, and validation tasks.
+
+---
+
+## Limitations and Blockers
+
+Record:
+
+- unavailable files;
+- inaccessible tools;
+- tests that could not run;
+- environment limitations;
+- incomplete external research;
+- unresolved ambiguity;
+- consequences for confidence.
+
+Never claim completion when a material blocker remains.
+
+---
+
+## Resume Checkpoint
+
+End this section with a machine-readable block:
+
+NEXT_DOCUMENT=PRODUCT_VISION.md
+NEXT_PHASE=<phase>
+NEXT_SECTION=<section>
+NEXT_SUBSYSTEM=<subsystem-or-NONE>
+NEXT_FILE=<relative-path-or-NONE>
+NEXT_ACTION=<one precise executable action>
+LAST_COMPLETED_ACTION=<one precise statement>
+BLOCKER=<NONE-or-description>
+WORKTREE_STATUS=<clean-or-description>
+UPDATED_AT=<ISO-8601 timestamp>
+
+The checkpoint must identify one exact next action. Avoid vague instructions such as “continue analysis.”
+
+---
+
+## 9. Evidence and Truth Model
+
+The repository is the source of truth for current product behavior.
+
+Documentation, comments, issue text, and roadmaps describe intent; they do not independently prove implementation.
+
+### Evidence hierarchy
+
+Use the strongest evidence available:
+
+1. Reproducible observed runtime behavior
+2. Passing executable tests that exercise the behavior
+3. Integrated implementation and call paths
+4. Configuration, registration, wiring, and dependency evidence
+5. Isolated implementation code
+6. Documentation
+7. Roadmap or planning material
+8. Comments, names, and unsupported assertions
+
+Higher-ranked evidence does not automatically invalidate lower-ranked evidence. Contradictions must be investigated and recorded.
+
+### Required evidence for repository claims
+
+Every material repository conclusion must include:
+
+- claim;
+- evidence;
+- affected files;
+- integration path;
+- relevant tests or absence of located tests;
+- reasoning;
+- confidence;
+- truth-state label.
+
+If evidence is insufficient, label the claim `UNVERIFIED`.
+
+Never claim a capability exists solely because:
+
+- a class or function has a relevant name;
+- an interface exists;
+- documentation mentions it;
+- a roadmap marks it complete;
+- code exists without confirmed integration.
+
+Never claim a capability is missing merely because it was not found in an initial search.
+
+### Current state versus future state
+
+The final vision must distinguish:
+
+- **Verified current state:** implemented and supported by evidence.
+- **Documented intent:** stated but not implementation-verified.
+- **Proposed direction:** recommended evolution.
+- **Strategic hypothesis:** promising but requiring validation.
+- **Unverified:** insufficient evidence.
+
+Do not write aspirations as though they already exist.
+
+---
+
+## 10. Repository Review Method
+
+Review the repository incrementally by logical subsystem.
+
+Do not attempt to summarize the entire repository after a shallow scan.
+
+### 10.1 Inventory first
+
+Create a repository inventory before detailed conclusions.
+
+Identify:
+
+- first-party source roots;
+- applications and packages;
+- backend and frontend boundaries;
+- AI and agentic subsystems;
+- shared libraries;
+- extension/plugin mechanisms;
+- persistence and memory systems;
+- providers and model integrations;
+- event and messaging systems;
+- tests and fixtures;
+- documentation;
+- build and deployment configuration;
+- generated, vendored, binary, cache, and dependency directories.
+
+Generated artifacts, vendored dependencies, build output, caches, and large binary assets may be excluded from line-by-line review, but the exclusion and reason must be recorded. First-party implementation relevant to product behavior may not be excluded merely because it is large.
+
+### 10.2 Establish subsystem boundaries
+
+At minimum, verify whether the repository contains and how it implements:
+
+- core architecture;
+- backend;
+- frontend;
+- AI engine;
+- agent;
+- planner;
+- context engine;
+- memory;
+- provider system;
+- event system;
+- extension or plugin system;
+- persistence;
+- authentication, authorization, or account boundaries where relevant;
+- observability and error handling;
+- test architecture;
+- product documentation.
+
+Add or merge subsystems based on actual repository structure. Do not assume these names correspond to real modules.
+
+### 10.3 Review each subsystem in this order
+
+For every subsystem:
+
+1. Identify entry points and public responsibilities.
+2. Review implementation.
+3. Trace integrations and call paths.
+4. Review configuration and registration.
+5. Review relevant tests.
+6. Run safe, non-mutating verification when feasible.
+7. Review associated documentation.
+8. Compare implementation, tests, documentation, and roadmap.
+9. Identify strengths to preserve.
+10. Identify incompleteness, debt, misalignment, and contradictions.
+11. Evaluate product and commercial significance.
+12. Record findings.
+13. Update the workspace and checkpoint.
+14. Only then proceed to another subsystem.
+
+### 10.4 Subsystem completion gate
+
+A subsystem is complete only when the workspace records:
+
+- scope and reviewed paths;
+- implementation findings;
+- integration findings;
+- test findings;
+- documentation findings;
+- contradictions;
+- strengths to preserve;
+- weaknesses or risks;
+- relevance to product vision;
+- limitations and unverified areas;
+- exact evidence references.
+
+If tests cannot run, record why and lower confidence appropriately.
+
+### 10.5 Whole-repository completion gate
+
+Phase 1 is complete only when:
+
+- the repository inventory is complete;
+- all first-party product subsystems are reviewed or explicitly blocked;
+- `README.md` is reviewed;
+- `MASTER_DEVELOPMENT_ROADMAP.md` is reviewed;
+- existing constitution and product-vision materials are reviewed;
+- major integrations are traced;
+- relevant tests are reviewed;
+- contradictions are registered;
+- stable strengths and material weaknesses are documented;
+- excluded paths are justified;
+- no major repository area remains silently unreviewed.
+
+---
+
+## 11. Scope Control
+
+This assignment is limited to product vision.
+
+`PRODUCT_VISION.md` may define:
+
+- mission;
+- target users and outcomes;
+- product promises;
+- differentiation;
+- decision filters;
+- strategic pillars;
+- experience principles;
+- competitive positioning;
+- commercial principles;
+- prioritization logic;
+- success measures;
+- non-goals;
+- governance of the vision.
+
+It must not become:
+
+- a detailed software architecture;
+- an API specification;
+- an implementation plan;
+- a sprint backlog;
+- a release roadmap;
+- a migration plan;
+- a security constitution;
+- a testing strategy;
+- a coding standard;
+- a detailed UX design system;
+- a substitute for other constitution chapters.
+
+When implementation detail is necessary to explain feasibility, keep it at the minimum strategic level and defer detailed design to `Future Constitution Notes`.
+
+---
+
+## 12. Commercial Reality Gate
+
+Every proposed direction must be evaluated against these questions:
+
+- Would a paying customer value this?
+- Would it increase retention?
+- Would it reduce frustration?
+- Would it improve onboarding or time to value?
+- Would it improve developer productivity?
+- Would it improve reliability or trust?
+- Would it differentiate the product meaningfully?
+- Would it justify a subscription or expansion?
+- Would it reduce operating or support cost without harming users?
+- Is the value measurable?
+- Is it more valuable than refining existing capabilities?
+
+A proposal should normally be rejected, deferred, or reframed if it cannot answer at least one question strongly and has no credible strategic-enabling value.
+
+Strategic-enabling work is acceptable when its causal path to user or commercial value is explicit.
+
+---
+
+## 13. Feature and Quality Philosophy
+
+Do not add features because competitors have them.
+
+A feature or major change must materially improve at least one of:
+
+- reliability;
+- developer productivity;
+- usability;
+- maintainability;
+- commercial value;
+- meaningful differentiation.
+
+Prefer fewer exceptional capabilities over many average capabilities.
+
+For this mature product, prioritize:
+
+1. correctness;
+2. verification;
+3. reliability;
+4. predictable behavior;
+5. integration quality;
+6. consistency;
+7. performance;
+8. polish;
+9. new capability.
+
+This order is a default, not a mechanical rule. Deviations require evidence and an explicit value argument.
+
+---
+
+## 14. Competitive and External Research Policy
+
+Competitive analysis is required, but it must not become imitation or unsupported marketing.
+
+Research, when tools and network access are available:
+
+- Cursor
+- Windsurf
+- Visual Studio Code
+- JetBrains IDEs
+- Antigravity IDE
+- Claude Code
+- relevant emerging AI-native engineering environments
+
+For each named competitor, determine:
+
+1. what it does exceptionally well;
+2. which user outcomes support its strength;
+3. limitations or tradeoffs inherent in its product model;
+4. where those limitations are verified versus interpreted;
+5. the strategic opening for this product;
+6. what should be learned without being copied.
+
+Use current, attributable sources. Record source and access dates.
+
+Do not present:
+
+- marketing claims as established facts;
+- private implementation assumptions as facts;
+- rapidly changing product details without dates;
+- speculative weaknesses as certainties.
+
+If external research is unavailable, mark the analysis incomplete rather than relying on stale memory.
+
+### Inspiration without imitation
+
+Extract transferable principles—not feature lists—from:
+
+- OpenAI
+- JetBrains
+- Linear
+- Anthropic
+- Cursor
+- Visual Studio Code
+- Apple
+- Google
+- Figma
+
+For each adopted principle, explain:
+
+- the underlying user or organizational value;
+- how it applies to this repository;
+- how the product’s implementation should remain distinctive;
+- what evidence or hypothesis supports its relevance.
+
+---
+
+## 15. Execution Phases
+
+Do not skip phases.
+
+Do not draft `PRODUCT_VISION.md` before Phases 1–3 pass their exit gates.
+
+### Phase 0 — Bootstrap and Resume
+
+Actions:
+
+1. Locate repository root.
+2. Locate the constitution directory.
+3. Load `ENGINEERING_WORKSPACE.md`.
+4. Validate its checkpoint.
+5. Check repository status without modifying files.
+6. Identify any existing `PRODUCT_VISION.md`.
+7. Inventory top-level repository areas.
+8. Record the exact review plan.
+9. Update the workspace.
+
+Exit gate:
+
+- authoritative paths are known;
+- prior progress is understood;
+- no duplicate workspace is being created;
+- the next subsystem and file are explicit;
+- pre-existing worktree changes are recorded.
+
+---
+
+### Phase 1 — Repository Analysis
+
+Review the repository according to Section 10.
+
+Determine and record:
+
+- what exists and is integrated;
+- what works well;
+- what appears mature;
+- what is incomplete;
+- what is missing, only when supported;
+- what is outdated;
+- what is misaligned;
+- what conflicts with intended direction;
+- what strengths must be preserved;
+- what weaknesses should be addressed;
+- what claims remain unverified.
+
+Do not proceed until the whole-repository completion gate passes or all remaining blockers are explicitly documented and materially non-blocking.
+
+Phase deliverable:
+
+A repository-grounded current-state synthesis in the workspace, with traceable findings.
+
+---
+
+### Phase 2 — Critique of Existing Vision
+
+Using Phase 1 evidence, determine:
+
+- the explicit product vision;
+- the implicit product vision revealed by implementation;
+- the product philosophy encoded in technical choices;
+- the UX philosophy encoded in current interfaces and workflows;
+- the engineering philosophy encoded in architecture and tests;
+- where these are aligned;
+- where they conflict;
+- where the vision is clear;
+- where it is vague;
+- which assumptions are unsupported;
+- where documentation diverges from implementation;
+- which existing principles should be preserved.
+
+Do not treat architectural presence as proof of product success.
+
+Phase deliverable:
+
+A structured critique in the workspace distinguishing verified current state, documented intent, and interpretation.
+
+Exit gate:
+
+- current vision is articulated;
+- major gaps and contradictions are evidenced;
+- strengths to preserve are explicit;
+- no critique is based solely on competitor comparison.
+
+---
+
+### Phase 3 — Proposed Strategic Improvements
+
+Develop product-vision improvements grounded in repository findings.
+
+For every proposed direction, answer:
+
+1. Is it already true?
+2. What evidence establishes the current state?
+3. If it is not true, should the product evolve toward it?
+4. What developer problem does it solve?
+5. What customer or commercial value does it create?
+6. Does it improve reliability, productivity, usability, maintainability, quality, or differentiation?
+7. How would value be measured?
+8. What stable behavior must be preserved?
+9. What migration or compatibility risk exists?
+10. Is incremental evolution credible?
+11. What would invalidate the proposal?
+12. Is it a commitment or a hypothesis?
+
+Prioritize proposals using:
+
+- user impact;
+- commercial impact;
+- reliability impact;
+- differentiation;
+- evidence strength;
+- strategic compounding;
+- effort;
+- risk;
+- migration cost;
+- reversibility.
+
+Do not approve a proposal merely because it is technically interesting.
+
+Phase deliverable:
+
+A ranked set of improvement candidates and a proposed vision architecture in the workspace.
+
+Exit gate:
+
+- every major direction has measurable value;
+- proposals preserve verified strengths;
+- speculative ideas are labeled;
+- parity-only features are rejected or justified;
+- document scope is respected.
+
+---
+
+### Phase 4 — Author `PRODUCT_VISION.md`
+
+Before editing:
+
+1. Update the checkpoint.
+2. Re-read the highest-importance findings.
+3. Review any existing `PRODUCT_VISION.md`.
+4. Prepare a section plan.
+5. Confirm that only permitted files will change.
+
+Write a complete and coherent chapter.
+
+The document must be strategic, durable, specific, commercially credible, and grounded in the repository.
+
+Update the workspace after each major document section.
+
+---
+
+### Phase 5 — Validation
+
+Validate the completed document against:
+
+#### Repository accuracy
+
+- Are all current-state claims supported?
+- Are implementation and aspiration clearly separated?
+- Are documentation conflicts represented honestly?
+- Are existing strengths preserved?
+- Does any statement imply an unverified feature exists?
+
+#### Strategic quality
+
+- Is the differentiation deeper than a feature list?
+- Can teams use the decision filters to reject work?
+- Do pillars guide 6–12 months of decisions?
+- Are non-goals clear?
+- Does the vision explain why developers would choose the product?
+
+#### Commercial quality
+
+- Is customer value explicit?
+- Are retention, onboarding, productivity, trust, and willingness to pay considered?
+- Are measures defined?
+- Are costly directions justified?
+
+#### Competitive quality
+
+- Are competitor claims sourced and time-bounded?
+- Are facts separated from interpretation?
+- Does the strategy avoid copying?
+- Are “Why Not Them?” arguments framed as replication friction rather than unsupported impossibility?
+
+#### Constitution quality
+
+- Is the chapter durable?
+- Is it sufficiently specific without becoming a roadmap?
+- Is it internally consistent?
+- Is terminology defined?
+- Is generic corporate language removed?
+- Does it guide tradeoffs under pressure?
+
+#### Repository safety
+
+- Were only permitted files modified?
+- Were pre-existing user changes preserved?
+- Is the workspace current?
+- Is the final checkpoint complete?
+
+Do not declare completion until validation passes or unresolved limitations are explicitly reported.
+
+---
+
+## 16. Required `PRODUCT_VISION.md` Structure
+
+Use this structure unless repository evidence justifies a clearly better variation.
+
+# Product Vision
+
+## 1. Constitutional Status and Purpose
+
+Explain:
+
+- what this chapter governs;
+- what it does not govern;
+- how engineers and product teams should use it;
+- how current truth is distinguished from future intent.
+
+## 2. Product North Star
+
+State the mission in concise, memorable language.
+
+Define the primary developer outcome—not merely the product category.
+
+## 3. Verified Product Foundation
+
+Summarize only high-confidence, product-relevant current strengths.
+
+For each material foundation:
+
+- describe the verified capability;
+- identify why it matters;
+- state what must be preserved.
+
+Do not turn this section into an architecture inventory.
+
+## 4. Target Users and Jobs to Be Done
+
+Identify the highest-value developer or team contexts supported by evidence and strategy.
+
+Describe:
+
+- core jobs;
+- pain points;
+- switching motivations;
+- trust requirements;
+- buying or adoption considerations.
+
+Do not invent unsupported personas.
+
+## 5. Operational Definition of “Premium AI-Native”
+
+Define concrete standards for:
+
+- intelligence;
+- reliability;
+- predictability;
+- control;
+- speed;
+- recoverability;
+- context awareness;
+- transparency;
+- interaction quality;
+- extensibility;
+- privacy and trust where relevant;
+- commercial-grade operation.
+
+For each standard, describe observable behavior and an appropriate success measure.
+
+If numeric targets are not evidenced, define the metric and target-setting method rather than inventing numbers.
+
+## 6. Core Differentiation
+
+State one or two fundamental reasons the product can win.
+
+The differentiation must:
+
+- solve an important developer problem;
+- be deeper than isolated features;
+- connect to repository strengths or credible compounding investments;
+- remain valuable as models and competitors evolve;
+- explain why developers would switch, stay, and pay.
+
+Include a concise answer to:
+
+> Why this product instead?
+
+## 7. Product Decision Filters
+
+Define four to six ordered filters that apply to:
+
+- feature proposals;
+- UX decisions;
+- API and extension design;
+- performance work;
+- AI behavior;
+- architecture tradeoffs;
+- commercial packaging.
+
+For each filter include:
+
+- the decision question;
+- evidence required;
+- positive signal;
+- rejection signal;
+- example of an acceptable tradeoff.
+
+The filters must help teams say “no,” not merely endorse everything.
+
+## 8. Strategic Pillars
+
+Define three to five pillars.
+
+Each pillar must include:
+
+- developer problem;
+- strategic ambition;
+- repository foundation;
+- 6–12 month product outcomes;
+- measurable indicators;
+- strengths to preserve;
+- investment implications;
+- explicit non-goals;
+- major risks or hypotheses;
+- commercial relevance.
+
+Pillars must be specific enough to guide R&D priorities and broad enough to remain durable.
+
+## 9. “Why Not Them?” and Defensibility
+
+For each pillar, explain:
+
+- how competitors commonly approach the problem;
+- where that approach creates tradeoffs;
+- the product’s strategic opening;
+- what makes the advantage difficult to reproduce quickly;
+- which compounding assets or feedback loops strengthen it;
+- why the distinction matters to developers.
+
+Do not claim competitors are incapable of copying a feature.
+
+Analyze replication friction such as:
+
+- architecture;
+- product model;
+- workflow integration;
+- trust and reliability history;
+- proprietary feedback loops;
+- extension ecosystem;
+- switching costs;
+- operational excellence;
+- interaction design coherence;
+- accumulated context or team knowledge.
+
+Clearly separate sourced facts from strategic interpretation.
+
+## 10. Competitive Landscape
+
+Include a concise strategic assessment of:
+
+- Cursor
+- Windsurf
+- Visual Studio Code
+- JetBrains IDEs
+- Antigravity IDE
+- Claude Code
+- the emerging category
+
+For each:
+
+- exceptional strengths;
+- user value created;
+- inherent or observed tradeoffs;
+- strategic opening;
+- what to learn;
+- what not to copy.
+
+Keep volatile feature details dated or out of the durable core narrative.
+
+## 11. Experience Principles
+
+Define how the product should feel in use:
+
+- intelligent;
+- reliable;
+- minimal;
+- polished;
+- enjoyable;
+- predictable;
+- fast;
+- modern;
+- respectful of developer control.
+
+Translate each relevant adjective into behavior. Avoid decorative claims.
+
+## 12. Commercial Product Principles
+
+Define how the product creates sustainable value through:
+
+- rapid time to value;
+- trust;
+- retention;
+- habit formation;
+- individual and team value;
+- clear subscription justification;
+- responsible cost-to-serve;
+- expansion without artificial complexity.
+
+Do not specify pricing unless repository or business evidence supports it.
+
+## 13. Prioritization Doctrine
+
+Specify how to choose among:
+
+- reliability refinement;
+- UX polish;
+- performance;
+- missing integrations;
+- new AI capability;
+- extensibility;
+- commercial work;
+- technical-enabling work.
+
+Include tie-breakers and explicit rejection criteria.
+
+Quality, verification, and integration should normally outrank feature accumulation.
+
+## 14. Measures of Progress
+
+Define a balanced measurement model covering:
+
+- user outcomes;
+- AI task success;
+- trust and reliability;
+- time saved;
+- latency and responsiveness;
+- onboarding;
+- engagement and retention;
+- quality and regressions;
+- commercial value;
+- extensibility or ecosystem health where relevant.
+
+Separate:
+
+- leading indicators;
+- lagging indicators;
+- guardrail metrics.
+
+Do not invent baselines.
+
+## 15. Non-Goals and Strategic Boundaries
+
+State what the product will not optimize for, including where appropriate:
+
+- parity for its own sake;
+- uncontrolled autonomy;
+- feature volume;
+- novelty without value;
+- hidden or irreversible AI behavior;
+- rewrites without evidence;
+- ecosystem breadth at the cost of core quality;
+- superficial demonstrations that do not survive production use.
+
+## 16. Evolution and Governance
+
+Explain:
+
+- which principles are durable;
+- which market observations require periodic review;
+- what evidence can justify changing the vision;
+- how changes should preserve repository truth and product continuity.
+
+The vision must evolve through evidence, not fashion.
+
+---
+
+## 17. Writing Standard
+
+Write like the internal product vision of a billion-dollar software company.
+
+The document should be:
+
+- clear;
+- decisive;
+- technically literate;
+- commercially grounded;
+- evidence-aware;
+- durable;
+- concise where possible;
+- detailed where necessary;
+- free of generic corporate filler.
+
+Prefer:
+
+- explicit tradeoffs;
+- operational definitions;
+- measurable outcomes;
+- strong non-goals;
+- repository-grounded reasoning.
+
+Avoid:
+
+- unsupported superlatives;
+- vague statements such as “be better”;
+- feature catalogs;
+- competitor imitation;
+- speculative architecture presented as commitment;
+- marketing copy without operational meaning;
+- claims that every priority is equally important.
+
+Use normative language carefully:
+
+- `must` for constitutional requirements;
+- `should` for strong defaults;
+- `may` for permitted options;
+- `hypothesis` for directions requiring validation.
+
+---
+
+## 18. Interruption and Failsafe Protocol
+
+If context, quota, tool access, or session time may prevent safe continuation:
+
+1. Stop drafting before information is lost.
+2. Update `ENGINEERING_WORKSPACE.md`.
+3. Record completed work.
+4. Record all unfinished sections.
+5. Record blockers and confidence limitations.
+6. Record the exact next file and action.
+7. Verify the checkpoint is machine-readable.
+8. Verify no unauthorized files changed.
+9. End the session without pretending the assignment is complete.
+
+A future session must be able to resume using the repository and workspace alone.
+
+---
+
+## 19. Final Completion Criteria
+
+The assignment is complete only when:
+
+- repository analysis passed its completion gate;
+- the existing vision was critiqued;
+- proposed improvements were evaluated commercially;
+- competitive claims were researched or explicitly limited;
+- `PRODUCT_VISION.md` is complete and coherent;
+- current state and future direction are clearly separated;
+- every material repository statement is traceable to evidence;
+- the document contains operational definitions, decision filters, strategic pillars, defensibility narratives, competitive positioning, non-goals, and measures;
+- only authorized files changed;
+- the workspace contains a final validation record;
+- the final checkpoint indicates completion.
+
+Use this final checkpoint:
+
+NEXT_DOCUMENT=PRODUCT_VISION.md
+NEXT_PHASE=COMPLETE
+NEXT_SECTION=NONE
+NEXT_SUBSYSTEM=NONE
+NEXT_FILE=NONE
+NEXT_ACTION=Await review or begin a separately authorized constitution assignment
+LAST_COMPLETED_ACTION=Validated PRODUCT_VISION.md and persistent workspace
+BLOCKER=NONE
+WORKTREE_STATUS=<accurate status>
+UPDATED_AT=<ISO-8601 timestamp>
+
+If blockers remain, do not use `NEXT_PHASE=COMPLETE`.
+
+---
+
+## 20. Final Response to the User
+
+After repository work is complete, return a concise execution summary containing:
+
+1. Document created or updated
+2. Repository areas reviewed
+3. Major verified strengths preserved
+4. Major strategic improvements introduced
+5. Validation performed
+6. Remaining limitations or unresolved findings
+7. Exact files modified
+
+Do not paste the entire document into the response unless requested.
+
+Do not claim success if the workspace or product vision remains incomplete.

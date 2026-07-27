@@ -1,24 +1,25 @@
 <!DOCTYPE html>
 <html lang="ar" dir="ltr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebDev AI Editor</title>
+    <title>INFINICODE</title>
     <meta name="description" content="محاكي تطوير ويب ذكي مستوحى من Antigravity — متخصص في المواقع والسكريبتات">
 
     <!-- Theme bootstrap — T-060 (R-905): يضبط data-theme قبل أول paint
          (لا FOUC): localStorage ← وإلا prefers-color-scheme ← وإلا dark. -->
     <script>
-    (function () {
-        var t = null;
-        try { t = localStorage.getItem("webdev-ai-theme"); } catch (e) {}
-        if (!t) {
-            t = (window.matchMedia
-                 && window.matchMedia("(prefers-color-scheme: light)").matches)
-                ? "light" : "dark";
-        }
-        document.documentElement.setAttribute("data-theme", t);
-    })();
+        (function () {
+            var t = null;
+            try { t = localStorage.getItem("webdev-ai-theme"); } catch (e) { }
+            if (!t) {
+                t = (window.matchMedia
+                    && window.matchMedia("(prefers-color-scheme: light)").matches)
+                    ? "light" : "dark";
+            }
+            document.documentElement.setAttribute("data-theme", t);
+        })();
     </script>
 
     <!-- Styles — T-060 (R-905): tokens (بنيوية) + لوحات الثيمات ثم الأنماط -->
@@ -28,7 +29,7 @@
     <!-- T-061 (R-905): ثيمان إضافيان — ملفا بيانات فقط، صفر تعديل مكوّنات -->
     <link rel="stylesheet" href="/static/themes/high-contrast.css?v=1">
     <link rel="stylesheet" href="/static/themes/monokai.css?v=1">
-    <link rel="stylesheet" href="/static/style.css?v=19">
+    <link rel="stylesheet" href="/static/style.css?v=25">
 
     <!-- highlight.js — T-064 (R-904): المحرك مورَّد محليًا (BSD-3، بلا CDN)
          + grammar إضافية لـ dockerfile. لا stylesheet خارجي: ألوان الإبراز
@@ -59,247 +60,452 @@
     <!-- Memory Panel — T-114 (R-805): منطق نقي (مستقل) قبل app.js. -->
     <script src="/static/js/memory_panel.js?v=1"></script>
 </head>
+
 <body>
 
-<div id="app">
-    <!-- ═══════ Header ═══════ -->
-    <header id="header">
-        <div class="logo">
-            <span>🚀</span> WebDev AI
-        </div>
-        <div class="project-name" id="project-name" onclick="openFolder()" title="اضغط لتغيير المجلد" style="cursor:pointer">loading...</div>
-        <button class="header-btn" onclick="openFolder()" title="فتح مجلد">📂 Open Folder</button>
-        <button class="header-btn" onclick="toggleSessions()" title="الجلسات السابقة" id="sessions-btn">📋 Sessions</button>
-        <button class="header-btn" id="run-history-btn" title="تاريخ الـ runs والاستعادة — T-066">↩ History</button>
-        <button class="header-btn" id="memory-panel-btn" title="ذاكرة المشروع: فحص وتحرير — T-114">🧠 Memory</button>
-        <div class="model-selector">
-            <button class="header-btn" onclick="toggleModelPicker()" id="model-btn" title="تغيير النموذج">🤖 <span id="current-model-label">Loading...</span></button>
-            <div class="sessions-dropdown hidden" id="model-dropdown" style="left:16px;right:auto;width:320px">
-                <div class="sessions-header">
-                    <span>🤖 اختر النموذج</span>
+    <div id="app">
+        <!-- ═══════ Title Bar (VSCode-style) ═══════ -->
+        <header id="header">
+            <!-- Logo + App Name -->
+            <div class="logo">
+                <!-- اللوجو SVG من الصورة المرجعية -->
+                <svg class="logo-svg" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#8b5cf6" />
+                            <stop offset="100%" stop-color="#06b6d4" />
+                        </linearGradient>
+                        <linearGradient id="lg2" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#8b5cf6" />
+                            <stop offset="100%" stop-color="#06b6d4" />
+                        </linearGradient>
+                    </defs>
+                    <!-- < bracket -->
+                    <path d="M18 20 L4 40 L18 60" stroke="url(#lg1)" stroke-width="7" stroke-linecap="round"
+                        stroke-linejoin="round" fill="none" />
+                    <!-- > bracket -->
+                    <path d="M102 20 L116 40 L102 60" stroke="url(#lg2)" stroke-width="7" stroke-linecap="round"
+                        stroke-linejoin="round" fill="none" />
+                    <!-- ∞ infinity -->
+                    <path
+                        d="M60 40 C60 31 50 26 42 31 C34 36 34 44 42 49 C50 54 60 49 60 40 C60 31 70 26 78 31 C86 36 86 44 78 49 C70 54 60 49 60 40 Z"
+                        stroke="url(#lg2)" stroke-width="6" stroke-linecap="round" fill="none" />
+                    <!-- Sparkle star -->
+                    <path d="M60 8 L62 16 L70 18 L62 20 L60 28 L58 20 L50 18 L58 16 Z" fill="url(#lg1)" opacity="0.9" />
+                    <!-- i dot -->
+                    <circle cx="60" cy="35" r="2.5" fill="url(#lg1)" />
+                </svg>
+                <span class="logo-text">INFINICODE<span class="logo-ai"> IDE</span></span>
+            </div>
+
+            <!-- Center: Folder picker + Global Search bar (VSCode / Antigravity Style) -->
+            <div class="header-center">
+                <div class="project-crumb" id="project-name" onclick="openFolder()" title="اضغط لتغيير مجلد العمل">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span>loading...</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <polyline points="6 9 12 15 18 9" />
+                    </svg>
                 </div>
-                <div class="sessions-list" id="model-list">
+
+                <div class="global-search-bar" id="global-search-btn" onclick="openQuickOpenModal()"
+                    title="البحث الشامل في ملفات المشروع (Ctrl+K)">
+                    <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <span class="search-text">Search files, symbols...</span>
+                    <kbd class="search-kbd">Ctrl K</kbd>
+                </div>
+            </div>
+
+            <!-- Right controls -->
+            <div class="header-right">
+
+                <div class="header-divider"></div>
+
+                <!-- Run Button -->
+                <button class="run-btn hidden" id="run-btn" onclick="runCurrentFile()" title="تشغيل الملف">
+                    <svg width="11" height="13" viewBox="0 0 14 16" fill="currentColor">
+                        <polygon points="0,0 14,8 0,16" />
+                    </svg>
+                    Run
+                </button>
+
+                <!-- Theme -->
+                <div class="theme-selector">
+                    <button class="header-btn icon-only" onclick="toggleThemePicker()" id="theme-btn"
+                        title="تغيير الثيم">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="12" cy="12" r="5" />
+                            <line x1="12" y1="1" x2="12" y2="3" />
+                            <line x1="12" y1="21" x2="12" y2="23" />
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                            <line x1="1" y1="12" x2="3" y2="12" />
+                            <line x1="21" y1="12" x2="23" y2="12" />
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                        </svg>
+                    </button>
+                    <div class="sessions-dropdown hidden" id="theme-dropdown" style="right:0;left:auto;width:220px">
+                        <div class="sessions-header"><span>🎨 اختر الثيم</span></div>
+                        <div class="sessions-list" id="theme-list"></div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ═══════ Sessions Dropdown ═══════ -->
+        <div class="sessions-dropdown hidden" id="sessions-dropdown">
+            <div class="sessions-header">
+                <span>📋 الجلسات السابقة</span>
+                <button onclick="newSession()">➕ جلسة جديدة</button>
+            </div>
+            <div class="sessions-list" id="sessions-list"></div>
+        </div>
+
+        <!-- ═══════ Main Area ═══════ -->
+        <div id="main">
+
+            <!-- ── Activity Bar (VSCode-style vertical left bar) ── -->
+            <nav id="activity-bar">
+                <!-- Top: main actions -->
+                <div class="activity-top">
+                    <button class="activity-btn active" id="act-explorer" title="Explorer (Files)"
+                        onclick="setActivityView('explorer')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+                            <polyline points="13 2 13 9 20 9" />
+                        </svg>
+                        <span class="act-label">Explorer</span>
+                    </button>
+                    <button class="activity-btn" id="act-chat" title="AI Chat" onclick="setActivityView('chat')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <span class="act-label">Chat</span>
+                    </button>
+                    <button class="activity-btn" id="act-sessions" title="Sessions" onclick="toggleSessions()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <rect x="3" y="3" width="7" height="7" />
+                            <rect x="14" y="3" width="7" height="7" />
+                            <rect x="3" y="14" width="7" height="7" />
+                            <rect x="14" y="14" width="7" height="7" />
+                        </svg>
+                        <span class="act-label">Sessions</span>
+                    </button>
+                    <button class="activity-btn" id="act-history" title="Run History"
+                        onclick="document.getElementById('run-history-btn').click()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <polyline points="1 4 1 10 7 10" />
+                            <path d="M3.51 15a9 9 0 1 0 .49-4.49" />
+                        </svg>
+                        <span class="act-label">History</span>
+                    </button>
+                    <button class="activity-btn" id="act-memory" title="Memory"
+                        onclick="document.getElementById('memory-panel-btn').click()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <ellipse cx="12" cy="5" rx="9" ry="3" />
+                            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                        </svg>
+                        <span class="act-label">Memory</span>
+                    </button>
+                </div>
+                <!-- Bottom: settings + open folder -->
+                <div class="activity-bottom">
+                    <button class="activity-btn" title="فتح مجلد" onclick="openFolder()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <span class="act-label">Open</span>
+                    </button>
+                    <button class="activity-btn" title="الإعدادات" onclick="toggleThemePicker()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <circle cx="12" cy="12" r="3" />
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+                        </svg>
+                        <span class="act-label">Settings</span>
+                    </button>
+                </div>
+            </nav>
+
+            <!-- ── Sidebar: File Explorer ── -->
+            <aside id="sidebar">
+                <div class="sidebar-header">
+                    <!-- عنوان تفاعلي يدعم الطي/الفرد + Accessibility -->
+                    <span id="explorer-title" role="button" tabindex="0" aria-expanded="true"
+                        title="طي أو فرد مستعرض الملفات" onclick="toggleFileTree()"
+                        onkeydown="if(event.key==='Enter'||event.key===' ')toggleFileTree()">
+                        <span class="tree-arrow" aria-hidden="true">▼</span>
+                        <span class="tree-icon" aria-hidden="true">📁</span>
+                        <span class="tree-text">EXPLORER</span>
+                    </span>
+                    <div class="sidebar-actions" style="display:flex;gap:4px">
+                        <button onclick="createNewFile()" title="ملف جديد">📄+</button>
+                        <button onclick="createNewFolder()" title="مجلد جديد">📁+</button>
+                        <button onclick="refreshFiles()" title="Refresh">🔄</button>
+                    </div>
+                </div>
+                <div id="file-tree">
                     <!-- populated by JS -->
                 </div>
-            </div>
-        </div>
-        <div class="spacer"></div>
+            </aside>
 
-        <!-- Run Button -->
-        <button class="run-btn hidden" id="run-btn" onclick="runCurrentFile()" title="تشغيل الملف">
-            <svg width="14" height="16" viewBox="0 0 14 16" fill="currentColor"><polygon points="0,0 14,8 0,16"/></svg>
-        </button>
 
-        <!-- Mode Switcher -->
-        <div class="mode-switcher">
-            <button class="mode-btn active" data-mode="chat">💬 Chat</button>
-            <button class="mode-btn" data-mode="plan">📐 Plan</button>
-            <button class="mode-btn" data-mode="build">🔨 Build</button>
-            <button class="mode-btn" data-mode="edit">✂️ Edit</button>
-        </div>
-
-        <!-- Theme Switcher — T-061 (R-905) -->
-        <div class="theme-selector">
-            <button class="header-btn" onclick="toggleThemePicker()" id="theme-btn" title="تغيير الثيم">🎨 <span id="current-theme-label">Theme</span></button>
-            <div class="sessions-dropdown hidden" id="theme-dropdown" style="right:16px;left:auto;width:240px">
-                <div class="sessions-header">
-                    <span>🎨 اختر الثيم</span>
+            <!-- ── Center: Editor + Terminal ── -->
+            <section id="center">
+                <!-- Tab bar -->
+                <div id="tabs">
+                    <!-- populated by JS -->
                 </div>
-                <div class="sessions-list" id="theme-list">
-                    <!-- populated by JS (THEMES registry in app.js) -->
-                </div>
-            </div>
-        </div>
 
-        <!-- Provider -->
-        <div class="provider-badge">
-            <div class="dot"></div>
-            <span id="provider-name">Claude Sonnet 5</span>
-        </div>
-    </header>
-
-    <!-- ═══════ Sessions Dropdown ═══════ -->
-    <div class="sessions-dropdown hidden" id="sessions-dropdown">
-        <div class="sessions-header">
-            <span>📋 الجلسات السابقة</span>
-            <button onclick="newSession()">➕ جلسة جديدة</button>
-        </div>
-        <div class="sessions-list" id="sessions-list">
-            <!-- populated by JS -->
-        </div>
-    </div>
-
-    <!-- ═══════ Main Area ═══════ -->
-    <div id="main">
-
-        <!-- ── Sidebar: File Explorer ── -->
-        <aside id="sidebar">
-            <div class="sidebar-header">
-                <span>📁 Explorer</span>
-                <div style="display:flex;gap:4px">
-                    <button onclick="createNewFile()" title="ملف جديد">📄+</button>
-                    <button onclick="createNewFolder()" title="مجلد جديد">📁+</button>
-                    <button onclick="refreshFiles()" title="Refresh">🔄</button>
-                </div>
-            </div>
-            <div id="file-tree">
-                <!-- populated by JS -->
-            </div>
-        </aside>
-
-        <!-- ── Center: Editor + Terminal ── -->
-        <section id="center">
-            <!-- Tab bar -->
-            <div id="tabs">
-                <!-- populated by JS -->
-            </div>
-
-            <!-- Editor -->
-            <div id="editor-area">
-                <div id="editor-welcome">
-                    <div class="big-icon">📄</div>
-                    <p>اختر ملف من المستعرض لعرضه</p>
-                    <p style="font-size:12px; color:var(--text-muted)">أو اطلب من AI إنشاء ملف جديد</p>
-                </div>
-                <div id="editor-content">
-                    <div class="editor-toolbar">
-                        <span id="editor-filename"></span>
-                        <span id="editor-dirty" class="hidden">● unsaved</span>
-                        <div class="spacer"></div>
-                        <button class="editor-save-btn" onclick="saveFile()" title="Ctrl+S">💾 Save</button>
+                <!-- Editor -->
+                <div id="editor-area">
+                    <div id="editor-welcome">
+                        <div class="big-icon">📄</div>
+                        <p>اختر ملف من المستعرض لعرضه</p>
+                        <p style="font-size:12px; color:var(--text-muted)">أو اطلب من AI إنشاء ملف جديد</p>
                     </div>
-                    <div class="editor-body">
-                        <div class="line-numbers" id="line-numbers"></div>
-                        <!-- T-064: طبقة الإبراز خلف textarea شفاف النص (overlay) -->
-                        <div class="editor-code-wrap">
-                            <pre id="editor-highlight" aria-hidden="true"><code id="editor-highlight-code"></code></pre>
-                            <textarea id="editor-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+                    <div id="editor-content">
+                        <div class="editor-toolbar">
+                            <span id="editor-filename"></span>
+                            <span id="editor-dirty" class="hidden">● unsaved</span>
+                            <div class="spacer"></div>
+                            <button class="editor-save-btn" onclick="saveFile()" title="Ctrl+S">💾 Save</button>
+                        </div>
+                        <div class="editor-body">
+                            <div class="line-numbers" id="line-numbers"></div>
+                            <!-- T-064: طبقة الإبراز خلف textarea شفاف النص (overlay) -->
+                            <div class="editor-code-wrap">
+                                <pre id="editor-highlight"
+                                    aria-hidden="true"><code id="editor-highlight-code"></code></pre>
+                                <textarea id="editor-textarea" spellcheck="false" autocomplete="off" autocorrect="off"
+                                    autocapitalize="off"></textarea>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Resize handle -->
-            <div class="resize-handle-h" id="terminal-resize"></div>
+                <!-- Resize handle -->
+                <div class="resize-handle-h" id="terminal-resize"></div>
 
-            <!-- Terminal -->
-            <div id="terminal-panel">
-                <div class="terminal-header">
-                    <div class="terminal-tabs" id="terminal-tabs">
-                        <!-- populated by JS -->
+                <!-- Terminal -->
+                <div id="terminal-panel">
+                    <div class="terminal-header">
+                        <div class="terminal-tabs" id="terminal-tabs">
+                            <!-- populated by JS -->
+                        </div>
+                        <div class="terminal-actions">
+                            <button onclick="newTerminal('cmd')" title="CMD جديد">
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M14 7H9V2H7v5H2v2h5v5h2V9h5z" />
+                                </svg> CMD
+                            </button>
+                            <button onclick="newTerminal('powershell')" title="PowerShell جديد">
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M14 7H9V2H7v5H2v2h5v5h2V9h5z" />
+                                </svg> PS
+                            </button>
+                            <span class="terminal-divider"></span>
+                            <button onclick="sendTerminalToChat()" title="إرسال للشات"
+                                class="terminal-action-icon">💬</button>
+                            <button onclick="diagnoseTerminal()" title="تشخيص المشكلة"
+                                class="terminal-action-icon diagnose-btn">🔍</button>
+                            <button onclick="clearTerminal()" title="Clear" class="terminal-action-icon">🗑️</button>
+                        </div>
                     </div>
-                    <div class="terminal-actions">
-                        <button onclick="newTerminal('cmd')" title="CMD جديد">
-                            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M14 7H9V2H7v5H2v2h5v5h2V9h5z"/></svg> CMD
+                    <div id="terminal-output"></div>
+                    <div id="terminal-input-row">
+                        <span class="prompt" id="terminal-prompt">❯</span>
+                        <input type="text" id="terminal-input" placeholder="اكتب أمر..." autocomplete="off">
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Right: AI Chat ── -->
+            <aside id="chat-panel">
+                <div class="chat-header">
+                    <div class="mode-switcher" id="chat-mode-switcher">
+                        <button class="mode-btn active" data-mode="chat">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                            Chat
                         </button>
-                        <button onclick="newTerminal('powershell')" title="PowerShell جديد">
-                            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M14 7H9V2H7v5H2v2h5v5h2V9h5z"/></svg> PS
+                        <button class="mode-btn" data-mode="plan">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <line x1="8" y1="6" x2="21" y2="6" />
+                                <line x1="8" y1="12" x2="21" y2="12" />
+                                <line x1="8" y1="18" x2="21" y2="18" />
+                                <line x1="3" y1="6" x2="3.01" y2="6" />
+                                <line x1="3" y1="12" x2="3.01" y2="12" />
+                                <line x1="3" y1="18" x2="3.01" y2="18" />
+                            </svg>
+                            Plan
                         </button>
-                        <span class="terminal-divider"></span>
-                        <button onclick="sendTerminalToChat()" title="إرسال للشات" class="terminal-action-icon">💬</button>
-                        <button onclick="diagnoseTerminal()" title="تشخيص المشكلة" class="terminal-action-icon diagnose-btn">🔍</button>
-                        <button onclick="clearTerminal()" title="Clear" class="terminal-action-icon">🗑️</button>
+                        <button class="mode-btn" data-mode="build">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path
+                                    d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                            </svg>
+                            Build
+                        </button>
+                        <button class="mode-btn" data-mode="edit">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                            Edit
+                        </button>
+                    </div>
+                    <div class="spacer"></div>
+                    <button onclick="newSession()" title="محادثة جديدة">➕</button>
+                    <button onclick="clearChat()" title="Clear chat">🗑️</button>
+                </div>
+
+                <div id="chat-messages">
+                    <div class="chat-msg assistant">
+                        <div class="msg-label">🤖 AI</div>
+                        <div class="msg-content">
+                            مرحباً! 👋 أنا مساعدك في تطوير الويب. اكتب سؤالك أو استخدم الأوضاع المختلفة:
+                            <br><br>
+                            <strong>💬 Chat</strong> — محادثة حرة<br>
+                            <strong>📐 Plan</strong> — تخطيط معماري<br>
+                            <strong>🔨 Build</strong> — تنفيذ مستمر<br>
+                            <strong>✂️ Edit</strong> — تعديل جراحي<br>
+                            <br>
+                            📎 <em>اسحب ملف أو مجلد هنا لإرفاقه مع رسالتك</em>
+                        </div>
                     </div>
                 </div>
-                <div id="terminal-output"></div>
-                <div id="terminal-input-row">
-                    <span class="prompt" id="terminal-prompt">❯</span>
-                    <input type="text" id="terminal-input" placeholder="اكتب أمر..." autocomplete="off">
-                </div>
-            </div>
-        </section>
 
-        <!-- ── Right: AI Chat ── -->
-        <aside id="chat-panel">
-            <div class="chat-header">
-                <span class="title">🤖 AI Assistant</span>
-                <button onclick="newSession()" title="محادثة جديدة">➕</button>
-                <button onclick="clearChat()" title="Clear chat">🗑️</button>
-            </div>
-
-            <div id="chat-messages">
-                <div class="chat-msg assistant">
-                    <div class="msg-label">🤖 AI</div>
-                    <div class="msg-content">
-                        مرحباً! 👋 أنا مساعدك في تطوير الويب. اكتب سؤالك أو استخدم الأوضاع المختلفة:
-                        <br><br>
-                        <strong>💬 Chat</strong> — محادثة حرة<br>
-                        <strong>📐 Plan</strong> — تخطيط معماري<br>
-                        <strong>🔨 Build</strong> — تنفيذ مستمر<br>
-                        <strong>✂️ Edit</strong> — تعديل جراحي<br>
-                        <br>
-                        📎 <em>اسحب ملف أو مجلد هنا لإرفاقه مع رسالتك</em>
+                <!-- Drag Overlay -->
+                <div id="drag-overlay" class="hidden">
+                    <div class="drag-content">
+                        <span>📎</span>
+                        <p>اسحب ملف أو مجلد هنا</p>
+                        <p style="font-size: 12px; opacity: 0.7">📂 المجلدات تُقرأ تلقائياً</p>
                     </div>
                 </div>
-            </div>
 
-            <!-- Drag Overlay -->
-            <div id="drag-overlay" class="hidden">
-                <div class="drag-content">
-                    <span>📎</span>
-                    <p>اسحب ملف أو مجلد هنا</p>
-                    <p style="font-size: 12px; opacity: 0.7">📂 المجلدات تُقرأ تلقائياً</p>
+                <!-- Attached Files + Chat Input in unified wrapper -->
+                <div id="chat-input-area">
+                    <div id="chat-input-wrapper">
+                        <div id="attached-files" class="hidden"></div>
+                        <div id="chat-input-row">
+                            <textarea id="chat-input" rows="1"
+                                placeholder="اكتب سؤالك هنا... أو اسحب ملف/مجلد 📎"></textarea>
+                            <button id="send-btn" onclick="handleSendBtnClick()">▶</button>
+                        </div>
+
+                        <!-- Chat Bottom Toolbar: Model Picker (Antigravity Style) -->
+                        <div id="chat-input-toolbar">
+                            <div class="model-selector" id="chat-model-selector">
+                                <button class="model-pill-btn" onclick="toggleModelPicker()" id="model-btn"
+                                    title="تغيير نموذج الذكاء الاصطناعي">
+                                    <span class="model-sparkle">✨</span>
+                                    <span id="current-model-label">Loading...</span>
+                                    <svg class="dropdown-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2.5">
+                                        <polyline points="6 9 12 15 18 9" />
+                                    </svg>
+                                </button>
+                                <div class="sessions-dropdown hidden" id="model-dropdown">
+                                    <div class="sessions-header"><span>🤖 اختر النموذج</span></div>
+                                    <div class="sessions-list" id="model-list"></div>
+                                </div>
+                            </div>
+
+                            <div class="chat-toolbar-spacer"></div>
+
+                            <!-- Provider Badge 
+                            <div class="provider-badge" id="chat-provider-badge">
+                                <div class="dot"></div>
+                                <span id="provider-name">Claude</span>
+                            </div>-->
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-            <!-- Attached Files -->
-            <div id="attached-files" class="hidden"></div>
-
-            <div id="chat-input-area">
-                <textarea id="chat-input" rows="1" placeholder="اكتب سؤالك هنا... أو اسحب ملف/مجلد 📎"></textarea>
-                <button id="send-btn" onclick="sendMessage()">▶</button>
-            </div>
-        </aside>
-    </div>
-</div>
-
-<!-- T-066 (R-902): لوحة تاريخ الـ runs — استعادة بنقرة + تقرير تعارض مقروء -->
-<div id="run-history-panel" class="hidden">
-    <div id="run-history-head">
-        <span>↩ تاريخ الـ Runs</span>
-        <span class="spacer"></span>
-        <button id="run-history-close" onclick="document.getElementById('run-history-panel').classList.add('hidden')">✕</button>
-    </div>
-    <div id="run-history-report"></div>
-    <div id="run-history-list"></div>
-</div>
-
-<!-- T-114 (R-805): لوحة ذاكرة المشروع — فحص + تحرير + حذف -->
-<div id="memory-panel" class="hidden">
-    <div id="memory-panel-head">
-        <span>🧠 ذاكرة المشروع</span>
-        <span class="spacer"></span>
-        <button id="memory-panel-close" onclick="document.getElementById('memory-panel').classList.add('hidden')">✕</button>
-    </div>
-    <div id="memory-panel-list"></div>
-</div>
-
-<!-- T-066 (R-906): شريحة حالة التوجيه/السعة — مطوية افتراضيًا، عرض قراءة فقط -->
-<div id="status-chip">
-    <div id="status-chip-label" title="حالة التوجيه والسعة — اضغط للتفاصيل">📊 الحالة</div>
-    <div id="status-chip-panel" class="hidden"></div>
-</div>
-
-<!-- Toast container -->
-<!-- T-065 (R-901): لوحة مراجعة الـ diff لطلبات الموافقة (chain_approval_request) -->
-<div id="diff-panel-overlay" class="hidden">
-    <div id="diff-panel">
-        <div id="diff-panel-toolbar">
-            <span id="diff-panel-title">🔍 مراجعة التغييرات</span>
-            <button id="diff-mode-toggle" title="u">↔ Split</button>
-            <div class="spacer"></div>
-            <span id="diff-panel-timer" title="مهلة البوابة"></span>
-            <button id="diff-approve-all" title="a">✅ قبول الكل</button>
-            <button id="diff-reject-all" title="r / Esc">❌ رفض الكل</button>
-            <button id="diff-confirm" title="Enter">📨 تأكيد القرار</button>
+            </aside>
         </div>
-        <div id="diff-panel-files"></div>
-        <div id="diff-panel-help">a قبول الكل · r رفض الكل · x تبديل قرار الملف · j/k تنقل · u وضع العرض · Enter تأكيد</div>
     </div>
-</div>
 
-<div class="toast-container" id="toast-container"></div>
+    <!-- T-066 (R-902): لوحة تاريخ الـ runs — استعادة بنقرة + تقرير تعارض مقروء -->
+    <div id="run-history-panel" class="hidden">
+        <div id="run-history-head">
+            <span>↩ تاريخ الـ Runs</span>
+            <span class="spacer"></span>
+            <button id="run-history-close"
+                onclick="document.getElementById('run-history-panel').classList.add('hidden')">✕</button>
+        </div>
+        <div id="run-history-report"></div>
+        <div id="run-history-list"></div>
+    </div>
 
-<script src="/static/app.js?v=21"></script>
+    <!-- T-114 (R-805): لوحة ذاكرة المشروع — فحص + تحرير + حذف -->
+    <div id="memory-panel" class="hidden">
+        <div id="memory-panel-head">
+            <span>🧠 ذاكرة المشروع</span>
+            <span class="spacer"></span>
+            <button id="memory-panel-close"
+                onclick="document.getElementById('memory-panel').classList.add('hidden')">✕</button>
+        </div>
+        <div id="memory-panel-list"></div>
+    </div>
+
+    <!-- T-066 (R-906): شريحة حالة التوجيه/السعة — مطوية افتراضيًا، عرض قراءة فقط -->
+    <div id="status-chip">
+        <div id="status-chip-label" title="حالة التوجيه والسعة — اضغط للتفاصيل">📊 الحالة</div>
+        <div id="status-chip-panel" class="hidden"></div>
+    </div>
+
+    <!-- Toast container -->
+    <!-- T-065 (R-901): لوحة مراجعة الـ diff لطلبات الموافقة (chain_approval_request) -->
+    <div id="diff-panel-overlay" class="hidden">
+        <div id="diff-panel">
+            <div id="diff-panel-toolbar">
+                <span id="diff-panel-title">🔍 مراجعة التغييرات</span>
+                <button id="diff-mode-toggle" title="u">↔ Split</button>
+                <div class="spacer"></div>
+                <span id="diff-panel-timer" title="مهلة البوابة"></span>
+                <button id="diff-approve-all" title="a">✅ قبول الكل</button>
+                <button id="diff-reject-all" title="r / Esc">❌ رفض الكل</button>
+                <button id="diff-confirm" title="Enter">📨 تأكيد القرار</button>
+            </div>
+            <div id="diff-panel-files"></div>
+            <div id="diff-panel-help">a قبول الكل · r رفض الكل · x تبديل قرار الملف · j/k تنقل · u وضع العرض · Enter
+                تأكيد</div>
+        </div>
+        <!-- ═══════ Quick Open / Command Palette Modal (Ctrl+K) ═══════ -->
+        <div id="quick-open-modal" class="hidden" onclick="closeQuickOpenOnOutside(event)">
+            <div class="quick-open-box">
+                <div class="quick-open-input-wrap">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input type="text" id="quick-open-input"
+                        placeholder="اكتب اسم ملف أو كود للبحث في المشروع... (Esc للإغلاق)" autocomplete="off">
+                    <kbd class="quick-open-kbd">Esc</kbd>
+                </div>
+                <div id="quick-open-results" class="quick-open-results-list"></div>
+            </div>
+        </div>
+
+        <div class="toast-container" id="toast-container"></div>
+
+        <script src="/static/app.js?v=25"></script>
 </body>
+
 </html>

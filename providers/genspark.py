@@ -15,7 +15,7 @@ from typing import Any, Generator
 from .base import BaseProvider, ProviderConfig, Message, ProviderCapabilities
 
 _DIR = pathlib.Path(__file__).resolve().parent.parent
-_NEW_PROVIDERS = _DIR / "new_providers"
+_NEW_PROVIDERS = _DIR / "../new_providers"
 
 # ── تحميل الموديول الأصلي ديناميكياً ──
 _gs_module = None

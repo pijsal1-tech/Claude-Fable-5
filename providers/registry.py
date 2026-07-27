@@ -6,6 +6,7 @@
 ═══════════════════════════════════════════════════════
 """
 from .base import BaseProvider
+from .openai_shelby import OpenAIShelbyProvider
 
 
 class ProviderRegistry:
@@ -14,6 +15,8 @@ class ProviderRegistry:
     def __init__(self):
         self._providers: dict[str, type[BaseProvider]] = {}
         self._instances: dict[str, BaseProvider] = {}
+        # تسجيل المزود الافتراضي
+        self.register("openai_shelby", OpenAIShelbyProvider)
 
     def register(self, name: str, provider_class: type[BaseProvider]):
         """تسجيل مزود جديد"""

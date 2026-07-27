@@ -360,9 +360,10 @@ html, body {
 /* T-063 (R-903): أيقونة نوع الملف من sprite.svg — اللون من --icon-*
    يُضبط inline لكل عنصر (يختلف حسب نوع الملف)؛ الحجم/الانتقال هنا فقط. */
 .file-icon {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     flex-shrink: 0;
+    vertical-align: middle;
 }
 
 .tree-indent { width: 16px; display: inline-block; flex-shrink: 0; }
@@ -971,18 +972,18 @@ html, body {
 }
 
 .chat-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--surface-0);
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: #090910;
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.chat-header .title {
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--text);
-    flex: 1;
+.chat-header .mode-switcher {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .chat-header button {
@@ -2835,3 +2836,803 @@ html, body {
     resize: vertical;
     font-family: inherit;
 }
+
+/* ═══════════════════════════════════════════════════════
+   ── تعديلات v25 ──
+   ═══════════════════════════════════════════════════════ */
+
+/* ── 1. وضع انكماش السايدبار (40px compact) ── */
+#sidebar.collapsed-full {
+    width: 40px !important;
+    overflow: hidden;
+    transition: width 0.25s ease;
+}
+#sidebar.collapsed-full .sidebar-header {
+    padding: 12px 0;
+    justify-content: center;
+}
+#sidebar.collapsed-full .tree-arrow,
+#sidebar.collapsed-full .tree-text,
+#sidebar.collapsed-full .sidebar-actions {
+    display: none !important;
+}
+#sidebar.collapsed-full #explorer-title {
+    justify-content: center;
+    width: 100%;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+}
+#sidebar.collapsed-full #file-tree {
+    display: none !important;
+}
+#sidebar.collapsed-full + #sidebar-resize {
+    display: none !important;
+}
+
+/* ── 2. عنوان Explorer التفاعلي ── */
+#explorer-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    user-select: none;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+#explorer-title:hover { background: var(--surface-1); }
+.tree-arrow {
+    font-size: 10px;
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+
+/* ── 3. صندوق الشات المتكامل مع نيون glow ── */
+#chat-input-area {
+    padding: 10px 14px;
+    border-top: 1px solid var(--surface-0);
+}
+#chat-input-wrapper {
+    width: 100%;
+    background: var(--surface-0);
+    border: 1px solid var(--surface-1);
+    border-radius: var(--radius-lg, 12px);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+#chat-input-wrapper:focus-within {
+    border-color: var(--accent, #7c6af7);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #7c6af7) 20%, transparent);
+}
+#chat-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    width: 100%;
+}
+#chat-input-wrapper #chat-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 2px 0;
+    outline: none;
+    box-shadow: none;
+}
+#chat-input-wrapper #chat-input:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+/* ── 4. زر الإيقاف (Stop Mode) ── */
+#send-btn.stop-mode {
+    background: #c0392b !important;
+    color: #fff !important;
+    border-color: #c0392b !important;
+    transition: background 0.2s;
+}
+#send-btn.stop-mode:hover {
+    background: #e74c3c !important;
+}
+
+/* ── 5. كبسولات المرفقات حسب الامتداد ── */
+.attached-file.py-attach {
+    background: linear-gradient(135deg, rgba(78,154,6,0.14), rgba(52,101,164,0.14));
+    border-color: rgba(114,159,207,0.35);
+}
+.attached-file.js-attach {
+    background: linear-gradient(135deg, rgba(252,233,79,0.14), rgba(237,212,0,0.14));
+    border-color: rgba(237,212,0,0.35);
+}
+.attached-file.html-attach {
+    background: linear-gradient(135deg, rgba(252,175,62,0.14), rgba(226,73,31,0.14));
+    border-color: rgba(226,73,31,0.35);
+}
+.attached-file.css-attach {
+    background: linear-gradient(135deg, rgba(114,159,207,0.14), rgba(32,74,135,0.14));
+    border-color: rgba(52,101,164,0.35);
+}
+.attached-file.md-attach {
+    background: linear-gradient(135deg, rgba(173,127,168,0.14), rgba(92,53,102,0.14));
+    border-color: rgba(117,80,123,0.35);
+}
+
+/* ── 6. بطاقة قرار المسار ── */
+.path-decision-card {
+    border-left: 3px solid var(--accent, #7c6af7);
+    background: color-mix(in srgb, var(--accent, #7c6af7) 6%, var(--surface-0));
+    border-radius: var(--radius-lg, 12px);
+    margin: 6px 0;
+}
+.path-decision-card .msg-content code {
+    background: var(--surface-1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+.path-decision-card .action-btn {
+    font-size: 13px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid var(--surface-1);
+    background: var(--accent, #7c6af7);
+    color: #fff;
+    transition: opacity 0.15s;
+}
+.path-decision-card .action-btn:hover:not(:disabled) { opacity: 0.85; }
+.path-decision-card .action-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ── 7. تظليل عنصر شجرة الملفات ── */
+.tree-item-highlight {
+    background: color-mix(in srgb, var(--accent, #7c6af7) 20%, transparent) !important;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   ── VSCode-Style Redesign v25 ──
+   ═══════════════════════════════════════════════════════ */
+
+/* ── 1. Title Bar ── */
+#header {
+    height: 40px !important;
+    background: #090910 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+    padding: 0 12px !important;
+    gap: 0 !important;
+    user-select: none;
+}
+
+/* ── Logo ── */
+#header .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 200px;
+    padding-right: 16px;
+}
+
+.logo-svg {
+    width: 40px;
+    height: 27px;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 6px rgba(139,92,246,0.6));
+}
+
+.logo-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: 0.3px;
+}
+
+.logo-ai {
+    background: linear-gradient(135deg, #a78bfa, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 800;
+}
+
+/* ── Header Center (project breadcrumb) ── */
+.header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.project-crumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 6px;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    max-width: 380px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.project-crumb:hover {
+    background: rgba(139,92,246,0.12);
+    border-color: rgba(139,92,246,0.35);
+    color: #f8fafc;
+}
+.project-crumb svg { flex-shrink: 0; opacity: 0.6; }
+
+/* ── Header Right ── */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.header-divider {
+    width: 1px;
+    height: 20px;
+    background: rgba(255,255,255,0.08);
+    margin: 0 4px;
+}
+
+/* ── Mode Switcher in Chat ── */
+#chat-mode-switcher {
+    display: flex !important;
+    gap: 4px !important;
+    background: #090910 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+    padding: 6px 12px !important;
+    justify-content: center !important;
+}
+
+#chat-mode-switcher .mode-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px !important;
+    font-size: 12px !important;
+    border-radius: 6px !important;
+    color: #94a3b8 !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+#chat-mode-switcher .mode-btn svg { opacity: 0.7; flex-shrink: 0; }
+#chat-mode-switcher .mode-btn:hover {
+    color: #f1f5f9 !important;
+    background: rgba(139, 92, 246, 0.12) !important;
+    border-color: rgba(139, 92, 246, 0.3) !important;
+}
+#chat-mode-switcher .mode-btn.active {
+    color: #ffffff !important;
+    background: linear-gradient(135deg, rgba(139,92,246,0.8), rgba(6,182,212,0.6)) !important;
+    border-color: rgba(139, 92, 246, 0.5) !important;
+    font-weight: 600;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+}
+
+/* ── Run Button (header version) ── */
+.run-btn:not(.hidden) {
+    display: flex !important;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+/* ── Header buttons override ── */
+.header-btn {
+    display: flex !important;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid rgba(255,255,255,0.07) !important;
+    color: #94a3b8 !important;
+    font-size: 11.5px !important;
+    padding: 4px 10px !important;
+    border-radius: 6px !important;
+    white-space: nowrap;
+}
+.header-btn:hover {
+    background: rgba(139,92,246,0.12) !important;
+    border-color: rgba(139,92,246,0.3) !important;
+    color: #f1f5f9 !important;
+}
+.header-btn.icon-only { padding: 4px 7px !important; }
+
+/* ── Provider badge ── */
+.provider-badge {
+    background: rgba(16,185,129,0.08) !important;
+    border: 1px solid rgba(16,185,129,0.2) !important;
+    border-radius: 6px !important;
+    padding: 3px 9px !important;
+    font-size: 11px !important;
+    color: #6ee7b7 !important;
+    white-space: nowrap;
+}
+.provider-badge .dot {
+    width: 6px !important;
+    height: 6px !important;
+    background: #10b981 !important;
+    box-shadow: 0 0 6px rgba(16,185,129,0.6);
+}
+
+/* ── 2. Activity Bar ── */
+#activity-bar {
+    width: 48px;
+    background: #090910;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 10;
+    padding: 6px 0;
+}
+
+.activity-top,
+.activity-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.activity-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.15s;
+    position: relative;
+    padding: 0;
+}
+
+.activity-btn svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.act-label {
+    display: none;
+}
+
+.activity-btn:hover {
+    color: #f1f5f9;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.activity-btn.active {
+    color: #c084fc;
+}
+
+.activity-btn.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: linear-gradient(180deg, #c084fc, #38bdf8);
+    border-radius: 0 2px 2px 0;
+}
+
+.activity-btn::after {
+    content: attr(title);
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: #11111b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f1f5f9;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 999;
+}
+.activity-btn:hover::after { opacity: 1; }
+
+/* ── 3. Sidebar & Panels Pitch Black ── */
+#sidebar {
+    background: #0d0d14 !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.sidebar-header {
+    background: #090910 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    letter-spacing: 1.5px !important;
+}
+
+#explorer-title .tree-text {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    color: #64748b;
+}
+
+#chat-panel {
+    background: #0d0d14 !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+#chat-input-area {
+    background: #090910 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+#chat-input-wrapper {
+    background: #11111a !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── 4. Status bar at bottom ── */
+#app::after {
+    content: '';
+    display: block;
+    height: 22px;
+    background: linear-gradient(135deg, #181824, #0f172a);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+    order: 999;
+}
+
+/* Hidden buttons still needed by JS (not shown in UI) */
+#run-history-btn, #memory-panel-btn, #sessions-btn {
+    display: none !important;
+}
+
+/* ── Antigravity-style Chat Bottom Toolbar & Model Selector ── */
+#chat-input-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chat-toolbar-spacer {
+    flex: 1;
+}
+
+#chat-model-selector {
+    position: relative;
+}
+
+.model-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    font-family: 'JetBrains Mono', monospace, inherit;
+    white-space: nowrap;
+    max-width: 220px;
+    height: 26px;
+}
+
+#current-model-label {
+    display: inline-block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    vertical-align: middle;
+}
+
+.model-pill-btn:hover {
+    background: rgba(139, 92, 246, 0.15);
+    border-color: rgba(139, 92, 246, 0.4);
+    color: #ffffff;
+    box-shadow: 0 0 14px rgba(139, 92, 246, 0.25);
+}
+
+.model-sparkle {
+    font-size: 12px;
+    filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.7));
+    flex-shrink: 0;
+}
+
+.dropdown-chevron {
+    opacity: 0.6;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+
+.model-pill-btn:hover .dropdown-chevron {
+    opacity: 1;
+    transform: translateY(1px);
+}
+
+/* Position model dropdown UPWARDS over chat box (Antigravity Style) */
+#chat-model-selector #model-dropdown {
+    bottom: calc(100% + 8px) !important;
+    top: auto !important;
+    left: 0 !important;
+    right: auto !important;
+    width: 310px !important;
+    max-height: 280px;
+    overflow-y: auto;
+    background: #11111a !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(139, 92, 246, 0.15) !important;
+    z-index: 1000 !important;
+    padding: 4px;
+}
+
+#chat-model-selector #model-dropdown .sessions-header {
+    background: #181824;
+    border-radius: 8px 8px 0 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #c084fc;
+}
+
+#chat-model-selector #model-dropdown .sessions-list {
+    padding: 4px;
+}
+
+#chat-model-selector #model-dropdown .session-item {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+#chat-model-selector #model-dropdown .session-item:hover {
+    background: rgba(139, 92, 246, 0.15);
+    color: #ffffff;
+}
+
+#chat-provider-badge {
+    font-size: 11px;
+    padding: 2px 8px !important;
+}
+
+/* ── Global Search Bar in Header Center (VSCode / Antigravity Style) ── */
+.header-center {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.global-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-width: 280px;
+    max-width: 440px;
+    user-select: none;
+}
+
+.global-search-bar:hover {
+    background: rgba(139, 92, 246, 0.12);
+    border-color: rgba(139, 92, 246, 0.35);
+    color: #cbd5e1;
+}
+
+.global-search-bar .search-icon {
+    opacity: 0.6;
+    flex-shrink: 0;
+}
+
+.global-search-bar .search-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.global-search-bar .search-kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #94a3b8;
+}
+
+/* ── Editor Breadcrumb ── */
+.crumb-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.crumb-sep {
+    color: #475569;
+    margin: 0 4px;
+    font-size: 12px;
+}
+
+/* ── Quick Open / Command Palette Modal (Ctrl+K) ── */
+#quick-open-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 60px;
+}
+
+#quick-open-modal.hidden {
+    display: none !important;
+}
+
+.quick-open-box {
+    width: 600px;
+    max-width: 90vw;
+    background: #11111a;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 12px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(139, 92, 246, 0.2);
+    overflow: hidden;
+    animation: fadeInDown 0.15s ease-out;
+}
+
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.quick-open-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: #161624;
+}
+
+.quick-open-input-wrap svg {
+    color: #a78bfa;
+    flex-shrink: 0;
+}
+
+.quick-open-input-wrap input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #f1f5f9;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+}
+
+.quick-open-kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.quick-open-results-list {
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 6px;
+}
+
+.quick-open-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+
+.quick-open-item:hover,
+.quick-open-item.selected {
+    background: rgba(139, 92, 246, 0.18);
+}
+
+.quick-open-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.quick-open-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #f1f5f9;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.quick-open-path {
+    font-size: 11px;
+    color: #64748b;
+    font-family: 'JetBrains Mono', monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.quick-open-snippet {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+.quick-open-snippet code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: #a78bfa;
+}
+
+.quick-open-empty {
+    padding: 20px;
+    text-align: center;
+    color: #64748b;
+    font-size: 13px;
+}
+
+
+

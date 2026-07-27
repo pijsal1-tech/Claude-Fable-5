@@ -12,6 +12,7 @@ import pathlib
 from datetime import datetime, timedelta
 
 
+
 class SessionManager:
     """مدير جلسات المحادثة — حفظ تلقائي فوري واستعادة"""
 
