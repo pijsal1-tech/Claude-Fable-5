@@ -96,7 +96,7 @@ def test_apply_batch_frames_match_golden():
     """الإطارات الصادرة مطابقة بايت-بايت للـ golden الملتقط قبل TSK-201."""
     captured = _capture_all()
     if not GOLDEN.exists():
-        pytest.fail(f"golden missing: {GOLDEN} — run scripts/capture_apply_golden.py")
+        pytest.fail(f"golden missing: {GOLDEN} — capture it from pre-refactor code")
     expected = json.loads(GOLDEN.read_text(encoding="utf-8"))
     got = json.loads(json.dumps(captured, ensure_ascii=False))
     assert got == expected, "frame sequence drifted from golden (TSK-201 parity broken)"

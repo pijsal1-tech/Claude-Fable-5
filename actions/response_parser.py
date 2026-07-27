@@ -104,8 +104,16 @@ class ResponseParser:
         r'- \[\d+\]\s*(.+)',
     )
 
-    def parse(self, response: str) -> ParsedResponse:
-        """تحليل الرد الكامل"""
+    def parse(self, response: str, mode: str | None = None) -> ParsedResponse:
+        """تحليل الرد الكامل.
+
+        TSK-101 (BUG-01): المحلّل أصبح mode-aware — في وضع ``chat``
+        يُعطّل الـ fallback العدواني كليًا (بلوكات الكود العادية تبقى
+        للعرض فقط)؛ البلوكات الصريحة ``FILE:/EDIT:/CMD`` تُستخرج دائمًا
+        (إسقاطها من إطارات chat مسؤولية الخادم).
+        ``mode=None`` = السلوك التاريخي كاملًا (مسارات chain/plan/build/edit
+        بلا تغيير — goldens خضراء).
+        """
         result = ParsedResponse(text=response)
 
         # استخراج بلوكات الملفات
@@ -129,7 +137,9 @@ class ResponseParser:
                 result.commands.append(CommandBlock(command=cmd))
 
         # Fallback: بلوكات كود عادية (```python ... ```) لم تُلتقط كـ FILE/CMD/EDIT
-        if not result.files and not result.edits:
+        # TSK-101: معطّل كليًا في وضع chat — بلوك توضيحي في محادثة لا يتحول
+        # لملف/أمر قابل للتنفيذ أبدًا (BUG-01).
+        if mode != "chat" and not result.files and not result.edits:
             # نبحث عن بلوكات كود قد تكون ملفات
             already_matched = set()
             for p in [self._FILE_PATTERN, self._EDIT_PATTERN, self._CMD_PATTERN]:
@@ -148,15 +158,18 @@ class ResponseParser:
                 # تخطي البلوكات الفاضية أو القصيرة جداً
                 if not content or len(content) < 5:
                     continue
-                # تخطي بلوكات الأوامر
+                # بلوكات shell داخل الـ fallback — TSK-102 (NF-13):
+                # لا تتحول لأوامر تنفيذية إلا بوسم صريح لكل سطر ``CMD:``؛
+                # خارج ذلك يبقى البلوك عرضًا فقط (مثال شرح يحوي
+                # ``rm -rf build/`` لم يعد يُنتج CommandBlock).
+                # المسار الصريح للأوامر يبقى بلوك ```CMD (أعلاه).
                 if lang in ("bash", "sh", "cmd", "powershell", "bat", "shell", "console"):
-                    # تعامل معها كأوامر
                     for line in content.splitlines():
                         line = line.strip()
-                        if line and not line.startswith("#") and not line.startswith("$"):
-                            result.commands.append(CommandBlock(command=line))
-                        elif line.startswith("$ "):
-                            result.commands.append(CommandBlock(command=line[2:]))
+                        if line.startswith("CMD:"):
+                            tagged = line[len("CMD:"):].strip()
+                            if tagged:
+                                result.commands.append(CommandBlock(command=tagged))
                     continue
 
                 # اقتراح اسم ملف

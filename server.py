@@ -1591,7 +1591,7 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
                 if sctx.session_mgr:
                     sctx.session_mgr.append_message("assistant", full_response)
 
-                parsed = parser.parse(full_response)
+                parsed = parser.parse(full_response, mode=mode)
                 actions = []
                 for fb in parsed.files:
                     actions.append({"action": "create_file", "path": fb.path, "content": fb.content, "language": fb.language})
@@ -1599,6 +1599,12 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
                     actions.append({"action": "edit_file", "path": eb.path, "old_text": eb.old_text, "new_text": eb.new_text})
                 for cb in parsed.commands:
                     actions.append({"action": "run_command", "command": cb.command})
+
+                # TSK-101 (BUG-01): في وضع chat لا يصدر شريط تنفيذ أبدًا —
+                # البلوكات الصريحة تبقى مرئية كنص (أزرار Apply اليدوية
+                # على البلوكات opt-in وتبقى كما هي).
+                if mode == "chat":
+                    actions = []
 
                 options = [opt.text for opt in parsed.options] if hasattr(parsed, 'options') and parsed.options else []
 
@@ -1668,7 +1674,7 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
     if sctx.session_mgr:
         sctx.session_mgr.append_message("assistant", full_response)
 
-    parsed = parser.parse(full_response)
+    parsed = parser.parse(full_response, mode=mode)
 
     actions = []
     for fb in parsed.files:
@@ -1703,9 +1709,12 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
             "summary": parsed.summary(),
         })
     else:
+        # TSK-101 (BUG-01): إطار done في وضع chat لا يحمل actions أبدًا —
+        # هذا ما كان يُظهر شريط التنفيذ لردود محادثة توضيحية
+        # (app.js يعرض الشريط لأي data.actions غير فارغة دون فحص الوضع).
         sctx.send({
             "type": "done",
-            "actions": actions,
+            "actions": [] if mode == "chat" else actions,
             "options": options,
             "summary": parsed.summary(),
         })
