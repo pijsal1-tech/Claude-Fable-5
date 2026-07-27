@@ -1601,8 +1601,7 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
                     actions.append({"action": "run_command", "command": cb.command})
 
                 # TSK-101 (BUG-01): في وضع chat لا يصدر شريط تنفيذ أبدًا —
-                # البلوكات الصريحة تبقى مرئية كنص (أزرار Apply اليدوية
-                # على البلوكات opt-in وتبقى كما هي).
+                # البلوكات الصريحة تبقى مرئية كنص (أزرار Apply اليدوية opt-in).
                 if mode == "chat":
                     actions = []
 
