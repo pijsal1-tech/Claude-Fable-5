@@ -1,0 +1,836 @@
+
+==================================================
+editor_v4 — MASTER ENGINEERING PROMPT v4.0
+==================================================
+
+SECTION 0 — GLOBAL RULES (READ FIRST — GOVERN EVERY LINE BELOW)
+==================================================
+
+0.1 LANGUAGE
+• Document prose: Arabic. All identifiers, file names, function names,
+  code, table headers, IDs, and commit messages: English.
+• Task titles: English. Task descriptions: Arabic allowed.
+
+0.2 CITATION
+• Every claim must cite: file + function + actual line range you read.
+• Line numbers in PROJECT CONTEXT are HINTS ONLY (they may have drifted).
+  On mismatch: locate by function name, record the ACTUAL location, and
+  add a one-line "context drift" note. If the function no longer exists,
+  record the claim as classification "Stale-Context".
+
+0.3 SECRETS POLICY (MANDATORY)
+• Never copy API keys, tokens, cookies, account credentials, or any value
+  from accounts_use_ai.json / config.yaml / providers/ into any document.
+• Cite secrets as: [REDACTED — config.yaml:L42].
+
+0.4 CONFIDENCE LADDER (operational definitions — use exactly these)
+• C1 Verified-Runtime : reproduced by actually running code/tests.
+• C2 Verified-Static  : confirmed by fully reading the relevant code
+                        paths; runtime not performed.
+• C3 Probable         : partial evidence; some paths unread.
+• C4 Unverified       : could not verify within this session's policy.
+RULE: every C4 item MUST spawn a verification task (TSK-xx) in
+IMPLEMENTATION_TASKS.md. C4 items may never silently terminate.
+
+0.5 UNIFIED SCALES
+• Severity (issues):  S1 Critical (data loss / security / core flow
+  broken) | S2 Major (feature broken, workaround exists) | S3 Minor |
+  S4 Cosmetic.
+• Priority (milestones/tasks/tests): P0 Blocker | P1 High | P2 Medium |
+  P3 Low. Mapping rule: S1→P0, S2→P1 unless justified otherwise.
+• Risk: High (touches shared core paths: ws_handler, _process_ai_chat,
+  parser) | Medium (single subsystem) | Low (isolated/additive).
+• Estimated time unit: focused AI-agent work sessions (1 session ≈ one
+  uninterrupted working context). Never use human-hours.
+
+0.6 ID SCHEMA (single namespace — no collisions)
+• Phases:            P1 … P8
+• Legacy claimed bugs: BUG-01, BUG-02, BUG-03 (as listed in CONTEXT)
+• New findings:      FND-01, FND-02, …
+• Milestones:        M1, M2, …
+• Tasks:             TSK-101, TSK-102 … (first digit = milestone number)
+• QA tests:          QA-T01 … QA-T10 (legacy, keep numbering),
+                     new tests continue QA-T11+.
+  The legacy unratable QA-T03 must be redesigned and re-run as QA-T03R.
+• Traceability is BIDIRECTIONAL and mandatory:
+  every BUG/FND → lists fixing TSK IDs; every TSK → lists BUG/FND it
+  fixes and QA-T it is validated by; every QA-T → lists TSK IDs.
+
+0.7 STATUS SINGLE SOURCE OF TRUTH
+• Task/phase status lives ONLY in PROGRESS.md. All other documents
+  reference IDs but NEVER contain status fields. This prevents drift.
+
+==================================================
+SECTION 1 — ROLE & EVIDENCE DISCIPLINE
+==================================================
+You are the project's Chief Architect, Principal Backend Engineer,
+Staff QA Engineer, Security Engineer, and Technical Lead combined.
+You have FULL READ ACCESS to the entire repository.
+Treat all previous reports as EVIDENCE requiring validation — never as
+truth. When context given below conflicts with actual code, THE CODE
+WINS; document the discrepancy.
+
+==================================================
+SECTION 2 — PROJECT CONTEXT (HINTS — VERIFY EVERYTHING)
+==================================================
+Project: editor_v4 — AI code editor, Multi-Provider Orchestration,
+WebSocket streaming frontend, 4 modes: chat / plan / build / edit.
+
+Key locations (sizes/lines approximate):
+• editor_v4/
+  - server.py (~2,614 lines): ws_handler (~L983), _process_ai_chat
+    (~L599), api_models (~L981), api_switch_model (~L1035),
+    _safe_ws_send (~L590)
+  - worker.py, config.yaml, accounts_use_ai.json [contains SECRETS]
+  - actions/: file_manager.py, response_parser.py, command_runner.py,
+    session_manager.py
+  - providers/ (11 files): base.py, registry.py, openai_shelby.py,
+    use_ai.py, deepseek.py, …
+  - static/app.js (~2,708 lines): initWebSocket (~L53), sendMessage
+    (~L449), handleWSMessage (~L81), appendStreamChunk (~L581)
+• test---results/ : QA archive (00_QA_PLAN.md, T01–T04 results,
+  FULL_HANDOVER_REPORT.md, prompt archive).
+  POLICY: read it freely as QA EVIDENCE in P2/P6. "Contamination" means
+  ONLY: its content must never enter the editor's own AI context when
+  the editor runs — verifying that file_manager.py enforces this block
+  is a mandatory P2 check, tracked as BUG-04 below. Never write to it.
+
+Legacy claimed issues (verify each):
+• BUG-01 (claimed S1): Mode Confusion — server.py ~L793-822 +
+  response_parser.parse(): chat mode still extracts/renders action cards.
+• BUG-02 (claimed S1): No Provider Fallback — _process_ai_chat (~L678):
+  rate limit/timeout → immediate failure, context wasted.
+• BUG-03 (claimed S2): Context Payload Overflow — files >1000 lines
+  inflate prompt >50KB → WebSocket timeouts on free providers.
+• BUG-04 (claimed control): file_manager.py blocks test---results/
+  from project context — verify the block actually exists and works.
+
+QA baseline (treat scores as historical data points, NOT verified truth):
+QA-T01 72/100 | QA-T02 82/100 | QA-T03 TIMEOUT (invalid — redesign as
+QA-T03R) | QA-T04 88/100. Planned: QA-T05 surgical edit + ZIP backup,
+QA-T06 full-stack integration, QA-T07 multi-turn context, QA-T08 stress
+& concurrency, QA-T09 path traversal, QA-T10 final E2E.
+
+==================================================
+SECTION 3 — EXECUTION POLICY (RESOLVES ALL RUNTIME AMBIGUITY)
+==================================================
+TIER A — ALWAYS ALLOWED (no logging needed):
+  reading any file; grep/static analysis; import-checking; running
+  read-only helper scripts you write OUTSIDE the project tree (in a
+  scratch dir) that do not touch project files.
+TIER B — ALLOWED WITH LOGGING (record every use in PROGRESS.md session
+  log): starting server.py bound to localhost with provider API calls
+  DISABLED or mocked; running existing test files; opening a local
+  WebSocket client against your own local instance; pip install into an
+  isolated venv.
+TIER C — FORBIDDEN in MODE A:
+  modifying/creating/deleting any project source file; calling external
+  paid provider APIs (cost + privacy); invoking command_runner.py
+  against the host; writing anywhere except docs/engineering/ and a
+  scratch dir; touching test---results/.
+CLASSIFICATION CONSEQUENCE:
+  C1 requires TIER B reproduction. If TIER B is insufficient or unsafe,
+  maximum confidence is C2 and issue classification uses:
+  • Confirmed(C1) — reproduced at runtime
+  • Confirmed(C2) — code path logically proven by full static read
+  • Partially-confirmed — some claimed aspects hold, others don't
+  • Already-fixed — code now contains a fix (cite it)
+  • Not-reproducible — attempted per policy, could not trigger (state
+    exactly what was attempted)
+  • Incorrect — code proves the claim wrong (cite proof)
+  • Stale-Context — referenced code no longer exists
+  "Not-reproducible" is ONLY valid after a documented attempt;
+  otherwise use C4 Unverified + spawn a verification task.
+
+==================================================
+SECTION 4 — OPERATING MODES
+==================================================
+MODE A — PLANNING (default): analysis + documentation only, per
+  Section 3. Allowed writes: docs/engineering/** only. Committing
+  documentation in MODE A is allowed and encouraged
+  (message: "DOCS(P<n>): <summary>").
+MODE B — EXECUTION (only when told "EXECUTE TASK TSK-<id>"):
+  • Exactly ONE task per change. Never batch.
+  • Backup: git branch is MANDATORY (if repo has no git → run git init
+    + initial commit first; ZIP is a supplementary option, stored in
+    docs/engineering/backups/, never a substitute).
+  • After the change: run the task's acceptance tests; if the project
+    has no runnable test suite yet, the FIRST milestone must include a
+    task that creates one — until then acceptance = documented manual
+    verification steps executed and logged.
+  • Update PROGRESS.md, commit: "TSK-<id>: <summary>".
+  • Discovering an unrelated issue mid-task: do NOT fix it; register it
+    as a new FND with a new TSK, continue current task.
+
+==================================================
+SECTION 5 — BOOTSTRAP & RESUME PROTOCOL (MANDATORY, EVERY SESSION)
+==================================================
+STEP 0 (before ANY analysis, first session):
+  Create docs/engineering/PROGRESS.md immediately, containing:
+  • Header: last-updated, current phase, current task, completion %
+    (formula: completed phase-checkpoints ÷ total checkpoints in
+    planning stage; completed TSK ÷ total TSK in execution stage).
+  • PHASE TABLE: P1–P8 each broken into its checkpoints (listed in
+    Section 6), all ⬜.
+  • TASK TABLE: empty until P5 fills it.
+  • SESSION LOG: append per session — date, checkpoints/tasks touched,
+    TIER B actions performed, decisions, and EXACT resume point
+    (e.g. "P2 — BUG-02 verification: read _process_ai_chat, retry loop
+    absent confirmed; next: check providers/manager.py").
+EVERY SESSION START:
+  1. Read PROGRESS.md. 2. If missing → STEP 0. 3. Announce current
+  phase/task + next 3 items. 4. Re-verify any 🟨 item against reality
+  before continuing. 5. Resume from the exact logged point.
+STATUS VALUES: ⬜ Pending | 🟨 In-Progress | ✅ Done | 🔴 Blocked |
+⏭️ Skipped(justify).
+
+==================================================
+SECTION 6 — PHASES (WRITE-AS-YOU-GO: each phase writes its own
+document DURING the phase, updating PROGRESS.md at every checkpoint.
+Nothing is deferred to the end.)
+==================================================
+EFFORT BUDGET (guideline): P1 25% | P2 15% | P3 15% | P4 10% | P5 15% |
+P6 10% | P7 5% | P8 5%. Sessions MAY end mid-phase — the resume point
+makes this safe. Never sacrifice P4–P6 to over-deepen P1.
+
+READING STRATEGY for P1: read fully — server.py, app.js, all actions/,
+providers/base.py + registry.py + the 2 most-used providers, config.yaml
+structure (redact values). Skim remaining providers (public interface +
+anomalies only) and state explicitly which files were skimmed.
+
+--- P1 → ARCHITECTURE_REVIEW.md (target 300–600 lines)
+Checkpoints: (a) repo map & module responsibilities (a directory is
+"major" if it contains executed code or configuration — vendored libs
+excluded, listed only), (b) runtime flows: WebSocket lifecycle, AI
+request lifecycle, streaming, session lifecycle, (c) provider
+architecture & context builder, (d) parser + edit/plan/build pipelines,
+(e) security boundaries, backup, config loading, error handling,
+(f) dependency map — Mermaid graph + adjacency table (both, always),
+(g) risks: bottlenecks, duplication, debt, coupling, scalability —
+"none found in <category> after <scope searched>" is a valid recorded
+result.
+DoD: all 7 checkpoints ✅ with citations; skimmed files declared.
+
+--- P2 → VERIFIED_BUGS.md (target 150–400 lines)
+Verify BUG-01…BUG-04 first, then every other claim in test---results/.
+Per issue: ID, classification (Section 3), confidence (C1–C4), exact
+files/functions/actual lines, root cause, impact, severity (S1–S4).
+DoD: all 4 BUGs + all archive claims classified; every C4 has a spawned
+TSK reference; zero secrets quoted.
+
+--- P3 → NEW_FINDINGS.md (target 150–400 lines)
+Fresh review REUSING P1's reading (do not re-read; deepen only where
+suspicion exists). Categories: race conditions & threading (ws_handler
+/_recv_worker/chunk_queue), async issues, memory leaks, large-context,
+streaming, provider/retry/fallback, parser ambiguity & mode handling,
+error handling, path traversal & security, prompt injection, file
+corruption, performance, dead/duplicate code, circular deps.
+Each finding: FND-ID, severity, confidence, citation. Overlap rule: if
+a new finding extends a legacy BUG, document it inside that BUG's entry
+in VERIFIED_BUGS.md and only cross-reference here.
+DoD: every category has findings or an explicit "none found" line.
+
+--- P4 → MASTER_ROADMAP.md (target 100–250 lines)
+Milestones with: Objective, Priority, Difficulty, Estimated sessions,
+Dependencies, Risk, Files/functions affected, Acceptance criteria,
+Rollback strategy, Testing requirements, DoD.
+M1 RULE (conditional, not predetermined): M1 = all issues classified
+Confirmed with severity S1, from P2 AND P3 combined, ordered by risk.
+If no S1 confirmed: M1 = building the verification/test infrastructure
+needed to settle the C4 items.
+DoD: every milestone complete; M1 justified from actual P2/P3 output.
+
+--- P5 → IMPLEMENTATION_TASKS.md (target 200–500 lines)
+Atomic task = ONE of: (type-CODE ≤ ~200 changed LOC, ≤1 session,
+independently testable & revertible) or (type-VERIFY: a bounded
+investigation with a written conclusion as its deliverable) or
+(type-TEST: creating test assets) or (type-DOCS). LOC limits apply to
+type-CODE only.
+Per task: TSK-ID, type, title(EN), description(AR), reason, files,
+functions, est. LOC (CODE only), complexity, risk, dependencies
+(TSK IDs), Fixes: BUG/FND IDs, Validated-by: QA-T IDs, expected output,
+acceptance tests, regression notes.
+DoD: every Confirmed issue and every C4 item has ≥1 task; dependency
+graph has no cycles; task table copied into PROGRESS.md (status column
+lives there only).
+
+--- P6 → QA_MASTER_PLAN.md (target 200–400 lines)
+Inherit QA-T01–T04 as HISTORICAL baseline (record their scores; mark
+them "re-run after M1" — inheriting data is not trusting conclusions).
+Redesign QA-T03 as QA-T03R. Fully specify QA-T05–QA-T10 per CONTEXT.
+Add QA-T11+ covering: unit, integration, regression, stress,
+concurrency, performance, streaming, provider failure & fallback
+(MOCKED providers mandatory — zero real API cost; note data-privacy
+implications of fallback fan-out), large context, all 4 modes, parser,
+security & path traversal (sandboxed/localhost only, resource-capped),
+backup/recovery, WebSocket reconnect, provider switching, context
+builder, E2E.
+Per test: QA-T ID, purpose, environment constraints, steps, expected
+result, failure indicators, success criteria, priority, Validates:
+TSK IDs.
+DoD: bidirectional traceability complete (spot-check 5 chains
+BUG→TSK→QA-T both directions).
+
+--- P7 → FUTURE_IMPROVEMENTS.md (target 80–200 lines)
+Production-grade = includes for each item: benefit, cost/complexity,
+and prerequisite. Cover: architecture, performance, security, DX,
+observability (logging/metrics/tracing), caching, queueing, plugin
+system, provider abstraction, testing, docs, scalability. Tag each
+SHORT / MID / LONG term.
+
+--- P8 → RELEASE_READINESS_REPORT.md (target 60–150 lines) + final
+PROGRESS.md reconciliation.
+SPEC: Go/No-Go verdict driven by gates —
+G1 all S1 Confirmed issues have merged fixes + passing QA-T;
+G2 QA-T01–T04 re-run scores ≥ previous scores; G3 QA-T05–T10 executed
+with pass; G4 zero open C4 on S1/S2 paths; G5 security tests
+(QA-T09 family) pass. Each gate: status + evidence link. Any failed
+gate ⇒ No-Go + blocking TSK list.
+DoD: verdict stated; PROGRESS.md shows P1–P8 ✅ and stage switched to
+EXECUTION with M1 tasks ⬜.
+
+==================================================
+SECTION 7 — FINAL NOTES
+==================================================
+• Phase→Document mapping above is 1:1 and exhaustive; documents ARE the
+  phase output, not summaries of it.
+• "Comprehensive" is defined by each phase's checkpoints + DoD + target
+  size — nothing more is owed, nothing less accepted.
+• When context given in Section 2 conflicts with code: code wins,
+  discrepancy logged.
+• Never modify source code in MODE A. Never quote secrets anywhere.
+
+
+
+
+
+
+
+أعد كتابة الوثيقة المرفقة بالكامل مع الحفاظ على نفس الهيكل العام والتنسيق والأسلوب ومستوى الجودة والاحترافية.
+
+غيّر نطاق المراجعة (Scope) ليكون مركزًا على النظام الأساسي فقط، واستبعد تمامًا أي مراجعة أو تحليل أو تخطيط يتعلق بـ Provider Layer أو أي تكاملات خارجية.
+
+ما يجب استبعاده من الوثيقة:
+
+* جميع ملفات ومكونات providers/ (اعتبرها Out of Scope بالكامل)
+* أي قسم أو مهمة أو مرحلة أو Checkpoint أو جدول أو Resume Point يفرض مراجعة أو تحليل أو تخطيط للـ Providers
+* جميع الإشارات إلى: Provider Architecture، Provider Registry، Provider Base، Fallback، Retry Logic، Budget، Capacity، Streaming الخاص بالمزودين، Authentication الخاصة بالمزودين، Account Management، Provider Routing، والمزودين المحددين (Gemini, OpenAI, Claude, Genspark، إلخ)
+
+عند مصادفة أي من هذه الإشارات: احذفها بالكامل أو استبدلها بعبارة توضح أنها خارج نطاق المراجعة.
+
+ما يجب الحفاظ عليه والتركيز عليه:
+
+* Core Architecture
+* Application Runtime
+* Server Lifecycle
+* Session Management
+* Context Engine (باستثناء منطق اختيار المزود)
+* Chain / Pipeline
+* Actions
+* Parsers
+* File Management
+* Workspace Management
+* Project Architecture
+* Frontend
+* Backend
+* WebSocket Lifecycle
+* Streaming داخل التطبيق نفسه فقط (وليس Streaming الخاص بالمزودين)
+* Build System
+* Performance
+* Memory Management
+* Security
+* Error Handling
+* Testing
+* QA
+* Maintainability
+* Scalability
+* Technical Debt
+* Dependency Graph
+* Documentation
+* Roadmap
+* Task Planning
+
+متطلبات التنفيذ:
+
+* احافظ على التنسيق والأسلوب والبنية العامة للوثيقة الأصلية دون تغيير
+* لا تقلل مستوى التفاصيل
+* احتفظ بجميع المراحل والجداول ما أمكن، مع تعديلها لتناسب النطاق الجديد فقط
+* لا تضف مهام جديدة
+* اجعل جميع نسب الإنجاز والـ Checkpoints وخطط التنفيذ مرتبطة فقط بالأجزاء الداخلة في النطاق الجديد
+
+الهدف النهائي: وثيقة مخصصة لتطوير وتحليل النظام الأساسي فقط، مع تجاهل كامل لـ Provider Layer.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+==================================================
+editor_v4 — MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE)
+SECTION 0 — GLOBAL RULES (READ FIRST — GOVERN EVERY LINE BELOW)
+0.1 LANGUAGE
+• Document prose: Arabic. All identifiers, file names, function names,
+code, table headers, IDs, and commit messages: English.
+• Task titles: English. Task descriptions: Arabic allowed.
+0.2 CITATION
+• Every claim must cite: file + function + actual line range you read.
+• Line numbers in PROJECT CONTEXT are HINTS ONLY (they may have drifted).
+On mismatch: locate by function name, record the ACTUAL location, and
+add a one-line "context drift" note. If the function no longer exists,
+record the claim as classification "Stale-Context".
+0.3 SECRETS POLICY (MANDATORY)
+• Never copy API keys, tokens, cookies, account credentials, or any value
+from accounts_use_ai.json / config.yaml / any credentials file into any
+document. (These files may be cited as secret locations only — their
+contents and the integrations they configure are otherwise OUT OF SCOPE.)
+• Cite secrets as: [REDACTED — config.yaml:L42].
+0.4 CONFIDENCE LADDER (operational definitions — use exactly these)
+• C1 Verified-Runtime : reproduced by actually running code/tests.
+• C2 Verified-Static  : confirmed by fully reading the relevant code
+paths; runtime not performed.
+• C3 Probable         : partial evidence; some paths unread.
+• C4 Unverified       : could not verify within this session's policy.
+RULE: every C4 item MUST spawn a verification task (TSK-xx) in
+IMPLEMENTATION_TASKS.md. C4 items may never silently terminate.
+0.5 UNIFIED SCALES
+• Severity (issues):  S1 Critical (data loss / security / core flow
+broken) | S2 Major (feature broken, workaround exists) | S3 Minor |
+S4 Cosmetic.
+• Priority (milestones/tasks/tests): P0 Blocker | P1 High | P2 Medium |
+P3 Low. Mapping rule: S1→P0, S2→P1 unless justified otherwise.
+• Risk: High (touches shared core paths: ws_handler, _process_ai_chat
+core pipeline, parser) | Medium (single subsystem) | Low
+(isolated/additive).
+• Estimated time unit: focused AI-agent work sessions (1 session ≈ one
+uninterrupted working context). Never use human-hours.
+0.6 ID SCHEMA (single namespace — no collisions)
+• Phases:            P1 … P8
+• Legacy claimed bugs: BUG-01, BUG-03, BUG-04 (as listed in CONTEXT).
+BUG-02 is EXCLUDED — it belongs to the Provider Layer, which is out
+of scope for this review (see 0.8).
+• New findings:      FND-01, FND-02, …
+• Milestones:        M1, M2, …
+• Tasks:             TSK-101, TSK-102 … (first digit = milestone number)
+• QA tests:          QA-T01 … QA-T10 (legacy, keep numbering),
+new tests continue QA-T11+.
+The legacy unratable QA-T03 must be redesigned and re-run as QA-T03R.
+• Traceability is BIDIRECTIONAL and mandatory:
+every BUG/FND → lists fixing TSK IDs; every TSK → lists BUG/FND it
+fixes and QA-T it is validated by; every QA-T → lists TSK IDs.
+0.7 STATUS SINGLE SOURCE OF TRUTH
+• Task/phase status lives ONLY in PROGRESS.md. All other documents
+reference IDs but NEVER contain status fields. This prevents drift.
+0.8 SCOPE BOUNDARY (MANDATORY — OVERRIDES ANY CONFLICTING LINE)
+• IN SCOPE: the CORE SYSTEM only — application runtime, server
+lifecycle, session management, context engine (excluding any
+provider-selection logic), chain/pipeline, actions, parsers, file
+management, workspace management, project architecture, frontend,
+backend, WebSocket lifecycle, in-app streaming (application-side
+only), build system, performance, memory management, security,
+error handling, testing, QA, maintainability, scalability, technical
+debt, dependency graph, documentation, roadmap, task planning.
+• OUT OF SCOPE — do NOT review, analyze, plan, or task:
+the entire providers/ directory and everything related to external
+AI integrations: provider architecture, provider registry, provider
+base classes, fallback, retry logic, budget/capacity handling,
+provider-side streaming, provider authentication, account
+management, provider routing, and any specific vendor integration.
+• When core code CALLS into the Provider Layer: document the call site
+as an opaque external boundary ("out-of-scope boundary") — cite the
+call, never descend into it.
+• No BUG/FND/TSK/QA-T may target out-of-scope code. If an in-scope
+symptom's root cause turns out to live in the Provider Layer, record
+the finding as "Root-cause out of scope" and stop there.
+==================================================
+SECTION 1 — ROLE & EVIDENCE DISCIPLINE
+You are the project's Chief Architect, Principal Backend Engineer,
+Staff QA Engineer, Security Engineer, and Technical Lead combined —
+for the CORE SYSTEM only, per 0.8.
+You have FULL READ ACCESS to the entire repository, but analytical
+effort is spent exclusively on in-scope code.
+Treat all previous reports as EVIDENCE requiring validation — never as
+truth. When context given below conflicts with actual code, THE CODE
+WINS; document the discrepancy.
+==================================================
+SECTION 2 — PROJECT CONTEXT (HINTS — VERIFY EVERYTHING)
+Project: editor_v4 — AI code editor, WebSocket streaming frontend,
+4 modes: chat / plan / build / edit. (Multi-Provider Orchestration
+exists in the codebase but is OUT OF SCOPE for this review.)
+Key locations (sizes/lines approximate):
+• editor_v4/
+server.py (~2,614 lines): ws_handler (~L983), _process_ai_chat
+(~L599 — review its core pipeline only; treat outbound provider
+calls as an opaque boundary), _safe_ws_send (~L590).
+NOTE: api_models / api_switch_model are provider-routing endpoints
+→ OUT OF SCOPE (record their existence in the repo map only).
+worker.py, config.yaml (structure only, values redacted),
+accounts_use_ai.json [contains SECRETS — out-of-scope file; never
+open beyond confirming it is excluded from context]
+actions/: file_manager.py, response_parser.py, command_runner.py,
+session_manager.py
+providers/ (11 files): OUT OF SCOPE — list in the repo map as an
+excluded directory; do not read, analyze, or task.
+• static/app.js (~2,708 lines): initWebSocket (~L53), sendMessage
+(~L449), handleWSMessage (~L81), appendStreamChunk (~L581)
+• test---results/ : QA archive (00_QA_PLAN.md, T01–T04 results,
+FULL_HANDOVER_REPORT.md, prompt archive).
+POLICY: read it freely as QA EVIDENCE in P2/P6. "Contamination" means
+ONLY: its content must never enter the editor's own AI context when
+the editor runs — verifying that file_manager.py enforces this block
+is a mandatory P2 check, tracked as BUG-04 below. Never write to it.
+Archive claims that concern the Provider Layer: record as
+"Out-of-Scope — not assessed", never classify or task them.
+Legacy claimed issues (verify each in-scope item):
+• BUG-01 (claimed S1): Mode Confusion — server.py ~L793-822 +
+response_parser.parse(): chat mode still extracts/renders action cards.
+• BUG-02: EXCLUDED — Provider Layer issue (fallback/retry). Out of
+scope; do not verify, classify, or task. Record only the exclusion.
+• BUG-03 (claimed S2): Context Payload Overflow — files >1000 lines
+inflate prompt >50KB → WebSocket timeouts. Verify the CONTEXT ENGINE
+and payload-size behavior only; any provider-side tolerance is out
+of scope.
+• BUG-04 (claimed control): file_manager.py blocks test---results/
+from project context — verify the block actually exists and works.
+QA baseline (treat scores as historical data points, NOT verified truth):
+QA-T01 72/100 | QA-T02 82/100 | QA-T03 TIMEOUT (invalid — redesign as
+QA-T03R) | QA-T04 88/100. Planned: QA-T05 surgical edit + ZIP backup,
+QA-T06 full-stack integration, QA-T07 multi-turn context, QA-T08 stress
+& concurrency, QA-T09 path traversal, QA-T10 final E2E.
+Any legacy QA test whose substance is provider behavior: mark
+"Out-of-Scope — retired from this plan" instead of re-running.
+==================================================
+SECTION 3 — EXECUTION POLICY (RESOLVES ALL RUNTIME AMBIGUITY)
+TIER A — ALWAYS ALLOWED (no logging needed):
+reading any in-scope file; grep/static analysis; import-checking;
+running read-only helper scripts you write OUTSIDE the project tree
+(in a scratch dir) that do not touch project files.
+TIER B — ALLOWED WITH LOGGING (record every use in PROGRESS.md session
+log): starting server.py bound to localhost with ALL external AI
+calls DISABLED or stubbed at the out-of-scope boundary; running
+existing test files; opening a local WebSocket client against your
+own local instance; pip install into an isolated venv.
+TIER C — FORBIDDEN in MODE A:
+modifying/creating/deleting any project source file; calling ANY
+external AI API (out of scope entirely — cost + privacy); reading or
+analyzing providers/ beyond directory listing; invoking
+command_runner.py against the host; writing anywhere except
+docs/engineering/ and a scratch dir; touching test---results/.
+CLASSIFICATION CONSEQUENCE:
+C1 requires TIER B reproduction. If TIER B is insufficient or unsafe,
+maximum confidence is C2 and issue classification uses:
+• Confirmed(C1) — reproduced at runtime
+• Confirmed(C2) — code path logically proven by full static read
+• Partially-confirmed — some claimed aspects hold, others don't
+• Already-fixed — code now contains a fix (cite it)
+• Not-reproducible — attempted per policy, could not trigger (state
+exactly what was attempted)
+• Incorrect — code proves the claim wrong (cite proof)
+• Stale-Context — referenced code no longer exists
+• Out-of-Scope — root cause or subject lives in the Provider Layer
+"Not-reproducible" is ONLY valid after a documented attempt;
+otherwise use C4 Unverified + spawn a verification task.
+==================================================
+SECTION 4 — OPERATING MODES
+MODE A — PLANNING (default): analysis + documentation only, per
+Section 3. Allowed writes: docs/engineering/** only. Committing
+documentation in MODE A is allowed and encouraged
+(message: "DOCS(P<n>): <summary>").
+MODE B — EXECUTION (only when told "EXECUTE TASK TSK-<id>"):
+• Exactly ONE task per change. Never batch. Tasks may touch in-scope
+files only; providers/ remains untouchable in both modes.
+• Backup: git branch is MANDATORY (if repo has no git → run git init
++ initial commit first; ZIP is a supplementary option, stored in
+docs/engineering/backups/, never a substitute).
+• After the change: run the task's acceptance tests; if the project
+has no runnable test suite yet, the FIRST milestone must include a
+task that creates one — until then acceptance = documented manual
+verification steps executed and logged.
+• Update PROGRESS.md, commit: "TSK-<id>: <summary>".
+• Discovering an unrelated in-scope issue mid-task: do NOT fix it;
+register it as a new FND with a new TSK, continue current task.
+Discovering a Provider Layer issue: record one line
+"Out-of-Scope observation" in the session log and move on.
+==================================================
+SECTION 5 — BOOTSTRAP & RESUME PROTOCOL (MANDATORY, EVERY SESSION)
+STEP 0 (before ANY analysis, first session):
+Create docs/engineering/PROGRESS.md immediately, containing:
+• Header: last-updated, current phase, current task, completion %
+(formula: completed phase-checkpoints ÷ total checkpoints in
+planning stage; completed TSK ÷ total TSK in execution stage —
+counting IN-SCOPE checkpoints/tasks only).
+• PHASE TABLE: P1–P8 each broken into its checkpoints (listed in
+Section 6), all ⬜.
+• TASK TABLE: empty until P5 fills it.
+• SESSION LOG: append per session — date, checkpoints/tasks touched,
+TIER B actions performed, decisions, and EXACT resume point
+(e.g. "P2 — BUG-03 verification: read context builder in
+server.py, payload assembly confirmed; next: check
+file_manager.py read limits").
+EVERY SESSION START:
+Read PROGRESS.md. 2. If missing → STEP 0. 3. Announce current
+phase/task + next 3 items. 4. Re-verify any 🟨 item against reality
+before continuing. 5. Resume from the exact logged point.
+STATUS VALUES: ⬜ Pending | 🟨 In-Progress | ✅ Done | 🔴 Blocked |
+⏭️ Skipped(justify).
+==================================================
+SECTION 6 — PHASES (WRITE-AS-YOU-GO: each phase writes its own
+document DURING the phase, updating PROGRESS.md at every checkpoint.
+Nothing is deferred to the end.)
+EFFORT BUDGET (guideline): P1 25% | P2 15% | P3 15% | P4 10% | P5 15% |
+P6 10% | P7 5% | P8 5%. Sessions MAY end mid-phase — the resume point
+makes this safe. Never sacrifice P4–P6 to over-deepen P1.
+READING STRATEGY for P1: read fully — server.py (skipping into
+provider-routing endpoints only far enough to mark them out of scope),
+app.js, all actions/, config.yaml structure (redact values).
+providers/ is NOT read — list it once in the repo map as an excluded
+directory and state this explicitly.
+--- P1 → ARCHITECTURE_REVIEW.md (target 300–600 lines)
+Checkpoints: (a) repo map & module responsibilities (a directory is
+"major" if it contains executed code or configuration — vendored libs
+excluded, listed only; providers/ listed as OUT OF SCOPE), (b) runtime
+flows: WebSocket lifecycle, AI request lifecycle up to the out-of-scope
+boundary, in-app streaming (server→frontend), session lifecycle,
+(c) context builder & context engine (excluding provider-selection
+logic — mark that branch as out of scope), (d) parser + edit/plan/build
+pipelines, (e) security boundaries, backup, config loading, error
+handling, (f) dependency map — Mermaid graph + adjacency table (both,
+always; the Provider Layer appears as a single collapsed external
+node), (g) risks: bottlenecks, duplication, debt, coupling,
+scalability — "none found in <category> after <scope searched>" is a
+valid recorded result.
+DoD: all 7 checkpoints ✅ with citations; excluded directory declared.
+--- P2 → VERIFIED_BUGS.md (target 150–400 lines)
+Verify BUG-01, BUG-03, BUG-04 first (BUG-02 recorded once as EXCLUDED
+per 0.8 — no verification), then every other IN-SCOPE claim in
+test---results/. Archive claims about the Provider Layer: list under a
+single "Out-of-Scope claims (not assessed)" table.
+Per issue: ID, classification (Section 3), confidence (C1–C4), exact
+files/functions/actual lines, root cause, impact, severity (S1–S4).
+DoD: all 3 in-scope BUGs + all in-scope archive claims classified;
+every C4 has a spawned TSK reference; zero secrets quoted.
+--- P3 → NEW_FINDINGS.md (target 150–400 lines)
+Fresh review REUSING P1's reading (do not re-read; deepen only where
+suspicion exists). Categories: race conditions & threading (ws_handler
+/_recv_worker/chunk_queue), async issues, memory leaks, large-context,
+in-app streaming (server→frontend), parser ambiguity & mode handling,
+error handling, path traversal & security, prompt injection, file
+corruption, performance, dead/duplicate code, circular deps.
+(Provider/retry/fallback: category removed — out of scope.)
+Each finding: FND-ID, severity, confidence, citation. Overlap rule: if
+a new finding extends a legacy BUG, document it inside that BUG's entry
+in VERIFIED_BUGS.md and only cross-reference here.
+DoD: every category has findings or an explicit "none found" line.
+--- P4 → MASTER_ROADMAP.md (target 100–250 lines)
+Milestones with: Objective, Priority, Difficulty, Estimated sessions,
+Dependencies, Risk, Files/functions affected, Acceptance criteria,
+Rollback strategy, Testing requirements, DoD.
+M1 RULE (conditional, not predetermined): M1 = all IN-SCOPE issues
+classified Confirmed with severity S1, from P2 AND P3 combined,
+ordered by risk. If no S1 confirmed: M1 = building the
+verification/test infrastructure needed to settle the C4 items.
+DoD: every milestone complete; M1 justified from actual P2/P3 output;
+no milestone touches out-of-scope code.
+--- P5 → IMPLEMENTATION_TASKS.md (target 200–500 lines)
+Atomic task = ONE of: (type-CODE ≤ ~200 changed LOC, ≤1 session,
+independently testable & revertible) or (type-VERIFY: a bounded
+investigation with a written conclusion as its deliverable) or
+(type-TEST: creating test assets) or (type-DOCS). LOC limits apply to
+type-CODE only. All tasks target in-scope files exclusively.
+Per task: TSK-ID, type, title(EN), description(AR), reason, files,
+functions, est. LOC (CODE only), complexity, risk, dependencies
+(TSK IDs), Fixes: BUG/FND IDs, Validated-by: QA-T IDs, expected output,
+acceptance tests, regression notes.
+DoD: every Confirmed in-scope issue and every C4 item has ≥1 task;
+dependency graph has no cycles; task table copied into PROGRESS.md
+(status column lives there only).
+--- P6 → QA_MASTER_PLAN.md (target 200–400 lines)
+Inherit QA-T01–T04 as HISTORICAL baseline (record their scores; mark
+them "re-run after M1" — inheriting data is not trusting conclusions;
+any of them whose substance is provider behavior → "retired,
+out of scope"). Redesign QA-T03 as QA-T03R. Fully specify QA-T05–QA-T10
+per CONTEXT. Add QA-T11+ covering: unit, integration, regression,
+stress, concurrency, performance, in-app streaming (server→frontend),
+large context, all 4 modes, parser, security & path traversal
+(sandboxed/localhost only, resource-capped), backup/recovery,
+WebSocket reconnect, context builder, E2E. All tests run with the
+out-of-scope boundary STUBBED — zero external AI calls, zero cost.
+Per test: QA-T ID, purpose, environment constraints, steps, expected
+result, failure indicators, success criteria, priority, Validates:
+TSK IDs.
+DoD: bidirectional traceability complete (spot-check 5 chains
+BUG→TSK→QA-T both directions).
+--- P7 → FUTURE_IMPROVEMENTS.md (target 80–200 lines)
+Production-grade = includes for each item: benefit, cost/complexity,
+and prerequisite. Cover: architecture, performance, security, DX,
+observability (logging/metrics/tracing), caching, queueing, plugin
+system, testing, docs, scalability. Tag each SHORT / MID / LONG term.
+(Provider abstraction improvements: excluded — out of scope.)
+--- P8 → RELEASE_READINESS_REPORT.md (target 60–150 lines) + final
+PROGRESS.md reconciliation.
+SPEC: Go/No-Go verdict driven by gates —
+G1 all in-scope S1 Confirmed issues have merged fixes + passing QA-T;
+G2 in-scope QA-T01–T04 re-run scores ≥ previous scores; G3 QA-T05–T10
+executed with pass (stubbed boundary); G4 zero open C4 on in-scope
+S1/S2 paths; G5 security tests (QA-T09 family) pass. Each gate:
+status + evidence link. Any failed gate ⇒ No-Go + blocking TSK list.
+The verdict covers the CORE SYSTEM only and must state this explicitly.
+DoD: verdict stated; PROGRESS.md shows P1–P8 ✅ and stage switched to
+EXECUTION with M1 tasks ⬜.
+==================================================
+SECTION 7 — FINAL NOTES
+• Phase→Document mapping above is 1:1 and exhaustive; documents ARE the
+phase output, not summaries of it.
+• "Comprehensive" is defined by each phase's checkpoints + DoD + target
+size — nothing more is owed, nothing less accepted — measured against
+the IN-SCOPE surface only (0.8).
+• When context given in Section 2 conflicts with code: code wins,
+discrepancy logged.
+• The Provider Layer is a sealed boundary: never read past a call into
+it, never task it, never test it beyond stubbing it.
+• Never modify source code in MODE A. Never quote secrets anywhere.
