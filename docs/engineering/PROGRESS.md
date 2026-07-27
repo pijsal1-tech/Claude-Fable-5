@@ -10,11 +10,11 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-27 (Session 2 — P1 complete) |
+| last-updated | 2026-07-27 (Session 3 — P2 complete) |
 | stage | PLANNING (MODE A) |
-| current-phase | P2 — Verified Bugs |
-| current-task | P2(a) BUG-01 Mode Confusion — verify & classify |
-| completion % (planning) | 17.5% (7 / 40 in-scope phase-checkpoints) |
+| current-phase | P3 — New Findings |
+| current-task | P3(a) Race conditions & threading |
+| completion % (planning) | 32.5% (13 / 40 in-scope phase-checkpoints) |
 | completion % (execution) | N/A (task table empty until P5) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
@@ -85,12 +85,12 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 ### P2 — VERIFIED_BUGS.md (6 checkpoints) — budget 15%
 | # | Checkpoint | Status |
 |---|---|---|
-| P2a | BUG-01 Mode Confusion — verify & classify | ⬜ |
-| P2b | BUG-02 — record EXCLUDED (out of scope) once, no verification | ⬜ |
-| P2c | BUG-03 Context Payload Overflow — verify context engine & payload size only | ⬜ |
-| P2d | BUG-04 test---results/ contamination block — verify block exists AND works (note: early evidence above) | ⬜ |
-| P2e | Sweep all other IN-SCOPE claims in test---results/ archive; out-of-scope claims → "not assessed" table | ⬜ |
-| P2f | DoD check: every C4 has spawned TSK; zero secrets quoted | ⬜ |
+| P2a | BUG-01 Mode Confusion — verify & classify | ✅ Confirmed C4/S2 |
+| P2b | BUG-02 — record EXCLUDED (out of scope) once, no verification | ✅ EXCLUDED recorded |
+| P2c | BUG-03 Context Payload Overflow — verify context engine & payload size only | ✅ Partially-Confirmed (mechanism C4/S2) |
+| P2d | BUG-04 test---results/ contamination block — verify block exists AND works (note: early evidence above) | ✅ (a) Partial / (b) Refuted C4/S3 |
+| P2e | Sweep all other IN-SCOPE claims in test---results/ archive; out-of-scope claims → "not assessed" table | ✅ A1–A7 + X1–X4 |
+| P2f | DoD check: every C4 has spawned TSK; zero secrets quoted | ✅ |
 
 ### P3 — NEW_FINDINGS.md (13 checkpoints = categories) — budget 15%
 | # | Category | Status |
@@ -214,3 +214,35 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
   BUG-01 then BUG-03/BUG-04 with confidence ladder + severity, (3) record
   BUG-02 as EXCLUDED (P2b) and build the not-assessed table (P2e);
   output file: docs/engineering/VERIFIED_BUGS.md.
+
+### Session 3 — 2026-07-27 (P2 complete → VERIFIED_BUGS.md)
+- **Checkpoints completed**: P2a–P2f (all 6) → `docs/engineering/VERIFIED_BUGS.md`.
+- **TIER A actions** (sandbox reset → repo re-cloned; pushed P1 commit `2150c6d` first):
+  - Read full historical QA archive: `test---results/` (00_QA_PLAN, T01–T04
+    results, 5 prompt files) + `test-results/` inventory (T01–T03 subdirs).
+  - Re-verified code evidence: response_parser.py L107/L131–169 (mode-agnostic
+    parse + aggressive fallback); server.py L1698–1711 (done frame carries
+    actions in chat), L1332–1339 + L1782–1791 (budget-bypass injection paths),
+    L1654 (full history passed); app.js L193–196 + L1016–1020 (actions bar
+    shown regardless of mode); three independent ignore-lists compared:
+    file_manager.py L27–31 vs chain/bridge.py L655–662 vs agent_tools.py
+    L300–302 — none blocks `test---results`; grep: zero `scan_start` frames.
+- **TIER B actions**: none.
+- **Decisions / verdicts**:
+  1. BUG-01 Confirmed C4/S2 — full 3-layer static chain (parser → server → UI).
+  2. BUG-02 recorded once as EXCLUDED (0.8) — no verification performed.
+  3. BUG-03 Partially-Confirmed — in-scope mechanism (budget bypass) C4/S2;
+     provider timeout symptom Not-Assessed (out of scope).
+  4. BUG-04 — claim (a) block exists: Partially-Confirmed (only old name, only
+     file_manager path); claim (b) block works: **Refuted** C4/S3.
+  5. Archive sweep: A1(C2→P3k), A2(not-assessed/LLM), A3 scan_start absent
+     Confirmed C3/S4, A4+A7 Stale-Context, A5 folded into BUG-04,
+     A6 backend-subpath claim deferred to P3h as fresh investigation;
+     X1–X4 out-of-scope not-assessed table.
+- **EXACT RESUME POINT**: P3a — Race conditions & threading: start from
+  ws_handler synchronous loop server.py:L2217–2225 + g5 (REST globals vs WS
+  SessionContext dual-state) + g6 (unthreaded apply_all_actions in WS loop);
+  next 3 items → (1) read core/execution.py cancel/ticket race surface fully,
+  (2) EventBus/_WSAdapter lock discipline server.py:L210–238 + L331,
+  (3) chat_history/session_mgr concurrent append paths; then proceed P3b–P3m;
+  output file: docs/engineering/NEW_FINDINGS.md (13 categories, single doc).
