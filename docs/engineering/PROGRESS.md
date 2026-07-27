@@ -10,11 +10,11 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-27 (Session 1 — v4.1 bootstrap) |
+| last-updated | 2026-07-27 (Session 2 — P1 complete) |
 | stage | PLANNING (MODE A) |
-| current-phase | P1 — Architecture Review |
-| current-task | P1(a) repo map & module responsibilities |
-| completion % (planning) | 0% (0 / 40 in-scope phase-checkpoints) |
+| current-phase | P2 — Verified Bugs |
+| current-task | P2(a) BUG-01 Mode Confusion — verify & classify |
+| completion % (planning) | 17.5% (7 / 40 in-scope phase-checkpoints) |
 | completion % (execution) | N/A (task table empty until P5) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
@@ -74,13 +74,13 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 ### P1 — ARCHITECTURE_REVIEW.md (7 checkpoints) — budget 25%
 | # | Checkpoint | Status |
 |---|---|---|
-| P1a | Repo map & module responsibilities (providers/ listed as OUT OF SCOPE, vendored libs listed only) | ⬜ |
-| P1b | Runtime flows: WebSocket lifecycle, AI request lifecycle up to out-of-scope boundary, in-app streaming (server→frontend), session lifecycle | ⬜ |
-| P1c | Context builder & context engine (provider-selection branches marked out of scope) | ⬜ |
-| P1d | Parser + edit/plan/build pipelines | ⬜ |
-| P1e | Security boundaries, backup, config loading, error handling | ⬜ |
-| P1f | Dependency map — Mermaid graph + adjacency table (Provider Layer = single collapsed external node) | ⬜ |
-| P1g | Risks: bottlenecks, duplication, debt, coupling, scalability | ⬜ |
+| P1a | Repo map & module responsibilities (providers/ listed as OUT OF SCOPE, vendored libs listed only) | ✅ |
+| P1b | Runtime flows: WebSocket lifecycle, AI request lifecycle up to out-of-scope boundary, in-app streaming (server→frontend), session lifecycle | ✅ |
+| P1c | Context builder & context engine (provider-selection branches marked out of scope) | ✅ |
+| P1d | Parser + edit/plan/build pipelines | ✅ |
+| P1e | Security boundaries, backup, config loading, error handling | ✅ |
+| P1f | Dependency map — Mermaid graph + adjacency table (Provider Layer = single collapsed external node) | ✅ |
+| P1g | Risks: bottlenecks, duplication, debt, coupling, scalability | ✅ |
 
 ### P2 — VERIFIED_BUGS.md (6 checkpoints) — budget 15%
 | # | Checkpoint | Status |
@@ -174,7 +174,43 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
   2. Early BUG-04 evidence logged (IGNORE_DIRS lacks `test---results`) — NOT
      classified yet; P2d will do the full static/runtime verification.
   3. Checkpoint total fixed at 40 (7+6+13+3+4+5+1+1).
-- **EXACT RESUME POINT**: P1a — begin repo map & module responsibilities:
-  next 3 items → (1) read server.py L1–600 (bootstrap, AppContext wiring,
-  route registration), (2) read core/ module by module, (3) read chain/
-  orchestrator.py + executor.py + context_builder.py entry points.
+- **EXACT RESUME POINT (superseded by Session 2)**: P1a — begin repo map.
+
+### Session 2 — 2026-07-27 (P1 complete → ARCHITECTURE_REVIEW.md)
+- **Checkpoints completed**: P1a–P1g (all 7) → `docs/engineering/ARCHITECTURE_REVIEW.md`.
+- **TIER A actions** (sandbox reset → repo re-cloned first):
+  - server.py read ~95% (skipped only out-of-scope `api_models`/`api_switch_model`
+    L968–1075 per SCOPE POLICY). Key anchors: `ws_handler` L2213,
+    `_handle_ws_message` L1714, `_dispatch_chat_message` L1285,
+    `_build_session_context` L1253, `_WSAdapter` L210–238, `_json_sender` L331,
+    `RUNNERS` L305–311, `_apply_single_action` L2243–2280, `main()` L2326–2609,
+    provider boundary points L1657 + L1524–1528 (opaque, not entered).
+  - Full reads: actions/file_manager.py, actions/response_parser.py,
+    chain/path_policy.py; interface reads: context/{facade,engine,budget,
+    safe_reader}.py, core/{app_context,execution,session_context}.py,
+    chain/{bridge,executor,agent_loop}.py, runners/*, worker.py,
+    sessions/{store,retention}.py, prompts/templates.py, config.yaml keys,
+    static/app.js key flows, tests/ inventory (103 files).
+- **TIER B actions**: none.
+- **Decisions**:
+  1. Stale-Context candidates settled at evidence level: `_process_ai_chat` /
+     `_safe_ws_send` do NOT exist by name; actual equivalents are
+     `_dispatch_chat_message` L1285 / `_handle_ws_message` L1714 /
+     `_WSAdapter._send` + `_json_sender` L331. Formal classification
+     (Stale-Context) to be recorded in P2 alongside the bug sweep.
+  2. P1 risk handoffs g1–g12 recorded in ARCHITECTURE_REVIEW.md §(g);
+     g11 feeds P2d (BUG-04), g2/g3/g4 feed P3l, g6 feeds P3a, g7 feeds P3k,
+     g8 feeds P3h, g10 feeds P3e/P3g, g9 feeds P7.
+  3. Pre-classified evidence held for P2: BUG-01 (parser mode-agnostic —
+     response_parser.py:`parse()` L107 takes no mode param; aggressive fallback
+     L131–169; chat-mode done frame ships actions server.py:L1698–1711);
+     BUG-03 (ContextBudget.pack budget.py:L131 exists but direct-injection
+     paths server.py:L1332–1339 / L1786–1791 bypass it); BUG-04 (IGNORE_DIRS
+     file_manager.py:L27–31 lacks `test---results`).
+- **EXACT RESUME POINT**: P2a — BUG-01 verification: start from evidence
+  response_parser.py:L107 (mode-agnostic parse) + server.py:L1698–1711
+  (chat done frame with actions); next 3 items → (1) read test---results/
+  archive claims for BUG-01/03/04 (QA-evidence read only), (2) classify
+  BUG-01 then BUG-03/BUG-04 with confidence ladder + severity, (3) record
+  BUG-02 as EXCLUDED (P2b) and build the not-assessed table (P2e);
+  output file: docs/engineering/VERIFIED_BUGS.md.
