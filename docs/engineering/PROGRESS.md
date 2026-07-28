@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 8 — MODE B: TSK-103 Completed, QA-T06 جزء 103 أخضر) |
+| last-updated | 2026-07-28 (Session 9 — MODE B: TSK-104 Completed, QA-T06 مكتملة خضراء) |
 | stage | EXECUTION (MODE B — M1 in progress) |
 | current-phase | M1 (Safety) |
-| current-task | TSK-104 — سقف تاريخ المحادثة عند نقطة الإرسال (NF-07) |
+| current-task | TSK-105 — Zip-Slip guard للاستعادة (NF-15) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 21% (4 / 19 TSK) |
+| completion % (execution) | 26% (5 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -154,7 +154,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-101 | fix | تمرير mode للمحلّل + فلترة actions في chat (BUG-01) | M1 | ✅ Completed (S7) |
 | TSK-102 | fix | تهذيب fallback الأوامر (NF-13) | M1 | ✅ Completed (S7) |
 | TSK-103 | fix | توحيد مسارات حقن السياق تحت ContextBudget (BUG-03) | M1 | ✅ Completed (S8) |
-| TSK-104 | fix | سقف تاريخ المحادثة (NF-07) | M1 | ⬜ pending |
+| TSK-104 | fix | سقف تاريخ المحادثة (NF-07) | M1 | ✅ Completed (S9) |
 | TSK-105 | security | Zip-Slip guard للاستعادة (NF-15) | M1 | ⬜ pending |
 | TSK-201 | refactor | دمج apply_all_actions/execute_plan (NF-23.1) | M2 | ✅ Completed (S7) |
 | TSK-202 | fix | قائمة تجاهل موحّدة تشمل test---results (BUG-04) | M2 | ⬜ pending |
@@ -468,11 +468,47 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `FIX(TSK-103): unify detected-file + attach-folder injection under ContextBudget (BUG-03), visible drop marker, QA-T06 part green`
 
-- **EXACT RESUME POINT: TSK-104 (Current Task)** — سقف تاريخ المحادثة عند
-  نقطة الإرسال (NF-07 — جزء الحمولة؛ جزء الذاكرة في TSK-303):
-  server.py مواضع تمرير history (كانت L1559، L1654 — الآن
-  `sctx.chat_history[:-1]` في مساري agent/direct) → تمرير آخر N
-  رسالة/حرف وفق مفتاح config جديد (افتراضي متوافق سلوكيًا موثّق).
-  معيار القبول: جلسة 200 رسالة → حمولة history مسقوفة؛ اختبار وحدة
-  على القصّ (QA-T06). Deps: TSK-103 ✅. بعدها TSK-105 (Zip-Slip، QA-T07)؛
-  بوابة QA-T06/T07 تُغلق M1.
+- **EXACT RESUME POINT (superseded by Session 9)**: TSK-104 أُنجز في Session 9.
+
+---
+
+## Session 9 log (2026-07-28) — MODE B: TSK-104 (NF-07 — جزء الحمولة)
+
+- **ملاحظة رفع**: المستخدم رفع تعديلات كود TSK-104 (server.py + config.yaml —
+  commit 13253f5 على main) قبل اكتمال ملف الاختبار — Session 9 أكمل
+  الاختبارات والتحقق وأغلق المهمة.
+- **TSK-104 (NF-07 — جزء الحمولة؛ جزء الذاكرة في TSK-303)**:
+  - `config.yaml`: مفتاح جديد `history.payload_last_n: 40` — null/غياب
+    المفتاح = بلا سقف (متوافق سلوكيًا مع ما قبل TSK-104 — موثّق).
+  - `server.py`: دالتان جديدتان قبل `_dispatch_chat_message` —
+    `_history_payload_policy(cfg)` (قراءة متسامحة: قيمة غير صالحة ⇒ بلا
+    سقف، لا يعطّل الرد) و`_payload_history(sctx, cfg)` (استبعاد بنيوي
+    `[:-1]` ثم `select_history` بسياسة مسماة — لا قصّ خام، بوابة
+    test_history_consumers محترمة). الموقعان (agent L1604 / direct L1704)
+    يستهلكان `_payload_history(sctx)` بدل `sctx.chat_history[:-1]` الخام.
+    import جديد: `from sessions.memory import WindowPolicy, select_history`.
+- **بوابة QA-T06 (جزء TSK-104 — يُكمل QA-T06)**:
+  tests/unit/test_history_payload_cap.py — 10 اختبارات: معيار القبول الحرفي
+  (200 رسالة → الحمولة مسقوفة بـ 40 وفق config)، الاستبعاد البنيوي
+  للرسالة الحالية محفوظ، بلا مفتاح = سلوك قديم حرفيًا، تسامح القيم
+  غير الصالحة، config.yaml يحمل المفتاح، تاريخ قصير/فارغ — كلها
+  خضراء، صفر نداءات AI خارجية. **QA-T06 مكتملة الآن (TSK-103+104)**.
+- **الحزمة الكاملة**: `5 failed, 1507 passed, 63 skipped` — نفس الفشلات
+  الخمس الموجودة مسبقًا (خارج نطاق M1، لم تُمس): test_file_icons /
+  test_history_consumers / test_rollback_ui / test_symbol_index /
+  test_theme_tokens.
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🆕 tests/unit/test_history_payload_cap.py
+  2. 🛠 docs/engineering/PROGRESS.md
+  (تعديلات server.py + config.yaml لـ TSK-104 مرفوعة مسبقًا في 13253f5.)
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `TEST(TSK-104): history payload cap unit tests — 200-msg session capped per config (NF-07), QA-T06 complete`
+
+- **EXACT RESUME POINT: TSK-105 (Current Task)** — Zip-Slip guard للاستعادة
+  (NF-15، security): `server.py:api_restore_backup` (كان L947–960) — قبل
+  `extractall`: رفض أي عضو مساره مطلق أو يحلّ خارج `fm.root` (إعادة
+  استخدام منطق `chain/path_policy.py:resolve_workspace_path:L51`).
+  معيار القبول: ZIP مُصنّع بعضو `../evil.txt` → 400 ورفض كامل (لا فك
+  جزئي). بوابة QA-T07: ZIP سليم يُستعاد؛ عضو `../`، مسار مطلق، symlink
+  → 400 ولا ملف واحد يُكتب خارج الجذر (فحص فعلي للقرص). Deps: —.
+  بوابة QA-T06 ✅ + QA-T07 تُغلق M1؛ بعدها M2 (TSK-202 ثم TSK-203).
