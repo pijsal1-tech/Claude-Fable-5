@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 12 — MODE B: TSK-203 Completed, QA-T08 خضراء — M2 مُغلق) |
-| stage | EXECUTION (MODE B — M2 مكتمل ✅، M3 يبدأ) |
+| last-updated | 2026-07-28 (Session 13 — MODE B: TSK-301 Completed, وحدة سباق QA-T10 خضراء) |
+| stage | EXECUTION (MODE B — M3 in progress) |
 | current-phase | M3 (Runtime Robustness) |
-| current-task | TSK-301 — تنظيف pending_path_requests داخل القفل (NF-01) |
+| current-task | TSK-302 — سياسة خانة الـ run: project_id فعلي أو توثيق العالمية (NF-02) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 42% (8 / 19 TSK) |
+| completion % (execution) | 47% (9 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -159,7 +159,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-201 | refactor | دمج apply_all_actions/execute_plan (NF-23.1) | M2 | ✅ Completed (S7) |
 | TSK-202 | fix | قائمة تجاهل موحّدة تشمل test---results (BUG-04) | M2 | ✅ Completed (S11) |
 | TSK-203 | refactor | توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) | M2 | ✅ Completed (S12) |
-| TSK-301 | fix | تنظيف pending_path داخل القفل (NF-01) | M3 | ⬜ pending |
+| TSK-301 | fix | تنظيف pending_path داخل القفل (NF-01) | M3 | ✅ Completed (S13) |
 | TSK-302 | fix | سياسة خانة الـ run / project_id (NF-02) | M3 | ⬜ pending |
 | TSK-303 | fix | طَهْر تذاكر terminal (NF-06) | M3 | ⬜ pending |
 | TSK-304 | fix | استجابة الإلغاء أثناء apply (NF-04) | M3 | ⬜ pending |
@@ -628,11 +628,44 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `DOCS(TSK-203): PROGRESS — QA-T08 green, M2 closed (NF-23.2/3)`
 
-- **EXACT RESUME POINT: TSK-301 (Current Task)** — تنظيف
-  `pending_path_requests` داخل القفل (NF-01، M3 Runtime Robustness):
-  `server.py:L106–148` (منطقة store_pending_path_request /
-  pop_pending_path_request / _clean_expired_pending_requests) — التنظيف
-  يجب أن يجري داخل `_pending_path_lock` (لا سباق بين التنظيف والتخزين).
-  معيار القبول / بوابة QA-T10 (وحدة سباق): خيطان (store متكرر + pop
-  متكرر) 10k دورة بلا استثناء. Deps: —. بعدها TSK-302 (سياسة خانة
-  الـ run / project_id — NF-02).
+---
+
+## Session 13 log — 2026-07-28 (MODE B: TSK-301 مكتملة، وحدة سباق QA-T10 خضراء)
+
+- **TSK-301 — تنظيف pending_path_requests داخل القفل (NF-01) — ✅ Completed**:
+  - **الخلل**: `store_pending_path_request` كان يستدعي
+    `_clean_expired_pending_requests()` **قبل** `with _pending_path_lock:`
+    — التنظيف يطوف ويحذف من القاموس خارج القفل بينما store/pop
+    يطفرانه من خيوط أخرى (سباق: RuntimeError «dictionary changed
+    size during iteration» تحت الضغط).
+  - **الإصلاح** (`server.py:store_pending_path_request`): التنظيف انتقل
+    داخل `with _pending_path_lock:` (التنظيف + الإضافة ذرّيان معًا).
+    الدالة المساعدة نفسها لا تمسك القفل (Lock غير reentrant —
+    امتلاكه داخلها مع المستدعي = deadlock) — موثّق في docstrings
+    الدالتين. `pop_pending_path_request` كان سليمًا أصلًا (داخل القفل).
+    صفر تغيير سلوكي وظيفي (نفس دلالات TTL والتخزين/الاستخراج).
+- **بوابة QA-T10 (جزء TSK-301 — وحدة سباق NF-01) — ✅ خضراء (7/7)**:
+  tests/unit/test_pending_path_race.py — معيار القبول الحرفي: خيطان
+  (store متكرر + pop متكرر) 10k دورة بلا استثناء (TTL=0 لأقصى
+  احتكاك طوفان/طفرة)؛ خيطا store متوازيان؛ roundtrip وظيفي؛
+  تنظيف المنتهي عند store؛ بقاء الحديث؛ grep-asserts بنيوية
+  (التنظيف بعد with lock في store؛ المساعدة لا تمسك القفل).
+  صفر نداءات AI خارجية. (بقية أجزاء QA-T10 تأتي مع TSK-302/303/304.)
+- **الحزمة الكاملة**: `5 failed, 1541 passed, 63 skipped` — نفس الفشلات
+  الخمس الموجودة مسبقًا فقط (خارج النطاق، لم تُمس): test_file_icons /
+  test_history_consumers / test_rollback_ui / test_symbol_index /
+  test_theme_tokens.
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🛠 server.py
+  2. 🆕 tests/unit/test_pending_path_race.py
+  3. 🛠 docs/engineering/PROGRESS.md
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `FIX(TSK-301): clean pending_path_requests inside the lock — race unit 10k cycles green (NF-01)`
+
+- **EXACT RESUME POINT: TSK-302 (Current Task)** — سياسة خانة الـ run:
+  project_id فعلي أو توثيق العالمية (NF-02، M3 Runtime Robustness):
+  `server.py:_begin_run_ticket` (+ نداءاته)؛ docstring السجل — تمرير
+  `sctx.project.project_id` عند توفره؛ قرار موثّق عند غيابه. عقود
+  contracts/ القائمة هي الحارس الانحداري. معيار القبول / بوابة QA-T10:
+  تبويبان على مشروعين مختلفين يشغّلان معًا؛ نفس المشروع → busy.
+  Deps: —. بعدها TSK-303 (طَهْر تذاكر terminal — NF-06).

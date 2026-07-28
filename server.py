@@ -107,6 +107,12 @@ def add_no_cache_headers(response):
 def _clean_expired_pending_requests() -> None:
     """تنظيف طلبات المسارات المعلقة منتهية الصلاحية (TTL = 5 دقائق).
     يُستدعى تلقائياً قبل كل إضافة جديدة لمنع تسريب الذاكرة.
+
+    TSK-301 (NF-01): يجب أن يُستدعى والمستدعي ممسكًا
+    بـ ``_pending_path_lock`` — كان يطوف/يطفر القاموس خارج القفل
+    (سباق مع store/pop: RuntimeError «dictionary changed size during
+    iteration» تحت الضغط). الآن الطوفان والحذف كلاهما داخل القفل
+    (عبر store_pending_path_request).
     """
     now = time.time()
     expired = [k for k, v in pending_path_requests.items()
@@ -167,9 +173,13 @@ _PENDING_PATH_TTL = 300  # ثواني (5 دقائق)
 
 
 def store_pending_path_request(req_id: str, data: dict) -> None:
-    """تنظيف وتخزين طلب مسار معلق مع بيانات الرسالة الأصلية"""
-    _clean_expired_pending_requests()
+    """تنظيف وتخزين طلب مسار معلق مع بيانات الرسالة الأصلية.
+
+    TSK-301 (NF-01): التنظيف انتقل داخل القفل — كان يجري قبله
+    فيسابق store/pop من خيوط أخرى على نفس القاموس.
+    """
     with _pending_path_lock:
+        _clean_expired_pending_requests()
         pending_path_requests[req_id] = data
 
 
