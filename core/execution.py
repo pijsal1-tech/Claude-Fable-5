@@ -68,7 +68,9 @@ from typing import Callable
 # ── الأنواع والحالات المسموحة ──
 # T-040 (R-501): "direct" انضم — المسار المباشر صار run مسجّلًا
 # بتذكرة عبر DirectRunner (كان الوحيد خارج السجل).
-VALID_KINDS = ("direct", "chain", "agent", "delegate")
+# TSK-304 (NF-04): "apply" انضم — دفعة _apply_batch صارت run مسجّلًا
+# بتذكرة (قابلة للإلغاء عبر cancel_run بين كل action).
+VALID_KINDS = ("direct", "chain", "agent", "delegate", "apply")
 TERMINAL_STATES = ("completed", "failed", "cancelled")
 STATE_RUNNING = "running"
 

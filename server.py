@@ -2351,20 +2351,47 @@ def _apply_batch(sctx, actions: list) -> None:
     يحل محل البلوكين المتطابقين apply_all_actions / execute_plan.
     السلوك (الإطارات المُرسلة، الترتيب، رسائل الفشل، إعادة ضبط علم
     الباك-أب) مقفول بالـ golden: tests/goldens/apply_batch_frames.json.
-    TSK-304 سيضيف نقطة فحص الإلغاء (cancel checkpoint) هنا لاحقًا.
+
+    TSK-304 (NF-04) — الدفعة مُخيّطة الآن تحت تذكرة run (kind
+    ``apply``) مع نقطة تفتيش إلغاء بين كل action: طلب ``cancel_run``
+    أثناء دفعة طويلة (مثلا 20 ملفًا) يوقفها قبل اكتمالها — لا تُطبّق
+    الإجراءات المتبقية. مسارا النجاح/الفشل يرسلان نفس الإطارات
+    المقفولة بالـ golden بلا تغيير؛ مسار الإلغاء فقط يضيف إطار
+    ``error`` توضيحيًا قبل ``all_actions_done``. التذكرة تُنهى دائمًا
+    (finally) بالحالة المطابقة: completed / failed / cancelled.
     """
-    sctx.backup_done_for_batch = False
-    total = len(actions)
-    for i, action in enumerate(actions):
-        sctx.send({"type": "task_progress", "current": i + 1, "total": total, "action": action, "status": "running"})
-        result = _apply_single_action(action, sctx)
-        sctx.send({"type": "task_progress", "current": i + 1, "total": total, "action": action,
-                   "status": "done" if result["ok"] else "error", "message": result.get("message", "")})
-        if not result["ok"]:
-            sctx.send({"type": "error", "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"})
-            break
-    sctx.backup_done_for_batch = False
-    sctx.send({"type": "all_actions_done", "total": total})
+    # TSK-304 (NF-04): تخييط الدفعة تحت ticket — يجعلها مرئية لـ
+    # list_runs وقابلة للإلغاء عبر cancel_run (إلغاء تعاوني).
+    apply_ticket = _begin_run_ticket("apply", sctx.send, sctx=sctx)
+    if apply_ticket is None:
+        return  # busy frame أُرسل بالفعل — نفس سياسة بقية الـ runs
+    ticket_status = "completed"
+    try:
+        sctx.backup_done_for_batch = False
+        total = len(actions)
+        for i, action in enumerate(actions):
+            # TSK-304 (NF-04): نقطة تفتيش الإلغاء بين كل action —
+            # الإجراءات المتبقية لا تُطبّق بعد رفع العلم.
+            if apply_ticket.is_cancelled:
+                ticket_status = "cancelled"
+                sctx.send({
+                    "type": "error",
+                    "text": (f"⛔ أُلغيت الدفعة عند الخطوة {i+1}/{total}: "
+                             f"{apply_ticket.cancel_reason or 'إلغاء المستخدم'}"),
+                })
+                break
+            sctx.send({"type": "task_progress", "current": i + 1, "total": total, "action": action, "status": "running"})
+            result = _apply_single_action(action, sctx)
+            sctx.send({"type": "task_progress", "current": i + 1, "total": total, "action": action,
+                       "status": "done" if result["ok"] else "error", "message": result.get("message", "")})
+            if not result["ok"]:
+                ticket_status = "failed"
+                sctx.send({"type": "error", "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"})
+                break
+        sctx.backup_done_for_batch = False
+        sctx.send({"type": "all_actions_done", "total": total})
+    finally:
+        apply_ticket.finish(ticket_status)
 
 
 def _apply_single_action(action: dict, sctx) -> dict:
