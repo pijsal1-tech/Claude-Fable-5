@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 13 — MODE B: TSK-301 Completed, وحدة سباق QA-T10 خضراء) |
+| last-updated | 2026-07-28 (Session 14 — MODE B: TSK-302 Completed, خانة run لكل مشروع — QA-T10 خضراء) |
 | stage | EXECUTION (MODE B — M3 in progress) |
 | current-phase | M3 (Runtime Robustness) |
-| current-task | TSK-302 — سياسة خانة الـ run: project_id فعلي أو توثيق العالمية (NF-02) |
+| current-task | TSK-303 — طَهْر تذاكر terminal من السجل (NF-06) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 47% (9 / 19 TSK) |
+| completion % (execution) | 53% (10 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -160,7 +160,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-202 | fix | قائمة تجاهل موحّدة تشمل test---results (BUG-04) | M2 | ✅ Completed (S11) |
 | TSK-203 | refactor | توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) | M2 | ✅ Completed (S12) |
 | TSK-301 | fix | تنظيف pending_path داخل القفل (NF-01) | M3 | ✅ Completed (S13) |
-| TSK-302 | fix | سياسة خانة الـ run / project_id (NF-02) | M3 | ⬜ pending |
+| TSK-302 | fix | سياسة خانة الـ run / project_id (NF-02) | M3 | ✅ Completed (S14) |
 | TSK-303 | fix | طَهْر تذاكر terminal (NF-06) | M3 | ⬜ pending |
 | TSK-304 | fix | استجابة الإلغاء أثناء apply (NF-04) | M3 | ⬜ pending |
 | TSK-305 | quality | تضييق except الحرجة + log (NF-14) | M3 | ⬜ pending |
@@ -662,10 +662,46 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `FIX(TSK-301): clean pending_path_requests inside the lock — race unit 10k cycles green (NF-01)`
 
-- **EXACT RESUME POINT: TSK-302 (Current Task)** — سياسة خانة الـ run:
-  project_id فعلي أو توثيق العالمية (NF-02، M3 Runtime Robustness):
-  `server.py:_begin_run_ticket` (+ نداءاته)؛ docstring السجل — تمرير
-  `sctx.project.project_id` عند توفره؛ قرار موثّق عند غيابه. عقود
-  contracts/ القائمة هي الحارس الانحداري. معيار القبول / بوابة QA-T10:
-  تبويبان على مشروعين مختلفين يشغّلان معًا؛ نفس المشروع → busy.
-  Deps: —. بعدها TSK-303 (طَهْر تذاكر terminal — NF-06).
+---
+
+## Session 14 log — 2026-07-28 (MODE B: TSK-302 مكتملة، خانة run لكل مشروع — QA-T10 خضراء)
+
+- **TSK-302 — سياسة خانة الـ run: project_id فعلي أو توثيق العالمية (NF-02) — ✅ Completed**
+  (الكود + الاختبارات مرفوعة في 514967f + 168203b — هذه الجلسة تحقّقت وأغلقت):
+  - **الخلل**: ExecutionRegistry يستبعد لكل مشروع (`exclusive_per_project`)
+    لكن كل نداءات `_begin_run_ticket` كانت تمرر الخانة العالمية `""` —
+    تبويبان على مشروعين مختلفين يتزاحمان زورًا.
+  - **الإصلاح**: (أ) `core/app_context.py:ProjectHandle.project_id`
+    (property جديدة) — المسار المطلق المُطبّع للجذر (هوية مستقرة:
+    نفس المجلد = نفس الخانة مهما اختلف شكل كتابة المسار)؛
+    (ب) `server.py:_begin_run_ticket(kind, send_fn, sctx=None)` — عند
+    تمرير sctx وله مقبض مشروع: `register(kind, sctx.project.project_id)`؛
+    **قرار موثّق عند الغياب** (docstring): بلا sctx/مقبض → الخانة
+    العالمية `""` (السلوك التاريخي — أأمن من تخمين هوية)؛
+    (ج) نداءاته السبعة كلها تمرر `sctx=sctx` (chain×2، delegate×2،
+    agent، direct، resume).
+- **بوابة QA-T10 (جزء TSK-302 — NF-02) — ✅ خضراء (8/8)**:
+  tests/integration/test_run_slot_per_project.py — معيار القبول الحرفي:
+  مشروعان مختلفان يشغّلان معًا (لا busy)؛ نفس المشروع → busy بمعرّف
+    الـ run النشط؛ تحرير الخانة بعد finish؛ تطبيع المسار (a/../a =
+    نفس الخانة)؛ fallback الخانة العالمية (بلا sctx / بلا مقبض)؛
+    استقلال الخانتين؛ grep-assert كل النداءات تمرر sctx. الحارس
+    الانحداري: contracts/ + test_concurrent_run_guard كلها خضراء (115
+    اختبارًا مجتمعة). صفر نداءات AI خارجية.
+- **الحزمة الكاملة**: `5 failed, 1549 passed, 63 skipped` — نفس الفشلات
+  الخمس الموجودة مسبقًا فقط (خارج النطاق، لم تُمس): test_file_icons /
+  test_history_consumers / test_rollback_ui / test_symbol_index /
+  test_theme_tokens.
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🛠 docs/engineering/PROGRESS.md
+  (كود core/app_context.py + server.py + الاختبار مرفوعة مسبقًا في
+  514967f + 168203b — لم تُمس هذه الجلسة.)
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `DOCS(TSK-302): PROGRESS — per-project run slot, QA-T10 green (NF-02)`
+
+- **EXACT RESUME POINT: TSK-303 (Current Task)** — طَهْر تذاكر terminal
+  من السجل (NF-06 + جزء ذاكرة NF-07، M3 Runtime Robustness):
+  `core/execution.py` — طريقة جديدة `purge_terminal(keep_last=N)`؛
+  استدعاء عند register في `server.py`. معيار القبول / بوابة QA-T10:
+  500 run متتابع → `len(list_all())` مسقوف؛ `_list_runs_frame` سليم.
+  Deps: —. بعدها TSK-304 (استجابة الإلغاء أثناء apply — NF-04).
