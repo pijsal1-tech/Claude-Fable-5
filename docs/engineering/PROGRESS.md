@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 14 — MODE B: TSK-302 Completed, خانة run لكل مشروع — QA-T10 خضراء) |
+| last-updated | 2026-07-28 (Session 15 — MODE B: TSK-303 Completed, طَهْر تذاكر terminal — QA-T10 خضراء) |
 | stage | EXECUTION (MODE B — M3 in progress) |
 | current-phase | M3 (Runtime Robustness) |
-| current-task | TSK-303 — طَهْر تذاكر terminal من السجل (NF-06) |
+| current-task | TSK-304 — استجابة الإلغاء أثناء apply الطويل (NF-04) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 53% (10 / 19 TSK) |
+| completion % (execution) | 58% (11 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -161,7 +161,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-203 | refactor | توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) | M2 | ✅ Completed (S12) |
 | TSK-301 | fix | تنظيف pending_path داخل القفل (NF-01) | M3 | ✅ Completed (S13) |
 | TSK-302 | fix | سياسة خانة الـ run / project_id (NF-02) | M3 | ✅ Completed (S14) |
-| TSK-303 | fix | طَهْر تذاكر terminal (NF-06) | M3 | ⬜ pending |
+| TSK-303 | fix | طَهْر تذاكر terminal (NF-06) | M3 | ✅ Completed (S15) |
 | TSK-304 | fix | استجابة الإلغاء أثناء apply (NF-04) | M3 | ⬜ pending |
 | TSK-305 | quality | تضييق except الحرجة + log (NF-14) | M3 | ⬜ pending |
 | TSK-401 | perf | بث تدريجي بدل إعادة render (NF-10) | M4 | ⬜ pending |
@@ -699,9 +699,51 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `DOCS(TSK-302): PROGRESS — per-project run slot, QA-T10 green (NF-02)`
 
-- **EXACT RESUME POINT: TSK-303 (Current Task)** — طَهْر تذاكر terminal
-  من السجل (NF-06 + جزء ذاكرة NF-07، M3 Runtime Robustness):
-  `core/execution.py` — طريقة جديدة `purge_terminal(keep_last=N)`؛
-  استدعاء عند register في `server.py`. معيار القبول / بوابة QA-T10:
-  500 run متتابع → `len(list_all())` مسقوف؛ `_list_runs_frame` سليم.
-  Deps: —. بعدها TSK-304 (استجابة الإلغاء أثناء apply — NF-04).
+---
+
+## Session 15 log — MODE B: TSK-303 (طَهْر تذاكر terminal من السجل — NF-06)
+
+- **TSK-303 ✅ Completed** — Fixes NF-06 (+جزء ذاكرة NF-07) ·
+  Validated-by QA-T10.
+- **المشكلة**: `ExecutionRegistry._tickets` كان ينمو بلا سقف — كل run
+  منتهٍ (completed/failed/cancelled) يبقى في السجل للأبد: تسرّب
+  ذاكرة + تضخّم `list_all()`/إطار `runs_list` مع مئات الـ runs.
+- **الحل**:
+  1. `core/execution.py` — طريقة جديدة `purge_terminal(keep_last=50)`
+     بعد `reap_stale`: تحت `self._lock` تجمع التذاكر التي حالتها في
+     `TERMINAL_STATES` فقط، وتحذف الأقدم (dict يحفظ ترتيب الإدراج =
+     ترتيب الإنشاء) مبقية آخر `keep_last`. التذاكر النشطة لا تُحذف
+     أبدًا. `keep_last=0` = حذف كل المنتهية؛ سالب ⇒ ValueError؛
+     ترجع عدد المحذوف.
+  2. `server.py::_begin_run_ticket` — استدعاء
+     `execution_registry.purge_terminal()` قبل كل `register` (نقطة
+     التسجيل الموحّدة — 7 مواقع نداء كلها تمر من هنا) + توثيق في
+     الـ docstring.
+- **بوابة QA-T10 (جزء NF-06)**: جديد
+  `tests/integration/test_registry_purge.py` — **9/9 خضراء**:
+  معيار القبول الحرفي (500 run متتابع عبر `_begin_run_ticket` →
+  `len(list_all()) ≤ 51`، ولا إطار busy)؛ `_list_runs_frame` سليم
+  البنية وقابل للتسلسل JSON بعد الطهر؛ النشطة لا تُحذف أبدًا؛
+  دلالات keep_last (0 / سالب → ValueError / الأقدم أولًا / عدد
+  المحذوف)؛ كل حالات TERMINAL_STATES قابلة للطهر؛ سلامة خانة
+  `_active_by_project` (نفس المشروع يبقى busy بعد الطهر). صفر
+  نداءات AI خارجية.
+- **الحزمة الكاملة**: `5 failed, 1558 passed, 63 skipped` — نفس
+  الفشلات الخمس الموجودة مسبقًا فقط (خارج النطاق، لم تُمس):
+  test_file_icons / test_history_consumers / test_rollback_ui /
+  test_symbol_index / test_theme_tokens. (1549 سابقة + 9 جديدة.)
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🛠 server.py (استدعاء purge_terminal عند register + docstring)
+  2. 🆕 tests/integration/test_registry_purge.py
+  3. 🛠 docs/engineering/PROGRESS.md
+  (طريقة purge_terminal في core/execution.py مرفوعة مسبقًا في
+  d0750ca — لم تُعدّل بعدها.)
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `FIX(TSK-303): purge terminal tickets from registry — list_all capped, QA-T10 green (NF-06)`
+
+- **EXACT RESUME POINT: TSK-304 (Current Task)** — استجابة الإلغاء
+  أثناء apply الطويل (NF-04، M3 Runtime Robustness): نقطة فحص
+  cancel داخل `_apply_batch` في `server.py` — الإلغاء يُستجاب له
+  بين الملفات أثناء apply طويل. بوابة QA-T10: fake slow fm —
+  الإلغاء منتصف الدفعة يوقف المتبقي. Deps: —. بعدها TSK-305
+  (تضييق except الحرجة + log — NF-14).

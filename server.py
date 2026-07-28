@@ -364,6 +364,11 @@ def _begin_run_ticket(kind, send_fn, sctx=None):
     بلا sctx أو بلا مقبض مشروع → الخانة العالمية ``""`` (السلوك
     التاريخي — أأمن من تخمين هوية؛ عقود contracts/ القائمة تبقى
     الحارس الانحداري لدورة حياة التذكرة نفسها).
+
+    TSK-303 (NF-06) — قبل كل تسجيل جديد نستدعي
+    ``execution_registry.purge_terminal()`` لحذف أقدم التذاكر
+    المنتهية (يبقى آخر 50) — فلا ينمو ``_tickets`` بلا سقف مع
+    مئات الـ runs المتتابعة، ويبقى إطار ``runs_list`` مسقوفًا.
     """
     project_id = ""
     if sctx is not None and getattr(sctx, "project", None) is not None:
@@ -371,6 +376,9 @@ def _begin_run_ticket(kind, send_fn, sctx=None):
             project_id = sctx.project.project_id
         except Exception:
             project_id = ""  # مقبض بلا هوية → الخانة العالمية (موثّق)
+    # TSK-303 (NF-06): طَهْر التذاكر المنتهية القديمة عند كل تسجيل جديد
+    # — يمنع تسرّب الذاكرة وتضخّم إطار runs_list (السقف: آخر 50 منتهية).
+    execution_registry.purge_terminal()
     try:
         return execution_registry.register(kind, project_id)
     except RunBusyError as e:
