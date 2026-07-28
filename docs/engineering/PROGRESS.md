@@ -10,14 +10,14 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 23 — MODE B: TSK-502 Completed — **الخطة كلها مُقفلة 🏁**) |
-| stage | EXECUTION (MODE B — **ALL TASKS COMPLETE**) |
-| current-phase | — (M1–M5 كلها مُقفلة) |
-| current-task | — (لا مهام متبقية — TSK-502 كانت الأخيرة) |
-| completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | **100% (19 / 19 TSK)** |
-| repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
-| governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
+| last-updated | 2026-07-28 (Session 24 — **دستور جديد FINAL-GOVERNED: بدء Stage 1 REVIEW — R-1 مُنجزة**) |
+| stage | **REVIEW (Stage 1 من الدستور الجديد)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
+| current-phase | R0 — Strategic Architecture Assessment (التالية) |
+| current-task | — (لا مهام تنفيذية — Stage 3 لم تبدأ بعد) |
+| completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
+| completion % (new lifecycle) | Stage 1 REVIEW: 1/12 مراحل (R-1 ✅) |
+| repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
+| governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
 ### Completion formula
 - Planning stage: completed IN-SCOPE phase-checkpoints ÷ total in-scope checkpoints (= 40).
