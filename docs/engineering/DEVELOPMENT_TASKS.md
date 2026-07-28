@@ -14,7 +14,34 @@
 ## M6 — Restore Trust (P1 دفعة أولى: البوابة + القدرة المكسورة + أمان الوكيل)
 
 ### TSK-601 — إصلاح اعتماد التفويض + إظهار الفشل + اختبار المقبض
-- **Status**: IN-PROGRESS (Session 33) · **Priority**: P1
+- **Status**: ✅ DONE (Session 33–34) · **Priority**: P1
+- **Close-out (Session 34)**:
+  - التنفيذ: `_parsed_to_actions` + `_parsed_options` استُخرجتا كدالتي وحدة
+    (server.py:1439–1474) من التكرار الحرفي في مساري agent (كان 1791–1800)
+    وdirect (كان 1873–1894) — المساران يستهلكانهما الآن (server.py:1826،
+    1903). مقبض `delegate_approve`: النداءان الوهميان استُبدلا بـ
+    `parser.parse(run.result.response)` + التحويل المشترك (server.py:2350–
+    2352)، وفشل التحويل يرسل إطار `error` للواجهة قبل fallback الـ done
+    الفارغ (server.py:2364–2367) — لا صمت (UXF-02).
+  - القبول (4/4 مُتحقق آليًا — Session 34):
+    (1) ✅ دورة كاملة FakeProvider بـ FILE: block → done بـ actions golden
+    (test_approve_full_cycle_emits_nonempty_actions_golden)؛
+    (2) ✅ رد بلا actions → done + options=["أضف اختبارات","حسّن التوثيق"]
+    بلا error؛ (3) ✅ monkeypatch يفجّر parse → إطار error يحمل السبب + done
+    فارغ يليه (لا انتظار معلق)؛ (4) ✅ `grep -c "extract_actions\|extract_options"
+    server.py` = 0 (+ حارس بنيوي دائم داخل الاختبار نفسه).
+  - الاختبار الجديد: tests/integration/test_delegate_approve_handler.py —
+    **6 حالات** (المعايير الأربعة + الهبوط الفعلي للـ run + الحفاظ على فرع
+    «لا يوجد تفويض نشط») — كلها خضراء.
+  - **Gates**: Architecture ✅ (لا API جديد — استخراج تكرار فقط، الإطار يبقى
+    done) · Testing ✅ (6 حالات، golden مثبّت) · Regression ✅ (تشغيل كامل
+    Session 34: **4F / 1677P / 34S في ~70s** — نفس مجموعة الفشل الأربع
+    المعروفة حرفيًا [TF-01/TF-02×نمط/TF-03/TF-04 — قائمة قبل هذه المهمة،
+    تعالجها TSK-604/605]؛ لا فشل جديد؛ +6 اختبارات) · Documentation ✅
+    (هذا السجل + CHANGELOG_ENGINEERING.md).
+  - **Metrics**: اختبارات المقبض 0 → 6 · تكرار كتلة التحويل 2 → 0 (دالة
+    واحدة) · إشارات لدوال غير موجودة في server.py: 2 → 0.
+  - **Rollback**: revert commit واحد (c4c7326 + commit الإغلاق).
 - **Behavior-preservation pre-check (Session 33 — قبل التعديل)**:
   - السلوك الحالي المُقاس: `delegate_approve` (server.py:2312–2356) ينادي
     `parser.extract_actions/extract_options` (2337–2338) — **غير موجودتين**
@@ -343,7 +370,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 
 | TSK | M | P | Status | ملاحظة |
 |---|---|---|---|---|
-| 601 | M6 | P1 | TODO | جاهزة فورًا — أول مهمة تنفيذ مرشحة |
+| 601 | M6 | P1 | ✅ DONE (S33–34) | 6 اختبارات جديدة خضراء؛ regression نظيف (4F المعروفة فقط) |
 | 602 | M6 | P1 | TODO | |
 | 603 | M6 | P1 | TODO | |
 | 604 | M6 | P1 | TODO | |

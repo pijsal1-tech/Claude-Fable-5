@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 31 — **Stage 2 PLANNING مكتمل ✅ (3/3) — التالي: Stage 3 EXECUTION من TSK-601**) |
-| stage | **EXECUTION (Stage 3 — التالية؛ Stage 2 مكتمل)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — M6 Restore Trust (التالية) |
-| current-task | TSK-601 (المرشحة الأولى — P1، بلا تبعيات) |
+| last-updated | 2026-07-28 (Session 34 — **TSK-601 ✅ DONE (أول مهمة Stage 3) — التالي: TSK-602**) |
+| stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
+| current-phase | Stage 3 EXECUTION — M6 Restore Trust (1/5 — 601 ✅) |
+| current-task | TSK-602 (التالية — P1، بلا تبعيات) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: 0/26 TSK (601..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **1/26 TSK** (601 ✅؛ 602..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,9 +37,17 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — التالية؛ Stage 2 PLANNING مكتمل ✅)
-- Phase/Task: **Stage 3 — M6 Restore Trust — TSK-601** (المرشحة الأولى: P1، بلا تبعيات)
-- Last completed step: **Stage 2 PLANNING مكتمل ✅ (Session 31)** — §P.1
+- Stage: EXECUTION (Stage 3 — جارية — M6: 1/5)
+- Phase/Task: **Stage 3 — M6 Restore Trust — TSK-602** (التالية: P1، بلا تبعيات)
+- Last completed step: **TSK-601 ✅ DONE (Sessions 33–34)** — إصلاح
+  delegate_approve: استخراج `_parsed_to_actions`/`_parsed_options`
+  (server.py:1439–1474) يستهلكهما مسارا agent/direct + المقبض؛
+  النداءان الوهميان استُبدلا بـ parse() الحقيقية؛ فشل التحويل يُظهَر
+  بإطار error (UXF-02)؛ اختبار جديد 6 حالات E2E
+  (tests/integration/test_delegate_approve_handler.py) — القبول 4/4 ✅؛
+  Regression: 4F/1677P/34S (الأربعة المعروفة فقط — لا جديد)؛
+  CHANGELOG_ENGINEERING.md أُنشئ + سجل إغلاق كامل في DEVELOPMENT_TASKS.md.
+  وقبلها: **Stage 2 PLANNING مكتمل ✅ (Session 31)** — §P.1
   تصنيف P0–P3 (لا P0؛ 6×P1) + §P.2 كتل ALT-601..604 بـ Competitive check
   وVision لكل P1 + §P.3 قرارات D-1..D-4 معلّقة للمالك؛ DEVELOPMENT_TASKS.md
   أُنشئ (TSK-601..626 عبر M6–M10 بقالب الدستور)؛ MASTER_ROADMAP مُمدد
@@ -87,17 +95,17 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **Stage 3 EXECUTION — بدء TSK-601** (M6، P1، بلا تبعيات):
-  إصلاح delegate_approve — استخراج دالة تحويل مشتركة `_parsed_to_actions`
-  من مسار agent (server.py:1791–1800) واستبدال النداءين المكسورين
-  (server.py:2337–2338) بـ parse(mode=...) + التحويل؛ إظهار فشل التحويل
-  للمستخدم (error/warning frame)؛ اختبار جديد
-  tests/integration/test_delegate_approve_handler.py (≥3 حالات — معايير
-  القبول الأربعة في DEVELOPMENT_TASKS.md §TSK-601)؛ قبل التعديل: سجل حفظ
-  السلوك + Fitness pre-check في سجل المهمة؛ بعد الإغلاق: تحديث جدول
-  الحالة + CHANGELOG_ENGINEERING.md (يُنشأ إن لم يوجد) + commit محلي.
-  ملاحظة للمالك: قرارات D-1..D-4 (MASTER_REVIEW §P.3) معلّقة — تحجب
-  TSK-605(جزئيًا)/617/623 فقط؛ باقي M6 غير محجوب
+- Next action: **بدء TSK-602** (M6، P1، بلا تبعيات): تسييج نتائج
+  الأدوات والمعرفة (ASF-01 · ALT-602→A) — كل نص خارجي يُحقن في برومبت
+  المتابعة يمر عبر `fence_attached` (prompts/templates.py:39 — موجودة
+  غير مستخدمة في مواضع الحقن): مواضع chain/agent_loop.py (224–226،
+  256–259، 350–381) + chain/knowledge.py (41–49، 191–205)؛ اختبار جديد
+  tests/unit/test_context_fencing.py (معايير القبول الثلاثة في
+  DEVELOPMENT_TASKS.md §TSK-602، منها grep-assert بنيوي + بقاء QA-T12
+  أخضر)؛ قبل التعديل: سجل حفظ السلوك + Fitness pre-check في سجل
+  المهمة؛ بعد الإغلاق: جدول الحالة + CHANGELOG + commit محلي.
+  ملاحظة للمالك: قرارات D-1..D-4 (MASTER_REVIEW §P.3) ما زالت معلّقة —
+  تحجب TSK-605(جزئيًا)/617/623 فقط؛ باقي M6 غير محجوب
 - Current blocker: none
 
 ### Stage Checklists (Definition of Done — الدستور الجديد)
@@ -210,6 +218,20 @@
   + ROADMAP) · مصالحة: إصلاح Current Position + Next action في PROGRESS
   (Stage → EXECUTION، المهمة → TSK-601) + إضافة سجلّي الجلستين 31+32 ·
   commit محلي للمصالحة · الموقع → Stage 3 EXECUTION — TSK-601.
+- 2026-07-28 (Session 33): استرداد بعد sandbox reset (clone من ef53c82 —
+  دمج المستخدم لمصالحة S32) · **بدء TSK-601 (أول مهمة Stage 3)**: سجل
+  حفظ السلوك + Fitness pre-check في DEVELOPMENT_TASKS.md §TSK-601 قبل
+  التعديل · التنفيذ: استخراج `_parsed_to_actions`/`_parsed_options` +
+  استبدال النداءين الوهميين بـ parse() + إطار error عند فشل التحويل ·
+  اختبار جديد 6 حالات (كلها خضراء) · grep = 0 · regression بدأ —
+  الجلسة انقطعت قبل قراءة سطر العدّ النهائي؛ دمج المستخدم عند c4c7326.
+- 2026-07-28 (Session 34): استرداد بعد sandbox reset (clone من c4c7326 —
+  كل تنفيذ S33 في origin) · إعادة التحقق: الاختبارات الستة خضراء +
+  regression كامل موثّق **4F/1677P/34S ~70s** (الأربعة المعروفة فقط —
+  TF-01/نمط TF-02/TF-03/TF-04؛ لا فشل جديد) · **إغلاق TSK-601 ✅**:
+  سجل Close-out + Gates الأربعة في DEVELOPMENT_TASKS.md + جدول الحالة
+  601→DONE · CHANGELOG_ENGINEERING.md أُنشئ (مدخلة TSK-601) · تحديث
+  PROGRESS (1/26) · commit محلي · الموقع → TSK-602.
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
