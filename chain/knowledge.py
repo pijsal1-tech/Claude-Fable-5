@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from context.bundle import BundleEntry, ContextBundle, ContextItem, content_hash
+from prompts.templates import fence_attached
 
 
 @dataclass
@@ -39,14 +40,18 @@ class ToolResult:
     iteration: int = 0          # في أي iteration تمت
 
     def to_summary(self, max_len: int = 500) -> str:
-        """ملخص مختصر — يُستخدم في prompt"""
+        """ملخص مختصر — يُستخدم في prompt.
+
+        TSK-602 (ASF-01): المعاينة محتوى خارجي — تُسيّج بأغلفة
+        الحدود قبل أي حقن في prompt."""
         preview = self.result[:max_len]
         if len(self.result) > max_len:
             preview += f"\n... ({len(self.result) - max_len} حرف إضافي)"
 
         status = "✅" if self.success else "❌"
         args_str = ", ".join(f"{k}={v!r}" for k, v in self.args.items())
-        return f"{status} {self.tool}({args_str}):\n{preview}"
+        return (f"{status} {self.tool}({args_str}):\n"
+                + fence_attached(f"tool_result:{self.tool}", preview))
 
     def to_dict(self) -> dict:
         return {
@@ -188,19 +193,25 @@ class KnowledgeAccumulator:
         }[kind]
 
     def _render_body(self, e: BundleEntry) -> str:
-        """جسد عنصر واحد — بنفس أشكال الأقسام القديمة حرفيًا."""
+        """جسد عنصر واحد — رؤوس الأقسام القديمة نفسها، والمحتوى
+        الخارجي مُسيّج (TSK-602 / ASF-01): محتوى الملفات/المجلدات/
+        البحث/الأوامر بيانات لا أوامر — يُلف بأغلفة الحدود قبل الحقن."""
         meta = self._meta.get(e.item.key, {})
         display = meta.get("display", e.item.path)
         content = e.item.content or ""
         kind = e.item.source_kind
         if kind == "file":
-            return f"\n--- {display} ---\n{content}\n"
+            fenced = fence_attached(f"file:{display}", content)
+            return f"\n--- {display} ---\n{fenced}\n"
         if kind == "dir":
-            return f"\n{display}/:\n{content}\n"
+            fenced = fence_attached(f"dir:{display}", content)
+            return f"\n{display}/:\n{fenced}\n"
         if kind == "search":
-            return f"\nبحث: {display}\n{content}\n"
+            fenced = fence_attached(f"search:{display}", content)
+            return f"\nبحث: {display}\n{fenced}\n"
         status = "✅" if meta.get("success", True) else "❌"
-        return f"\n{status} $ {display}\n{content}\n"
+        fenced = fence_attached(f"command:{display}", content)
+        return f"\n{status} $ {display}\n{fenced}\n"
 
     def _stable_core_items(self) -> list:
         """الملاحظات والأخطاء — صغيرة وحاسمة، تُرفق في كل إرسال."""

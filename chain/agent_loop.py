@@ -20,6 +20,7 @@ from chain.agent_tools import (
 )
 from core.approval import ApprovalGate, ApprovalRequest, ProposedAction
 from core.execution import RunTicket
+from prompts.templates import fence_attached
 
 
 class AgentLoop:
@@ -221,8 +222,13 @@ class AgentLoop:
                     truncated = result[:self.TOOL_RESULT_MAX_LEN]
                     if len(result) > self.TOOL_RESULT_MAX_LEN:
                         truncated += f"\n... ({len(result)} حرف إجمالي)"
+                    # TSK-602 (ASF-01): ناتج الأداة محتوى خارجي — يُسيّج
+                    # قبل حقنه في برومبت المتابعة (تعليمات عدائية داخل
+                    # ملف/مخرجات أمر لا تُعامل كأوامر للموديل).
                     tool_results_text.append(
-                        f"[نتيجة {call.tool}({self._args_str(call.args)})]:\n{truncated}"
+                        f"[نتيجة {call.tool}({self._args_str(call.args)})]:\n"
+                        + fence_attached(
+                            f"tool_result:{call.tool}", truncated)
                     )
                 
                 else:
@@ -254,8 +260,11 @@ class AgentLoop:
                         })
                         
                         truncated = result[:self.TOOL_RESULT_MAX_LEN]
+                        # TSK-602 (ASF-01): نفس التسييج لمخرجات الأوامر المعتمدة.
                         tool_results_text.append(
-                            f"[نتيجة {call.tool}({self._args_str(call.args)})]:\n{truncated}"
+                            f"[نتيجة {call.tool}({self._args_str(call.args)})]:\n"
+                            + fence_attached(
+                                f"tool_result:{call.tool}", truncated)
                         )
                     else:
                         self.knowledge.add_observation(

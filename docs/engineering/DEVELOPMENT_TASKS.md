@@ -88,7 +88,33 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-602 — تسييج نتائج الأدوات والمعرفة (Context poisoning)
-- **Status**: TODO · **Priority**: P1
+- **Status**: IN-PROGRESS (Session 35) · **Priority**: P1
+- **Behavior-preservation pre-check (Session 35 — قبل التعديل)**:
+  - الحقن الخام المُقاس: (أ) agent_loop.py:224–226 و257–259 —
+    `[نتيجة {tool}({args})]:\n{truncated}` بلا أسوار (أداة آمنة + أمر
+    معتمد)؛ (ب) knowledge.py:190–203 `_render_body` — أجساد file/dir/
+    search/command خام؛ (ج) knowledge.py:41–49 `to_summary` — نفس النمط
+    (لا مستهلك إنتاجي حاليًا خارج tests — يُسيَّج اتساقًا).
+  - موضع agent_loop الثالث (350–381 `_build_followup_prompt`): يحقن
+    knowledge_ctx + tool_results — كلاهما يصبح مسيَّجًا **عند المصدر**
+    (أ+ب) ⇒ تغطية متعدية، لا تسييج مزدوج (double-fence يشوه المحتوى).
+  - سلوك محفوظ يُتحقق منه: (1) رؤوس الأقسام `📂 [ملفات تم قراءتها]` +
+    سطر `--- {display} ---` تبقى خارج السور (test_knowledge_bundle:275
+    يثبّتها)؛ (2) دلالة delta/dedup في build_iteration_context لا تمس
+    (السور يلتف حول المحتوى داخل `_render_body` فقط)؛ (3) نجاة عنصر
+    الأمر high في ميزانية ضيقة (test_agent_feedback:171 max_tokens=60) —
+    السور يضيف ~90 حرفًا: يُراقب في التشغيل؛ (4) QA-T12 (تسييج مسار
+    الإرفاق server.py:1543/2011) لا يُمس.
+  - تغيير سلوك مقصود ومُعلن (وفق ALT-602): نص البرومبت الواصل للموديل
+    يتغير (أسوار `<attached-content source="…">` حول كل محتوى خارجي) —
+    قد يؤثر هامشيًا في سلوك الموديل؛ هذا هو الهدف الأمني (ASF-01).
+- **Architecture-Fitness pre-check (Session 35)**:
+  - إعادة استخدام `fence_attached` القائمة (templates.py:39 — مُختبرة
+    TSK-404/QA-T12) — لا آلية جديدة؛ يوافق سلّم Preserve→Wrap→Extend.
+  - لا طبقة ContextSanitizer (Alt B مرفوض في §P.2) — الضمان البنيوي
+    يتحقق بديلًا عبر grep-assert دائم في الاختبار الجديد.
+  - chain/knowledge.py يستورد من prompts/templates — اتجاه استيراد سليم
+    (chain يعتمد على prompts أصلًا عبر agent_loop).
 - **Objective**: كل نص خارجي يُحقن في برومبت المتابعة يمر عبر
   `fence_attached` (أو مكافئها) — مواضع agent_loop الثلاثة + knowledge.
 - **Background**: ASF-01 (§R4) · **ALT-602 → A**.
