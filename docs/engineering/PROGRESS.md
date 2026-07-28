@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 11 — MODE B: TSK-202 Completed, QA-T09 خضراء) |
-| stage | EXECUTION (MODE B — M2 in progress) |
-| current-phase | M2 (Consistency) |
-| current-task | TSK-203 — توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) |
+| last-updated | 2026-07-28 (Session 12 — MODE B: TSK-203 Completed, QA-T08 خضراء — M2 مُغلق) |
+| stage | EXECUTION (MODE B — M2 مكتمل ✅، M3 يبدأ) |
+| current-phase | M3 (Runtime Robustness) |
+| current-task | TSK-301 — تنظيف pending_path_requests داخل القفل (NF-01) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 37% (7 / 19 TSK) |
+| completion % (execution) | 42% (8 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -158,7 +158,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-105 | security | Zip-Slip guard للاستعادة (NF-15) | M1 | ✅ Completed (S10) |
 | TSK-201 | refactor | دمج apply_all_actions/execute_plan (NF-23.1) | M2 | ✅ Completed (S7) |
 | TSK-202 | fix | قائمة تجاهل موحّدة تشمل test---results (BUG-04) | M2 | ✅ Completed (S11) |
-| TSK-203 | refactor | توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) | M2 | ⬜ pending |
+| TSK-203 | refactor | توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) | M2 | ✅ Completed (S12) |
 | TSK-301 | fix | تنظيف pending_path داخل القفل (NF-01) | M3 | ⬜ pending |
 | TSK-302 | fix | سياسة خانة الـ run / project_id (NF-02) | M3 | ⬜ pending |
 | TSK-303 | fix | طَهْر تذاكر terminal (NF-06) | M3 | ⬜ pending |
@@ -585,9 +585,54 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `FIX(TSK-202): unified ignore list incl. test---results — core/ignore_rules.py, QA-T09 green (BUG-04, NF-23.4)`
 
-- **EXACT RESUME POINT: TSK-203 (Current Task)** — توحيد
-  MAX_SMART_FILE_SIZE وقارئ config (NF-23(2)+(3)، M2 Consistency):
-  `server.py:L128, L2240` → تعريف واحد للثابت؛ مواضع قراءة config الست
-  (L159, L1083, L2412, L2444, L2489, L2539) → helper `_load_config()` مُكاش.
-  معيار القبول (grep): تعريف واحد للثابت؛ ≤1 موضع `yaml.safe_load` في
-  server.py. بوابة QA-T08. Deps: —. بعدها M3 (TSK-301…).
+---
+
+## Session 12 log — 2026-07-28 (MODE B: TSK-203 مكتملة، QA-T08 خضراء — M2 مُغلق)
+
+- **TSK-203 — توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23(2)+(3)) — ✅ Completed**
+  (الكود + الاختبارات مرفوعة في 2e1f7a1 — هذه الجلسة تحقّقت وأغلقت فقط):
+  - **الثابت (NF-23.2)**: التعريف المكرر في وسط الملف (كان L2286، قرب
+    _apply_batch) أُزيل — بقي تعريف واحد في قسم Globals بنفس القيمة
+    (100KB) — صفر تغيير سلوكي.
+  - **قارئ config الموحّد (NF-23.3)**: helper جديد `_load_config()`
+    أعلى server.py — مُكاش بمفتاح المسار (يحترم monkeypatch لـ _DIR
+    في الاختبارات)، تسامحي (فشل القراءة/YAML مكسور → {} — نفس عقد
+    _read_config التاريخي؛ صخب الـ schema يبقى في المحلّلات المتخصصة).
+    الاسم التاريخي `_read_config` أصبح alias (`_read_config = _load_config`)
+    — اختبارات test_default_provider / test_history_payload_cap تمر بلا تعديل.
+  - **المواضع الستة وُحّدت** (كل import yaml المحلية أُزيلت):
+    backend/dispatch، _session_binding_policy، _read_config نفسه،
+    auto_execute، planner، retention، routing — كلها
+    `_load_config().get("…")` الآن.
+  - **معيار القبول (grep) محقّق**: تعريف واحد للثابت؛ موضع
+    `yaml.safe_load` واحد فقط (داخل _load_config)؛ لا فتح مباشر
+    لـ config.yaml خارج القارئ.
+- **بوابة QA-T08 (جزء TSK-203) — ✅ خضراء (12/12)**:
+  tests/unit/test_config_consolidation.py — grep-asserts (تعريف واحد،
+  ≤1 safe_load، لا open مباشر خارج القارئ)؛ سلوك القارئ (alias،
+  config حقيقي يُحمّل، كاش بنفس الكائن، ملف مفقود → {}، كاش
+  بمفتاح المسار، YAML مكسور → {})؛ المستهلكون الموحّدون
+  (session_binding / history / main). مع golden الـ apply_batch القائم
+  (TSK-201) — **QA-T08 مكتملة لجزأي TSK-201+203** (جزء TSK-305/NF-14
+  يأتي مع مهمته في M3). صفر نداءات AI خارجية.
+- **الحزمة الكاملة**: `5 failed, 1534 passed, 63 skipped` — نفس الفشلات
+  الخمس الموجودة مسبقًا فقط (خارج النطاق، لم تُمس): test_file_icons /
+  test_history_consumers / test_rollback_ui / test_symbol_index /
+  test_theme_tokens.
+- **🏁 M2 (Consistency) مُغلق**: TSK-201 ✅ + TSK-202 ✅ + TSK-203 ✅
+  (بوابتا QA-T08 وQA-T09 خضراوان).
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🛠 docs/engineering/PROGRESS.md
+  (كود server.py + tests/unit/test_config_consolidation.py لـ TSK-203
+  مرفوعان مسبقًا في 2e1f7a1 — لم يُمسا هذه الجلسة.)
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `DOCS(TSK-203): PROGRESS — QA-T08 green, M2 closed (NF-23.2/3)`
+
+- **EXACT RESUME POINT: TSK-301 (Current Task)** — تنظيف
+  `pending_path_requests` داخل القفل (NF-01، M3 Runtime Robustness):
+  `server.py:L106–148` (منطقة store_pending_path_request /
+  pop_pending_path_request / _clean_expired_pending_requests) — التنظيف
+  يجب أن يجري داخل `_pending_path_lock` (لا سباق بين التنظيف والتخزين).
+  معيار القبول / بوابة QA-T10 (وحدة سباق): خيطان (store متكرر + pop
+  متكرر) 10k دورة بلا استثناء. Deps: —. بعدها TSK-302 (سياسة خانة
+  الـ run / project_id — NF-02).
