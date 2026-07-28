@@ -103,10 +103,12 @@ class TestFenceUnit:
         assert INJECTION_TEXT in out  # المحتوى نفسه محفوظ
 
     def test_adversarial_source_sanitized(self):
+        """أقواس الزاوية تُزال وعلامات الاقتباس تُستبدل — مصدر عدائي
+        لا يستطيع إغلاق السمة أو فتح وسم جديد داخل سطر الفتح."""
         out = fence_attached('a"><evil>', "x")
         first_line = out.splitlines()[0]
-        assert "<evil>" not in first_line
-        assert first_line == '<attached-content source="a\'>evil">'
+        assert "<evil>" not in first_line and "><" not in first_line
+        assert first_line == '<attached-content source="a\'evil">'
 
 
 class TestSystemInstruction:
