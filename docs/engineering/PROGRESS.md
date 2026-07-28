@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 30 — **Stage 1 REVIEW مكتمل 🏁 (R-1..R10 ✅) — التالي: Stage 2 PLANNING**) |
-| stage | **PLANNING (Stage 2 من الدستور الجديد) — لم تبدأ بعد** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 2 PLANNING — ترتيب النتائج P0–P3 (التالية) |
-| current-task | — (لا مهام تنفيذية — Stage 3 لم تبدأ بعد) |
+| last-updated | 2026-07-28 (Session 31 — **Stage 2 PLANNING مكتمل ✅ (3/3) — التالي: Stage 3 EXECUTION من TSK-601**) |
+| stage | **EXECUTION (Stage 3 — التالية؛ Stage 2 مكتمل)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
+| current-phase | Stage 3 EXECUTION — M6 Restore Trust (التالية) |
+| current-task | TSK-601 (المرشحة الأولى — P1، بلا تبعيات) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1 REVIEW: **12/12 مراحل ✅ مكتمل** · Stage 2: 0/3 |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: 0/26 TSK (601..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -111,9 +111,9 @@
 - [x] R9 UX & Agentic Capability Review *(Session 29 — MASTER_REVIEW.md §R9: تضييق SR-1 (diff panel موجودة T-065) + أحكام CP-1..9 النهائية + مصفوفة القدرة الوكلية (8 قدرات، 0 غائبة) + UXF-01..05)*
 - [x] R10 Testing & Documentation Review *(delta)* *(Session 30 — MASTER_REVIEW.md §R10: خط أساس مُعاد قياسه 4F/1671P/34S (مطابق S24 — حتمي) + فرز TF-01..05 (TF-03 عيب حي C3: أزرار محذوفة تقطع DOMContentLoaded) + TD-01 صفر تغطية لمقبض delegate_approve + TD-03 RRR متجمد يحتاج re-vote)*
 #### Stage 2 — PLANNING
-- [ ] Findings prioritized (P0–P3) with Engineering Alternatives
-- [ ] DEVELOPMENT_TASKS.md populated (all tasks meet template)
-- [ ] MASTER_ROADMAP.md extended (milestones + innovation reviews)
+- [x] Findings prioritized (P0–P3) with Engineering Alternatives *(Session 31 — MASTER_REVIEW.md §P.1 جدول كامل (لا P0؛ 6×P1) + §P.2 أربع كتل ALT لكل P1 مع Competitive check وVision line)*
+- [x] DEVELOPMENT_TASKS.md populated (all tasks meet template) *(Session 31 — TSK-601..626 عبر M6–M10؛ قالب كامل لكل مهمة + جدول حالة؛ 3 مهام BLOCKED على قرارات D-1/D-2/D-3)*
+- [x] MASTER_ROADMAP.md extended (milestones + innovation reviews) *(Session 31 — M6–M10 + IR-1 بعد M8 وIR-2 بعد M10)*
 #### Stage 3 — EXECUTION
 - [ ] (auto-tracked per task)
 

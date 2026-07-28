@@ -693,3 +693,120 @@ check.sh؛ (2) المستهلكون داخل server.py (مقابض WS) خارج 
 ASF-01..08 · RF-01..03 · PM-01..04 · RP-01..04 · QG-01..04 + QF-01/02 ·
 UXF-01..05 · TF-01..05 + TD-01..04 — مع الأحكام الاستراتيجية (CP/FD/BET/SR)
 وسجل القوة S-01..S-14 كموجّهات Preserve.
+
+---
+
+# STAGE 2 — PLANNING (Session 31 — 2026-07-28)
+
+## P.1 — التصنيف الكامل P0–P3 (الدستور §10.1)
+
+**حكم P0**: لا نتيجة تبلغ عتبة Critical — لا فقدان بيانات فعليًا، لا ثغرة
+قابلة للاستغلال خارج نموذج التهديد المحلي (localhost-bound، RRR §G2)،
+لا انهيار للنظام. أعلى الموجود: قدرة مكسورة بصمت (RP-01) وحقن سياق نظري
+(ASF-01) — كلاهما P1.
+
+| Finding | P | مبرر الموضع | المهمة |
+|---|---|---|---|
+| RP-01 + UXF-02 + TD-01 | **P1** | قدرة delegate مكسورة وظيفيًا (C4/S2) + فشل صامت للمستخدم (C2) + صفر تغطية للمقبض — سبب جذري واحد، مهمة واحدة | TSK-601 |
+| ASF-01 | **P1** | أعلى نتيجة أمان وكيلي (C3/S3): حقن نتائج الأدوات بلا تسييج | TSK-602 |
+| ASF-02 | **P1** | بوابة الموافقة موضعية لا بنيوية (C3/S3) | TSK-603 |
+| TF-01, TF-03, TF-05 | **P1** | TF-03 عيب حي (3 لوحات معطلة)؛ البوابة الحمراء الدائمة (TF-05) تعمي كل انحدار قادم — رفعها risk-reducing يسبق كل تنفيذ آخر | TSK-604 |
+| TF-02 | **P1** | ضمن استعادة البوابة (تسرّب نطاق اختباري — إصلاح scope فقط) | TSK-605 |
+| TF-04 | **P1-blocked** | يمنع خضرة البوابة؛ ينتظر قرار منتج (tokenization كاملة أم baseline مؤقت) — التوصية الهندسية: baseline مؤرَّخ الآن + مهمة tokenization لاحقة P3 | TSK-605 |
+| RF-01 + RP-02 + UXF-03 | **P2** | عائلة خيوط واحدة: apply/direct داخل حلقة ws — الإلغاء غير مستجيب؛ ليست P1 لأن العمل يصح (البطء/الاستجابة هي الأثر) | TSK-606 |
+| RP-03 | P2 | آخر جيب خارج ContextBudget | TSK-607 |
+| RF-02 | P2 | reap_stale ميت تشغيليًا — خطر كامن | TSK-608 |
+| PM-01..04 | P2 | instrumentation — يفتح حلقة تغذية راجعة لكل تحسين لاحق (unlocking) | TSK-609/610 |
+| QG-01..04 + QF-02 | P2 | تفكيك g1 بترتيب المخاطرة المتفق (R8)؛ QF-02 يُغلق ضمن QG-04 (ضم server.py لبوابة mypy) | TSK-611..614 |
+| ASF-05 | P2 | استنزاف موافقات صامت عند التزامن | TSK-615 |
+| ASF-03 | P2 | rollback جزئي صامت فوق السقف — الإصلاح: إظهار لا رفع سقف | TSK-616 |
+| ASF-04 | P2-decision | قلب enforce الافتراضي البرمجي إلى True — تغيير سلوك يحتاج موافقة المستخدم (مع NF-16) | TSK-617 |
+| ASF-07 | P2 | تضييق except الابتلاعي في path_policy | TSK-618 |
+| UXF-01 (CP-1) | P2 | بطاقة الخطة التفاعلية — أول حزمة الإظهار | TSK-619 |
+| UXF-05 (CP-8) | P2 | سرد الجلسة | TSK-620 |
+| UXF-04 (CP-5) | P2 | Permissions UI (قراءة أولًا) | TSK-621 |
+| TD-03 | P2 | إعادة تصويت RRR — بعد إغلاق M6 (مدخلاه RP-01/TF-03 يكونان مُصلحين) | TSK-622 |
+| QF-01 | P3 | تلوث improvements/ — نقل/أرشفة (عملية حذف من الشجرة ⇒ تُعرض على المستخدم قبل التنفيذ) | TSK-623 |
+| TD-04 | P3 | retro-ADR لإعادة تصميم v25 | TSK-624 |
+| ASF-06 | P3 | صلابة _parse_args_body | TSK-625 |
+| RP-04 | P3 | قرار توثيقي: فرع proposed_actions يُعلَّم test-only أو يُوصَل | TSK-626 |
+| ASF-08, RF-03, TD-02 | P3-accepted | مقبولة موثَّقة — لا مهمة؛ تبقى في السجل | — |
+| CP-4 hooks, CP-6 | P3-future | امتدادات مؤجلة بعد حزمة الإظهار | — |
+
+## P.2 — Engineering Alternatives (إلزامي لكل P1 — الدستور §10.2–10.4)
+
+### ALT-601 — إصلاح اعتماد التفويض (RP-01)
+- **Current Design**: `delegate_approve` ينادي `parser.extract_actions/extract_options`
+  غير الموجودتين (server.py:2337–2338) → AttributeError مبتلع → fallback صامت.
+- **Alternative A** — استخدام `parser.parse(response, mode=...)` + تحويل
+  ParsedResponse إلى actions كما في مسار agent (server.py:1791–1800).
+  Pros: يوحّد مساري التحويل؛ صفر API جديد؛ يرث إصلاحات TSK-101 (mode-aware).
+  Cons: ازدواج كود التحويل إن لم يُستخرج لدالة مشتركة.
+- **Alternative B** — إضافة `extract_actions/extract_options` فعليًا إلى
+  ResponseParser. Pros: يطابق النية الأصلية للنداء. Cons: يوسّع سطح API
+  لمستهلك واحد؛ يخلق مسارَي تحويل متوازيين — عكس درس TSK-201 (توحيد apply).
+- **Competitive check**: لا نمط خارجي ذو صلة — مسألة داخلية. لا بديل أفضل.
+- **Recommended**: **A** مع استخراج دالة تحويل مشتركة واحدة (`_parsed_to_actions`)
+  يستهلكها المساران | Migration risk: منخفض (المسار مكسور أصلًا — لا سلوك
+  عامل يُفقد) | Rollback: revert commit واحد.
+- **Vision 1–2y**: صحيح — التوحيد يخدم QG-02 (استخراج مسارات الإرسال) لاحقًا.
+
+### ALT-602 — تسييج نتائج الأدوات (ASF-01)
+- **Current Design**: حقن خام `[نتيجة {tool}...]:\n{نص}` (agent_loop.py:224–259)
+  و`to_summary/_render_body` خام في knowledge.py:41–49/191–205؛
+  `fence_attached` موجودة (templates.py:39) وغير مستدعاة من هذه المسارات.
+- **Alternative A** — استدعاء `fence_attached` عند مواضع الحقن الأربعة.
+  Pros: يعيد استخدام الآلية المُختبرة (TSK-404)؛ تغيير موضعي. Cons: يبقى
+  «تذكُّر الاستدعاء» عبئًا على كل موضع مستقبلي.
+- **Alternative B** — طبقة ContextSanitizer مركزية تمر بها كل نصوص السياق.
+  Pros: بنيوي — لا نسيان ممكن. Cons: طبقة جديدة + إعادة توجيه كل المسارات؛
+  يخالف سلّم Preserve→Wrap→Extend لمشكلة تُحل بالتفاف.
+- **Alternative C (تنافسي)** — نمط Claude Code hooks (CP-4): اعتراض حتمي لكل
+  tool-result. مصدر: code.claude.com/docs/en/hooks. Pros: أعم. Cons: يقدّم
+  نظام hooks كاملًا لحاجة تسييج فقط — مؤجل عمدًا (R9: CP-4 candidate).
+- **Recommended**: **A** الآن + بند اختبار يفرض التسييج (grep-assert على
+  مواضع الحقن) يقوم مقام الضمان البنيوي | Migration risk: منخفض — التسييج
+  يغيّر نص البرومبت (سلوك موديل قد يتأثر هامشيًا؛ يُسجل في سجل الحفظ) |
+  Rollback: revert.
+- **Vision 1–2y**: صحيح — وإن تبنينا hooks لاحقًا (CP-4) يصبح A حالة خاصة منها.
+
+### ALT-603 — بوابة موافقة بنيوية (ASF-02)
+- **Current Design**: `tool_run_command(need_approval=False)` داخليًا
+  (agent_tools.py:485)؛ الفرض في AgentLoop فوقه فقط.
+- **Alternative A** — قلب الافتراضي: `need_approval=True` في التوقيع، والحلقة
+  تمرر قرارها صراحة. Pros: fail-closed لأي مستدعٍ جديد؛ سطر واحد + تحديث
+  المستدعين. Cons: مستدعٍ قديم لم يُحدَّث سيطلب موافقة زائدة (أمان زائد، لا كسر).
+- **Alternative B** — جعل ApprovalGate معاملًا إلزاميًا في مُنشئ AgentTools
+  والفرض داخل الأداة نفسها. Pros: الأقوى بنيويًا. Cons: يعيد توزيع مسؤولية
+  الحلقة/الأداة (تصميم متعمد وثّقته R4)؛ أوسع أثرًا.
+- **Competitive check**: Claude Code permissions افتراضها deny-by-default
+  للأوامر (code.claude.com/docs/en/permissions) — يدعم اتجاه A.
+- **Recommended**: **A** | Migration risk: منخفض (مستدعو الإنتاج محصورون
+  بالحلقة — grep يؤكد) | Rollback: revert.
+- **Vision 1–2y**: صحيح — deny-by-default هو المعيار الصناعي المستقر.
+
+### ALT-604 — استعادة دلالة البوابة (TF-01/03/05 + TF-02/04)
+- **Current Design**: check.sh حمراء دائمًا بأربعة إخفاقات موروثة من v25.
+- **Alternative A** — إصلاح الأصول لتطابق الحرّاس: إعادة عنصرَي الأزرار إلى
+  index.html (TF-03)، سطر الترخيص إلى sprite (TF-01)، استثناء providers/ من
+  مسح history (TF-02)، baseline-allowlist مؤرَّخ لألوان v25 (TF-04).
+  Pros: يعيد البوابة خضراء في مهمتين صغيرتين؛ TF-03 يصلح عيبًا حيًّا.
+  Cons: baseline الألوان دين مؤجل (يُسجل في TECHNICAL_DEBT).
+- **Alternative B** — تعديل الاختبارات لتقبل واقع v25 (إضعاف الحرّاس).
+  Pros: أسرع. Cons: مرفوض مبدئيًا — الحرّاس عملوا كما صُمموا؛ إضعافهم يخفي
+  العيب الحي TF-03 ويشرعن الانجراف.
+- **Competitive check**: نمط "ratchet/baseline lint" ممارسة موثقة قياسية
+  (مثل ESLint suppressions المؤرخة) — يدعم baseline المؤقت في A.
+- **Recommended**: **A** | Migration risk: TF-03 يعيد تفعيل 3 لوحات كانت
+  معطلة (تغيير سلوك مرئي للمستخدم — للأفضل، يُوثَّق) | Rollback: revert لكل
+  ملف على حدة.
+- **Vision 1–2y**: صحيح — بوابة ذات دلالة شرط لكل ما بعدها.
+
+## P.3 — قرارات منتج معلّقة (تُعرض على المالك — لا تُنفَّذ قبل رد)
+
+| # | القرار | التوصية الهندسية | يمس |
+|---|---|---|---|
+| D-1 | NF-16 + ASF-04: قلب `force_command_approval` و`enforce` إلى افتراض آمن code-default | نعم — قلبهما (أمان زائد لا كسر) | TSK-617 |
+| D-2 | TF-04: tokenization كاملة لألوان v25 أم baseline مؤقت؟ | baseline مؤرَّخ الآن + مهمة tokenization P3 | TSK-605 |
+| D-3 | QF-01: نقل/حذف improvements/ (892KB) من الشجرة | نقل إلى أرشيف خارج جذر الفحص | TSK-623 |
+| D-4 | TD-03: إعادة تصويت RRR بعد M6 | إجراؤها تلقائيًا كوثيقة | TSK-622 |

@@ -99,3 +99,38 @@ M4 مستقل (يبدأ بعد M1 لأولوية الموارد فقط)
 - [x] لا عنصر يمس providers/ أو fallback أو routing (فحص يدوي لكل صف).
 - [x] كل BUG/NF المطلوب له TSK موزَّع على milestone أو جدول «بلا milestone».
 - التتبّع الثنائي الاتجاه يكتمل في P5 (TSK ⇄ BUG/NF ⇄ QA-T).
+
+---
+
+# امتداد الدستور FINAL-GOVERNED — Milestones M6–M10 (Stage 2 PLANNING، Session 31)
+
+> المدخلات: كل عائلات نتائج Stage 1 REVIEW (MASTER_REVIEW.md §P.1) —
+> المهام الذرية في DEVELOPMENT_TASKS.md (TSK-601..626، append بعد أرشيف v4.1).
+> نفس مبادئ الترتيب أعلاه: M-RULE (السلامة أولًا)، تكتّل حول الجذر المشترك،
+> DAG صاعد فقط، كل milestone قابل للشحن مستقلًا.
+
+| M | الاسم | النطاق (TSK) | Entry | Exit (مع بوابة Milestone الدستور §12) |
+|---|---|---|---|---|
+| **M6** | Restore Trust | 601–605 (P1) | فورًا | delegate approve يعمل + tool-results مسيَّجة + بوابة موافقة fail-closed + **check.sh أخضر كاملًا لأول مرة** |
+| **M7** | Responsiveness & Guardrails | 606–610 | بعد M6 | إلغاء مستجيب في كل المسارات + آخر جيب سياق مسقوف + reap_stale حي + instrumentation 4/4 مسارات + سجل runs |
+| **M8** | Decompose g1 | 611–614 | بعد M7 | server.py مفكك (راوتر/إرسال/blueprints) + mypy يشمل النطاق الموسع (يغلق QF-02) — bit-identical goldens طوال الطريق |
+| **M9** | Exposure & Consent Surface | 615–622 | بعد M6 (يوازي M7/M8 جزئيًا؛ 620 بعد 610، 622 بعد M6) | خطة تفاعلية + سرد جلسة + Permissions UI + approvals متزامنة + إظهار partial-rollback + **RRR re-vote** |
+| **M10** | Hygiene | 623–626 (P3) | بعد M9 | شجرة نظيفة + retro-ADR v25 + أغلال ASF-06/RP-04 |
+
+## جدولة Innovation Review (الدستور §10.5 — كل 3 milestones)
+
+- **IR-1**: بعد إغلاق **M8** (ثالث milestone من الدفعة) — السؤال المحوري:
+  هل تفكيك g1 كافٍ أم يبرر الواقع بنية worker/process أعمق؟ + مراجعة
+  CP-4 (hooks) وCP-6 (subagents) المؤجلة من R9 على ضوء ما تحقق.
+- **IR-2**: بعد إغلاق **M10** (أو نهاية البرنامج إن أقفل قبله) — «لو بدأنا
+  من الصفر اليوم؟» + قرار الدفعة التالية (P3-future المتبقية).
+- تسجيل كل IR في DECISION_LOG.md (يُنشأ عند أول ADR في M8 إن لم يوجد).
+
+## قرارات المنتج المعلقة (تحكم الجدولة — لا تُنفَّذ قبل رد المالك)
+
+| قرار | يحجب | التوصية |
+|---|---|---|
+| D-1 (افتراضات آمنة code-default) | TSK-617 | قلبهما |
+| D-2 (ألوان v25) | TSK-605 جزئيًا | baseline مؤرَّخ + دين tokenization |
+| D-3 (أرشفة improvements/) | TSK-623 | نقل خارج جذر الفحص |
+| D-4 (RRR re-vote) | TSK-622 (صيغة فقط) | إجراؤه كوثيقة تلقائيًا بعد M6 |
