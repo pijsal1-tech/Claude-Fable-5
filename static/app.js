@@ -140,6 +140,10 @@ function initThemePicker() {
 // ═══════════════════════════════════════════
 // WebSocket
 // ═══════════════════════════════════════════
+// TSK-402 (NF-11): فواصل إعادة اتصال أُسّية بسقف + jitter بدل 3s
+// الثابتة (قصف الخادم عند سقوطه) — المنطق في ws_backoff.js.
+const wsReconnectBackoff = WSBackoff.createBackoff();
+
 function initWebSocket() {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     const url = `${proto}//${location.host}/ws`;
@@ -149,13 +153,16 @@ function initWebSocket() {
     state.ws.onopen = () => {
         state.connected = true;
         updateConnectionDot(true);
+        wsReconnectBackoff.reset();
     };
 
     state.ws.onclose = () => {
         state.connected = false;
         updateConnectionDot(false);
-        // إعادة اتصال بعد 3 ثواني
-        setTimeout(initWebSocket, 3000);
+        // TSK-402 (NF-11): فاصل متزايد بسقف بدل ثابت 3s.
+        const delay = wsReconnectBackoff.next();
+        console.warn(`WS: انقطع الاتصال — إعادة المحاولة بعد ${delay}ms`);
+        setTimeout(initWebSocket, delay);
     };
 
     state.ws.onerror = () => {
@@ -164,7 +171,12 @@ function initWebSocket() {
     };
 
     state.ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+        // TSK-402 (NF-11): إطار مشوّه → log وتجاهل — لا استثناء يقتل
+        // معالجة الرسائل.
+        const data = WSBackoff.safeParseFrame(
+            event.data, (msg, detail) => console.error(msg, detail)
+        );
+        if (!data) return;
         handleWSMessage(data);
     };
 }

@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 18 — MODE B: TSK-401 Completed — QA-T11 (جزء NF-10) خضراء) |
+| last-updated | 2026-07-28 (Session 19 — MODE B: TSK-402 Completed — QA-T11 (جزء NF-11) خضراء) |
 | stage | EXECUTION (MODE B — M4 in progress) |
 | current-phase | M4 (Frontend & Streaming UX) |
-| current-task | TSK-402 — backoff+jitter للاتصال + حماية onmessage (NF-11) |
+| current-task | TSK-403 — إطار scan_start ومؤشر فوري (NF-12 / A3) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 74% (14 / 19 TSK) |
+| completion % (execution) | 79% (15 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -165,7 +165,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-304 | fix | استجابة الإلغاء أثناء apply (NF-04) | M3 | ✅ Completed (S16) |
 | TSK-305 | quality | تضييق except الحرجة + log (NF-14) | M3 | ✅ Completed (S17) |
 | TSK-401 | perf | بث تدريجي بدل إعادة render (NF-10) | M4 | ✅ Completed (S18) |
-| TSK-402 | fix | backoff+jitter + حماية onmessage (NF-11) | M4 | ⬜ pending |
+| TSK-402 | fix | backoff+jitter + حماية onmessage (NF-11) | M4 | ✅ Completed (S19) |
 | TSK-403 | feature | إطار scan_start + مؤشر فوري (NF-12/A3) | M4 | ⬜ pending |
 | TSK-404 | security | تسييج المحتوى المحقون (NF-18) | M4 | ⬜ pending |
 | TSK-501 | perf | فهرس بحث مشترك فوق ProjectIndex (NF-20/21) | M5 | ⬜ pending |
@@ -867,8 +867,51 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `PERF(TSK-401): throttled incremental stream render + section memo — QA-T11 green (NF-10)`
 
-- **EXACT RESUME POINT: TSK-402 (Current Task)** — backoff+jitter
-  للاتصال + حماية onmessage (NF-11، M4): `static/app.js:L154–169`.
-  Accept: سقوط الخادم → فواصل إعادة اتصال متزايدة بسقف؛ إطار JSON
-  مشوّه → log وتجاهل بلا استثناء. Validated-by QA-T11.
-  Deps: —. بعدها TSK-403.
+## Session 19 log (2026-07-28) — MODE B — TSK-402 ✅
+
+- **TSK-402 — backoff+jitter للاتصال + حماية onmessage (NF-11)**:
+  كان `initWebSocket` يعيد الاتصال بثابت `setTimeout(..., 3000)`
+  (قصف متزامن للخادم عند سقوطه — thundering herd)، و
+  `onmessage` يستدعي `JSON.parse(event.data)` بلا try/catch (إطار
+  مشوّه واحد يقتل معالجة الرسالة).
+- **الحل — وحدة جديدة `static/js/ws_backoff.js`** (UMD-lite قابلة
+  للاختبار في node — نفس نمط stream_render.js/TSK-401):
+  1. `createBackoff()` — فواصل أُسّية 1s→2s→4s→…→30s (سقف) +
+     jitter نسبي ±30% (كسر تزامن التبويبات)؛ `next()/reset()/
+     attempts()`، random قابلة للحقن للاختبار الحتمي.
+  2. `safeParseFrame(raw, log)` — JSON.parse محمي: إطار مشوّه أو
+     غير كائن (مصفوفة/رقم/نص/null) → log وإرجاع null —
+     تجاهل بلا استثناء.
+- **`static/app.js` (rewire — L143–182)**: `wsReconnectBackoff` عام؛
+  `onopen` → `reset()`؛ `onclose` → `next()` + console.warn بالفاصل؛
+  `onmessage` → `WSBackoff.safeParseFrame` (console.error للمشوّه،
+  return مبكر) — زال JSON.parse العاري وثابت 3000ms.
+- **`static/index.html`**: تحميل `ws_backoff.js?v=1` قبل app.js.
+- **بوابة QA-T11 (جزء NF-11 — السيناريوهان §2+§3)**: جديد
+  `tests/unit/test_ws_backoff.py` — **11/11 خضراء** (node-based):
+  سلّم حتمي 1s→…→30s ثابت عند السقف (random=0)؛ مع jitter
+  داخل [pure, pure×1.3) ومتزايدة بسقف؛ reset يعيد البداية؛
+  random مختلفة → فواصل مختلفة (لا thundering herd)؛ 6 أطر
+  مشوّهة → null + log بلا استثناء؛ إطار سليم يمر كما هو؛ log
+  افتراضي noop؛ wiring grep على app.js (استهلاك + زوال الأنماط
+  القديمة) و index.html (الوحدة قبل app.js) + require في node.
+  صفر نداءات AI خارجية.
+- **الحزمة الكاملة**: `5 failed, 1592 passed, 63 skipped` — نفس
+  الفشلات الخمس الموجودة مسبقًا فقط (خارج النطاق، لم تُمس).
+  (1581 سابقة + 11 جديدة.) `python -c "import server"` سليم.
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🆕 static/js/ws_backoff.js
+  2. 🛠 static/app.js
+  3. 🛠 static/index.html
+  4. 🆕 tests/unit/test_ws_backoff.py
+  5. 🛠 docs/engineering/PROGRESS.md
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `FIX(TSK-402): exponential backoff+jitter WS reconnect + guarded onmessage — QA-T11 green (NF-11)`
+
+- **EXACT RESUME POINT: TSK-403 (Current Task)** — إطار scan_start
+  ومؤشر فوري (NF-12 / A3 — طلب المستخدم التاريخي، M4):
+  `server.py:_dispatch_chat_message` — إرسال `{"type":"scan_start"}`
+  فور الاستلام قبل بناء السياق؛ `static/app.js:handleWSMessage` —
+  case جديدة → "جاري التفكير…". Accept: مؤشر مرئي ≤200ms من
+  الإرسال في كل الأوضاع. Validated-by QA-T11. Deps: —.
+  بعدها TSK-404.

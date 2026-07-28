@@ -63,6 +63,10 @@
     <!-- Stream throttle/memo — TSK-401 (NF-10): منطق نقي (مستقل) قبل
          app.js لأن appendStreamChunk يستهلك StreamRender. -->
     <script src="/static/js/stream_render.js?v=1"></script>
+
+    <!-- WS backoff+jitter وحماية onmessage — TSK-402 (NF-11): منطق نقي
+         (مستقل) قبل app.js لأن initWebSocket يستهلك WSBackoff. -->
+    <script src="/static/js/ws_backoff.js?v=1"></script>
 </head>
 
 <body>
