@@ -316,7 +316,7 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-605 — استعادة خضرة البوابة: TF-02 (نطاق) + TF-04 (baseline ألوان)
-- **Status**: BLOCKED (ينتظر D-2) · **Priority**: P1
+- **Status**: IN-PROGRESS — جزء TF-02 (Session 40)؛ TF-04 BLOCKED (ينتظر D-2) · **Priority**: P1
 - **Objective**: استثناء `providers/` من مسح test_history_consumers (حارس
   core لا مزودات)؛ وتطبيق قرار D-2 لألوان v25 (التوصية: baseline-allowlist
   مؤرَّخ + تسجيل دين tokenization).
@@ -332,6 +332,38 @@
 - **Metrics**: إخفاقات البوابة: 2 → 0؛ حجم baseline الألوان يُسجَّل رقمًا.
 - **Rollback**: revert.
 - **Resume notes**: TF-02 يمكن تنفيذها فورًا حتى قبل رد D-2؛ TF-04 هي المعلقة.
+- **Behavior-preservation pre-check — جزء TF-02 (Session 40)**:
+  - Current (بدليل): حارس test_history_consumers::
+    test_no_raw_history_slices_outside_sessions (:223) يمسح 6 مجلدات
+    بينها `providers/` + server.py؛ الانتهاك الوحيد الفعلي (مسح مُعاد
+    Session 40): `providers/openai_shelby.py:105` — `history[-6:]` داخل
+    طبقة المزودات المُعلنة خارج النطاق كليًا (§0.8: لا تُراجع، لا
+    تُخطّط، لا تُكلّف). باقي المجلدات core وserver.py نظيفة = الحارس
+    يؤدي غرضه الأصلي (T-030) فيما عدا ضجيج المزودات.
+  - Expected: إزالة `providers` من قائمة المسح — اختبار فقط، صفر سلوك
+    منتج؛ تغطية core (chain/core/context/actions/prompts/server.py)
+    محفوظة كما هي.
+- **Architecture-Fitness pre-check — جزء TF-02 (Session 40)**:
+  - الحارس ملكيّته core (T-030: ترحيل مستهلكي التاريخ لـ
+    select_history) — إدراج `providers/` فيه يناقض §0.8 ذاته (المزودات
+    خارج النطاق لا تُفحص ولا تُصلَّح) — تصحيح النطاق لا إضعاف للحارس؛
+    يُوثَّق بتعليق معلّل في الاختبار نفسه لا بحذف صامت. لا مساس
+    بـ providers/openai_shelby.py نفسه (خارج النطاق).
+  - TF-04 (test_theme_tokens) لا تُلمس — محجوبة بقرار المالك D-2.
+- **Partial close-out — جزء TF-02 ✅ (Session 40)**:
+  - **Implementation**: `tests/unit/test_history_consumers.py:229` —
+    إخراج `providers` من قائمة مسح الحارس بتعليق معلّل موثّق
+    (الانتهاك الوحيد وقت القرار مُسجَّل في التعليق)؛ لا مساس بأي
+    ملف إنتاج ولا بـ providers/.
+  - **Verification**: test_history_consumers → **41 passed** كاملًا؛
+    regression كامل (Session 40): **1F/1693P/34S** — المتبقي الوحيد
+    test_theme_tokens (TF-04 — محجوب بـ D-2)؛ فشل test_search_perf
+    العابر (S39) لم يتكرر — تأكَّد أنه بيئي.
+  - **Metrics**: إخفاقات البوابة: 2 → **1** (الهدف 0 يكتمل مع TF-04
+    بعد رد D-2).
+  - **المتبقي لإغلاق التاسك**: TF-04 — تطبيق قرار D-2 (التوصية:
+    baseline-allowlist مؤرَّخ في test_theme_tokens + سطر دين tokenization
+    في TECHNICAL_DEBT.md) — ثم القبول الكامل: pytest tests = 0 failed.
 
 ## M7 — Responsiveness & Guardrails (P2 الجذور التشغيلية)
 
@@ -542,7 +574,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 602 | M6 | P1 | ✅ DONE (S35–36) | 6 اختبارات جديدة؛ مواضع الحقن الخام 5→0؛ regression نظيف |
 | 603 | M6 | P1 | ✅ DONE (S37) | fail-closed بـ sentinel؛ 7 اختبارات جديدة؛ regression نظيف |
 | 604 | M6 | P1 | ✅ DONE (S38–39) | زرا وكيلان مخفيان + سطر الترخيص؛ إخفاقات البوابة 4→2 |
-| 605 | M6 | P1 | BLOCKED(D-2) | TF-02 جزؤها قابل للتنفيذ فورًا |
+| 605 | M6 | P1 | TF-02 ✅ (S40) · TF-04 BLOCKED(D-2) | إخفاقات البوابة 2→1؛ المتبقي ينتظر رد المالك |
 | 606 | M7 | P2 | TODO | |
 | 607 | M7 | P2 | TODO | |
 | 608 | M7 | P2 | TODO | |

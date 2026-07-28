@@ -154,3 +154,30 @@
   18/18 ✅)؛ الفشلان الدائمان المتبقيان (test_history_consumers +
   test_theme_tokens) ملك TSK-605 حصرًا.
 - Metrics: إخفاقات البوابة المعروفة **4 → 2**.
+
+---
+
+## TSK-605 — جزء TF-02: تصحيح نطاق حارس التاريخ — Session 40 (جزئي)
+
+### Fixed
+- **TF-02**: حارس test_history_consumers::test_no_raw_history_slices_outside_sessions
+  كان يمسح `providers/` رغم أن طبقة المزودات خارج النطاق كليًا (§0.8) —
+  الانتهاك الوحيد (providers/openai_shelby.py:105 — `history[-6:]`)
+  ضجيج مزودات لا انحدار core، وكان يُبقي البوابة حمراء دائمًا.
+
+### Changed
+- `tests/unit/test_history_consumers.py:229`: إخراج `providers` من
+  قائمة المسح بتعليق معلّل موثّق (تصحيح نطاق لا إضعاف — تغطية core
+  الكاملة chain/core/context/actions/prompts/server.py محفوظة كما هي؛
+  لا مساس بأي ملف إنتاج ولا بـ providers/).
+
+### Verification
+- test_history_consumers → **41 passed** كاملًا.
+- Regression كامل (Session 40): `1 failed, 1693 passed, 34 skipped`
+  (~72s) — المتبقي الوحيد test_theme_tokens (TF-04 — محجوب بقرار
+  المالك D-2)؛ فشل test_search_perf العابر (S39) لم يتكرر.
+- Metrics: إخفاقات البوابة **2 → 1**.
+
+### Pending
+- TF-04 ينتظر D-2 — عند الرد: baseline-allowlist مؤرَّخ + سطر دين في
+  TECHNICAL_DEBT.md ⇒ `pytest tests` = 0 failed (أول خضرة كاملة).

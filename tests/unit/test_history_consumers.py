@@ -226,7 +226,12 @@ class TestNoRawHistorySlicing:
         pattern = re.compile(
             r"history\[-\d+:\]|_observations\[-\d+:\]|chat_history\[-\d+:\]")
         violations: list[str] = []
-        for dirname in ("providers", "chain", "core", "context", "actions",
+        # TSK-605 (TF-02): `providers/` أُخرجت من المسح — الحارس ملكيّته
+        # core (T-030) بينما طبقة المزودات خارج النطاق كليًا (§0.8: لا
+        # تُراجع ولا تُصلَّح)؛ الانتهاك الوحيد وقت القرار كان
+        # providers/openai_shelby.py:105 (history[-6:]) — ضجيج مزودات
+        # لا انحدار core. تغطية core كاملة محفوظة أدناه.
+        for dirname in ("chain", "core", "context", "actions",
                         "prompts"):
             root = pathlib.Path(dirname)
             if not root.is_dir():
