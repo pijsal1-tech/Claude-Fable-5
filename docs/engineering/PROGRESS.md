@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 41 — **TSK-605/TF-02 ✅ — TF-04 محجوبة بـ D-2 — التالي: TSK-606 (M7)**) |
+| last-updated | 2026-07-28 (Session 43–44 — **TSK-606 ✅ DONE — التالي: TSK-607 (M7)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) → M7 |
-| current-task | TSK-606 (التالية — P2، بلا تبعيات)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — M7 (1/5: 606 ✅)؛ M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) |
+| current-task | TSK-607 (التالية — P2، بلا تبعيات)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **4/26 TSK** (601..604 ✅؛ 605..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **5/26 TSK** (601..604،606 ✅؛ 605/TF-04 تنتظر D-2؛ 607..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,11 +37,22 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — M6: 4/5 + 605/TF-02 ✅)
-- Phase/Task: **Stage 3 — M7 — TSK-606** (التالية: P2، بلا تبعيات)؛
+- Stage: EXECUTION (Stage 3 — جارية — M7: 1/5؛ M6: 4/5 + 605/TF-02 ✅)
+- Phase/Task: **Stage 3 — M7 — TSK-607** (التالية: P2، بلا تبعيات)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-605 جزء TF-02 ✅ (Sessions 40–41)** —
+- Last completed step: **TSK-606 ✅ DONE (Sessions 43–44)** — تخييط
+  نداء `_apply_batch` (خيط `runner-apply-batch`) وبلوك direct
+  runner (خيط `runner-direct-{run_id}`) — cancel_run من نفس
+  الاتصال صار فعّالًا (كان مستحيلًا بنيويًا: التنفيذ المتزامن كان
+  يحتجز خيط حلقة استقبال WS). `_apply_batch` نفسها لم تُمس؛
+  goldens QA-T08 مطابقة (ملف golden بلا تغيير، الـ harness فقط
+  يَـjoin)؛ +2 اختبارات (TestSameConnectionCancel)؛ اكتشاف جانبي
+  مصحح: معالج cancel_run كان يمرر ensure_ascii=False لـ
+  sctx.send (TypeError عند أول إلغاء حقيقي عبر WS)؛ Performance:
+  أول task_progress وسيط 0.18ms — لا تدهور؛ regression (S43):
+  **1F/1695P/34S** — المتبقي الوحيد theme_tokens (TF-04/D-2).
+  وقبلها: **TSK-605 جزء TF-02 ✅ (Sessions 40–41)** —
   تصحيح نطاق حارس التاريخ: إخراج `providers/` من مسح
   test_history_consumers (§0.8 — المزودات خارج النطاق) بتعليق
   معلّل؛ 41/41 في الملف؛ regression (S41): **1F/1693P/34S** —
@@ -122,17 +133,16 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-606** (M7، P2، بلا تبعيات — أول مهمة بعد
-  استنفاد كل P1 غير المحجوب): تخييط `_apply_batch`
-  (server.py:2081/2415–2462) وتشغيل direct runner (1846–1858) إلى
-  خيوط كما chain/agent/delegate (نمط الخيوط الموجود
-  L1662/L1818/L2294) — فيصبح cancel من نفس الاتصال فعّالًا
-  (RF-01 + RP-02 + UXF-03). القبول: cancel_run أثناء دفعة 20-action
-  من نفس الاتصال يوقفها؛ goldens تسلسل الإطارات (QA-T08) مطابقة؛
-  الملفات: server.py + توسيع test_apply_cancel.py؛ بوابة Performance
-  (زمن أول إطار لا يتدهور). قبل التعديل: سجل حفظ السلوك + Fitness
-  pre-check في §TSK-606؛ بعد الإغلاق: جدول الحالة + CHANGELOG +
-  commit محلي.
+- Next action: **بدء TSK-607** (M7، P2، بلا تبعيات): ضم جمع سياق
+  delegate إلى ContextBudget — إخضاع القراءة المباشرة لأول 10 ملفات
+  (server.py:2265–2284 — الأسطر تزحزحت بعد TSK-606، أعد التثبيت
+  بـ grep عن بلوك جمع ملفات delegate) لسقوف ContextBudget (آخر جيب
+  خارج توحيد TSK-103؛ RP-03 §R7). القبول: برومبت delegate الملتقط
+  ≤ سقف الميزانية مع مشروع اصطناعي كبير؛ وسم اقتطاع ظاهر لا صامت.
+  الملفات: server.py + توسيع اختبار budget قائم. Gates: Testing ·
+  Regression · Performance. حفظ السلوك: مشاريع صغيرة = لا تغيير.
+  قبل التعديل: سجل حفظ السلوك + Fitness pre-check في §TSK-607؛
+  بعد الإغلاق: جدول الحالة + CHANGELOG + commit محلي.
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -319,6 +329,23 @@
   (test_theme_tokens/TF-04 حصرًا — فشل search_perf العابر لم يتكرر
   في S40/S41) · S42: إكمال سجل الجلسات + commit محلي · الموقع →
   M7/TSK-606؛ TSK-605 مفتوحة تنتظر D-2.
+- 2026-07-28 (Sessions 43–44): استرداد بعد sandbox reset (S43 من
+  61f369e، S44 من ea2a256 — كل تنفيذ S43 وصل origin بدمج المستخدم) ·
+  **TSK-606 كاملة**: أدلة (النداء المتزامن :2091 داخل
+  _handle_ws_message + حلقة ws_handler لا تقرأ التالي قبل عودة
+  المعالج = جذر المشكلة؛ _apply_batch مُخيّطة بالتذكرة منذ TSK-304
+  فالعلاج تحرير الحلقة لا إضافة إلغاء) · pre-checks (حفظ السلوك:
+  golden لا يُمس، harness فقط يَـجوين؛ Fitness: توحيد نمط خيوط
+  runner-*) في §TSK-606 · تنفيذ: خيط `runner-apply-batch` للنداء +
+  `_run_direct` على خيط `runner-direct-{run_id}` (start/busy بقيا
+  متزامنين) + إصلاح BUG جانبي (ensure_ascii=False دخيل في معالج
+  cancel_run → TypeError) · +2 اختبارات TestSameConnectionCancel
+  (القبول الحرفي ببوابتي Event حتمية + التحرر البنيوي) · Gates:
+  lint_handler_state clean · Performance وسيط 0.18ms/p95 0.28ms ·
+  regression **1F/1695P/34S** (theme_tokens/TF-04 حصرًا) ·
+  Close-out + جدول الحالة 606→DONE + CHANGELOG · S44: إعادة تحقق بعد
+  reset (الملفات المستهدفة 19/19 + lint clean + regression) + تحديث
+  PROGRESS + commit محلي · الموقع → M7/TSK-607؛ TSK-605 تنتظر D-2.
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
