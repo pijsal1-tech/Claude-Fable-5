@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 21 — MODE B: TSK-404 Completed — **M4 مُقفلة** — QA-T12 خضراء) |
-| stage | EXECUTION (MODE B — M5 starting) |
+| last-updated | 2026-07-28 (Session 22 — MODE B: TSK-501 Completed — QA-T13 خضراء) |
+| stage | EXECUTION (MODE B — M5 in progress) |
 | current-phase | M5 (Performance & Search) |
-| current-task | TSK-501 — فهرس بحث مشترك فوق ProjectIndex (NF-20 + NF-21) |
+| current-task | TSK-502 — توثيق حدود النشر + راية إلزام الموافقة (NF-16) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 89% (17 / 19 TSK) |
+| completion % (execution) | 95% (18 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -168,7 +168,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-402 | fix | backoff+jitter + حماية onmessage (NF-11) | M4 | ✅ Completed (S19) |
 | TSK-403 | feature | إطار scan_start + مؤشر فوري (NF-12/A3) | M4 | ✅ Completed (S20) |
 | TSK-404 | security | تسييج المحتوى المحقون (NF-18) | M4 | ✅ Completed (S21) |
-| TSK-501 | perf | فهرس بحث مشترك فوق ProjectIndex (NF-20/21) | M5 | ⬜ pending |
+| TSK-501 | perf | فهرس بحث مشترك فوق ProjectIndex (NF-20/21) | M5 | ✅ Completed (S22) |
 | TSK-502 | docs/config | حدود النشر + force_command_approval (NF-16) | M5 | ⬜ pending |
 
 ---
@@ -994,11 +994,76 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `SEC(TSK-404): fence injected file/folder content with boundary tags + system guard — QA-T12 green (NF-18, M4 closed)`
 
-- **EXACT RESUME POINT: TSK-501 (Current Task)** — فهرس بحث مشترك
-  فوق ProjectIndex (NF-20 + NF-21، M5 Performance & Search):
-  `server.py:api_search:L609–667` +
-  `chain/agent_tools.py:tool_search_code:L269–322` + ProjectIndex
-  (خطافات write-through القائمة). Accept: بحث مستودع 5k ملف <
-  1s؛ نتائج مطابقة للسلوك القديم على عينة ذهبية. Validated-by
-  QA-T13. Deps: TSK-202 (قائمة التجاهل الموحدة — ✅ منجزة).
-  بعدها TSK-502 (آخر مهمة).
+- **EXACT RESUME POINT (superseded by Session 22)**: TSK-501 أُنجز في Session 22.
+
+---
+
+## Session 22 log (2026-07-28) — MODE B: TSK-501 — فهرس بحث مشترك فوق ProjectIndex (NF-20 + NF-21)
+
+- **TSK-501 ✅ Completed** — بوابة QA-T13 خضراء (18/18).
+- **ما نُفّذ**:
+  1. **🆕 `context/search.py` — `SearchService`**: خدمة بحث مشتركة فوق
+     `ProjectIndex` القائم (يُبنى عند فتح المشروع، طازج بخطافات
+     write-through + `refresh_if_stale`):
+     - **تعداد فهرسي** — صفر مشيات شجرية وقت الاستعلام (لا
+       `scan_project` ولا `rglob`)؛ الفلترة (تجاهل موحّد/سرّية/
+       امتداد/حجم) في الذاكرة على قائمة الفهرس المفروزة.
+     - **كاش محتوى بمفتاح (mtime_ns, size)** — الأسطر تُقرأ مرة
+       وتُعاد من الذاكرة ما لم يتغيّر الملف (إبطال ذاتي بتغيّر
+       المفتاح)؛ splitter في المفتاح (المستهلكان اختلفا:
+       `splitlines()` مقابل `split("\n")` — تكافؤ ذهبي حرفي).
+     - **قراءة عبر SafeReader** (حدود R-204 — لا قراءة خام في
+       context/، بوابة test_safe_reader_routing)؛ محجوب ⇒ يُتخطى.
+     - `shared_search(index)` — خدمة واحدة مُكاشاة لكل فهرس ⇒
+       كاش واحد لكل مشروع مفتوح (عمره = عمر ProjectHandle).
+     - لا rglob في الوحدة (بوابة grep في scripts/check.sh سليمة).
+  2. **🛠 `server.py:api_search` (NF-20)**: زال `fm.scan_project(10000)`
+     + القراءة التسلسلية لكل ضغطة؛ الآن عبر `_search_service()`:
+     فهرس المقبض الحي `ctx.project.index`، ولمسار ctx-less
+     (اختبارات) فهرس كسول مُكاشى على كائن fm نفسه. العقد القديم
+     محفوظ حرفيًا (أشكال file/content، سقوف 25/20/35، بوابة
+     len(q)>=2، فلاتر scan_project، الترتيب العالمي بـ parts-sort،
+     وابتلاع NF-14 §5 للملف غير المقروء).
+  3. **🛠 `chain/agent_tools.py:tool_search_code` (NF-21)**: زال
+     rglob-لكل-امتداد-لكل-نداء (سجل A1: «search_code ×8 بطيء»)؛
+     حالة المجلد عبر `_search_service()` (ctx → فهرس المقبض؛
+     ctx-less → فهرس كسول مُكاشى بمفتاح الجذر). العقد محفوظ:
+     صيغة `rel:i: line.strip()`، مطابقة endswith للامتداد (تكافؤ
+     `rglob("*{ext}")` مع `.env`/`.gitignore`)، فحص IGNORED_DIRS على
+     أجزاء المسار الكامل، رسائل الخطأ، وسقف max_results. حالة
+     الملف المفرد بقيت مباشرة (لا فهرس يلزم لملف واحد).
+     فارق موثّق وحيد: الترتيب صار حتميًا (الفرز العالمي) بدل
+     ترتيب اتحاد rglob غير الحتمي.
+  4. **🆕 `tests/integration/test_search_perf.py` (بوابة QA-T13، 18
+     اختبارًا)**: (أ) تكافؤ ذهبي — الخوارزميتان القديمتان مُعاد
+     بناؤهما حرفيًا كمرجع، والمقارنة على عينة مشروع مختلطة
+     (أسماء + محتوى + node_modules + .env + ملف ثنائي) وعلى عدة
+     استعلامات؛ (ب) أداء — مستودع اصطناعي 5000 ملف:
+     كلا المسارين < 1s في الحالة المستقرة + لا rebuild لكل نداء
+     عبر دفعة نداءات (نمط AgentLoop ×6)؛ (ج) طزاجة
+     write-then-search؛ (د) بنيوي — زوال `fm.scan_project(` من
+     api_search و`.rglob(` من tool_search_code ومن context/search.py.
+- **التحقق**: QA-T13 ‏18/18 خضراء؛ `python -c "import server"` سليم؛
+  بوابة rglob (check.sh) نظيفة؛ بوابة SafeReader
+  (test_safe_reader_routing) خضراء؛ QA-T09 (عزل التجاهل) خضراء؛
+  الحزمة الكاملة: **5 failed / 1629 passed / 63 skipped** —
+  الإخفاقات الخمسة هي الموروثة المعروفة نفسها (خارج النطاق).
+  صفر نداءات AI خارجية.
+- **Files changed (المهمة كاملة)**:
+  1. 🆕 context/search.py (SearchService + shared_search)
+  2. 🛠 server.py (api_search → الخدمة المشتركة + `_search_service`)
+  3. 🛠 chain/agent_tools.py (tool_search_code → الخدمة المشتركة)
+  4. 🆕 tests/integration/test_search_perf.py (بوابة QA-T13)
+  5. 🛠 docs/engineering/PROGRESS.md
+  (ملحوظة: الرفعتان 70dbbd9 + e8fcd0b التقطتا 1–4 منتصف الجلسة؛
+  لم يتبقّ في working-tree إلا هذا الملف.)
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `PERF(TSK-501): shared search over ProjectIndex for api_search + tool_search_code — QA-T13 green (NF-20/21)`
+
+- **EXACT RESUME POINT: TSK-502 (Current Task)** — توثيق حدود
+  النشر + راية إلزام الموافقة (NF-16، M5): قسم توثيق حدود النشر
+  + مفتاح إعداد `force_command_approval` يقلب مواقع
+  `need_approval=False` (`server.py:L769، L1246، L2275` — الأرقام
+  تقريبية، تحقّق بـ grep). Accept: الراية مفعّلة ⇒ كل الأوامر
+  تتطلب موافقة؛ الافتراضي متوافق سلوكيًا.
+  **آخر مهمة في الخطة كلها.**
