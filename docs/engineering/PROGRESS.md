@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 17 — MODE B: TSK-305 Completed — **M3 مُقفلة** — QA-T08 خضراء) |
-| stage | EXECUTION (MODE B — M4 starting) |
+| last-updated | 2026-07-28 (Session 18 — MODE B: TSK-401 Completed — QA-T11 (جزء NF-10) خضراء) |
+| stage | EXECUTION (MODE B — M4 in progress) |
 | current-phase | M4 (Frontend & Streaming UX) |
-| current-task | TSK-401 — بث تدريجي بدل إعادة render كاملة (NF-10) |
+| current-task | TSK-402 — backoff+jitter للاتصال + حماية onmessage (NF-11) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 68% (13 / 19 TSK) |
+| completion % (execution) | 74% (14 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -164,7 +164,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-303 | fix | طَهْر تذاكر terminal (NF-06) | M3 | ✅ Completed (S15) |
 | TSK-304 | fix | استجابة الإلغاء أثناء apply (NF-04) | M3 | ✅ Completed (S16) |
 | TSK-305 | quality | تضييق except الحرجة + log (NF-14) | M3 | ✅ Completed (S17) |
-| TSK-401 | perf | بث تدريجي بدل إعادة render (NF-10) | M4 | ⬜ pending |
+| TSK-401 | perf | بث تدريجي بدل إعادة render (NF-10) | M4 | ✅ Completed (S18) |
 | TSK-402 | fix | backoff+jitter + حماية onmessage (NF-11) | M4 | ⬜ pending |
 | TSK-403 | feature | إطار scan_start + مؤشر فوري (NF-12/A3) | M4 | ⬜ pending |
 | TSK-404 | security | تسييج المحتوى المحقون (NF-18) | M4 | ⬜ pending |
@@ -824,8 +824,51 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `FIX(TSK-305): narrow critical excepts + NF-14 audit, warning frame for unreadable detected file — QA-T08 green (M3 closed)`
 
-- **EXACT RESUME POINT: TSK-401 (Current Task)** — بث تدريجي بدل
-  إعادة render كاملة (NF-10، M4 Frontend & Streaming UX):
-  `static/app.js:appendStreamChunk:L928–962` — throttle (rAF/زمن) +
-  إعادة render للمقطع المفتوح الأخير فقط. Validated-by QA-T11.
-  Deps: —. بعدها TSK-402.
+## Session 18 log (2026-07-28) — MODE B — TSK-401 ✅ (M4 بدأت)
+
+- **TSK-401 — بث تدريجي بدل إعادة render كاملة (NF-10)**: كان
+  `appendStreamChunk` يعيد `marked.parse` + `innerHTML` للرد
+  **كاملًا مع كل chunk** — بث 100KB = مئات عمليات parse كاملة
+  متتالية (long tasks وتجمّد ملموس).
+- **الحل — وحدة جديدة `static/js/stream_render.js`** (UMD-lite قابلة
+  للاختبار في node — نفس نمط code_highlight.js/T-064):
+  1. `createThrottler()` — تجميع طلبات الرندر تحت rAF + حد أدنى
+     زمني MIN_INTERVAL_MS=50 (آخر طلب فقط يُنفَّذ ويقرأ الحالة
+     الكاملة) → عدد الرندرات O(زمن البث) لا O(عدد الـ chunks).
+     schedule/cancel/now قابلة للحقن للاختبار.
+  2. `createSectionMemo()` — كاش لكل مقطع
+     (other/thinking/result/plain) بهوية السلسلة: المقاطع المغلقة
+     تُخدم من الكاش، والمقطع المفتوح الأخير فقط يُعاد تحليله —
+     بالاتساق مع كاش الإبراز LRU الخاص بـ T-064.
+- **`static/app.js` (rewire)**: استخراج `renderStreamContent()`
+  (parseResponseChannels + memo لكل مقطع + highlightContainer)؛
+  `appendStreamChunk` يراكم النص ثم `streamThrottler.request(...)`;
+  `startStreamingMessage` يعيد إنشاء الـ memo ويلغي المعلّق;
+  `finalizeStreamMessage` يبدأ بـ `streamThrottler.cancel()` قبل
+  الرندر النهائي الكامل القائم.
+- **`static/index.html`**: تحميل `stream_render.js?v=1` قبل app.js.
+- **بوابة QA-T11 (جزء NF-10)**: جديد
+  `tests/unit/test_stream_render.py` — **11/11 خضراء** (node-based):
+  تجميع 200 طلب → تنفيذ واحد (آخر دالة)؛ فرض الفاصل ≥50ms؛ flush
+  فوري؛ cancel يُسقط بلا تنفيذ؛ memo: نفس المصدر → نفس كائن
+  السلسلة (صفر parse ثانٍ) والمقطع المتغيّر فقط يُعاد؛ بث 100KB
+  محاكى (~1600 chunk) → رندرات < N/8؛ wiring grep على app.js
+  و index.html (الوحدة قبل app.js)؛ **سيناريو DevTools اليدوي
+  موثَّق بخطوات في docstring الملف** (Accept الرسمي: لا مهام
+  متكررة >100ms أثناء بث 100KB). صفر نداءات AI خارجية.
+- **الحزمة الكاملة**: `5 failed, 1581 passed, 63 skipped` — نفس
+  الفشلات الخمس الموجودة مسبقًا فقط (خارج النطاق، لم تُمس).
+  (1570 سابقة + 11 جديدة.) `python -c "import server"` سليم.
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🛠 docs/engineering/PROGRESS.md
+  (🆕 static/js/stream_render.js + 🛠 static/app.js مرفوعة مسبقًا في
+  ea6a339؛ 🛠 static/index.html + 🆕 tests/unit/test_stream_render.py
+  مرفوعة مسبقًا في 2ed794f — لم يبقَ إلا هذا الملف.)
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `PERF(TSK-401): throttled incremental stream render + section memo — QA-T11 green (NF-10)`
+
+- **EXACT RESUME POINT: TSK-402 (Current Task)** — backoff+jitter
+  للاتصال + حماية onmessage (NF-11، M4): `static/app.js:L154–169`.
+  Accept: سقوط الخادم → فواصل إعادة اتصال متزايدة بسقف؛ إطار JSON
+  مشوّه → log وتجاهل بلا استثناء. Validated-by QA-T11.
+  Deps: —. بعدها TSK-403.
