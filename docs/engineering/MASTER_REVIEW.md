@@ -390,8 +390,54 @@ L236/294–299/364/403/512). لا إعادة قراءة لما غطّته R4.
 
 ---
 
-## R6 — Performance Findings + Baseline Metrics
-*(TODO — Baseline الاختبارات مسجل في R-1؛ AI-runtime metrics تُقيَّم هنا.)*
+## R6 — Performance Findings + Baseline Metrics ✅ (Session 27 — 2026-07-28)
+
+**منهجية:** (أ) ترحيل NF-20/21/22 بعد M4/M5 بتحقق كودي مباشر؛ (ب) تسجيل
+baseline metrics قابلة للإعادة؛ (ج) جرد أجهزة القياس (instrumentation) للأداء
+التشغيلي وأداء الـ AI-runtime — تسجيل الفجوات NOT INSTRUMENTED صراحةً.
+
+### R6.1 — ترحيل حالات الأداء (NF-20/21/22)
+
+| # | الاكتشاف | الحالة الجديدة | الدليل |
+|---|---|---|---|
+| NF-20 | api_search مسح تسلسلي كامل لكل استعلام | **VERIFIED-FIXED** (TSK-501) | `server.py:696–713` `_search_service` فوق `ctx.project.index` (طازج بخطافات write-through + refresh_if_stale) مع مسار ctx-less مُكاش على fm؛ `context/search.py:1–40` — تعداد المرشحين من الفهرس (صفر مشيات شجرية) + كاش محتوى بمفتاح (mtime_ns,size)؛ معيار قبول QA-T13: <1s على 5k ملف |
+| NF-21 | tool_search_code بنفس النمط داخل حلقة الوكيل (A1) | **VERIFIED-FIXED** (TSK-501 — نفس الخدمة) | `chain/agent_tools.py:277–298` `_search_service` — فهرس المقبض الحي أو fallback مُكاش على الأداة نفسها؛ تكافؤ ذهبي موثَّق (نفس صيغة `rel:i: line` + نفس السقوف؛ الفارق الوحيد الموثّق: ترتيب حتمي) |
+| NF-22 | O(n²) rendering أثناء البث (=NF-10) | **VERIFIED-FIXED** (TSK-401) | `static/app.js:967–1037` — throttler واحد + memo مقطعي لكل رسالة بدل parse+innerHTML للرد كاملًا مع كل chunk؛ `static/js/stream_render.js` (112 سطرًا) وحدة مستقلة |
+
+### R6.2 — Baseline Metrics (Session 24–27، قابلة للإعادة)
+
+| المقياس | القيمة | طريقة القياس |
+|---|---|---|
+| مجموعة الاختبارات الكاملة | 1709 اختبارًا: 4 فشل موروث / 1671 نجاح / 34 تخطٍّ، **~82s** | Session 24، `pytest --junitxml` (بيئة sandbox قياسية) |
+| زمن استيراد `server` (بارد) | **~949ms** | `python3 -c "t=monotonic(); import server; ..."` — Session 27؛ يشمل سلسلة الاستيراد الكاملة (chain/context/core/actions) |
+| حجم الكود المُنتِج (بلا tests/providers-؟ لا — الكل عدا tests) | **29,649 سطر py** خارج tests/؛ الأكبر: server.py 2,823 (g1)، bridge.py 782، agent_tools.py 768، delegate.py 751 | `find -name "*.py" -not -path tests | wc -l` — Session 27 |
+| حجم الواجهة | app.js 3,798 + وحدات static/js (\u2248 5,306 سطر إجمالي js) | `wc -l` — Session 27 |
+| ملاحظة بيئية | مجلد `improvements/شامل/` يحوي نسخ server.py تاريخية (1670+1100 سطر) — **ليست كودًا حيًّا**؛ تُستثنى من أي قياس (مرشح تنظيف في R8) | جرد Session 27 |
+
+### R6.3 — جرد أجهزة القياس + فجوات NOT INSTRUMENTED
+
+**موجود (تشغيلي):**
+- زمن كل خطوة chain: `duration_ms` يُحسب بـ `time.monotonic` ويُبث للواجهة
+  (`chain/executor.py:352, 386–425`؛ `chain/bridge.py:107–109`).
+- ميزانية الركض: `successful_calls` + `elapsed_seconds` في إطار نهاية الـ chain
+  (`chain/bridge.py:153–162, 609`).
+- تقدير توكنز السياق **قبل الإرسال**: `ContextBudget` بمقدّر قابل للاستبدال
+  (chars/4 افتراضيًا) (`context/budget.py:51–64, 93–116`).
+
+**NOT INSTRUMENTED (فجوات مؤكدة بـ grep شامل على server/bridge/agent_loop/runners):**
+
+| ID | الفجوة | الأثر |
+|---|---|---|
+| PM-01 | **لا قياس لتوكنز الاستجابة الفعلية** — لا التقاط لـ usage من المزود (الحد الفاصل مبهم per scope)، ولا تقدير محلي للمخرج؛ ContextBudget يقيس المدخل المُرسل فقط | استحالة معرفة كلفة رسالة/جلسة فعليًا؛ أي تحسين ميزانية يبقى بلا حلقة تغذية راجعة |
+| PM-02 | **لا قياس لزمن الاستجابة (latency) للطلب المفرد خارج chain** — المسار المباشر (direct) وحلقة الوكيل بلا أي توقيت (grep: صفر monotonic في runners/ وagent_loop عدا expires_at) | أبطأ مسار استخدامًا (chat/agent) هو الأعمى قياسيًا |
+| PM-03 | **لا تجميع (aggregation) عبر الزمن** — القياسات الموجودة لحظية تُبث وتُنسى؛ لا سجل runs بمقاييسه، لا p50/p95، لا عدّادات | لا أساس لرصد تدهور الأداء بين الإصدارات |
+| PM-04 | **لا قياس لأداء بناء السياق** — الجامع الحتمي ذو الـ 7 مصادر (ContextBuilder) بلا توقيت لكل مصدر | فجوة R6 تتقاطع مع A3 التاريخية (انطباع "تجمّد" قبل أول إطار) |
+
+**حكم:** الأداء التفاعلي المُصلَح في M4/M5 (بحث مفهرس + بث تدريجي) **صامد
+بالكود الحالي**. الفجوة البنيوية ليست في سرعة الكود بل في **العمى القياسي**
+(Observability=3 في الـ Scorecard): PM-01..04 مرشحة مهمة واحدة مركّبة في
+PLANNING («طبقة metrics خفيفة») — منخفضة الخطورة، عالية القيمة التمكينية
+(unlocking) لأنها شرط أي تحسين أداء لاحق قابل للإثبات.
 
 ---
 

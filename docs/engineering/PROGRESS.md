@@ -38,27 +38,26 @@
 
 ### Current Position
 - Stage: REVIEW (Stage 1)
-- Phase/Task: **R6 — Performance Review + Baseline Metrics** (التالية)
-- Last completed step: R5 Reliability delta ✅ (Session 26) — ترحيل NF-01..14:
-  4/5 إصلاحات M3 مُتحقّقة بالكود (NF-01/06/07 + إلغاء NF-04)؛ NF-04
-  [SUPERSEDED→مُقسَّم] (الحجب باقٍ = RF-01)؛ جديد: RF-01 (ـ_apply_batch غير
-  مُخيّط — cancel من نفس الاتصال مستحيل، server.py:2081)، RF-02
-  (reap_stale بلا مستدعٍ إنتاجي، execution.py:322)، RF-03 (dual-state مُخفّف
-  في bridge) — MASTER_REVIEW.md §R5. وقبلها بنفس الجلسة: R4 ✅ (NF-15..18
-  مُرحّلة + ASF-01..08، أبرز فجوة ASF-01 حقن بلا تسييج + ASF-02 فرض موضعي)
-- Files/areas already covered: R-1..R3 (سابقًا) + R4 (قراءة كاملة agent_tools/
-  agent_loop/path_policy/plugin_registry + مقاطع approval/bridge/knowledge/
-  config.yaml) + R5 (مقاطع server.py: pending_path L108–123، _apply_batch
-  L2415–2462، مواقع التخييط، history L1436؛ core/execution.py: purge/reap؛
-  chain/bridge.py: حالة الركض)
-- Next action: R6 في MASTER_REVIEW.md — (أ) ترحيل NF-20/21/22 بعد TSK-401/501
-  (فهرس البحث المشترك — تحقّق أن api_search وtool_search_code كلاهما على
-  الفهرس: context/search.py + server.py:696)؛ (ب) baseline metrics: زمن
-  الاختبارات مسجل (~82s)، يُضاف قياس بسيط لزمن الإقلاع وحجم الوحدات؛
-  (ج) AI-runtime metrics — متوقع NOT INSTRUMENTED (سكور Observability=3):
-  لا قياس tokens/latency/cost للطلبات — يُسجّل كفجوة مرشحة للتخطيط.
-  ملاحظة: لو لزم تشغيل اختبارات — البيئة الحالية بلا deps (أعِد تثبيت
-  requirements-dev.txt أولًا)
+- Phase/Task: **R7 — Runtime Pipeline Review** (التالية)
+- Last completed step: R6 Performance + Baselines ✅ (Session 27) — NF-20/21/22
+  كلها VERIFIED-FIXED بالكود (فهرس مشترك server.py:696–713 +
+  agent_tools.py:277–298 + context/search.py؛ بث تدريجي app.js:967–1037)؛
+  baselines: اختبارات ~82s، import server ~949ms، 29,649 سطر py خارج tests؛
+  فجوات PM-01..04 NOT INSTRUMENTED (tokens/latency/aggregation/context-build
+  timing) — مرشحة مهمة واحدة مركبة في PLANNING — MASTER_REVIEW.md §R6.
+  ملاحظة جانبية: improvements/شامل/ نسخ server.py تاريخية — مرشح تنظيف R8
+- Files/areas already covered: R-1..R5 (سابقًا) + R6 (مقاطع: server.py ـ_search_service
+  L696–713، agent_tools.py L277–298، context/search.py رأس الملف،
+  context/budget.py L51–116، executor.py مواقع duration_ms، bridge.py مواقع
+  budget، app.js مواقع TSK-401)
+- Next action: R7 في MASTER_REVIEW.md — Runtime Pipeline: تتبّع رحلة الرسالة
+  الواحدة end-to-end للمسارات الأربعة (direct/chain/agent/delegate):
+  ws_handler → runner → bridge → (context → prompt → provider-boundary →
+  parse → approval → apply) → frames → frontend؛ التركيز: نقاط التسليم بين
+  الطبقات وأي اختلافات بين المسارات (مثلًا direct بلا ContextBudget؟
+  delegate بلا approval؟) — استفد مما قُرئ فعلًا (agent_loop/bridge/_apply_batch
+  مغطاة)؛ المطلوب جديدًا: runners/*.py (4 ملفات صغيرة) + مقاطع ws_handler
+  ومسار direct في server.py + chain/delegate.py مقاطع التسليم
 - Current blocker: none
 
 ### Stage Checklists (Definition of Done — الدستور الجديد)
@@ -70,7 +69,7 @@
 - [x] R3 Architecture Audit + Architecture Scorecard *(Session 25 — MASTER_REVIEW.md §R3)*
 - [x] R4 Security Review (+ Agent Safety) *(Session 26 — MASTER_REVIEW.md §R4: NF-15..18 مُرحّلة + ASF-01..08 + حكم المحاور الستة)*
 - [x] R5 Reliability Review *(delta)* *(Session 26 — MASTER_REVIEW.md §R5: NF-01..14 مُرحّلة + RF-01..03)*
-- [ ] R6 Performance Review (with baseline metrics)
+- [x] R6 Performance Review (with baseline metrics) *(Session 27 — MASTER_REVIEW.md §R6: NF-20/21/22 VERIFIED-FIXED + baselines + PM-01..04 NOT INSTRUMENTED)*
 - [ ] R7 Runtime Pipeline Review
 - [ ] R8 Engineering Quality Review *(delta)*
 - [ ] R9 UX & Agentic Capability Review
@@ -127,6 +126,10 @@
   (فرض الموافقة داخل طبقة الأداة) · commit محلي 381a73c (بلا push)
   · ثم R5 كاملة ✅ بنفس الجلسة: ترحيل NF-01..14 + RF-01..03 (أبرزها RF-01:
   بقية g6 — الدفعة داخل حلقة WS) · commit محلي ثانٍ (بلا push).
+- 2026-07-28 (Session 27): استرداد بعد sandbox reset (clone من 6c21e03 —
+  المستخدم دمج عمل Session 26) · R6 كاملة ✅: NF-20/21/22 VERIFIED-FIXED
+  + baselines جديدة (import server ~949ms، 29,649 سطر py) + جرد أجهزة القياس
+  وفجوات PM-01..04 NOT INSTRUMENTED · commit محلي (بلا push).
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
