@@ -1436,6 +1436,42 @@ def _payload_history(sctx, cfg: dict | None = None) -> list:
     return select_history(sctx.chat_history[:-1], _history_payload_policy(cfg))
 
 
+def _parsed_to_actions(parsed) -> list[dict]:
+    """TSK-601 (RP-01): تحويل ``ParsedResponse`` إلى قائمة actions للواجهة.
+
+    استخراج للتحويل المكرر حرفيًا في مساري agent وdirect — ويستهلكه الآن
+    مقبض ``delegate_approve`` أيضًا (كان ينادي دالتين غير موجودتين
+    غير موجودتين في ResponseParser فيبتلع AttributeError ويرسل
+    actions=[] دائمًا). لا API جديد — دالة وحدة خاصة.
+    """
+    actions: list[dict] = []
+    for fb in parsed.files:
+        actions.append({
+            "action": "create_file",
+            "path": fb.path,
+            "content": fb.content,
+            "language": fb.language,
+        })
+    for eb in parsed.edits:
+        actions.append({
+            "action": "edit_file",
+            "path": eb.path,
+            "old_text": eb.old_text,
+            "new_text": eb.new_text,
+        })
+    for cb in parsed.commands:
+        actions.append({
+            "action": "run_command",
+            "command": cb.command,
+        })
+    return actions
+
+
+def _parsed_options(parsed) -> list[str]:
+    """TSK-601: خيارات المتابعة من ``ParsedResponse`` (النمط المكرر ذاته)."""
+    return [opt.text for opt in parsed.options] if hasattr(parsed, 'options') and parsed.options else []
+
+
 def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip_path_detection: bool = False, attached_context: list | None = None):
     """إرسال ومعالجة رسالة الشات مع الـ AI (جمع السياق والتوجيه).
 
@@ -1787,19 +1823,13 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
                     sctx.session_mgr.append_message("assistant", full_response)
 
                 parsed = parser.parse(full_response, mode=mode)
-                actions = []
-                for fb in parsed.files:
-                    actions.append({"action": "create_file", "path": fb.path, "content": fb.content, "language": fb.language})
-                for eb in parsed.edits:
-                    actions.append({"action": "edit_file", "path": eb.path, "old_text": eb.old_text, "new_text": eb.new_text})
-                for cb in parsed.commands:
-                    actions.append({"action": "run_command", "command": cb.command})
+                actions = _parsed_to_actions(parsed)  # TSK-601: التحويل المشترك
                 # TSK-101 (BUG-01): وضع chat لا يُصدر إجراءات إطلاقًا —
                 # app.js يعرض شريط الإجراءات لأي actions غير فارغة بلا فحص للوضع.
                 if mode == "chat":
                     actions = []
 
-                options = [opt.text for opt in parsed.options] if hasattr(parsed, 'options') and parsed.options else []
+                options = _parsed_options(parsed)
 
                 if actions:
                     _agent_ws_send({
@@ -1870,28 +1900,8 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
 
     parsed = parser.parse(full_response, mode=mode)
 
-    actions = []
-    for fb in parsed.files:
-        actions.append({
-            "action": "create_file",
-            "path": fb.path,
-            "content": fb.content,
-            "language": fb.language,
-        })
-    for eb in parsed.edits:
-        actions.append({
-            "action": "edit_file",
-            "path": eb.path,
-            "old_text": eb.old_text,
-            "new_text": eb.new_text,
-        })
-    for cb in parsed.commands:
-        actions.append({
-            "action": "run_command",
-            "command": cb.command,
-        })
-
-    options = [opt.text for opt in parsed.options] if hasattr(parsed, 'options') and parsed.options else []
+    actions = _parsed_to_actions(parsed)  # TSK-601: التحويل المشترك
+    options = _parsed_options(parsed)
 
     sctx.backup_done_for_batch = False
 
@@ -2332,10 +2342,14 @@ def _handle_ws_message(ctx, sctx, msg):
                         "type": "chunk",
                         "text": run.result.response,
                     })
-                    # تحليل الأكشنز
+                    # تحليل الأكشنز — TSK-601 (RP-01): كان النداء هنا لدالتين
+                    # غير موجودتين في ResponseParser فيُبتلع
+                    # AttributeError ⇒ actions=[] دائمًا. الآن: parse() الحقيقية
+                    # + التحويل المشترك، وفشل التحويل يُظهَر للمستخدم (UXF-02).
                     try:
-                        actions = parser.extract_actions(run.result.response)
-                        options = parser.extract_options(run.result.response)
+                        parsed = parser.parse(run.result.response)
+                        actions = _parsed_to_actions(parsed)
+                        options = _parsed_options(parsed)
                         sctx.send({
                             "type": "done",
                             "actions": actions,
@@ -2343,9 +2357,13 @@ def _handle_ws_message(ctx, sctx, msg):
                             "summary": f"✅ تم اعتماد التعديلات (delegation #{run.run_id})",
                         })
                     except Exception as e:
-                        # NF-14 §15 (يحتاج log — أضيف): فشل تحليل رد التفويض كان
-                        # صامتًا — fallback لـ done فارغ يبقى، والسبب يُسجّل.
+                        # TSK-601: الفشل لم يعد صامتًا (NF-14 §15 كان log فقط) —
+                        # إطار error يصل الواجهة قبل fallback الـ done الفارغ.
                         print(f"  ⚠️ فشل تحليل رد التفويض بعد الاعتماد: {e}")
+                        sctx.send({
+                            "type": "error",
+                            "text": f"تعذّر تحويل رد التفويض إلى إجراءات: {e}",
+                        })
                         sctx.send({
                             "type": "done",
                             "actions": [],

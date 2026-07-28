@@ -14,7 +14,31 @@
 ## M6 — Restore Trust (P1 دفعة أولى: البوابة + القدرة المكسورة + أمان الوكيل)
 
 ### TSK-601 — إصلاح اعتماد التفويض + إظهار الفشل + اختبار المقبض
-- **Status**: TODO · **Priority**: P1
+- **Status**: IN-PROGRESS (Session 33) · **Priority**: P1
+- **Behavior-preservation pre-check (Session 33 — قبل التعديل)**:
+  - السلوك الحالي المُقاس: `delegate_approve` (server.py:2312–2356) ينادي
+    `parser.extract_actions/extract_options` (2337–2338) — **غير موجودتين**
+    في ResponseParser (API الحقيقي: `parse(response, mode=None)` فقط —
+    actions/response_parser.py:107) ⇒ AttributeError يُبتلع في except
+    (2345–2354) ⇒ إطار `done` بـ actions=[] دائمًا + سطر ⚠️ في stdout.
+    لا سلوك عامل يُفقد — المسار مكسور بنيويًا منذ إنشائه.
+  - السلوك المحفوظ: (أ) إطارا start/chunk قبل done (2328–2334) يبقيان؛
+    (ب) فرع "لا يوجد تفويض نشط" (2355–2356) يبقى؛ (ج) صياغة summary
+    `✅ تم اعتماد التعديلات (delegation #id)` تبقى؛ (د) approval_handler
+    (ابتلاع NF-14 §14 لفشل WS أثناء land) يبقى كما هو.
+- **Architecture-Fitness pre-check (Session 33)**:
+  - لا API جديد: `_parsed_to_actions(parsed)` دالة وحدة خاصة في server.py
+    تُستخرج من التكرار القائم (المسار agent 1791–1800 + المسار direct
+    1873–1892 — نفس التحويل حرفيًا مرتين اليوم) — تقليل تكرار لا إضافة.
+  - الاعتماد على `parser.parse(response, mode="delegate")`؟ لا —
+    mode=None هو السلوك التاريخي الكامل (fallback التخميني مفعّل)
+    والتفويض ليس وضع chat؛ نمرر mode=None صراحةً (= نداء بلا معامل)
+    لتطابق سلوك action_applier/chain (توثيق response_parser.py:113).
+  - الإطار المُرسل: يبقى `done` (وليس `plan`) — الواجهة الحالية تعرض
+    شريط الإجراءات لأي actions غير فارغة في done (سلوك BUG-01 المرصود)؛
+    تغيير نوع الإطار قرار UX أوسع مؤجل لمسار M9.
+  - فشل التحويل: يُرسل إطار `error` (نوع قائم تعالجه الواجهة) قبل
+    fallback done الفارغ — لا نوع إطار جديد.
 - **Objective**: جعل `delegate_approve` يعمل فعليًا: تحويل رد المنفّذ إلى
   actions قابلة للتطبيق، وإظهار أي فشل تحويل للمستخدم بدل الصمت، وتغطية
   المقبض باختبار end-to-end.
