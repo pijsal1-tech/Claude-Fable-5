@@ -160,7 +160,7 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-603 — بوابة موافقة fail-closed بنيويًا
-- **Status**: IN-PROGRESS (Session 37) · **Priority**: P1
+- **Status**: ✅ DONE (Session 37) · **Priority**: P1
 - **Objective**: قلب افتراض `need_approval` في `tool_run_command` إلى True؛
   الحلقة (المسار المُدقَّق) تمرر قرارها صراحة.
 - **Background**: ASF-02 (§R4) · **ALT-603 → A**.
@@ -213,6 +213,37 @@
     (test_force_approval::TestStructural) و`run_safe` واجهة داخلية آمنة.
   - لا طبقة جديدة، لا تبعية جديدة — تعديل موضعي في agent_tools + سطر واحد
     في الحلقة (اتساق مع خريطة الطبقات).
+- **Close-out (Session 37)**:
+  - **Implementation**: `chain/agent_tools.py` — sentinel وحدوي
+    `APPROVAL_GRANTED = object()` (:41-46 بعد APPROVAL_TOOLS)؛
+    `execute(call, approved=False)` يسقط أي مفتاح `_approval` نصي من
+    وسائط الـ AI ثم يحقن الكائن الحارس فقط عند `approved=True` لأدوات
+    APPROVAL_TOOLS؛ `tool_run_command(..., _approval=None)` يرفض
+    fail-closed (`_approval is not APPROVAL_GRANTED` → «❌ رفض بنيوي»
+    + WARNING مسجَّل) قبل أي فحص آخر؛ `need_approval=False` في نداء
+    `cmd.run` بقي موثقًا بتعليق TSK-603 (صحيح بالبناء — القرار حُسم
+    أعلاه؛ بوابة CommandRunner الكونسولية `_ask_approval=input()` غير
+    صالحة لخادم ويب). `chain/agent_loop.py:249` — فرع الموافقة يمرر
+    `execute(call, approved=True)` صراحة.
+  - **Tests**: توسيع `tests/integration/test_agent_gated_approvals.py`
+    بـ 7 اختبارات (TestFailClosedToolLayer ×5: نداء مباشر بلا رمز؛
+    تزوير نصي/كائن غريب؛ إسقاط `_approval` من بلوك TOOL؛ تعاقد الحلقة
+    approved=True ينفّذ؛ SAFE_TOOLS غير متأثرة + حارسان بنيويان:
+    `test_no_undocumented_need_approval_false` و
+    `test_sentinel_wiring_structural`). تحديث النداءات المباشرة في
+    tests/unit/test_run_command.py (×20) و test_agent_feedback.py (×1)
+    لتمرير الرمز الصريح (جوهر التعاقد الجديد).
+  - **Acceptance**: (1) ✅ نداء مباشر بلا معامل → رفض مهيكل بلا تنفيذ
+    (test_direct_call_without_token_rejected)؛ (2) ✅ goldens الحلقة
+    خضراء (الـ 8 اختبارات القائمة في test_agent_gated_approvals +
+    test_agent_feedback كلها pass)؛ (3) ✅ grep: كل مواضع
+    `need_approval=False` موثقة (agent_tools بتعليق TSK-603 + حارس؛
+    server.py ×3 بحارس TSK-502؛ run_safe واجهة داخلية).
+  - **Gates**: Security ✅ (fail-closed + منع التزوير النصي بـ sentinel
+    يُقارن بـ is) · Architecture ✅ (لا طبقة جديدة؛ القرار out-of-band
+    عن وسائط النص) · Testing ✅ (65 اختبار impact-scope أخضر) ·
+    Regression ✅ (4F/1690P/34S — الأربعة المعروفة فقط، +7 اختبارات).
+  - **Metrics**: مسارات تنفيذ أمر بلا بوابة: 1 → 0 ✅.
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-604 — إصلاح TF-03 (اللوحات المعطلة) + TF-01 (sprite)
@@ -461,7 +492,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 |---|---|---|---|---|
 | 601 | M6 | P1 | ✅ DONE (S33–34) | 6 اختبارات جديدة خضراء؛ regression نظيف (4F المعروفة فقط) |
 | 602 | M6 | P1 | ✅ DONE (S35–36) | 6 اختبارات جديدة؛ مواضع الحقن الخام 5→0؛ regression نظيف |
-| 603 | M6 | P1 | TODO | |
+| 603 | M6 | P1 | ✅ DONE (S37) | fail-closed بـ sentinel؛ 7 اختبارات جديدة؛ regression نظيف |
 | 604 | M6 | P1 | TODO | |
 | 605 | M6 | P1 | BLOCKED(D-2) | TF-02 جزؤها قابل للتنفيذ فورًا |
 | 606 | M7 | P2 | TODO | |

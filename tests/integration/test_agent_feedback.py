@@ -21,7 +21,7 @@ import textwrap
 from actions.command_runner import CommandRunner
 from actions.file_manager import FileManager
 from chain.agent_loop import AgentLoop
-from chain.agent_tools import AgentTools, CommandPolicy
+from chain.agent_tools import APPROVAL_GRANTED, AgentTools, CommandPolicy
 from chain.knowledge import KnowledgeAccumulator
 from core.approval import ApprovalGate
 from core.checkpoint import CheckpointManager
@@ -186,7 +186,7 @@ class TestFeedbackBudget:
                    command_policy=CommandPolicy(
                        enforce=True, allowlist={"t": "cmd"},
                        output_max_chars=200))
-        out = tools.tool_run_command("t")
+        out = tools.tool_run_command("t", _approval=APPROVAL_GRANTED)
         assert len(out) < 1_000
         assert "اقتُطع" in out
 

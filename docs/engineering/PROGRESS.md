@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 36 — **TSK-602 ✅ DONE — التالي: TSK-603**) |
+| last-updated | 2026-07-28 (Session 37 — **TSK-603 ✅ DONE — التالي: TSK-604**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — M6 Restore Trust (2/5 — 601+602 ✅) |
-| current-task | TSK-603 (التالية — P1، بلا تبعيات) |
+| current-phase | Stage 3 EXECUTION — M6 Restore Trust (3/5 — 601+602+603 ✅) |
+| current-task | TSK-604 (التالية — P1، بلا تبعيات) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **2/26 TSK** (601+602 ✅؛ 603..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **3/26 TSK** (601+602+603 ✅؛ 604..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,15 +37,20 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — M6: 2/5)
-- Phase/Task: **Stage 3 — M6 Restore Trust — TSK-603** (التالية: P1، بلا تبعيات)
-- Last completed step: **TSK-602 ✅ DONE (Sessions 35–36)** — تسييج
-  نتائج الأدوات والمعرفة (ASF-01): موضعا agent_loop + أنواع
-    _render_body الأربعة + to_summary كلها عبر fence_attached بمصدر
-    موسوم؛ رؤوس الأقسام خارج السور (سلوك محفوظ)؛ اختبار جديد
-    6 حالات (tests/unit/test_context_fencing.py — منها حارسان بنيويان)؛
-    القبول 3/3 ✅؛ Regression: 4F/1683P/34S (المعروفة فقط)؛ CHANGELOG
-    مدخلة TSK-602.
+- Stage: EXECUTION (Stage 3 — جارية — M6: 3/5)
+- Phase/Task: **Stage 3 — M6 Restore Trust — TSK-604** (التالية: P1، بلا تبعيات)
+- Last completed step: **TSK-603 ✅ DONE (Session 37)** — بوابة موافقة
+  fail-closed بنيويًا (ASF-02 · ALT-603→A): sentinel وحدوي
+  `APPROVAL_GRANTED = object()` يُقارن بـ `is` — لا يمكن لنص AI
+  إنتاجه؛ `tool_run_command` يرفض أي نداء بلا الرمز قبل أي فحص؛
+  `execute(call, approved=True)` (الحلقة بعد ApprovalGate) يحقنه
+  ويسقط أي `_approval` مزوّر من بلوك TOOL؛ 7 اختبارات جديدة
+  (منها حارسان بنيويان) + تحديث 21 نداءً مباشرًا في الاختبارات؛
+  القبول 3/3 ✅؛ Regression: 4F/1690P/34S (المعروفة فقط)؛ CHANGELOG
+  مدخلة TSK-603.
+  وقبلها: **TSK-602 ✅ DONE (Sessions 35–36)** — تسييج
+  نتائج الأدوات والمعرفة (ASF-01) عبر fence_attached بمصدر موسوم —
+  6 اختبارات (test_context_fencing.py)؛ القبول 3/3 ✅.
   وقبلها: **TSK-601 ✅ DONE (Sessions 33–34)** — إصلاح
   delegate_approve: استخراج `_parsed_to_actions`/`_parsed_options`
   (server.py:1439–1474) يستهلكهما مسارا agent/direct + المقبض؛
@@ -102,15 +107,19 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-603** (M6، P1، بلا تبعيات): بوابة موافقة
-  fail-closed بنيويًا (ASF-02 · ALT-603→A) — قلب افتراض `need_approval`
-  في `tool_run_command` (chain/agent_tools.py:485) إلى True والحلقة
-  (chain/agent_loop.py:466–522 — المسار المُدقّق) تمرر قرارها صراحة؛
-  اختبار جديد أو توسيع test_agent_gated_approvals.py (معايير القبول
-  الثلاثة في DEVELOPMENT_TASKS.md §TSK-603: نداء مباشر بلا معامل →
-  موافقة/رفض؛ goldens الحلقة خضراء؛ grep لا need_approval=False إلا
-  موثقًا)؛ قبل التعديل: سجل حفظ السلوك + Fitness pre-check؛ بعد
-  الإغلاق: جدول الحالة + CHANGELOG + commit محلي.
+- Next action: **بدء TSK-604** (M6، P1، بلا تبعيات): إصلاح TF-03
+  (اللوحات المعطلة) + TF-01 (sprite) — ALT-604→A: إعادة عنصرَي
+  `run-history-btn` و`memory-panel-btn` إلى static/index.html (أو ربط
+  آمن null-checked في app.js مع أهداف Activity Bar) لتعمل لوحات
+  Run-History/Memory/status-chip؛ وإعادة سطر «رخصة المشروع» إلى
+  static/icons/sprite.svg. القبول: `pytest tests/unit/test_rollback_ui.py
+  tests/unit/test_file_icons.py` أخضر كاملًا + فحص يدوي موثق؛ الأدلة
+  المحفوظة من R10: sprite.svg رأس، index.html:212/220،
+  app.js:3638–3645، test_rollback_ui.py:424–434، test_file_icons.py:143.
+  قبل التعديل: سجل حفظ السلوك + Fitness pre-check في
+  DEVELOPMENT_TASKS.md §TSK-604؛ بعد الإغلاق: جدول الحالة + CHANGELOG
+  + commit محلي. ملاحظة: إصلاح 604 يُخفّض إخفاقات البوابة المعروفة
+  4→2 (يبقى test_history_consumers + test_theme_tokens لـ TSK-605).
   ملاحظة للمالك: قرارات D-1..D-4 (MASTER_REVIEW §P.3) ما زالت معلّقة —
   تحجب TSK-605(جزئيًا)/617/623 فقط؛ باقي M6 غير محجوب
 - Current blocker: none
@@ -252,6 +261,17 @@
   فقط) · **إغلاق TSK-602 ✅**: Close-out + Gates في DEVELOPMENT_TASKS.md
   + جدول الحالة 602→DONE · CHANGELOG مدخلة TSK-602 · تحديث PROGRESS
   (2/26) · commit محلي · الموقع → TSK-603.
+- 2026-07-28 (Session 37): استرداد بعد sandbox reset (clone من f1530a2 —
+  دمج المستخدم ضمّ pre-checks وتنفيذ agent_tools/agent_loop من منتصف
+  الجلسة السابقة) · **إكمال وإغلاق TSK-603 ✅**: تحديث 21 نداءً مباشرًا
+  في الاختبارات (test_run_command ×20 + test_agent_feedback ×1 — تمرير
+  APPROVAL_GRANTED) · 7 اختبارات جديدة في test_agent_gated_approvals.py
+  (TestFailClosedToolLayer ×5 + حارسان بنيويان) · نطاق الأثر 65 اختبارًا
+  أخضر · regression كامل **4F/1690P/34S ~71s** (المعروفة فقط، +7) ·
+  معيار القبول 3 (grep) متحقق: كل مواضع need_approval=False موثقة ·
+  Close-out + Gates في DEVELOPMENT_TASKS.md + جدول الحالة 603→DONE ·
+  CHANGELOG مدخلة TSK-603 · تحديث PROGRESS (3/26) · commit محلي ·
+  الموقع → TSK-604.
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي

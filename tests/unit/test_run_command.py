@@ -19,6 +19,7 @@ import time
 import pytest
 
 from chain.agent_tools import (
+    APPROVAL_GRANTED,
     AgentTools,
     CommandPolicy,
     DEFAULT_COMMAND_TIMEOUT,
@@ -69,24 +70,24 @@ POLICY = CommandPolicy(
 class TestAllowlistMatrix:
     def test_literal_allowed_command_executes(self):
         tools, runner = _tools(POLICY)
-        out = tools.tool_run_command("python -m pytest -q")
+        out = tools.tool_run_command("python -m pytest -q", _approval=APPROVAL_GRANTED)
         assert runner.calls == ["python -m pytest -q"]
         assert "exit code: 0" in out
 
     def test_entry_name_resolves_to_command(self):
         tools, runner = _tools(POLICY)
-        out = tools.tool_run_command("test")
+        out = tools.tool_run_command("test", _approval=APPROVAL_GRANTED)
         assert runner.calls == ["python -m pytest -q"]
         assert "[allowlist: test]" in out
 
     def test_whitespace_normalized_before_match(self):
         tools, runner = _tools(POLICY)
-        tools.tool_run_command("  python   -m  pytest   -q ")
+        tools.tool_run_command("  python   -m  pytest   -q ", _approval=APPROVAL_GRANTED)
         assert runner.calls == ["python -m pytest -q"]
 
     def test_non_allowlisted_rejected_never_executed(self):
         tools, runner = _tools(POLICY)
-        out = tools.tool_run_command("rm -rf /")
+        out = tools.tool_run_command("rm -rf /", _approval=APPROVAL_GRANTED)
         assert runner.calls == []          # لا تنفيذ صامت أبدًا
         assert out.startswith("❌")
         assert "rm -rf /" in out           # الرفض يذكر الأمر المطلوب
@@ -95,24 +96,24 @@ class TestAllowlistMatrix:
     def test_prefix_of_allowed_command_is_rejected(self):
         # أمر يبدأ بنص مسموح ليس مسموحًا — مطابقة تامة لا بادئة
         tools, runner = _tools(POLICY)
-        out = tools.tool_run_command("python -m pytest -q --deadly-flag")
+        out = tools.tool_run_command("python -m pytest -q --deadly-flag", _approval=APPROVAL_GRANTED)
         assert runner.calls == []
         assert out.startswith("❌")
 
     def test_rejection_is_logged(self, caplog):
         tools, _ = _tools(POLICY)
         with caplog.at_level(logging.WARNING, logger="chain.agent_tools"):
-            tools.tool_run_command("curl http://evil.example")
+            tools.tool_run_command("curl http://evil.example", _approval=APPROVAL_GRANTED)
         assert any("REJECTED" in r.message for r in caplog.records)
 
     def test_rejection_lists_available_entries(self):
         tools, _ = _tools(POLICY)
-        out = tools.tool_run_command("whatever")
+        out = tools.tool_run_command("whatever", _approval=APPROVAL_GRANTED)
         assert "test" in out and "lint" in out
 
     def test_enforced_empty_allowlist_rejects_everything(self):
         tools, runner = _tools(CommandPolicy(enforce=True, allowlist={}))
-        out = tools.tool_run_command("echo hi")
+        out = tools.tool_run_command("echo hi", _approval=APPROVAL_GRANTED)
         assert runner.calls == []
         assert out.startswith("❌")
 
@@ -120,14 +121,14 @@ class TestAllowlistMatrix:
         # بلا سياسة (قسم config غائب) — سلوك ما قبل T-058: التنفيذ يمر
         # (بوابة الموافقة T-013 تبقى الحاكم في المسار الحقيقي)
         tools, runner = _tools(policy=None)
-        out = tools.tool_run_command("echo anything")
+        out = tools.tool_run_command("echo anything", _approval=APPROVAL_GRANTED)
         assert runner.calls == ["echo anything"]
         assert "exit code: 0" in out
 
     def test_no_runner_available(self):
         tools = AgentTools(command_runner=None, project_root=".",
                            command_policy=POLICY)
-        assert "غير متاح" in tools.tool_run_command("test")
+        assert "غير متاح" in tools.tool_run_command("test", _approval=APPROVAL_GRANTED)
 
 
 # ═══════════════════ command_policy_from ═══════════════════
@@ -193,7 +194,7 @@ class TestTimeoutAndCancel:
         # FakeCmd ينام 5 ثوانٍ — السياسة مهلتها 0.2s + سماحية 2s
         tools, _ = _tools(HUNG, FakeCmd(delay=5.0))
         start = time.monotonic()
-        out = tools.tool_run_command("hang")
+        out = tools.tool_run_command("hang", _approval=APPROVAL_GRANTED)
         elapsed = time.monotonic() - start
         assert out.startswith("❌")
         assert "مهلة" in out
@@ -213,7 +214,7 @@ class TestTimeoutAndCancel:
         timer = threading.Timer(0.3, lambda: ticket.cancel("user stop"))
         timer.start()
         start = time.monotonic()
-        out = tools.tool_run_command("hang")
+        out = tools.tool_run_command("hang", _approval=APPROVAL_GRANTED)
         elapsed = time.monotonic() - start
         timer.cancel()
 
@@ -228,14 +229,14 @@ class TestTimeoutAndCancel:
         tools, _ = _tools(HUNG, FakeCmd(delay=5.0))
         tools.run_ticket = ticket
         start = time.monotonic()
-        out = tools.tool_run_command("hang")
+        out = tools.tool_run_command("hang", _approval=APPROVAL_GRANTED)
         assert out.startswith("❌")
         assert time.monotonic() - start < 3.0
 
     def test_no_ticket_means_timeout_still_applies(self):
         tools, _ = _tools(HUNG, FakeCmd(delay=5.0))
         assert tools.run_ticket is None
-        out = tools.tool_run_command("hang")
+        out = tools.tool_run_command("hang", _approval=APPROVAL_GRANTED)
         assert "مهلة" in out
 
 
@@ -247,7 +248,7 @@ class TestOutputCapture:
                                "error": "line-err", "code": 7})
         tools, _ = _tools(CommandPolicy(enforce=True,
                                         allowlist={"t": "cmd"}), fake)
-        out = tools.tool_run_command("t")
+        out = tools.tool_run_command("t", _approval=APPROVAL_GRANTED)
         assert "exit code: 7" in out
         assert "line-out" in out
         assert "line-err" in out
@@ -258,7 +259,7 @@ class TestOutputCapture:
                                "error": "", "code": 0})
         tools, _ = _tools(CommandPolicy(enforce=True,
                                         allowlist={"t": "cmd"}), fake)
-        out = tools.tool_run_command("t")
+        out = tools.tool_run_command("t", _approval=APPROVAL_GRANTED)
         assert not out.startswith("❌")
         assert "all good" in out
 
@@ -269,7 +270,7 @@ class TestOutputCapture:
         policy = CommandPolicy(enforce=True, allowlist={"t": "cmd"},
                                output_max_chars=100)
         tools, _ = _tools(policy, fake)
-        out = tools.tool_run_command("t")
+        out = tools.tool_run_command("t", _approval=APPROVAL_GRANTED)
         assert "اقتُطع" in out
         assert "10000" in out            # الحجم الأصلي مذكور
         assert len(out) < 1_000          # التقرير نفسه صغير
@@ -280,7 +281,7 @@ class TestOutputCapture:
         policy = CommandPolicy(enforce=True, allowlist={"t": "cmd"},
                                output_max_chars=50)
         tools, _ = _tools(policy, fake)
-        out = tools.tool_run_command("t")
+        out = tools.tool_run_command("t", _approval=APPROVAL_GRANTED)
         assert out.count("اقتُطع") == 2
 
     def test_empty_output_reported_explicitly(self):
@@ -288,7 +289,7 @@ class TestOutputCapture:
                                "error": "", "code": 0})
         tools, _ = _tools(CommandPolicy(enforce=True,
                                         allowlist={"t": "cmd"}), fake)
-        assert "لا مخرجات" in tools.tool_run_command("t")
+        assert "لا مخرجات" in tools.tool_run_command("t", _approval=APPROVAL_GRANTED)
 
 
 # ═══════════════════ real CommandRunner integration (fast) ═══════════════════
@@ -305,6 +306,6 @@ class TestRealRunner:
         tools = AgentTools(command_runner=runner,
                            project_root=str(tmp_path),
                            command_policy=policy)
-        out = tools.tool_run_command("hello")
+        out = tools.tool_run_command("hello", _approval=APPROVAL_GRANTED)
         assert "exit code: 0" in out
         assert "42" in out

@@ -74,3 +74,47 @@
   test_agent_feedback كلها خضراء (47 اختبارًا في نطاق الأثر).
 - Regression كامل (Session 36): `4 failed, 1683 passed, 34 skipped` (~72s)
   — الأربعة المعروفة فقط (TSK-604/605)؛ لا فشل جديد.
+
+---
+
+## TSK-603 — بوابة موافقة fail-closed بنيويًا (ASF-02 · ALT-603→A) — Session 37
+
+### Fixed
+- **ASF-02**: `tool_run_command` كان ينفّذ أي أمر بلا بوابة إن استُدعي
+  مباشرة — `need_approval=False` حرفيًا في نداء `cmd.run`
+  (chain/agent_tools.py) والمسار المُدقَّق الوحيد كان بوابة الحلقة
+  (ApprovalGate) القائمة على «انضباط المستدعي» لا على بنية الكود.
+
+### Changed
+- التنفيذ الآن يتطلب رمز قرار **sentinel** وحدويًا
+  (`APPROVAL_GRANTED = object()` — يُقارَن بـ `is`): لا يمكن لنص AI
+  إنتاجه، فلا تزوير موافقة عبر بلوك TOOL.
+- `AgentTools.execute(call, approved=False)`: يسقط أي مفتاح `_approval`
+  قادم من وسائط النص، ويحقن الكائن الحارس فقط عند `approved=True`
+  لأدوات APPROVAL_TOOLS.
+- `AgentLoop` (فرع الموافقة :249): يمرر قراره صراحة —
+  `execute(call, approved=True)` بعد حكم ApprovalGate. سلوك الحلقة
+  محفوظ حرفيًا.
+- نداء مباشر بلا الرمز → رفض مهيكل «❌ رفض بنيوي…» + WARNING مسجَّل،
+  قبل أي فحص allowlist — لا تنفيذ صامت أبدًا.
+- `need_approval=False` المتبقي في `cmd.run` موثق بتعليق TSK-603
+  (صحيح بالبناء: القرار حُسم أعلاه؛ بوابة CommandRunner الكونسولية
+  `input()` غير صالحة لخادم ويب — auto_approve=True يحيّدها أصلًا في
+  مواضع الخادم الثلاثة).
+
+### Added
+- 7 اختبارات في `tests/integration/test_agent_gated_approvals.py`:
+  TestFailClosedToolLayer ×5 (نداء مباشر مرفوض؛ تزوير نصي/كائن غريب؛
+  إسقاط `_approval` المزوّر من بلوك TOOL؛ تعاقد الحلقة ينفّذ؛
+  SAFE_TOOLS غير متأثرة) + حارسان بنيويان
+  (`test_no_undocumented_need_approval_false`،
+  `test_sentinel_wiring_structural`).
+- تحديث 21 نداءً مباشرًا في الاختبارات القائمة
+  (test_run_command ×20، test_agent_feedback ×1) لتمرير الرمز الصريح.
+
+### Verification
+- نطاق الأثر: 65 اختبارًا أخضر (gated_approvals + run_command +
+  agent_feedback + force_approval).
+- Regression كامل (Session 37): `4 failed, 1690 passed, 34 skipped`
+  (~71s) — الأربعة المعروفة فقط (TSK-604/605)؛ لا فشل جديد؛ +7 اختبارات.
+- Metrics: مسارات تنفيذ أمر بلا بوابة 1 → 0.
