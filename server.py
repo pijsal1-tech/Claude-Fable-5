@@ -39,6 +39,7 @@ from providers.deepseek import DeepSeekProvider, DeepSeekConfig
 from providers.alle_ai import AlleAIProvider, AlleAIConfig
 from providers.openai_shelby import OpenAIShelbyProvider, OpenAIShelbyConfig
 from providers.base import Message
+from sessions.memory import WindowPolicy, select_history
 from context.facade import gather_message_context
 from chain.bridge import ChainBridge
 from chain.delegate import DelegateBridge
@@ -1282,6 +1283,34 @@ def _build_session_context(ws):
     )
 
 
+def _history_payload_policy(cfg: dict | None = None) -> WindowPolicy:
+    """TSK-104 (NF-07): سياسة سقف تاريخ الحمولة من config.yaml.
+
+    يقرأ ``history.payload_last_n``: عدد الرسائل الأخيرة التي تمر للموديل
+    عند نقطة الإرسال. غياب المفتاح أو ``null`` = بلا سقف — الافتراضي
+    متوافق سلوكيًا مع ما قبل TSK-104 (موثّق). أي قيمة غير صالحة ⇒
+    سقوط متسامح على بلا سقف (لا يعطّل الرد أبدًا).
+    """
+    try:
+        section = (cfg if cfg is not None else _read_config()).get("history") or {}
+        last_n = section.get("payload_last_n")
+        if last_n is None:
+            return WindowPolicy()
+        return WindowPolicy(last_n=int(last_n))
+    except Exception:
+        return WindowPolicy()
+
+
+def _payload_history(sctx, cfg: dict | None = None) -> list:
+    """TSK-104 (NF-07 — جزء الحمولة): تاريخ المحادثة المرسل للموديل.
+
+    استبعاد بنيوي للرسالة الحالية (``[:-1]`` — تمر في الـ prompt نفسه)
+    ثم سقف السياسة المسماة عبر ``select_history`` (لا قصّ خام — بوابة
+    test_history_consumers). يُستهلك في مساري agent/direct كليهما.
+    """
+    return select_history(sctx.chat_history[:-1], _history_payload_policy(cfg))
+
+
 def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip_path_detection: bool = False, attached_context: list | None = None):
     """إرسال ومعالجة رسالة الشات مع الـ AI (جمع السياق والتوجيه).
 
@@ -1571,7 +1600,8 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
                 mode="agent",
                 message=user_text_with_files,
                 context={
-                    "history": sctx.chat_history[:-1],
+                    # TSK-104 (NF-07): سقف تاريخ الحمولة وفق config
+                    "history": _payload_history(sctx),
                     "project_context": project_context,
                 },
             )
@@ -1670,7 +1700,8 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
         mode="direct",
         message=prompt,
         system_prompt=system_prompt,
-        context={"history": sctx.chat_history[:-1]},
+        # TSK-104 (NF-07): سقف تاريخ الحمولة وفق config
+        context={"history": _payload_history(sctx)},
     )
     _direct_result = RUNNERS["direct"](
         stream_fn=lambda p, h, s: sctx.active_provider().stream(p, h, s)

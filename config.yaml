@@ -60,6 +60,12 @@ context_budget:
   reserved_output: 8000    # محجوز لمخرجات الموديل
   safety_margin: 0.10      # هامش أمان لعدم دقة المقدّر (بند مخاطر R-203)
 
+# سقف تاريخ المحادثة عند نقطة الإرسال (TSK-104 / NF-07 — جزء الحمولة).
+# payload_last_n: عدد الرسائل الأخيرة التي تمر للموديل في مساري agent/direct.
+# null (أو حذف المفتاح) = بلا سقف — متوافق سلوكيًا مع ما قبل TSK-104.
+history:
+  payload_last_n: 40
+
 # الاسترجاع الدلالي (T-057 / R-206) — SemanticSource يقرأ هذا القسم عبر
 # semantic_config_from. بذرة مصغَّرة: backend افتراضي hashing-BoW محلي
 # (صفر شبكة/تبعيات — الترقية لـ backend حقيقي مجال R-802/Phase 8).
