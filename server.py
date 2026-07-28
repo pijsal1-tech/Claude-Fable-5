@@ -673,64 +673,55 @@ def api_files():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+def _search_service():
+    """TSK-501 (NF-20): خدمة البحث المشتركة فوق ProjectIndex.
+
+    المسار الأساسي: فهرس المقبض الحي ``ctx.project.index`` (يُبنى عند
+    فتح المشروع، طازج بخطافات write-through + refresh_if_stale).
+    مسار ctx-less (اختبارات/تراث): فهرس كسول يُكاشى على كائن fm
+    نفسه (لا حالة وحدوية جديدة) — نفس العمر: مشروع جديد = fm جديد.
+    """
+    from context.index import ProjectIndex
+    from context.search import shared_search
+    if ctx is not None and getattr(ctx.project, "index", None) is not None:
+        return shared_search(ctx.project.index)
+    index = getattr(fm, "_api_search_index", None)
+    if index is None or pathlib.Path(index.root) != pathlib.Path(fm.root):
+        index = ProjectIndex(fm.root)
+        index.attach(fm)
+        fm._api_search_index = index
+    return shared_search(index)
+
+
 @app.route("/api/search")
 def api_search():
-    """البحث الشامل في ملفات المشروع ومحتوياتها"""
+    """البحث الشامل في ملفات المشروع ومحتوياتها.
+
+    TSK-501 (NF-20): كان ينفّذ ``scan_project(max_files=10000)`` ثم يقرأ
+    محتوى كل ملف نصي تسلسليًا لكل ضغطة بحث. الآن يمر عبر
+    ``SearchService`` (context/search.py) فوق ProjectIndex — صفر مشيات
+    شجرية + كاش محتوى بمفتاح mtime — مع نفس عقد النتائج حرفيًا
+    (أشكال file/content، سقوف 25/20/35، بوابة len(q)>=2، فلاتر
+    scan_project القديمة والترتيب العالمي المفروز) — بوابة QA-T13.
+    """
+    from actions.file_manager import MAX_FILE_SIZE, WEB_EXTENSIONS
     q = request.args.get("q", "").strip()
     if not q:
         return jsonify({"ok": True, "results": []})
 
-    q_lower = q.lower()
-    results = []
     try:
-        scan = fm.scan_project(max_files=10000)
-        files = scan.get("files", [])
-
-        # 1. مطابقة أسماء الملفات ومساراتها
-        for f in files:
-            rel_path = f.get("rel_path") or f.get("path") or ""
-            if not rel_path:
-                continue
-            if q_lower in rel_path.lower():
-                results.append({
-                    "type": "file",
-                    "path": rel_path,
-                    "name": pathlib.Path(rel_path).name,
-                    "match": rel_path
-                })
-                if len(results) >= 25:
-                    break
-
-        # 2. مطابقة محتوى الملفات إذا كان البحث أكثر من حرفين
-        if len(results) < 20 and len(q) >= 2:
-            text_exts = {'.py', '.js', '.ts', '.jsx', '.tsx', '.html', '.css', '.json', '.md', '.yaml', '.yml', '.txt', '.sh', '.c', '.cpp', '.h', '.cs', '.php', '.go', '.rs'}
-            for f in files:
-                rel_path = f.get("rel_path") or f.get("path") or ""
-                if not rel_path or any(r["path"] == rel_path and r["type"] == "file" for r in results):
-                    continue
-                ext = pathlib.Path(rel_path).suffix.lower()
-                if ext in text_exts:
-                    try:
-                        content = fm.read_file(rel_path, with_line_numbers=False)
-                        lines = content.splitlines()
-                        for idx, line in enumerate(lines, 1):
-                            if q_lower in line.lower():
-                                results.append({
-                                    "type": "content",
-                                    "path": rel_path,
-                                    "name": pathlib.Path(rel_path).name,
-                                    "line": idx,
-                                    "snippet": line.strip()[:100]
-                                })
-                                if len(results) >= 35:
-                                    break
-                    except Exception:
-                        # NF-14 §5 (ابتلاع مقصود): ملف غير مقروء أثناء بحث المحتوى —
-                        # يُتخطى (إسقاط البحث كله لملف تالف واحد أسوأ للمستخدم).
-                        pass
-                if len(results) >= 35:
-                    break
-
+        svc = _search_service()
+        text_exts = {'.py', '.js', '.ts', '.jsx', '.tsx', '.html', '.css', '.json', '.md', '.yaml', '.yml', '.txt', '.sh', '.c', '.cpp', '.h', '.cs', '.php', '.go', '.rs'}
+        results = svc.search_project(
+            q,
+            walk_exts=WEB_EXTENSIONS,
+            max_size=MAX_FILE_SIZE,
+            content_exts=text_exts,
+            name_limit=25,
+            content_gate=20,
+            total_limit=35,
+            max_files=10000,
+        )
         return jsonify({"ok": True, "results": results})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500

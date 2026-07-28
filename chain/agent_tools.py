@@ -267,58 +267,87 @@ class AgentTools:
             return f"(مجلد فارغ: {path})"
         return "\n".join(lines)
     
+    # ملفات النص لـ search_code (ثابت صنفي — نفس المجموعة القديمة)
+    _SEARCH_TEXT_EXTS = frozenset({
+        ".py", ".js", ".ts", ".jsx", ".tsx", ".html", ".css",
+        ".json", ".md", ".txt", ".yml", ".yaml", ".toml", ".cfg",
+        ".sh", ".bat", ".ps1", ".env", ".gitignore",
+    })
+
+    def _search_service(self):
+        """TSK-501 (NF-21): خدمة البحث المشتركة فوق ProjectIndex.
+
+        مع ctx: فهرس المقبض الحي ``ctx.project.index`` (تبديل المشروع
+        يُرصد فورًا — نمط resolve-at-call-time نفسه كـ fm/cmd).
+        بلا ctx (اختبارات/تراث): فهرس كسول يُكاشى على الكائن بمفتاح
+        جذر المشروع (تغيّر الجذر = فهرس جديد).
+        """
+        from context.index import ProjectIndex
+        from context.search import shared_search
+        if self._ctx is not None:
+            index = getattr(self._ctx.project, "index", None)
+            if index is not None:
+                return shared_search(index)
+        root = str(pathlib.Path(self.project_root).resolve())
+        cached = getattr(self, "_fallback_index", None)
+        if cached is None or str(cached.root) != root:
+            cached = ProjectIndex(root)
+            fm = self.fm
+            if fm is not None:
+                cached.attach(fm)
+            self._fallback_index = cached
+        return shared_search(cached)
+
     def tool_search_code(self, query: str, path: str = ".",
                          max_results: int = 20) -> str:
-        """بحث في الكود (مثل grep)"""
+        """بحث في الكود (مثل grep).
+
+        TSK-501 (NF-21): كان ينفّذ rglob منفصلًا لكل امتداد + قراءة
+        كاملة لكل ملف في كل نداء أداة (حلقة الـ Agent تناديه مرارًا في
+        الرسالة الواحدة — سجل A1). الآن حالة المجلد تمر عبر
+        ``SearchService`` (context/search.py) فوق ProjectIndex — تعداد
+        فهرسي + كاش محتوى بمفتاح mtime — مع نفس العقد القديم
+        (صيغة السطر، الفلاتر، رسائل الخطأ، سقف max_results) — QA-T13.
+        حالة الملف المفرد بقيت مباشرة (لا فهرس يلزم لملف واحد).
+        """
         try:
             resolved = self._resolve_path(path)
         except PermissionError as e:
             return f"❌ خطأ: {e}"
         if not resolved:
             return f"❌ مسار غير موجود: {path}"
-        
-        results = []
+
         search_path = pathlib.Path(resolved)
-        
-        # ملفات النص فقط
-        text_exts = {
-            ".py", ".js", ".ts", ".jsx", ".tsx", ".html", ".css",
-            ".json", ".md", ".txt", ".yml", ".yaml", ".toml", ".cfg",
-            ".sh", ".bat", ".ps1", ".env", ".gitignore",
-        }
-        
-        files = []
+
         if search_path.is_file():
+            # ملف مفرد — نفس المسار القديم حرفيًا (rel = اسم الملف)
             if is_secret_file(search_path):
                 return "❌ الوصول مرفوض: ملف محمي"
-            files = [search_path]
-        else:
-            for ext in text_exts:
-                files.extend(search_path.rglob(f"*{ext}"))
-        
-        for fpath in files:
-            # TSK-202 (BUG-04): تخطي كل مجلدات التجاهل الموحّدة
-            # (تشمل test---results / test-results / .ai_runs …)
-            parts = fpath.parts
-            if any(p in IGNORED_DIRS for p in parts):
-                continue
-            if is_secret_file(fpath):
-                continue
-            
-            try:
-                text = fpath.read_text(encoding="utf-8", errors="replace")
-                for i, line in enumerate(text.split("\n"), 1):
-                    if query.lower() in line.lower():
-                        rel = fpath.relative_to(search_path) if search_path.is_dir() else fpath.name
-                        results.append(f"{rel}:{i}: {line.strip()}")
-                        if len(results) >= max_results:
-                            break
-            except Exception:
-                continue
-            
-            if len(results) >= max_results:
-                break
-        
+            results = []
+            # TSK-202 (BUG-04): فحص مجلدات التجاهل على أجزاء المسار
+            if not any(p in IGNORED_DIRS for p in search_path.parts):
+                try:
+                    text = search_path.read_text(encoding="utf-8",
+                                                 errors="replace")
+                    for i, line in enumerate(text.split("\n"), 1):
+                        if query.lower() in line.lower():
+                            results.append(
+                                f"{search_path.name}:{i}: {line.strip()}")
+                            if len(results) >= max_results:
+                                break
+                except Exception:
+                    pass
+            if not results:
+                return f"(لا نتائج لـ '{query}' في {path})"
+            return "\n".join(results)
+
+        # حالة المجلد — عبر الخدمة المشتركة فوق ProjectIndex
+        results = self._search_service().search_code(
+            query, search_path,
+            exts=self._SEARCH_TEXT_EXTS,
+            max_results=max_results,
+            is_secret=is_secret_file,
+        )
         if not results:
             return f"(لا نتائج لـ '{query}' في {path})"
         return "\n".join(results)
