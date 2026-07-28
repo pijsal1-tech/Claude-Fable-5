@@ -441,13 +441,120 @@ PLANNING («طبقة metrics خفيفة») — منخفضة الخطورة، ع�
 
 ---
 
-## R7 — Runtime Pipeline
-*(TODO)*
+## R7 — Runtime Pipeline ✅ (Session 28 — 2026-07-28)
+
+**منهجية:** تتبّع رحلة الرسالة end-to-end للمسارات الأربعة. قراءة كاملة:
+`runners/direct.py` (128)، `runners/agent.py` (169)، `runners/chain.py` (188)،
+`runners/delegate.py` (رأس + عقد الحالة). مقاطع server.py: التوجيه والإرسال
+(L1560–1900)، معالجات delegate_approve/reject (L2312–2368)، ws_handler
+(L2385–2403)؛ الواجهة: معالجات delegate (app.js:615–637, 3279+). المزود نفسه
+حد مبهم (out of scope) — يُتتبع حتى `stream_fn`/`send_fn` فقط.
+
+### R7.1 — خريطة المسارات الأربعة
+
+| المرحلة | direct | chain | agent | delegate |
+|---|---|---|---|---|
+| السياق | `gather_message_context` (ContextBudget — TSK-103) | نفسه + file_content/files للراوتر | نفسه + `_payload_history` (TSK-104) | **جمع خاص**: scan + قراءة أول 10 ملفات كاملة (L2265–2284) — خارج ContextBudget → RP-03 |
+| التذكرة | `_begin_run_ticket("direct")` | "chain" | "agent" | "delegate" |
+| التخييط | **داخل حلقة WS** (L1846–1858، بلا Thread) → RP-02 | Thread (L1662) | Thread (L1818) | Thread (L2294) |
+| العمل | `stream_fn` قطعًا مع فحص إلغاء بين كل قطعة | `bridge.start_chain` + join(600s) | `AgentLoop.run` (أدوات + بوابة) | Brief→Implement→Review + checkpoints إلغاء |
+| الحسم | parse(mode) → إطار `plan`/`done` — التطبيق يدويًا عبر `_apply_batch` | `_gated_apply` عبر ApprovalGate (R4) | نفس direct بعد الحلقة (L1786–1815) + بوابة run_command داخل الحلقة | review → `waiting_approval` → `delegate_approve` → **RP-01 (مكسور)** |
+| التذكرة تُنهى | Runner._finish | الجسر (finally) + Runner (لا-عملية) | AgentLoop + Runner (لا-عملية) | land()/reject() حصريًا (waiting_approval يُبقيها حية) |
+
+**إيجابي بنيوي (يُضاف للـ Strengths):** عقد Runner موحّد حرفيًا عبر الأربعة —
+`started → [إلغاء] → بوابة إن وُجدت proposed_actions → [إلغاء] → عمل →
+finished + ticket.finish` مع "لا استثناءات للخارج" (بند 4) وإنهاء تذكرة
+لا-عملية آمن عند التكرار. تناظر الكود بين الملفات الأربعة شبه حرفي.
+
+### R7.2 — Runtime Pipeline Findings (RP)
+
+| ID | الخطورة | الوصف | الدليل |
+|---|---|---|---|
+| RP-01 | **C4/S2 — مكسور مؤكد** | `delegate_approve` ينادي `parser.extract_actions(...)`/`extract_options(...)` — **الدالتان غير موجودتين** على ResponseParser (تحقق runtime: `hasattr` = False؛ grep: لا تعريف في أي وحدة حية — الاستدعاءان الوحيدان هما هذان). AttributeError يُبتلع في `except Exception` (NF-14 §15) → **كل اعتماد تفويض يسقط للـ fallback**: `done` بـ actions=[] دائمًا. رد المنفّذ يُعرض كنص لكن أفعاله لا تتحول أبدًا لعناصر قابلة للتطبيق — دورة delegate كاملة بلا مخرج عملي. الإصلاح الظاهر: `parser.parse(response, mode=...)` ثم التحويل كما في مسار agent L1791–1800 | `server.py:2337–2338`؛ `actions/response_parser.py:65–107` (parse فقط)؛ فحص hasattr مباشر Session 28 |
+| RP-02 | C4/S3 | direct هو المسار **الوحيد غير المُخيَّط** — `runner.run()` يعمل داخل حلقة `ws.receive()` نفسها: طوال البث لا تُستقبل أي رسالة (cancel_run من نفس التبويب مستحيل — نفس عائلة RF-01، والمسارات الثلاثة الأخرى مُخيَّطة) | `server.py:1846–1858` (نداء متزامن) مقابل L1662/L1818/L2294 |
+| RP-03 | C4/S4 | جمع سياق delegate يتجاوز ContextBudget: قراءة كاملة لأول 10 ملفات من scan (بلا سقف حجم للملف الواحد ولا ميزانية إجمالية) — الجيب الوحيد الباقي خارج توحيد TSK-103 (BUG-03) | `server.py:2265–2284` |
+| RP-04 | C4/S4 | فرع `proposed_actions` في الـ runners الأربعة (موافقة مسبقة قبل العمل) **خامل إنتاجيًا** — كل مواقع بناء RunRequest في server.py لا تمرر proposed_actions؛ الفرع مغطى اختباريًا فقط (RunnerContractMixin). ليس عيبًا — لكنه سطح عقد يُصان بلا مستهلك، ويجب ألا يُحسب كطبقة أمان فعلية عند تقييم المسارات | `runners/*.py` (كتلة الموافقة المتناظرة)؛ مواقع RunRequest: `server.py:1652, 1754, 1849, 2297` تقريبًا — كلها بلا proposed_actions |
+
+### R7.3 — نقاط التسليم الحرجة (خلاصة تقاطعية)
+
+1. **التسليم للموديل**: direct/agent عبر `build_prompt`/`_build_*_prompt` —
+   المسار المسيَّج (TSK-404) هو templates فقط؛ حقن حلقة الوكيل غير مسيَّج
+   (ASF-01، مثبّت في R4).
+2. **التسليم من الموديل**: ثلاثة محلّلات مختلفة فعليًا — `parser.parse(mode)`
+   (direct/agent، مضبوط بـ TSK-101)، `get_parsed_actions` (chain داخل
+   `_gated_apply`)، والمسار المكسور (delegate — RP-01). توحيد نقطة parse
+   مرشح طبيعي ضمن تفكيك g1.
+3. **التسليم للكتابة**: موحّد فعليًا — `_apply_batch` (يدوي) و`apply_step`
+   (chain) كلاهما فوق checkpoint (T-054/T-059)؛ لا مسار كتابة ثالث ظهر.
+
+**خلاصة R7:** البنية التحتية للمسارات (عقد Runner + تذاكر + بوابة) متينة
+ومتناظرة؛ العيوب المكتشفة كلها في **حواف التسليم**: RP-01 عطل وظيفي صريح
+(مرشح P1 — إصلاح صغير عالي الأثر)، RP-02 يكمل عائلة RF-01 (مهمة تخييط
+واحدة تغلق الاثنين)، RP-03 يغلق آخر جيب خارج ميزانية السياق.
 
 ---
 
-## R8 — Code Quality Findings (Delta)
-*(TODO)*
+## R8 — Code Quality Findings (Delta) ✅ (Session 28 — 2026-07-28)
+
+**منهجية:** (أ) ترحيل NF-23/24 بإعادة فحص آلي؛ (ب) تشخيص g1 (server.py)
+بنيويًا + خطة تفكيك لـ PLANNING (لا تنفيذ)؛ (ج) حالة بوابات الجودة الفعلية.
+
+### R8.1 — ترحيل حالات الجودة
+
+| # | الاكتشاف | الحالة الجديدة | الدليل |
+|---|---|---|---|
+| NF-23.1 | بلوكا apply متطابقان | **VERIFIED-FIXED** (TSK-201) | `server.py:2076–2081` — مسار واحد `_apply_batch` مقفول بـ golden |
+| NF-23.2 | MAX_SMART_FILE_SIZE مكرر | **VERIFIED-FIXED** (TSK-203) | `server.py:137–139` — تعريف وحيد + تعليق يوثق الإزالة |
+| NF-23.3 | قراءة config في 6 مواضع | **VERIFIED-FIXED** (TSK-203) | `server.py:142–150` — قارئ موحّد مُكاش |
+| NF-23.4 | ثلاث قوائم تجاهل غير متزامنة (BUG-04) | FIXED (TSK-202) | أرشيف S11 — `core/ignore_rules.py` موجود (تحقق R1) |
+| NF-24 | صفر دورات استيراد | **VERIFIED — أُعيد الفحص Session 28** | فحص AST آلي: 81 موديول (استبعاد tests/providers/static/improvements) — **0 دورات** |
+
+### R8.2 — بوابات الجودة الفعلية (scripts/check.sh)
+
+11 بوابة فعّالة: mypy (providers+chain+core+context+sessions — **خضراء الآن**:
+"no issues in 59 files"، تحقق Session 28)، SafeReader boundary، strategy
+vocabulary، routing thresholds، ws.send boundary، handler state lint، rglob
+ban، color tokens، plugin capability، pytest، بوابة إضافية. الملاحظ: البوابات
+grep-مبنية هشة اسميًا لكنها موثقة بأرقام مهام — نمط منضبط. **فجوة**: server.py
+وactions/ وrunners/ **خارج بوابة mypy** (`scripts/check.sh:12`) — أكبر ملف في
+المشروع بلا فحص types.
+
+### R8.3 — تشخيص g1: server.py (2,823 سطرًا) — خطة تفكيك (لـ PLANNING)
+
+**قياس بنيوي (Session 28):** 27 REST route، 16 فرع `elif msg_type`، وكتلتان
+عملاقتان تحملان ثلث الملف:
+- `_dispatch_chat_message` — **~477 سطرًا** (L1439–1915): كشف مسار + جمع سياق
+  + توجيه ذكي + 3 مسارات إرسال (chain/delegate/agent) + مسار direct كامل.
+- `_handle_ws_message` — **~469 سطرًا** (L1916–2384): راوتر 16 نوع رسالة.
+- `main()` — ~281 سطرًا (L2542+): تجميع الحقن.
+
+**البذور الموجودة أصلًا (تخفض مخاطرة التفكيك):** وسطاء الإطارات الوحدويون
+النقيون (`_list_runs_frame`/`_cancel_run_frame`/`_memory_*_frame` — نمط T-016
+المعلن)، عقد Runner الموحّد، `_config()` الموحّد، SessionContext يحمل حالة
+الاتصال. **الالتصاق الباقي:** globals (`fm`/`cmd_runner`/`chat_history` —
+NF-03/g5) هي ما يمنع اقتطاع REST blueprints نظيفًا.
+
+**خطة مقترحة (تسلسل يحترم الأمان السلوكي):**
+1. **QG-01**: اقتطاع راوتر WS — جدول `msg_type → handler(ctx, sctx, msg)`
+   (mechanical: كل فرع elif دالة) — لا تغيير سلوكي، goldens تحمي الإطارات.
+2. **QG-02**: اقتطاع مسارات الإرسال الأربعة من `_dispatch_chat_message` إلى
+   وحدة `dispatch/` (كل مسار دالة بواجهة sctx+RunRequest) — يتقاطع مع علاج
+   RP-02 (تخييط direct) فيُنفَّذان معًا.
+3. **QG-03**: REST blueprints — **مؤجل بعد قرار g5** (توحيد globals مقابل
+   SessionContext) لأن الاقتطاع قبله يجمّد الازدواجية في الواجهات.
+4. **QG-04**: ضم server.py (بعد 1+2) وactions/ وrunners/ لبوابة mypy.
+
+### R8.4 — اكتشافات جديدة (QF)
+
+| ID | الخطورة | الوصف | الدليل |
+|---|---|---|---|
+| QF-01 | C4/S4 | `improvements/` (892KB) داخل الشجرة: نسخ server.py تاريخية (1670+1100 سطر) + تقارير نصية — تلوث نتائج grep/wc وتربك أي أداة تحليل؛ ليست كودًا حيًّا (صفر imports إليها) | جرد Session 27–28؛ `du -sh` = 892K |
+| QF-02 | C4/S4 | فجوة بوابة mypy: server.py/actions/runners خارج الفحص — الأخطاء البنائية مثل RP-01 (نداء دالة غير موجودة) كانت ستُلتقط لو شملت البوابة server.py (`parser.extract_actions` على كائن معلوم النوع) | `scripts/check.sh:12`؛ RP-01 كدليل حي على الكلفة |
+
+**خلاصة R8:** ديون M2 (الاتساق) مسددة بالكامل ومُتحقَّقة؛ صفر دورات استيراد
+صامد. الدين الأكبر الباقي هو g1 نفسه، وخطته أعلاه جاهزة للـ PLANNING بترتيب
+مخاطرة صريح (QG-01→04). QF-02 يعطي مبررًا قياسيًا قويًا لـ QG-04: عيب
+runtime-مكسور (RP-01) كان قابلًا للالتقاط الساكن.
 
 ---
 

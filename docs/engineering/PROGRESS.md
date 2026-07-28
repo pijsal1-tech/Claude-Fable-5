@@ -38,26 +38,26 @@
 
 ### Current Position
 - Stage: REVIEW (Stage 1)
-- Phase/Task: **R7 — Runtime Pipeline Review** (التالية)
-- Last completed step: R6 Performance + Baselines ✅ (Session 27) — NF-20/21/22
-  كلها VERIFIED-FIXED بالكود (فهرس مشترك server.py:696–713 +
-  agent_tools.py:277–298 + context/search.py؛ بث تدريجي app.js:967–1037)؛
-  baselines: اختبارات ~82s، import server ~949ms، 29,649 سطر py خارج tests؛
-  فجوات PM-01..04 NOT INSTRUMENTED (tokens/latency/aggregation/context-build
-  timing) — مرشحة مهمة واحدة مركبة في PLANNING — MASTER_REVIEW.md §R6.
-  ملاحظة جانبية: improvements/شامل/ نسخ server.py تاريخية — مرشح تنظيف R8
-- Files/areas already covered: R-1..R5 (سابقًا) + R6 (مقاطع: server.py ـ_search_service
-  L696–713، agent_tools.py L277–298، context/search.py رأس الملف،
-  context/budget.py L51–116، executor.py مواقع duration_ms، bridge.py مواقع
-  budget، app.js مواقع TSK-401)
-- Next action: R7 في MASTER_REVIEW.md — Runtime Pipeline: تتبّع رحلة الرسالة
-  الواحدة end-to-end للمسارات الأربعة (direct/chain/agent/delegate):
-  ws_handler → runner → bridge → (context → prompt → provider-boundary →
-  parse → approval → apply) → frames → frontend؛ التركيز: نقاط التسليم بين
-  الطبقات وأي اختلافات بين المسارات (مثلًا direct بلا ContextBudget؟
-  delegate بلا approval؟) — استفد مما قُرئ فعلًا (agent_loop/bridge/_apply_batch
-  مغطاة)؛ المطلوب جديدًا: runners/*.py (4 ملفات صغيرة) + مقاطع ws_handler
-  ومسار direct في server.py + chain/delegate.py مقاطع التسليم
+- Phase/Task: **R8 — Engineering Quality Review (delta)** (التالية)
+- Last completed step: R7 Runtime Pipeline ✅ (Session 28) — خريطة المسارات
+  الأربعة (عقد Runner متناظر — إيجابي بنيوي) + RP-01..04:
+  **RP-01 (C4/S2 مكسور مؤكد)**: delegate_approve ينادي
+  parser.extract_actions/extract_options غير الموجودتين (hasattr=False
+  runtime-verified، server.py:2337–2338) — AttributeError يُبتلع وكل اعتماد
+  تفويض يرجع actions=[]؛ RP-02 direct غير مُخيّط (عائلة RF-01)؛ RP-03 سياق
+  delegate خارج ContextBudget (L2265–2284)؛ RP-04 فرع proposed_actions خامل
+  إنتاجيًا — MASTER_REVIEW.md §R7
+- Files/areas already covered: R-1..R6 (سابقًا) + R7 (قراءة كاملة runners/direct+
+  agent+chain ورأس delegate؛ مقاطع server.py L1560–1900 توجيه/إرسال،
+  L2312–2368 delegate_approve/reject، L2385–2403 ws_handler؛ chain/delegate.py
+  land/reject L588–640؛ app.js معالجات delegate 615–637/3279+)
+- Next action: R8 في MASTER_REVIEW.md — Engineering Quality delta: (أ) ترحيل
+  NF-23 (التكرارات — TSK-201/202/203 أصلحت 4 من الحزمة) وNF-24 (صفر دورات —
+  يُعاد الفحص الآلي سريعًا)؛ (ب) خطة تفكيك g1 (server.py 2,823 سطرًا):
+  تحديد الكتل القابلة للاقتطاع (REST blueprints، ws message router،
+  وسطاء الإطارات الوحدوية الموجودة أصلًا كبذور) — خطة لـ PLANNING لا تنفيذ؛
+  (ج) مرشح تنظيف: improvements/شامل/ نسخ تاريخية؛ (د) حالة mypy/lint إن
+  وجدت بوابة في scripts/check.sh
 - Current blocker: none
 
 ### Stage Checklists (Definition of Done — الدستور الجديد)
@@ -70,7 +70,7 @@
 - [x] R4 Security Review (+ Agent Safety) *(Session 26 — MASTER_REVIEW.md §R4: NF-15..18 مُرحّلة + ASF-01..08 + حكم المحاور الستة)*
 - [x] R5 Reliability Review *(delta)* *(Session 26 — MASTER_REVIEW.md §R5: NF-01..14 مُرحّلة + RF-01..03)*
 - [x] R6 Performance Review (with baseline metrics) *(Session 27 — MASTER_REVIEW.md §R6: NF-20/21/22 VERIFIED-FIXED + baselines + PM-01..04 NOT INSTRUMENTED)*
-- [ ] R7 Runtime Pipeline Review
+- [x] R7 Runtime Pipeline Review *(Session 28 — MASTER_REVIEW.md §R7: خريطة المسارات الأربعة + RP-01..04، أبرزها RP-01 اعتماد التفويض مكسور)*
 - [ ] R8 Engineering Quality Review *(delta)*
 - [ ] R9 UX & Agentic Capability Review
 - [ ] R10 Testing & Documentation Review *(delta)*
@@ -130,6 +130,10 @@
   المستخدم دمج عمل Session 26) · R6 كاملة ✅: NF-20/21/22 VERIFIED-FIXED
   + baselines جديدة (import server ~949ms، 29,649 سطر py) + جرد أجهزة القياس
   وفجوات PM-01..04 NOT INSTRUMENTED · commit محلي (بلا push).
+- 2026-07-28 (Session 28): استرداد بعد sandbox reset (clone من 2c7a10d) ·
+  R7 كاملة ✅: خريطة المسارات الأربعة + RP-01..04 — أهم اكتشاف البرنامج
+  حتى الآن: RP-01 اعتماد التفويض مكسور (نداء دوال parser غير موجودة،
+  مُتحقق runtime) · commit محلي (بلا push).
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
