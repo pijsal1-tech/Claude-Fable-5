@@ -945,6 +945,40 @@ def api_backups():
     return jsonify({"ok": True, "backups": backups})
 
 
+def _zip_member_violations(zf, root) -> list:
+    """TSK-105 (NF-15): فحص أعضاء ZIP قبل الاستعادة — Zip-Slip guard.
+
+    يعيد قائمة انتهاكات (اسم العضو + السبب). أي عضو:
+    - مساره مطلق (أو drive-relative على Windows)، أو
+    - يحلّ خارج ``root`` بعد التطبيع (أعضاء ``../``)، أو
+    - symlink داخل الأرشيف (قد يوجَّه خارج الجذر بعد الفك)،
+    = انتهاك. الرفض كامل (لا فك جزئي) — نفس دلالة الاحتواء في
+    ``chain/path_policy.py:resolve_workspace_path``.
+    """
+    import pathlib as _pl
+    violations = []
+    root_resolved = _pl.Path(root).resolve()
+    for info in zf.infolist():
+        name = info.filename
+        p = _pl.PurePosixPath(name.replace("\\", "/"))
+        # مسار مطلق أو drive letter (نمط Windows داخل الأرشيف)
+        if p.is_absolute() or (len(name) >= 2 and name[1] == ":"):
+            violations.append({"member": name, "reason": "absolute_path"})
+            continue
+        # symlink داخل الأرشيف (external_attr: أعلى 16 بت = st_mode)
+        mode = (info.external_attr >> 16) & 0xFFFF
+        if (mode & 0o170000) == 0o120000:
+            violations.append({"member": name, "reason": "symlink_member"})
+            continue
+        # الاحتواء بعد التطبيع — يمسك أعضاء ../
+        target = (root_resolved / _pl.Path(*p.parts)).resolve()
+        try:
+            target.relative_to(root_resolved)
+        except ValueError:
+            violations.append({"member": name, "reason": "escapes_root"})
+    return violations
+
+
 @app.route("/api/restore/<backup_name>", methods=["POST"])
 def api_restore_backup(backup_name):
     """استعادة نسخة احتياطية"""
@@ -955,6 +989,15 @@ def api_restore_backup(backup_name):
 
     try:
         with zipfile.ZipFile(backup_path, 'r') as zf:
+            # TSK-105 (NF-15): Zip-Slip guard — فحص كل الأعضاء قبل أي فك.
+            # أي انتهاك ⇒ 400 ورفض كامل (لا فك جزئي).
+            violations = _zip_member_violations(zf, fm.root)
+            if violations:
+                return jsonify({
+                    "ok": False,
+                    "error": "أرشيف مرفوض: أعضاء خارج جذر المشروع أو غير آمنة",
+                    "violations": violations,
+                }), 400
             zf.extractall(fm.root)
         return jsonify({"ok": True, "message": f"تم استعادة: {backup_name}"})
     except Exception as e:
