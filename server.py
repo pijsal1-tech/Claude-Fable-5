@@ -1599,9 +1599,8 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
                     actions.append({"action": "edit_file", "path": eb.path, "old_text": eb.old_text, "new_text": eb.new_text})
                 for cb in parsed.commands:
                     actions.append({"action": "run_command", "command": cb.command})
-
-                # TSK-101 (BUG-01): في وضع chat لا يصدر شريط تنفيذ أبدًا —
-                # البلوكات الصريحة تبقى مرئية كنص (أزرار Apply اليدوية opt-in).
+                # TSK-101 (BUG-01): وضع chat لا يُصدر إجراءات إطلاقًا —
+                # app.js يعرض شريط الإجراءات لأي actions غير فارغة بلا فحص للوضع.
                 if mode == "chat":
                     actions = []
 
@@ -1708,11 +1707,10 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
             "summary": parsed.summary(),
         })
     else:
-        # TSK-101 (BUG-01): إطار done في وضع chat لا يحمل actions أبدًا —
-        # هذا ما كان يُظهر شريط التنفيذ لردود محادثة توضيحية
-        # (app.js يعرض الشريط لأي data.actions غير فارغة دون فحص الوضع).
         sctx.send({
             "type": "done",
+            # TSK-101 (BUG-01): إطار done في وضع chat لا يحمل إجراءات أبدًا —
+            # الواجهة تعرض شريط الإجراءات لأي actions غير فارغة.
             "actions": [] if mode == "chat" else actions,
             "options": options,
             "summary": parsed.summary(),
@@ -1868,10 +1866,10 @@ def _handle_ws_message(ctx, sctx, msg):
         sctx.send({"type": "action_result", **result})
 
     elif msg_type in ("apply_all_actions", "execute_plan"):
-        # TSK-201 (NF-23.1): مسار موحّد — apply_all_actions (شريط الإجراءات)
-        # وexecute_plan (اعتماد الخطة) كانا كتلتين متطابقتين نصيًا؛
-        # الآن كلاهما يمر عبر _apply_batch (سلوك الإطارات مثبَّت بـ golden
-        # tests/integration/test_apply_batch_golden.py).
+        # TSK-201 (NF-23.1): كان هنا بلوكان متطابقان بايت-بايت
+        # (apply_all_actions / execute_plan) — دُمجا في _apply_batch
+        # الواحدة. السلوك مقفول بالـ golden:
+        # tests/goldens/apply_batch_frames.json
         _apply_batch(sctx, msg.get("actions", []))
 
     # ═══════════════════════════════════════════
@@ -2191,42 +2189,23 @@ MAX_SMART_FILE_SIZE = 100 * 1024
 
 
 def _apply_batch(sctx, actions: list) -> None:
-    """تطبيق دفعة إجراءات خطوة بخطوة مع إطارات progress — TSK-201.
+    """TSK-201 (NF-23.1): المسار الموحّد لتطبيق دفعة إجراءات.
 
-    المصدر الوحيد لمسارَي WS ``apply_all_actions`` و``execute_plan``
-    (كانا كتلتين مكررتين حرفيًا). تسلسل الإطارات الصادر مطابق بايت-بايت
-    للسلوك التاريخي (golden: tests/goldens/apply_batch_frames.json):
-    task_progress(running) → task_progress(done|error) لكل إجراء،
-    error + break عند أول فشل، ثم all_actions_done دائمًا.
-
-    TSK-304 لاحقًا يضيف نقطة تفتيش إلغاء بين الإجراءات هنا — موضع واحد.
+    يحل محل البلوكين المتطابقين apply_all_actions / execute_plan.
+    السلوك (الإطارات المُرسلة، الترتيب، رسائل الفشل، إعادة ضبط علم
+    الباك-أب) مقفول بالـ golden: tests/goldens/apply_batch_frames.json.
+    TSK-304 سيضيف نقطة فحص الإلغاء (cancel checkpoint) هنا لاحقًا.
     """
     sctx.backup_done_for_batch = False
     total = len(actions)
     for i, action in enumerate(actions):
-        sctx.send({
-            "type": "task_progress",
-            "current": i + 1,
-            "total": total,
-            "action": action,
-            "status": "running",
-        })
+        sctx.send({"type": "task_progress", "current": i + 1, "total": total, "action": action, "status": "running"})
         result = _apply_single_action(action, sctx)
-        sctx.send({
-            "type": "task_progress",
-            "current": i + 1,
-            "total": total,
-            "action": action,
-            "status": "done" if result["ok"] else "error",
-            "message": result.get("message", ""),
-        })
+        sctx.send({"type": "task_progress", "current": i + 1, "total": total, "action": action,
+                   "status": "done" if result["ok"] else "error", "message": result.get("message", "")})
         if not result["ok"]:
-            sctx.send({
-                "type": "error",
-                "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"
-            })
+            sctx.send({"type": "error", "text": f"فشل في الخطوة {i+1}: {result.get('message', '')}"})
             break
-
     sctx.backup_done_for_batch = False
     sctx.send({"type": "all_actions_done", "total": total})
 

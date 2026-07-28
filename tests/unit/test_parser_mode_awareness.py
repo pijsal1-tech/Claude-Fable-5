@@ -1,111 +1,124 @@
 # -*- coding: utf-8 -*-
-"""QA-T05 (TSK-101 + TSK-102): وضع chat لا يُنتج actions — والـ fallback مهذَّب.
+"""QA-T05 — بوابة M1: المحلل mode-aware (TSK-101 BUG-01 + TSK-102 NF-13).
 
-ثلاثة ردود AI مزيفة (منها مثال شرح يحوي ``rm -rf``) — صفر نداءات AI
-خارجية (حدود QA_MASTER_PLAN: الحدود stubbed دائمًا).
-
-يغطي:
-- TSK-101: parse(response, mode="chat") يعطّل الـ fallback العدواني؛
-  أوضاع plan/build/edit وmode=None بلا تغيير سلوكي.
-- TSK-102: بلوكات bash داخل الـ fallback لا تتحول لأوامر إلا بوسم CMD: صريح.
+ردود AI مزيّفة بالكامل (صفر استدعاءات خارجية — حدود QA_MASTER_PLAN):
+- شرح كود عادي في chat يجب ألا يُنتج أي ملفات/أوامر.
+- بلوك bash يحوي rm -rf في chat يجب ألا يتحول لأوامر أبدًا.
+- fallback بلوكات bash يتطلب وسم CMD: صريحًا لكل سطر (كل الأوضاع).
 """
 from actions.response_parser import ResponseParser
 
-parser = ResponseParser()
 
-# ── الردود المزيفة الثلاثة (QA-T05) ──────────────────────
-
-FAKE_CHAT_EXPLAIN_CODE = """شرح مفهوم الدوال في بايثون:
+FAKE_CHAT_EXPLAIN_CODE = """دي طريقة كتابة دالة جمع في بايثون:
 
 ```python
-def greet(name):
-    return f"Hello {name}"
+def add(a, b):
+    return a + b
+
+print(add(2, 3))
 ```
 
-هذا مثال توضيحي فقط."""
+الدالة بتاخد رقمين وترجّع مجموعهما.
+"""
 
-FAKE_CHAT_RM_RF = """لتنظيف مخرجات البناء يمكنك نظريًا استخدام:
+FAKE_CHAT_RM_RF = """لتنظيف مجلدات البناء تقدر تستخدم:
 
 ```bash
 rm -rf build/
 rm -rf dist/
 ```
 
-⚠️ لكن انتبه قبل تنفيذ أي أمر حذف."""
+بس خلي بالك دي أوامر خطيرة.
+"""
 
-FAKE_CHAT_MIXED = """مقارنة بين طريقتين:
+FAKE_CHAT_MIXED = """شرح مع مثالين:
 
-```javascript
-console.log("approach A");
+```python
+x = 1
+y = x * 2
 ```
+
+وأمر فحص:
 
 ```bash
-npm install lodash
-$ npm run build
+ls -la
 ```
+"""
 
-اختر ما يناسبك."""
-
-
-# ── TSK-101: chat = صفر actions من الـ fallback ──────────
 
 class TestChatModeNoActions:
-    def test_explain_code_no_file(self):
-        r = parser.parse(FAKE_CHAT_EXPLAIN_CODE, mode="chat")
-        assert not r.has_actions
-        assert r.files == [] and r.edits == [] and r.commands == []
+    """BUG-01: وضع chat لا يُنتج إجراءات من fallback إطلاقًا."""
 
-    def test_rm_rf_example_no_commands(self):
-        """بند القبول الحرفي: رد chat يحوي rm -rf كمثال → لا CommandBlock."""
-        r = parser.parse(FAKE_CHAT_RM_RF, mode="chat")
-        assert r.commands == []
-        assert not r.has_actions
+    def setup_method(self):
+        self.parser = ResponseParser()
 
-    def test_mixed_blocks_no_actions(self):
-        r = parser.parse(FAKE_CHAT_MIXED, mode="chat")
-        assert not r.has_actions
+    def test_explain_code_no_files(self):
+        parsed = self.parser.parse(FAKE_CHAT_EXPLAIN_CODE, mode="chat")
+        assert parsed.files == []
+        assert parsed.edits == []
+        assert parsed.commands == []
 
-    def test_explicit_blocks_still_extracted_in_chat(self):
-        """البلوكات الصريحة FILE:/CMD تُستخرج (إسقاطها من الإطار شأن الخادم)."""
-        r = parser.parse("```FILE: x.py\nprint(1)\n```", mode="chat")
-        assert [f.path for f in r.files] == ["x.py"]
+    def test_rm_rf_never_becomes_command(self):
+        parsed = self.parser.parse(FAKE_CHAT_RM_RF, mode="chat")
+        assert parsed.commands == []
+        assert parsed.files == []
 
+    def test_mixed_reply_no_actions(self):
+        parsed = self.parser.parse(FAKE_CHAT_MIXED, mode="chat")
+        assert parsed.files == []
+        assert parsed.commands == []
 
-# ── TSK-101: بقية الأوضاع بلا تغيير سلوكي ────────────────
+    def test_explicit_file_tag_still_works_in_chat(self):
+        """الوسوم الصريحة (FILE:) تعمل حتى في chat — فقط fallback معطّل."""
+        reply = "```FILE: hello.py\nprint('hi')\n```"
+        parsed = self.parser.parse(reply, mode="chat")
+        assert len(parsed.files) == 1
+        assert parsed.files[0].path == "hello.py"
+
 
 class TestOtherModesUnchanged:
-    def test_build_mode_fallback_still_works(self):
-        r = parser.parse(FAKE_CHAT_EXPLAIN_CODE, mode="build")
-        assert len(r.files) == 1 and r.files[0].language == "python"
+    """السلوك التاريخي محفوظ خارج chat."""
 
-    def test_default_mode_none_fallback_still_works(self):
-        """mode=None (مسارات chain/action_applier) = السلوك التاريخي."""
-        r = parser.parse(FAKE_CHAT_EXPLAIN_CODE)
-        assert len(r.files) == 1
+    def setup_method(self):
+        self.parser = ResponseParser()
 
-    def test_explicit_file_block_all_modes(self):
-        raw = "```FILE: app/main.py\nprint('hi')\n```"
-        for m in (None, "chat", "plan", "build", "edit"):
-            r = parser.parse(raw, mode=m)
-            assert [f.path for f in r.files] == ["app/main.py"], m
+    def test_build_mode_fallback_still_suggests_files(self):
+        parsed = self.parser.parse(FAKE_CHAT_EXPLAIN_CODE, mode="build")
+        assert len(parsed.files) == 1
 
+    def test_mode_none_keeps_historical_behavior(self):
+        parsed = self.parser.parse(FAKE_CHAT_EXPLAIN_CODE)
+        assert len(parsed.files) == 1
 
-# ── TSK-102: fallback bash يتطلب CMD: صريح ───────────────
+    def test_explicit_file_tag_all_modes(self):
+        reply = "```FILE: a.py\nprint(1)\n```"
+        for mode in ("chat", "plan", "build", "edit", None):
+            parsed = self.parser.parse(reply, mode=mode)
+            assert len(parsed.files) == 1, f"mode={mode}"
+
 
 class TestBashFallbackTamed:
+    """NF-13: بلوكات bash في fallback تتطلب وسم CMD: صريحًا لكل سطر."""
+
+    def setup_method(self):
+        self.parser = ResponseParser()
+
     def test_untagged_bash_lines_ignored(self):
-        r = parser.parse(FAKE_CHAT_RM_RF)  # حتى بدون chat mode
-        assert r.commands == []
+        reply = "شرح:\n\n```bash\nrm -rf build/\necho hello\n```\n"
+        parsed = self.parser.parse(reply, mode="build")
+        assert parsed.commands == []
 
     def test_dollar_prefixed_lines_ignored(self):
-        r = parser.parse("```bash\n$ npm run build\n```")
-        assert r.commands == []
+        reply = "مثال:\n\n```bash\n$ npm install\n$ npm run dev\n```\n"
+        parsed = self.parser.parse(reply, mode="build")
+        assert parsed.commands == []
 
     def test_cmd_tagged_lines_extracted(self):
-        r = parser.parse("```bash\nCMD: echo safe\nrm -rf /tmp/x\nCMD: ls -la\n```")
-        assert [c.command for c in r.commands] == ["echo safe", "ls -la"]
+        reply = "نفّذ:\n\n```bash\nCMD: echo safe\nrm -rf /\nCMD: ls -la\n```\n"
+        parsed = self.parser.parse(reply, mode="build")
+        assert [c.command for c in parsed.commands] == ["echo safe", "ls -la"]
 
     def test_explicit_cmd_block_unchanged(self):
-        """المسار الصريح ```CMD يبقى كما هو تاريخيًا."""
-        r = parser.parse("```CMD\npytest -q\n```")
-        assert [c.command for c in r.commands] == ["pytest -q"]
+        reply = "نفّذ:\n\n```CMD\npytest -q\n```\n"
+        parsed = self.parser.parse(reply, mode="build")
+        assert [c.command for c in parsed.commands] == ["pytest -q"]

@@ -107,12 +107,10 @@ class ResponseParser:
     def parse(self, response: str, mode: str | None = None) -> ParsedResponse:
         """تحليل الرد الكامل.
 
-        TSK-101 (BUG-01): المحلّل أصبح mode-aware — في وضع ``chat``
-        يُعطّل الـ fallback العدواني كليًا (بلوكات الكود العادية تبقى
-        للعرض فقط)؛ البلوكات الصريحة ``FILE:/EDIT:/CMD`` تُستخرج دائمًا
-        (إسقاطها من إطارات chat مسؤولية الخادم).
-        ``mode=None`` = السلوك التاريخي كاملًا (مسارات chain/plan/build/edit
-        بلا تغيير — goldens خضراء).
+        TSK-101 (BUG-01): المحلل أصبح mode-aware — في وضع ``chat``
+        يُعطّل fallback التخميني (بلوكات الكود العادية → ملفات/أوامر)،
+        وتبقى الوسوم الصريحة (FILE:/EDIT:/```CMD) تعمل في كل الأوضاع.
+        ``mode=None`` = السلوك التاريخي الكامل (مسارات chain/action_applier).
         """
         result = ParsedResponse(text=response)
 
@@ -137,8 +135,7 @@ class ResponseParser:
                 result.commands.append(CommandBlock(command=cmd))
 
         # Fallback: بلوكات كود عادية (```python ... ```) لم تُلتقط كـ FILE/CMD/EDIT
-        # TSK-101: معطّل كليًا في وضع chat — بلوك توضيحي في محادثة لا يتحول
-        # لملف/أمر قابل للتنفيذ أبدًا (BUG-01).
+        # TSK-101 (BUG-01): وضع chat لا يدخل fallback التخميني إطلاقًا.
         if mode != "chat" and not result.files and not result.edits:
             # نبحث عن بلوكات كود قد تكون ملفات
             already_matched = set()
@@ -158,12 +155,12 @@ class ResponseParser:
                 # تخطي البلوكات الفاضية أو القصيرة جداً
                 if not content or len(content) < 5:
                     continue
-                # بلوكات shell داخل الـ fallback — TSK-102 (NF-13):
-                # لا تتحول لأوامر تنفيذية إلا بوسم صريح لكل سطر ``CMD:``؛
-                # خارج ذلك يبقى البلوك عرضًا فقط (مثال شرح يحوي
-                # ``rm -rf build/`` لم يعد يُنتج CommandBlock).
-                # المسار الصريح للأوامر يبقى بلوك ```CMD (أعلاه).
+                # تخطي بلوكات الأوامر
                 if lang in ("bash", "sh", "cmd", "powershell", "bat", "shell", "console"):
+                    # TSK-102 (NF-13): بلوكات bash في الـ fallback لا تتحول
+                    # لأوامر إلا بوسم صريح لكل سطر: "CMD: <الأمر>".
+                    # أي سطر آخر = عرض فقط (display-only). بلوك ```CMD
+                    # الصريح يبقى كما هو أعلاه.
                     for line in content.splitlines():
                         line = line.strip()
                         if line.startswith("CMD:"):

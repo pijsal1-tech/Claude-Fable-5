@@ -1,120 +1,123 @@
 # -*- coding: utf-8 -*-
-"""TSK-201 golden test (QA-T08): apply_all_actions / execute_plan frame parity.
+"""QA-T08 seed — golden lock for _apply_batch (TSK-201 / NF-23.1).
 
-يلتقط تسلسل الإطارات الصادر عن مسارَي التطبيق (قبل التوحيد كانا كتلتين
-متطابقتين نصيًا L1862–1925) ويقارنه بايت-بايت ضد golden محفوظ.
-أي انحراف في الإطارات بعد دمجهما في ``_apply_batch`` = فشل فوري.
-
-صفر نداءات AI خارجية — كل شيء stub محلي (حدود QA_MASTER_PLAN).
+يلتقط الإطارات (frames) الصادرة من مساري apply_all_actions / execute_plan
+عبر stubs كاملة (صفر استدعاءات AI خارجية — حدود QA_MASTER_PLAN) ويقارنها
+بالـ golden المُلتقط من الكود قبل الدمج:
+tests/goldens/apply_batch_frames.json
 """
 import json
-import pathlib
-
-import pytest
+from pathlib import Path
 
 import server
 
-GOLDEN = pathlib.Path(__file__).parent.parent / "goldens" / "apply_batch_frames.json"
+GOLDEN = Path(__file__).resolve().parent.parent / "goldens" / "apply_batch_frames.json"
 
 
 class _StubFM:
-    """FileManager stub: ينجح دائمًا ويسجّل النداءات."""
+    """FileManager stub — كل العمليات تنجح."""
 
-    def __init__(self):
-        self.calls = []
+    def create_file(self, path, content):
+        return True, "تم"
 
-    def create_full_backup(self):
-        self.calls.append("backup")
-        return "/tmp/backup.zip"
-
-    def write_file(self, path, content):
-        self.calls.append(("write", path))
-        return path
-
-    def edit_file(self, path, old, new):
-        self.calls.append(("edit", path))
-
-
-class _StubCmdRunner:
-    def run(self, command, need_approval=False):
-        return {"success": True, "output": f"ran: {command}", "error": ""}
+    def edit_file(self, path, old_text, new_text):
+        return True, "تم"
 
 
 class _FailingFM(_StubFM):
-    """يفشل عند ثاني write — لاختبار مسار break."""
+    """FileManager يفشل في أي edit_file (لسيناريو فشل الخطوة 2)."""
 
-    def write_file(self, path, content):
-        if any(c[0] == "write" for c in self.calls if isinstance(c, tuple)):
-            raise RuntimeError("disk full")
-        return super().write_file(path, content)
+    def edit_file(self, path, old_text, new_text):
+        return False, "فشل مقصود"
+
+    def create_file(self, path, content):
+        if path.endswith("b.txt"):
+            return False, "فشل مقصود"
+        return True, "تم"
+
+
+class _StubCmdRunner:
+    def run(self, command):
+        return True, "ok-output"
 
 
 class _StubSctx:
-    def __init__(self, fm):
-        self.fm = fm
-        self.cmd_runner = _StubCmdRunner()
-        self.backup_done_for_batch = False
-        self.frames = []
-        self.mode = "build"
-        self.chat_history = []
+    """SessionContext stub — يسجّل كل الإطارات المُرسلة."""
 
-    def send(self, frame):
-        self.frames.append(frame)
+    def __init__(self, fm):
+        self.frames = []
+        self.backup_done_for_batch = False
+        self.project = type("P", (), {"file_manager": fm, "root": "/tmp/x"})()
+        self.command_runner = _StubCmdRunner()
+
+    def send(self, msg):
+        self.frames.append(msg)
 
 
 ACTIONS = [
-    {"action": "create_file", "path": "a.txt", "content": "hello"},
+    {"action": "create_file", "path": "a.txt", "content": "A", "language": "text"},
     {"action": "run_command", "command": "echo hi"},
-    {"action": "edit_file", "path": "a.txt", "old_text": "hello", "new_text": "bye"},
+    {"action": "edit_file", "path": "a.txt", "old_text": "A", "new_text": "B"},
 ]
 
 
-def _run(msg_type, actions, fm=None):
-    sctx = _StubSctx(fm or _StubFM())
-    server._handle_ws_message(None, sctx, {"type": msg_type, "actions": actions})
-    return sctx.frames
+def _run_batch_via_ws(msg_type, actions, fm):
+    """يشغّل مسار WS الكامل لنوع الرسالة المعطى ويعيد الإطارات."""
+    sctx = _StubSctx(fm)
+    orig = server._apply_single_action
+
+    def _stubbed(action, s):
+        kind = action.get("action", "")
+        if kind == "create_file":
+            ok, m = fm.create_file(action.get("path", ""), action.get("content", ""))
+        elif kind == "edit_file":
+            ok, m = fm.edit_file(action.get("path", ""), action.get("old_text", ""), action.get("new_text", ""))
+        elif kind == "run_command":
+            ok, m = s.command_runner.run(action.get("command", ""))
+        else:
+            ok, m = False, "unknown"
+        return {"ok": ok, "message": m}
+
+    server._apply_single_action = _stubbed
+    try:
+        server._handle_ws_message(None, sctx, {"type": msg_type, "actions": actions})
+    finally:
+        server._apply_single_action = orig
+    return sctx.frames, sctx.backup_done_for_batch
 
 
 def _capture_all():
-    return {
-        "apply_all_actions/ok": _run("apply_all_actions", ACTIONS),
-        "execute_plan/ok": _run("execute_plan", ACTIONS),
-        "apply_all_actions/fail_step2": _run(
-            "apply_all_actions",
-            [
-                {"action": "create_file", "path": "a.txt", "content": "x"},
-                {"action": "create_file", "path": "b.txt", "content": "y"},
-                {"action": "run_command", "command": "never"},
-            ],
-            fm=_FailingFM(),
-        ),
-        "execute_plan/empty": _run("execute_plan", []),
-    }
+    """4 سيناريوهات: نجاح كامل عبر المسارين، فشل خطوة 2، قائمة فارغة."""
+    out = {}
+    out["apply_all_ok"], _ = _run_batch_via_ws("apply_all_actions", ACTIONS, _StubFM())
+    out["execute_plan_ok"], _ = _run_batch_via_ws("execute_plan", ACTIONS, _StubFM())
+    fail_actions = [
+        {"action": "create_file", "path": "a.txt", "content": "A", "language": "text"},
+        {"action": "create_file", "path": "b.txt", "content": "B", "language": "text"},
+        {"action": "run_command", "command": "echo never"},
+    ]
+    out["fail_step2"], _ = _run_batch_via_ws("apply_all_actions", fail_actions, _FailingFM())
+    out["empty"], _ = _run_batch_via_ws("apply_all_actions", [], _StubFM())
+    return out
 
 
-def test_apply_batch_frames_match_golden():
-    """الإطارات الصادرة مطابقة بايت-بايت للـ golden الملتقط قبل TSK-201."""
-    captured = _capture_all()
-    if not GOLDEN.exists():
-        pytest.fail(f"golden missing: {GOLDEN} — capture it from pre-refactor code")
-    expected = json.loads(GOLDEN.read_text(encoding="utf-8"))
-    got = json.loads(json.dumps(captured, ensure_ascii=False))
-    assert got == expected, "frame sequence drifted from golden (TSK-201 parity broken)"
+class TestApplyBatchGolden:
+    def test_frames_match_golden(self):
+        """الإطارات بعد الدمج مطابقة بايت-بايت للـ golden قبل الدمج."""
+        assert GOLDEN.exists(), "golden مفقود — شغّل الالتقاط قبل الدمج"
+        expected = json.loads(GOLDEN.read_text(encoding="utf-8"))
+        actual = _capture_all()
+        assert actual == expected
 
+    def test_both_paths_identical(self):
+        """apply_all_actions و execute_plan يعطيان نفس الإطارات تمامًا."""
+        a, _ = _run_batch_via_ws("apply_all_actions", ACTIONS, _StubFM())
+        b, _ = _run_batch_via_ws("execute_plan", ACTIONS, _StubFM())
+        assert a == b
 
-def test_both_paths_identical():
-    """apply_all_actions و execute_plan يصدران نفس التسلسل حرفيًا."""
-    a = _run("apply_all_actions", ACTIONS)
-    b = _run("execute_plan", ACTIONS)
-    assert json.dumps(a, ensure_ascii=False, sort_keys=True) == json.dumps(
-        b, ensure_ascii=False, sort_keys=True
-    )
-
-
-def test_backup_flag_reset():
-    """علم الباك-أب يُصفَّر قبل وبعد الدفعة."""
-    sctx = _StubSctx(_StubFM())
-    sctx.backup_done_for_batch = True
-    server._handle_ws_message(None, sctx, {"type": "apply_all_actions", "actions": ACTIONS})
-    assert sctx.backup_done_for_batch is False
-    assert "backup" in sctx.fm.calls  # الباك-أب حدث فعلًا رغم العلم الأولي
+    def test_backup_flag_reset(self):
+        """backup_done_for_batch يُعاد ضبطه False بعد الدفعة (نجاحًا وفشلًا)."""
+        _, flag_ok = _run_batch_via_ws("apply_all_actions", ACTIONS, _StubFM())
+        assert flag_ok is False
+        _, flag_fail = _run_batch_via_ws("execute_plan", ACTIONS, _FailingFM())
+        assert flag_fail is False

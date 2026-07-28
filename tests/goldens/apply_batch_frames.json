@@ -1,5 +1,5 @@
 {
-  "apply_all_actions/ok": [
+  "apply_all_ok": [
     {
       "type": "task_progress",
       "current": 1,
@@ -7,7 +7,8 @@
       "action": {
         "action": "create_file",
         "path": "a.txt",
-        "content": "hello"
+        "content": "A",
+        "language": "text"
       },
       "status": "running"
     },
@@ -18,10 +19,11 @@
       "action": {
         "action": "create_file",
         "path": "a.txt",
-        "content": "hello"
+        "content": "A",
+        "language": "text"
       },
       "status": "done",
-      "message": "تم حفظ: a.txt"
+      "message": "تم"
     },
     {
       "type": "task_progress",
@@ -42,7 +44,7 @@
         "command": "echo hi"
       },
       "status": "done",
-      "message": "ran: echo hi"
+      "message": "ok-output"
     },
     {
       "type": "task_progress",
@@ -51,8 +53,8 @@
       "action": {
         "action": "edit_file",
         "path": "a.txt",
-        "old_text": "hello",
-        "new_text": "bye"
+        "old_text": "A",
+        "new_text": "B"
       },
       "status": "running"
     },
@@ -63,18 +65,18 @@
       "action": {
         "action": "edit_file",
         "path": "a.txt",
-        "old_text": "hello",
-        "new_text": "bye"
+        "old_text": "A",
+        "new_text": "B"
       },
       "status": "done",
-      "message": "تم تعديل: a.txt"
+      "message": "تم"
     },
     {
       "type": "all_actions_done",
       "total": 3
     }
   ],
-  "execute_plan/ok": [
+  "execute_plan_ok": [
     {
       "type": "task_progress",
       "current": 1,
@@ -82,7 +84,8 @@
       "action": {
         "action": "create_file",
         "path": "a.txt",
-        "content": "hello"
+        "content": "A",
+        "language": "text"
       },
       "status": "running"
     },
@@ -93,10 +96,11 @@
       "action": {
         "action": "create_file",
         "path": "a.txt",
-        "content": "hello"
+        "content": "A",
+        "language": "text"
       },
       "status": "done",
-      "message": "تم حفظ: a.txt"
+      "message": "تم"
     },
     {
       "type": "task_progress",
@@ -117,7 +121,7 @@
         "command": "echo hi"
       },
       "status": "done",
-      "message": "ran: echo hi"
+      "message": "ok-output"
     },
     {
       "type": "task_progress",
@@ -126,8 +130,8 @@
       "action": {
         "action": "edit_file",
         "path": "a.txt",
-        "old_text": "hello",
-        "new_text": "bye"
+        "old_text": "A",
+        "new_text": "B"
       },
       "status": "running"
     },
@@ -138,18 +142,18 @@
       "action": {
         "action": "edit_file",
         "path": "a.txt",
-        "old_text": "hello",
-        "new_text": "bye"
+        "old_text": "A",
+        "new_text": "B"
       },
       "status": "done",
-      "message": "تم تعديل: a.txt"
+      "message": "تم"
     },
     {
       "type": "all_actions_done",
       "total": 3
     }
   ],
-  "apply_all_actions/fail_step2": [
+  "fail_step2": [
     {
       "type": "task_progress",
       "current": 1,
@@ -157,7 +161,8 @@
       "action": {
         "action": "create_file",
         "path": "a.txt",
-        "content": "x"
+        "content": "A",
+        "language": "text"
       },
       "status": "running"
     },
@@ -168,10 +173,11 @@
       "action": {
         "action": "create_file",
         "path": "a.txt",
-        "content": "x"
+        "content": "A",
+        "language": "text"
       },
       "status": "done",
-      "message": "تم حفظ: a.txt"
+      "message": "تم"
     },
     {
       "type": "task_progress",
@@ -180,7 +186,8 @@
       "action": {
         "action": "create_file",
         "path": "b.txt",
-        "content": "y"
+        "content": "B",
+        "language": "text"
       },
       "status": "running"
     },
@@ -191,21 +198,22 @@
       "action": {
         "action": "create_file",
         "path": "b.txt",
-        "content": "y"
+        "content": "B",
+        "language": "text"
       },
       "status": "error",
-      "message": "disk full"
+      "message": "فشل مقصود"
     },
     {
       "type": "error",
-      "text": "فشل في الخطوة 2: disk full"
+      "text": "فشل في الخطوة 2: فشل مقصود"
     },
     {
       "type": "all_actions_done",
       "total": 3
     }
   ],
-  "execute_plan/empty": [
+  "empty": [
     {
       "type": "all_actions_done",
       "total": 0

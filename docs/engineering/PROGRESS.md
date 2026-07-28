@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-27 (Session 6 — P7+P8 complete — PLANNING 100%) |
-| stage | PLANNING COMPLETE (MODE A done — awaiting user decision to enter MODE B) |
-| current-phase | — (all P1–P8 complete) |
-| current-task | GATE: user approval for MODE B → start TSK-201 then TSK-101 (M1) |
+| last-updated | 2026-07-27 (Session 7 — MODE B: TSK-201+101+102 Completed, QA-T05 green) |
+| stage | EXECUTION (MODE B — M1 in progress) |
+| current-phase | M1 (Safety) |
+| current-task | TSK-103 — توحيد مسارات حقن السياق تحت ContextBudget (BUG-03) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | N/A (task table empty until P5) |
+| completion % (execution) | 16% (3 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -151,12 +151,12 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 
 | TSK-ID | Type | Title | Milestone | Status |
 |---|---|---|---|---|
-| TSK-101 | fix | تمرير mode للمحلّل + فلترة actions في chat (BUG-01) | M1 | ⬜ pending |
-| TSK-102 | fix | تهذيب fallback الأوامر (NF-13) | M1 | ⬜ pending |
+| TSK-101 | fix | تمرير mode للمحلّل + فلترة actions في chat (BUG-01) | M1 | ✅ Completed (S7) |
+| TSK-102 | fix | تهذيب fallback الأوامر (NF-13) | M1 | ✅ Completed (S7) |
 | TSK-103 | fix | توحيد مسارات حقن السياق تحت ContextBudget (BUG-03) | M1 | ⬜ pending |
 | TSK-104 | fix | سقف تاريخ المحادثة (NF-07) | M1 | ⬜ pending |
 | TSK-105 | security | Zip-Slip guard للاستعادة (NF-15) | M1 | ⬜ pending |
-| TSK-201 | refactor | دمج apply_all_actions/execute_plan (NF-23.1) | M2 | ⬜ pending |
+| TSK-201 | refactor | دمج apply_all_actions/execute_plan (NF-23.1) | M2 | ✅ Completed (S7) |
 | TSK-202 | fix | قائمة تجاهل موحّدة تشمل test---results (BUG-04) | M2 | ⬜ pending |
 | TSK-203 | refactor | توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) | M2 | ⬜ pending |
 | TSK-301 | fix | تنظيف pending_path داخل القفل (NF-01) | M3 | ⬜ pending |
@@ -378,9 +378,58 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
   3. FI-10 (client-side sanitizer) logged as the one new P7-stage finding
      (renderMarkdown app.js:L2281–2295 unsanitized innerHTML) — non-blocking,
      SHORT, independent.
-- **EXACT RESUME POINT**: PLANNING COMPLETE (40/40). Program is gated on an
-  explicit user decision to enter MODE B (execution). Upon approval, start:
-  **TSK-201 (merge apply paths → _apply_batch) then TSK-101 (mode-aware
-  parser + drop actions from chat done-frame) then TSK-102** — M1 path;
-  first QA gate after the trio = QA-T05. Task table above is the execution
-  SSOT (0/19 done). No further MODE A work remains.
+- **EXACT RESUME POINT (superseded by Session 7)**: PLANNING COMPLETE (40/40);
+  MODE B approved by user — execution began in Session 7.
+
+---
+
+## Session 7 log (2026-07-27) — MODE B: TSK-201 + TSK-101 + TSK-102
+
+- **توجيه المستخدم الدائم**: ممنوع git commit / git push / Pull Request /
+  GitHub Actions — المستخدم يرفع الملفات يدويًا. كل التغييرات working-tree
+  فقط.
+- **TSK-201 (NF-23.1)**: دُمج البلوكان المتطابقان apply_all_actions /
+  execute_plan (server.py كانا L1862–L1925) في دالة واحدة
+  `_apply_batch(sctx, actions)` مُدرجة قبل `_apply_single_action` مباشرة.
+  السلوك مقفول بـ golden مُلتقَط من الكود **قبل** الدمج
+  (tests/goldens/apply_batch_frames.json — 4 سيناريوهات: نجاح عبر المسارين،
+  فشل خطوة 2، قائمة فارغة). TSK-304 سيضيف cancel checkpoint هنا لاحقًا.
+- **TSK-101 (BUG-01)**: المحلل أصبح mode-aware —
+  `parse(response, mode=None)`؛ في وضع chat يُعطّل fallback التخميني
+  (`if mode != "chat" and ...`) مع بقاء الوسوم الصريحة تعمل.
+  في server.py: الموقعان `parser.parse(full_response, mode=mode)`؛ مسار
+  الـ Agent: `if mode == "chat": actions = []`؛ إطار done المباشر:
+  `"actions": [] if mode == "chat" else actions` — إطار chat done لا يحمل
+  إجراءات أبدًا (app.js يعرض شريط الإجراءات لأي actions غير فارغة بلا
+  فحص للوضع). `mode=None` = السلوك التاريخي (مسارات chain/action_applier
+  لم تُمس).
+- **TSK-102 (NF-13)**: بلوكات bash/sh/... في الـ fallback لا تتحول لأوامر
+  إلا بوسم صريح لكل سطر `CMD: <الأمر>`؛ أي سطر آخر عرض فقط.
+  بلوك ```` ```CMD ```` الصريح لم يتغير.
+- **بوابة QA-T05**: tests/unit/test_parser_mode_awareness.py — 11 اختبارًا
+  (3 ردود AI مزيّفة منها واحد بـ rm -rf) — كلها خضراء. صفر استدعاءات
+  AI خارجية (حدود QA_MASTER_PLAN).
+- **بذرة QA-T08**: tests/integration/test_apply_batch_golden.py — 3 اختبارات
+  (تطابق golden بايت-بايت، تطابق المسارين، إعادة ضبط علم الباك-أب) — خضراء.
+- **الحزمة الكاملة**: `5 failed, 1490 passed, 63 skipped` — الفشلات
+  الخمسة **موجودة مسبقًا على HEAD النظيف** (تحقق عبر git worktree):
+  test_file_icons / test_history_consumers / test_rollback_ui /
+  test_symbol_index / test_theme_tokens — خارج نطاق M1، لم تُمس.
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🛠 server.py
+  2. 🛠 actions/response_parser.py
+  3. 🆕 tests/unit/test_parser_mode_awareness.py
+  4. 🆕 tests/integration/test_apply_batch_golden.py
+  5. 🆕 tests/goldens/apply_batch_frames.json
+  6. 🛠 docs/engineering/PROGRESS.md
+- **رسائل commit مقترحة للرفع اليدوي**:
+  - `FIX(TSK-201): merge apply_all_actions/execute_plan into _apply_batch (NF-23.1), golden-verified`
+  - `FIX(TSK-101+102): mode-aware parser, chat emits zero actions (BUG-01), bash fallback requires CMD: tag (NF-13) — QA-T05 green`
+
+- **EXACT RESUME POINT: TSK-103 (Current Task)** — توحيد مسارات حقن السياق
+  تحت ContextBudget (BUG-03): في server.py مسار الملف المُكتشف
+  (كان L1332–L1339) + مسار attach-folder (كان L1782–L1791) → تمرير المحتوى
+  كـ source إلى gather_message_context بدل الإلحاق الخام في user_text؛
+  السقف من config.yaml:context_budget. معيار القبول: مجلد 15 ملفًا + ملف
+  100KB → الحمولة ≤ السقف (QA-T06). بعدها TSK-104 ثم TSK-105؛ بوابة
+  QA-T06/T07 تُغلق M1.
