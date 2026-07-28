@@ -38,19 +38,21 @@
 
 ### Current Position
 - Stage: REVIEW (Stage 1)
-- Phase/Task: **R2 — Strengths Preservation** (التالية)
-- Last completed step: R1 Repository Understanding (Delta) ✅ (Session 25) —
-  الوحدات الجديدة الأربع + 11 تغيّر تدفق متحقق منها ساكنًا على HEAD 2e586b0 —
-  MASTER_REVIEW.md §R1 (وقبلها R0 ✅ بنفس الجلسة: CP-1..9، FD-1..9، BET/SR)
+- Phase/Task: **R4 — Security Review + Agent Safety** (التالية)
+- Last completed step: R3 Subsystem Map + Architecture Scorecard ✅ (Session 25) —
+  14 subsystem مُقيّمة + حالة مخاطر P1g بعد M1–M5 (g2/g3/g4/g7/g10/g11 ✅،
+  g1/g5/g6/g9 مفتوحة) + أعلام موجّهة لـ R4–R10 — MASTER_REVIEW.md §R3
+  (وقبلها بنفس الجلسة: R0 ✅ + R1-delta ✅ + R2 Strengths S-01..S-14 ✅)
 - Files/areas already covered: R-1 (جرد) + R0 (PRODUCT_VISION.md كاملًا) +
   R1-delta (تحقق spot: response_parser.py:107، command_runner.py:57/107،
-  server.py:172/696/1030/2415، وجود core/ignore_rules.py + context/search.py +
-  static/js/stream_render.js + prompts/templates.py + context/facade.py)؛
-  كل تغطية v4.1 معتمدة عبر CONTINUITY MAP
-- Next action: R2 — Strengths Register رسمي في MASTER_REVIEW.md: تجميع القوّات من
-  PRODUCT_VISION §3 (المتحقق VERIFIED_CURRENT_STATE) + ARCHITECTURE_REVIEW (إيجابيات
-  P1e/P2/P3: NF-19، NF-24، حارس Zip-Slip…) + مكاسب M1–M5 — جدول
-  Component | Location | Why it stays — بلا إعادة قراءة كود إلا للتثبيت الموضعي
+  server.py:172/696/1030/2415، وجود الوحدات الجديدة الأربع) + R2/R3 (تجميع
+  من الوثائق المعتمدة، بلا قراءة كود جديدة)؛ كل تغطية v4.1 معتمدة عبر CONTINUITY MAP
+- Next action: R4 في MASTER_REVIEW.md — (أ) تثبيت حالة الأمن الكلاسيكي من NF-15..18
+  بعد إصلاحات M1/M4/M5 (ترحيل الحالات لدورة الحياة الجديدة)؛ (ب) **Agent Safety
+  Review المُهيكل** — الغوص في chain/ (agent_tools، agent_loop، bridge، plugin_registry):
+  tool permission boundaries، autonomous action limits، approval bypassability،
+  dangerous command detection، context/memory poisoning resistance، goal drift —
+  هذا أول غوص كود حقيقي جديد (chain/ لم تُشرّح كاملة في v4.1)
 - Current blocker: none
 
 ### Stage Checklists (Definition of Done — الدستور الجديد)
@@ -59,7 +61,7 @@
 - [x] R0 Strategic Architecture Assessment *(Session 25 — MASTER_REVIEW.md §R0)*
 - [x] R1 Repository Understanding *(Session 25 — delta متحقق، MASTER_REVIEW.md §R1)*
 - [x] R2 Strengths Preservation *(Session 25 — Strengths Register S-01..S-14، MASTER_REVIEW.md §R2)*
-- [ ] R3 Architecture Audit + Architecture Scorecard
+- [x] R3 Architecture Audit + Architecture Scorecard *(Session 25 — MASTER_REVIEW.md §R3)*
 - [ ] R4 Security Review (+ Agent Safety)
 - [ ] R5 Reliability Review *(delta)*
 - [ ] R6 Performance Review (with baseline metrics)
@@ -74,10 +76,23 @@
 #### Stage 3 — EXECUTION
 - [ ] (auto-tracked per task)
 
-### Architecture Scorecard (يُملأ في R3، يُعاد حسابه بعد كل milestone)
+### Architecture Scorecard (R3 — Session 25؛ يُعاد حسابه بعد كل milestone)
 | Subsystem | Score /10 | Last updated | Trend |
 |---|---|---|---|
-| *(pending R3)* | — | — | — |
+| Core runtime | 8.5 | 2026-07-28 | baseline |
+| Server composition (server.py) | 5.5 | 2026-07-28 | baseline (g1 مفتوح) |
+| WS lifecycle & dispatch | 7 | 2026-07-28 | baseline |
+| Chain system | 7 | 2026-07-28 | baseline (ثقة أدلة أدنى → R4/R7) |
+| Context engine | 8.5 | 2026-07-28 | baseline |
+| Actions | 8 | 2026-07-28 | baseline |
+| Runners contract | 8 | 2026-07-28 | baseline |
+| Sessions & retention | 8 | 2026-07-28 | baseline |
+| Frontend | 6 | 2026-07-28 | baseline (فجوة Phase 9) |
+| Prompts & injection surface | 7.5 | 2026-07-28 | baseline |
+| Security posture (in-scope) | 7 | 2026-07-28 | baseline |
+| Testing infra | 8.5 | 2026-07-28 | baseline |
+| Observability (AI-runtime) | 3 | 2026-07-28 | baseline (فجوة رئيسية → R6) |
+| Workspace/git integration | UNKNOWN | 2026-07-28 | يُثبَّت في R5/R8 |
 
 ### Pending Git Actions (awaiting owner instruction)
 - Session 24 commit `1b2a7b0` (MASTER_REVIEW.md + PROGRESS header) — **مدفوع بالفعل إلى main** (تم خارجيًا).
