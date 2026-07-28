@@ -349,14 +349,30 @@ RUNNERS = {
 }
 
 
-def _begin_run_ticket(kind, send_fn):
+def _begin_run_ticket(kind, send_fn, sctx=None):
     """T-015 (R-105): register a run of `kind` or emit a `busy` frame.
 
     Returns the RunTicket on success, None when another run is active
     (in which case a `busy` frame was already sent via send_fn).
+
+    TSK-302 (NF-02) — سياسة خانة الـ run: السجل يستبعد لكل مشروع
+    (``exclusive_per_project``)، لكن كل النداءات كانت تمرر الخانة
+    العالمية ``""`` — فتبويبان على مشروعين مختلفين كانا يتزاحمان
+    زورًا. الآن: عند تمرير ``sctx`` وله مقبض مشروع، تُستخدم
+    ``sctx.project.project_id`` (المسار المُطبّع) — مشروعان مختلفان
+    يشغّلان معًا، ونفس المشروع → busy. **قرار موثّق عند الغياب**:
+    بلا sctx أو بلا مقبض مشروع → الخانة العالمية ``""`` (السلوك
+    التاريخي — أأمن من تخمين هوية؛ عقود contracts/ القائمة تبقى
+    الحارس الانحداري لدورة حياة التذكرة نفسها).
     """
+    project_id = ""
+    if sctx is not None and getattr(sctx, "project", None) is not None:
+        try:
+            project_id = sctx.project.project_id
+        except Exception:
+            project_id = ""  # مقبض بلا هوية → الخانة العالمية (موثّق)
     try:
-        return execution_registry.register(kind)
+        return execution_registry.register(kind, project_id)
     except RunBusyError as e:
         send_fn({
             "type": "busy",
@@ -1568,7 +1584,7 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
             if routing_tier is RoutingTier.CHAINED:
                 chain_ticket = _begin_run_ticket(
                     "chain",
-                    lambda m: sctx.send(m))
+                    lambda m: sctx.send(m), sctx=sctx)
                 if chain_ticket is None:
                     return
                 _ws_send = sctx.send
@@ -1608,7 +1624,7 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
 
                 delegate_ticket = _begin_run_ticket(
                     "delegate",
-                    lambda m: sctx.send(m))
+                    lambda m: sctx.send(m), sctx=sctx)
                 if delegate_ticket is None:
                     return
                 RUNNERS["delegate"](bridge=sctx.delegate_bridge).run(
@@ -1657,7 +1673,8 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
             sctx.send({"type": "start"})
             print(f"  🤖 Agent Loop started (mode={mode})")
 
-            agent_ticket = _begin_run_ticket("agent", _agent_ws_send)
+            agent_ticket = _begin_run_ticket("agent", _agent_ws_send,
+                                             sctx=sctx)
             if agent_ticket is None:
                 return
 
@@ -1771,7 +1788,7 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
 
     sctx.send({"type": "start"})
 
-    direct_ticket = _begin_run_ticket("direct", sctx.send)
+    direct_ticket = _begin_run_ticket("direct", sctx.send, sctx=sctx)
     if direct_ticket is None:
         return
     _direct_req = RunRequest(
@@ -2060,10 +2077,10 @@ def _handle_ws_message(ctx, sctx, msg):
             sctx.send({"type": "error", "text": "Chain system غير مفعّل"})
             return
 
-        # T-015 (R-105): registry ticket — single-run policy
+        # T-015 (R-105): registry ticket — single-run policy (لكل مشروع — TSK-302)
         chain_ticket = _begin_run_ticket(
             "chain",
-            lambda m: sctx.send(m))
+            lambda m: sctx.send(m), sctx=sctx)
         if chain_ticket is None:
             return
         _ws_send = sctx.send
@@ -2131,7 +2148,7 @@ def _handle_ws_message(ctx, sctx, msg):
             return
         resume_ticket = _begin_run_ticket(
             "chain",
-            lambda m: sctx.send(m))
+            lambda m: sctx.send(m), sctx=sctx)
         if resume_ticket is None:
             return
         ok = sctx.chain_bridge.resume_run(
@@ -2201,7 +2218,8 @@ def _handle_ws_message(ctx, sctx, msg):
         # T-041 (R-501): نفس مسار الإرسال الموحّد — DelegateRunner فوق
         # الجسر (كان النداء المباشر هنا بلا تذكرة — الآن التفويض من هذا
         # المدخل أيضًا تحت سياسة الـ run الواحد وقابل للإلغاء).
-        delegate_msg_ticket = _begin_run_ticket("delegate", sctx.send)
+        delegate_msg_ticket = _begin_run_ticket("delegate", sctx.send,
+                                                sctx=sctx)
         if delegate_msg_ticket is None:
             return
 
