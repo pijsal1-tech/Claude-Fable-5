@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 15 — MODE B: TSK-303 Completed, طَهْر تذاكر terminal — QA-T10 خضراء) |
+| last-updated | 2026-07-28 (Session 16 — MODE B: TSK-304 Completed, إلغاء مستجاب أثناء apply — QA-T10 خضراء) |
 | stage | EXECUTION (MODE B — M3 in progress) |
 | current-phase | M3 (Runtime Robustness) |
-| current-task | TSK-304 — استجابة الإلغاء أثناء apply الطويل (NF-04) |
+| current-task | TSK-305 — تضييق مواضع except الحرجة + log (NF-14) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 58% (11 / 19 TSK) |
+| completion % (execution) | 63% (12 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -162,7 +162,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-301 | fix | تنظيف pending_path داخل القفل (NF-01) | M3 | ✅ Completed (S13) |
 | TSK-302 | fix | سياسة خانة الـ run / project_id (NF-02) | M3 | ✅ Completed (S14) |
 | TSK-303 | fix | طَهْر تذاكر terminal (NF-06) | M3 | ✅ Completed (S15) |
-| TSK-304 | fix | استجابة الإلغاء أثناء apply (NF-04) | M3 | ⬜ pending |
+| TSK-304 | fix | استجابة الإلغاء أثناء apply (NF-04) | M3 | ✅ Completed (S16) |
 | TSK-305 | quality | تضييق except الحرجة + log (NF-14) | M3 | ⬜ pending |
 | TSK-401 | perf | بث تدريجي بدل إعادة render (NF-10) | M4 | ⬜ pending |
 | TSK-402 | fix | backoff+jitter + حماية onmessage (NF-11) | M4 | ⬜ pending |
@@ -741,9 +741,54 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `FIX(TSK-303): purge terminal tickets from registry — list_all capped, QA-T10 green (NF-06)`
 
-- **EXACT RESUME POINT: TSK-304 (Current Task)** — استجابة الإلغاء
-  أثناء apply الطويل (NF-04، M3 Runtime Robustness): نقطة فحص
-  cancel داخل `_apply_batch` في `server.py` — الإلغاء يُستجاب له
-  بين الملفات أثناء apply طويل. بوابة QA-T10: fake slow fm —
-  الإلغاء منتصف الدفعة يوقف المتبقي. Deps: —. بعدها TSK-305
-  (تضييق except الحرجة + log — NF-14).
+---
+
+## Session 16 log — MODE B: TSK-304 (استجابة الإلغاء أثناء apply الطويل — NF-04)
+
+- **TSK-304 ✅ Completed** — Fixes NF-04 · Validated-by QA-T10.
+- **المشكلة**: دفعة `_apply_batch` طويلة (20+ ملفًا) كانت تمضي
+  للنهاية مهما حدث — لا طريقة لإيقافها بعد البدء (لم تكن run
+  مسجّلًا أصلًا — لا ticket ولا تظهر في list_runs).
+- **الحل** (تخييط الدفعة تحت ticket + نقطة تفتيش):
+  1. `core/execution.py` — "apply" انضم لـ `VALID_KINDS` (تعليق
+     TSK-304 مرقّم).
+  2. `server.py::_apply_batch` — الدفعة تسجّل آلان ticket بنوع
+     `apply` عبر `_begin_run_ticket` (busy لو خانة المشروع محجوزة —
+     نفس سياسة بقية الـ runs)، ونقطة تفتيش إلغاء **بين كل action**:
+     `apply_ticket.is_cancelled` → إطار `error` توضيحي ("⛔ أُلغيت
+     الدفعة عند الخطوة i/total") + break — المتبقي لا يُطبّق.
+     التذكرة تُنهى دائمًا (finally) بالحالة المطابقة:
+     completed / failed / cancelled — الخانة تتحرر دائمًا.
+     مسارا النجاح/الفشل يرسلان نفس الإطارات المقفولة بالـ golden
+     بلا أي تغيير (golden 3/3 خضراء بلا تحديث للملف).
+  3. `tests/integration/test_apply_batch_golden.py` — أضيفت fixture
+     `fresh_registry` (autouse، monkeypatch للسجل) — الدفعة صارت
+     تسجّل تذاكر فلا تتسرب للسجل العالمي (كانت تلوّث
+     test_memory_panel في الحزمة الكاملة).
+- **بوابة QA-T10 (جزء NF-04)**: جديد
+  `tests/integration/test_apply_cancel.py` — **6/6 خضراء**:
+  معيار القبول الحرفي (fake slow fm يطلق cancel عند الخطوة 5
+  من دفعة 20 ملفًا → تتوقف، 5 فقط طُبّقت)؛ بلا إلغاء → 20/20
+  والتذكرة completed؛ busy لو الخانة محجوزة (صفر إجراءات)؛
+  فشل خطوة → تذكرة failed؛ الخانة تتحرر لدفعة تالية بعد الإلغاء؛
+  إلغاء قبل أول action → صفر إجراءات. صفر نداءات AI خارجية.
+- **الحزمة الكاملة**: `5 failed, 1564 passed, 63 skipped` — نفس
+  الفشلات الخمس الموجودة مسبقًا فقط (خارج النطاق، لم تُمس):
+  test_file_icons / test_history_consumers / test_rollback_ui /
+  test_symbol_index / test_theme_tokens. (1558 سابقة + 6 جديدة.)
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🛠 tests/integration/test_apply_batch_golden.py (fixture السجل النظيف)
+  2. 🛠 docs/engineering/PROGRESS.md
+  (core/execution.py "apply" kind + server.py تخييط الدفعة +
+  tests/integration/test_apply_cancel.py مرفوعة مسبقًا في 302dd9a —
+  لم تُعدّل بعدها.)
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `FIX(TSK-304): cancel-responsive apply batch under run ticket — QA-T10 green (NF-04)`
+
+- **EXACT RESUME POINT: TSK-305 (Current Task)** — تضييق مواضع
+  except الحرجة + log (NF-14، M3 Runtime Robustness):
+  `server.py:L1338–1339` — إطار warning بدل pass الصامت؛ جرد
+  مواضع except الـ 41 وتصنيفها (ابتلاع مشروع / يحتاج log)
+    بتعليقات مرقّمة. بوابة QA-T08: فشل قراءة ملف مكتشف → المستخدم
+  يرى تنبيهًا؛ لا تغيير سلوك آخر. Deps: —. بعدها M3 يُقفل وتبدأ
+  M4 (TSK-401 — بث تدريجي بدل إعادة render كاملة، NF-10).

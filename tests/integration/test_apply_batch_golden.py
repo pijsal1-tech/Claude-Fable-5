@@ -9,9 +9,22 @@ tests/goldens/apply_batch_frames.json
 import json
 from pathlib import Path
 
+import pytest
+
 import server
+from core.execution import ExecutionRegistry
 
 GOLDEN = Path(__file__).resolve().parent.parent / "goldens" / "apply_batch_frames.json"
+
+
+@pytest.fixture(autouse=True)
+def fresh_registry(monkeypatch):
+    """TSK-304 (NF-04): _apply_batch صار يسجّل ticket لكل دفعة —
+    سجل نظيف لكل اختبار كي لا تتسرب التذاكر للسجل العالمي (كانت
+    تلوّث test_memory_panel وغيره)."""
+    reg = ExecutionRegistry()
+    monkeypatch.setattr(server, "execution_registry", reg)
+    return reg
 
 
 class _StubFM:
