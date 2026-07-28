@@ -499,6 +499,36 @@
     (قابلة للاختبار بلا WS) على نمط `_payload_history` (TSK-104)؛
     توسيع `tests/unit/test_budget_wiring.py` القائم (يغطي المواقع
     الموصولة بالميزانية) لا ملف جديد.
+- **Close-out (Session 45–46)**:
+  - **Implementation**: `server.py` — دالة وحدوية نقية
+    `_budget_delegate_files(files_context, cfg=None, budget=None)`
+    (نمط `_payload_history`): كل ملف `BudgetItem` بطبقة high تحت
+    `ContextBudget.from_config` (config.yaml:context_budget — نفس
+    السقف المركزي)؛ كامل-أو-إسقاط، الأكبر أولًا؛ أي إسقاط يضيف وسمًا
+    ظاهرًا (`DELEGATE_DROP_MARKER_KEY`) داخل files_context يصل البريف
+    + سطر log «⚖️ ContextBudget (delegate)». موصولة في معالج
+    `delegate_message` بعد الجمع مباشرة.
+    `tests/unit/test_budget_wiring.py` — صنف `TestDelegateFilesBudget`
+    (+6): حفظ السلوك بايت-بايت للصغير، فارغ، إسقاط الأكبر أولًا + وسم
+    ظاهر، لا بتر منتصف، الحمولة ≤ السقف (معيار القبول)، حفظ الترتيب.
+  - **Acceptance**: (1) ✅ مشروع اصطناعي كبير (10×2000 حرف مقابل
+    ميزانية 1000 توكن) ⇒ الحمولة ≤ budget_tokens
+    (test_result_within_budget)؛ (2) ✅ وسم اقتطاع ظاهر لا صامت
+    (test_oversized_drops_largest_first_with_visible_marker + log).
+  - **Gates**: Testing ✅ (test_budget_wiring **30/30** كاملًا؛ ملفات
+    التأثير delegate_approve + context_budget + injection_budget
+    76/76) · Architecture ✅ (lint_handler_state clean؛ إعادة استعمال
+    الميزانية المركزية — صفر مفاهيم جديدة) · Regression ✅ (S45:
+    **1F/1701P/34S** — الوحيد theme_tokens/TF-04 المحجوب بـ D-2؛
+    +6 اختبارات جديدة خضراء) · Performance ✅ (0.03ms/نداء شاملًا
+    قراءة config — لا أثر).
+  - **Metrics**: حجم برومبت delegate الأقصى: **غير مسقوف (10 ملفات
+    كاملة أيًا كان حجمها) → ≤ budget_tokens المركزي** ✅.
+  - ملاحظة توثيقية (S46): انقطاع S45 أسقط عنوان §TSK-608 سهوًا أثناء
+    تحرير الـ pre-checks — أُعيد العنوان في S46 (لا أثر على المحتوى).
+- **Resume notes / Checkpoint / Blocker / Next action**: —
+
+### TSK-608 — تفعيل reap_stale إنتاجيًا
 - **Status**: TODO · **Priority**: P2
 - **Objective**: استدعاء دوري (أو عند كل run جديد) لـ
   `ExecutionRegistry.reap_stale` كي لا تبقى خانة مشروع محجوزة بعد موت خيط.
@@ -678,7 +708,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 604 | M6 | P1 | ✅ DONE (S38–39) | زرا وكيلان مخفيان + سطر الترخيص؛ إخفاقات البوابة 4→2 |
 | 605 | M6 | P1 | TF-02 ✅ (S40) · TF-04 BLOCKED(D-2) | إخفاقات البوابة 2→1؛ المتبقي ينتظر رد المالك |
 | 606 | M7 | P2 | ✅ DONE (S43) | تخييط apply/direct + إصلاح BUG جانبي في معالج cancel_run؛ +2 اختبارات |
-| 607 | M7 | P2 | TODO | |
+| 607 | M7 | P2 | ✅ DONE (S45–46) | آخر جيب برومبت خارج الميزانية ضُم؛ +6 اختبارات |
 | 608 | M7 | P2 | TODO | |
 | 609 | M7 | P2 | TODO | |
 | 610 | M7 | P2 | TODO | بعد 609 |

@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 43–44 — **TSK-606 ✅ DONE — التالي: TSK-607 (M7)**) |
+| last-updated | 2026-07-28 (Sessions 45–46 — **TSK-607 ✅ DONE — التالي: TSK-608 (M7)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — M7 (1/5: 606 ✅)؛ M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) |
-| current-task | TSK-607 (التالية — P2، بلا تبعيات)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — M7 (2/5: 606،607 ✅)؛ M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) |
+| current-task | TSK-608 (التالية — P2، بلا تبعيات)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **5/26 TSK** (601..604،606 ✅؛ 605/TF-04 تنتظر D-2؛ 607..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **6/26 TSK** (601..604،606،607 ✅؛ 605/TF-04 تنتظر D-2؛ 608..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,11 +37,20 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — M7: 1/5؛ M6: 4/5 + 605/TF-02 ✅)
-- Phase/Task: **Stage 3 — M7 — TSK-607** (التالية: P2، بلا تبعيات)؛
+- Stage: EXECUTION (Stage 3 — جارية — M7: 2/5؛ M6: 4/5 + 605/TF-02 ✅)
+- Phase/Task: **Stage 3 — M7 — TSK-608** (التالية: P2، بلا تبعيات)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-606 ✅ DONE (Sessions 43–44)** — تخييط
+- Last completed step: **TSK-607 ✅ DONE (Sessions 45–46)** — ضم آخر
+  جيب برومبت خارج الميزانية: معالج delegate_message كان يمرر
+  أول 10 ملفات كاملة بلا سقف للبريف — الآن دالة نقية
+  `_budget_delegate_files` (BudgetItem/high تحت
+  ContextBudget.from_config؛ كامل-أو-إسقاط، الأكبر أولًا؛ وسم
+  اقتطاع ظاهر + log — لا تدهور صامت)؛ +6 اختبارات
+  (TestDelegateFilesBudget) — test_budget_wiring 30/30؛ Performance
+  0.03ms/نداء؛ regression (S45): **1F/1701P/34S** — المتبقي الوحيد
+  theme_tokens (TF-04/D-2).
+  وقبلها: **TSK-606 ✅ DONE (Sessions 43–44)** — تخييط
   نداء `_apply_batch` (خيط `runner-apply-batch`) وبلوك direct
   runner (خيط `runner-direct-{run_id}`) — cancel_run من نفس
   الاتصال صار فعّالًا (كان مستحيلًا بنيويًا: التنفيذ المتزامن كان
@@ -133,16 +142,16 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-607** (M7، P2، بلا تبعيات): ضم جمع سياق
-  delegate إلى ContextBudget — إخضاع القراءة المباشرة لأول 10 ملفات
-  (server.py:2265–2284 — الأسطر تزحزحت بعد TSK-606، أعد التثبيت
-  بـ grep عن بلوك جمع ملفات delegate) لسقوف ContextBudget (آخر جيب
-  خارج توحيد TSK-103؛ RP-03 §R7). القبول: برومبت delegate الملتقط
-  ≤ سقف الميزانية مع مشروع اصطناعي كبير؛ وسم اقتطاع ظاهر لا صامت.
-  الملفات: server.py + توسيع اختبار budget قائم. Gates: Testing ·
-  Regression · Performance. حفظ السلوك: مشاريع صغيرة = لا تغيير.
-  قبل التعديل: سجل حفظ السلوك + Fitness pre-check في §TSK-607؛
-  بعد الإغلاق: جدول الحالة + CHANGELOG + commit محلي.
+- Next action: **بدء TSK-608** (M7، P2، بلا تبعيات): تفعيل
+  `ExecutionRegistry.reap_stale` إنتاجيًا — الآلية موجودة ومختبرة بلا
+  مستدعٍ (execution.py:322؛ RF-02 §R5). نقطة تشغيل واحدة في server.py
+  (دوريًا أو عند كل run جديد — الأرجح داخل `_begin_run_ticket` قبل
+  register: أرخص نقطة وتغطي كل الأنواع). القبول: محاكاة تذكرة يتيمة
+  (بلا finish) → run جديد لنفس المشروع يُقبل بعد TTL؛ لا reap لتذاكر
+  حية. الملفات: server.py + اختبار تكامل. Gates: Testing · Regression.
+  حفظ السلوك: المسارات السليمة (finally) بلا تغيير. قبل التعديل: سجل
+  حفظ السلوك + Fitness pre-check في §TSK-608؛ بعد الإغلاق: جدول
+  الحالة + CHANGELOG + commit محلي.
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -346,6 +355,22 @@
   Close-out + جدول الحالة 606→DONE + CHANGELOG · S44: إعادة تحقق بعد
   reset (الملفات المستهدفة 19/19 + lint clean + regression) + تحديث
   PROGRESS + commit محلي · الموقع → M7/TSK-607؛ TSK-605 تنتظر D-2.
+- 2026-07-28 (Sessions 45–46): استرداد بعد sandbox reset (S45 من
+  7cb23b0، S46 من f11f9b7 — تنفيذ S45 كله وصل origin بدمج المستخدم:
+  الدالة + الربط + الاختبارات + pre-checks + Status DONE) ·
+  **TSK-607 كاملة**: أدلة (البلوك الفعلي server.py:2299–2313 —
+  تزحزح بعد 606؛ build_delegate في strategies سبق ضمه بـ T-024 —
+  هذا آخر جيب) · pre-checks (حفظ السلوك: الصغير بايت-بايت،
+  كامل-أو-إسقاط لا قصّ منتصف، وسم ظاهر؛ Fitness: إعادة استعمال
+  الميزانية المركزية + دالة نقية نمط _payload_history) في §TSK-607 ·
+  تنفيذ: `_budget_delegate_files` + ربط في معالج delegate_message +
+  ‎+6 اختبارات (TestDelegateFilesBudget) · Gates: test_budget_wiring
+  30/30 + ملفات التأثير 76/76 + lint_handler_state clean +
+  Performance 0.03ms/نداء · regression (S45) **1F/1701P/34S**
+  (theme_tokens/TF-04 حصرًا) · S46: إعادة تحقق بعد reset + إصلاح
+  توثيقي (انقطاع S45 أسقط عنوان §TSK-608 سهوًا — أُعيد) + Close-out
+  + جدول الحالة 607→DONE + CHANGELOG + تحديث PROGRESS + commit
+  محلي · الموقع → M7/TSK-608؛ TSK-605 تنتظر D-2.
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي

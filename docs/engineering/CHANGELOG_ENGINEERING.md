@@ -218,3 +218,37 @@
   (~71s) — المتبقي الوحيد test_theme_tokens (TF-04 — محجوب بـ D-2).
 - Metrics: استجابة cancel أثناء دفعة من نفس الاتصال:
   **مستحيل → ≤ خطوة واحدة** (الهدف حرفيًا).
+
+---
+
+## TSK-607 — ضم جمع سياق delegate إلى ContextBudget — Sessions 45–46
+
+### Fixed
+- **RP-03 (§R7)**: معالج `delegate_message` كان يقرأ أول 10 ملفات من
+  `scan_project()` **كاملة بلا أي سقف** ويمررها لـ
+  `DelegateBridge.write_brief` الذي يُلحقها حرفيًا في البريف — آخر
+  جيب برومبت خارج توحيد الميزانية (T-024/TSK-103): تضخم غير مسقوف
+  مع المشاريع الكبيرة.
+
+### Changed
+- `server.py`: دالة وحدوية نقية `_budget_delegate_files` — كل ملف
+  `BudgetItem` بطبقة high تحت `ContextBudget.from_config`
+  (config.yaml:context_budget — نفس السقف المركزي)؛ كامل-أو-إسقاط
+  (لا قصّ منتصف)، الأكبر أولًا عند الفيض؛ أي إسقاط يضيف وسمًا ظاهرًا
+  (`DELEGATE_DROP_MARKER_KEY`) داخل files_context يصل البريف + سطر
+  log «⚖️ ContextBudget (delegate)» — لا تدهور صامت. موصولة في
+  المعالج بعد الجمع مباشرة.
+- `tests/unit/test_budget_wiring.py`: +6 اختبارات
+  (TestDelegateFilesBudget) — حفظ السلوك بايت-بايت للمشاريع الصغيرة،
+  فارغ، إسقاط الأكبر أولًا + وسم ظاهر، لا بتر منتصف، الحمولة ≤ السقف
+  (معيار القبول)، حفظ ترتيب الإدراج.
+
+### Verification
+- test_budget_wiring → **30 passed** كاملًا؛ ملفات التأثير
+  (delegate_approve + context_budget + injection_budget) 76/76.
+- بوابة العمارة: lint_handler_state → clean.
+- Performance: 0.03ms/نداء (شاملًا قراءة config) — لا أثر.
+- Regression كامل (Session 45): `1 failed, 1701 passed, 34 skipped`
+  (~72s) — المتبقي الوحيد test_theme_tokens (TF-04 — محجوب بـ D-2).
+- Metrics: حجم برومبت delegate الأقصى: **غير مسقوف → ≤ budget_tokens
+  المركزي**.
