@@ -53,9 +53,17 @@ class CommandRunner:
         self._history: list[dict] = []
 
     def run(self, command: str, timeout: int = 60, need_approval: bool = True,
-            retries=None, retry_delay=None, retry_on_nonzero: bool = False) -> dict:
+            retries=None, retry_delay=None, retry_on_nonzero: bool = False,
+            force_approval: bool = False) -> dict:
         """
         تنفيذ أمر — يطلب إذن إلا إذا كان آمن أو auto_approve=True.
+
+        TSK-502 (NF-16) — ``force_approval=True``: بوابة الموافقة إلزامية
+        لكل أمر مهما كان ``auto_approve``/``SAFE_COMMANDS``/``need_approval``
+        (الافتراضي False = التوافق السلوكي الكامل). تستهلكه راية
+        ``force_command_approval`` في config.yaml عبر مواضع REST/apply
+        في server.py — حارس DANGEROUS_COMMANDS الساكن لم يعد الخط
+        الوحيد عند تفعيلها.
         يعيد المحاولة تلقائيًا عند:
           - Timeout / OSError (أخطاء مؤقتة في النظام)
           - كود خروج غير صفري إذا retry_on_nonzero=True
@@ -94,6 +102,11 @@ class CommandRunner:
 
         if is_dangerous:
             print(f"\n{Fore.RED}⛔ أمر خطير: {command}{Style.RESET_ALL}")
+            if not self._ask_approval(command):
+                return self._build_entry(command, False, "", "رفض المستخدم", -1, 0)
+        elif force_approval:
+            # TSK-502 (NF-16): الراية مفعّلة ⇒ موافقة إلزامية حتى للآمن
+            # وحتى مع auto_approve — لا تجاوز للبوابة إطلاقًا.
             if not self._ask_approval(command):
                 return self._build_entry(command, False, "", "رفض المستخدم", -1, 0)
         elif need_approval and not is_safe and not self.auto_approve:

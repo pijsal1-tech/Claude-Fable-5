@@ -168,6 +168,26 @@ def _load_config() -> dict:
 # الاسم التاريخي — alias للتوافق الخلفي (تستهلكه الاختبارات وmain).
 _read_config = _load_config
 
+
+def _force_command_approval() -> bool:
+    """TSK-502 (NF-16): راية إلزام الموافقة على كل أمر.
+
+    تُقرأ من config.yaml (مفتاح ``force_command_approval``، الافتراضي
+    False = توافق سلوكي كامل مع ما قبل TSK-502). مفعّلة ⇒ كل مواضع
+    التنفيذ ذات ``need_approval=False`` (REST /api/run، /api/run-file،
+    وapply-actions) تمر ببوابة الموافقة إلزاميًا — حارس
+    DANGEROUS_COMMANDS الساكن لم يعد الخط الوحيد. تُقرأ عند كل طلب
+    (القارئ مُكاش — لا كلفة)؛ القيمة تُطبّع بـ bool تسامحيًا.
+    راجع قسم «حدود النشر» في README — الراية إلزامية عند أي ربط
+    خارج localhost.
+    """
+    try:
+        return bool(_load_config().get("force_command_approval", False))
+    except Exception:
+        # NF-14 §2 (ابتلاع مقصود — fallback موثّق): config غير مقروء →
+        # الافتراضي المتوافق سلوكيًا (لا إلزام).
+        return False
+
 # ── نظام المسارات المعلقة: منع التبديل التلقائي ──
 # بدلاً من تغيير المجلد فوراً، نحفظ الطلب هنا وننتظر قرار المستخدم.
 pending_path_requests: dict = {}   # {req_id: {"path": ..., "timestamp": ...}}
@@ -826,7 +846,10 @@ def api_run():
         # CMD: subprocess.run(shell=True) بيستخدم cmd.exe مباشرة — مش محتاج تغليف
         full_cmd = command
 
-    result = cmd_runner.run(full_cmd, need_approval=False, timeout=30)
+    # TSK-502 (NF-16): راية force_command_approval تقلب التجاوز —
+    # مفعّلة ⇒ كل أمر REST يمر ببوابة الموافقة إلزاميًا.
+    result = cmd_runner.run(full_cmd, need_approval=False, timeout=30,
+                            force_approval=_force_command_approval())
     result["cwd"] = cmd_runner.cwd
     return jsonify({"ok": result["success"], **result})
 
@@ -1344,7 +1367,9 @@ def api_run_file():
         return jsonify({"ok": False, "error": f"لا يمكن تشغيل ملفات {ext}"}), 400
 
     command = f"{runner} {filepath}"
-    result = cmd_runner.run(command, need_approval=False, timeout=30)
+    # TSK-502 (NF-16): نفس راية إلزام الموافقة — راجع _force_command_approval.
+    result = cmd_runner.run(command, need_approval=False, timeout=30,
+                            force_approval=_force_command_approval())
     return jsonify({"ok": result["success"], **result, "command": command})
 
 
@@ -2468,7 +2493,10 @@ def _apply_single_action(action: dict, sctx) -> dict:
             return {"ok": True, "message": f"تم تعديل: {path}"}
 
         elif act_type == "run_command":
-            result = sctx.cmd_runner.run(action["command"], need_approval=False)
+            # TSK-502 (NF-16): نفس راية إلزام الموافقة — مسار apply-actions.
+            result = sctx.cmd_runner.run(
+                action["command"], need_approval=False,
+                force_approval=_force_command_approval())
             return {"ok": result["success"], "message": result["output"] or result["error"]}
 
         return {"ok": False, "message": f"إجراء غير معروف: {act_type}"}
