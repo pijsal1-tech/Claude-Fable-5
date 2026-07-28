@@ -633,5 +633,63 @@ consent-first مؤكدة خارجيًا (CP-7). الفجوات الخمس الم
 
 ---
 
-## R10 — Testing Gaps + Documentation Gaps (Delta)
-*(TODO — يبدأ من QA_MASTER_PLAN + RELEASE_READINESS_REPORT.)*
+## R10 — Testing Gaps + Documentation Gaps (Delta) ✅ (Session 30 — 2026-07-28)
+
+> **المنهج**: دلتا فوق QA_MASTER_PLAN + RELEASE_READINESS_REPORT (P6/P8 من
+> أرشيف v4.1). تشغيل كامل جديد للعدة + فرز الإخفاقات الأربعة الموروثة
+> بالدليل + فحص فجوة تغطية RP-01 + فحص طزاجة الوثائق.
+
+### R10.0 — خط الأساس المعاد قياسه (هذه الجلسة)
+
+`python -m pytest tests` (سقف timeout=30 لكل اختبار من pytest.ini):
+**1709 اختبارًا — 4 فشل / 1671 نجاح / 34 تخطٍّ — ~70s**.
+مجموعة الفشل **مطابقة تمامًا** لتشغيل Session 24 ⇒ الإخفاقات حتمية مستقرة
+(ليست flaky) وموروثة من قبل بدء هذا البرنامج.
+
+### R10.1 — فرز الإخفاقات الأربعة الموروثة (TF-01..04)
+
+القاسم المشترك: ثلاثة من أربعة كسرها **إعادة تصميم الواجهة v25** (وسم
+`?v=25` في index.html:32/516؛ sprite «v25 Modern Edition») التي جرت خارج
+حوكمة البرنامج — الاختبارات الحارسة عملت كما صُممت والتُقطت الانجراف.
+
+| ID | الاختبار | التشخيص (بالدليل) | التصنيف |
+|---|---|---|---|
+| TF-01 | `test_file_icons::test_license_note_present` | إعادة كتابة `static/icons/sprite.svg` (v25) أسقطت عبارة «رخصة المشروع» التي يثبّتها الاختبار (`tests/unit/test_file_icons.py:143`)؛ عبارة «الترخيص» في الموديول ما زالت موجودة | انجراف أصل-مقابل-اختبار؛ إصلاح C4: إعادة سطر الترخيص للـ sprite |
+| TF-02 | `test_history_consumers::test_no_raw_history_slices_outside_sessions` | الانتهاك الوحيد في `providers/openai_shelby.py:105` (`history[-6:]`) — الاختبار يمسح `providers/` وهي **خارج النطاق كليًا** (§0.8)؛ لا يمكن إصلاح المصدر ضمن هذا البرنامج | تسرّب نطاق: الحل داخل-النطاق = استثناء `providers/` من مسح الاختبار (الاختبار حارس core، والمزود له عقده الخاص) |
+| TF-03 | `test_rollback_ui::test_index_wiring_and_load_order` | **عيب تشغيلي حقيقي لا اختبار قديم**: v25 حذفت عنصرَي `id="run-history-btn"` و`id="memory-panel-btn"` من index.html (grep = 0 نتائج كعناصر؛ يبقيان فقط كأهداف `.click()` في index.html:212/220) بينما app.js:3639–3640 يربطهما في DOMContentLoaded ⇒ `getElementById(...)=null` → TypeError يقطع المعالج فلا يُربط status-chip (3641) ولا يبدأ refreshCapacity/الاستطلاع الدوري (3642–3643)؛ وأزرار Activity Bar ترمي عند النقر | **عيب C3/S2 حي**: لوحتا Run-History وMemory وشريحة الحالة معطلة الفتح من الواجهة — يقوّي UXF (R9) ويجب ضمه لمهام PLANNING |
+| TF-04 | `test_theme_tokens::test_no_raw_colors_outside_themes` | v25 أدخلت مئات الألوان الخام في style.css (976–3633+) وindex.html:83–84 متجاوزةً بوابة color-tokens (check.sh gate) | دين تصميم واسع؛ قرار PLANNING: إمّا trans-tokenization لمقاطع v25 أو baseline-allowlist مؤقت مؤرَّخ |
+
+**أثر جانبي حرج (TF-05)**: بوابة `scripts/check.sh:122–123` تشغّل pytest
+كاملة ⇒ البوابة **حمراء دائمًا** ما دامت TF-01..04 قائمة — أي انحدار جديد
+يذوب في نفس الفشل ولا يُميَّز على مستوى البوابة. رفع الأربعة شرطٌ لاستعادة
+دلالة البوابة (C3/S3).
+
+### R10.2 — فجوات التغطية (دلتا)
+
+| ID | الوصف | الدليل |
+|---|---|---|
+| TD-01 | **صفر تغطية لمسار delegate_approve في server.py** — `grep -rln delegate_approve tests/` = لا شيء؛ عقود DelegateRunner تثبّت دورة bridge (brief→dispatch→review، `tests/contracts/test_runner_contracts.py:104–123`) ومسار waiting_approval مثبت كتذكرة فقط (test_ticket_cancellation/test_dispatch_parity) — لكن **مقبض WS نفسه** (المستهلك الفعلي، حيث يعيش RP-01 بـ`extract_actions` غير الموجودة) بلا أي اختبار؛ لهذا عاش RP-01 غير مكتشف رغم 1709 اختبارًا | يقاطع QF-02 (mypy لا يشمل server.py): العيب أفلت من **الطبقتين** — البند الاختباري لمهمة RP-01 في PLANNING يجب أن يغطي المقبض end-to-end بمزود مزيف |
+| TD-02 | خطة QA مُنفَّذة فعليًا: 17 ملف اختبار يستشهد بـ QA-T (zip-slip/fencing/purge/apply-cancel/…) — لا فجوة بين المواصفة (P6) والتجسيد؛ الفجوة الوحيدة الباقية: QA-T11 جزؤه اليدوي (DevTools long-task) غير مؤتمت — مقبول كما وُثّق | جرد grep -rl "QA-T" tests/ = 17 |
+
+### R10.3 — فجوات التوثيق (دلتا)
+
+| ID | الوصف | الدليل |
+|---|---|---|
+| TD-03 | **RELEASE_READINESS_REPORT.md متجمد قبل التنفيذ**: يعلن G1–G3 CONDITIONAL FAIL و«execution 0/19 TSK / MODE B not started» (سطرا 4 و93) بينما الأرشيف يثبت 19/19 TSK ✅ وM1–M5 منفَّذة ومتحقَّقة (R5/R6: NF-20/21/22 VERIFIED-FIXED) — الوثيقة الرسمية الوحيدة لحكم الإطلاق تناقض الواقع؛ **لم تُجرَ إعادة التصويت (release re-vote) التي اشترطتها الوثيقة نفسها** | إعادة تقييم G1–G5 على الكود الحالي = مخرج طبيعي لنهاية PLANNING أو أول EXECUTION، مع مدخل جديد لم يكن موجودًا وقت P8: RP-01 (كسر runtime حي) وTF-03 |
+| TD-04 | لا توثيق لإعادة تصميم v25 في أي وثيقة هندسية: التغيير لمس index.html/style.css/sprite وكسر 3 بوابات حارسة بلا سجل قرار أو تحديث للاختبارات | git log لـ static/ (8235147/2ed794f/0d74dad) لا يقابله أي قيد في docs/engineering/ |
+
+**خلاصة R10:** البنية الاختبارية تبقى أقوى أصل (1709 اختبارًا، عقود، goldens،
+17 ملفًا يجسد خطة QA) لكن بها ثقبان مُثبتان: (1) البوابة حمراء دائمًا بأربعة
+إخفاقات موروثة أحدها عيب تشغيلي حي (TF-03) — رفعها ربح سريع يعيد دلالة
+check.sh؛ (2) المستهلكون داخل server.py (مقابض WS) خارج شبكتي الأمان معًا
+(اختبار + mypy) — وهو نفس الجذر الذي أنتج RP-01. وثيقة جاهزية الإطلاق
+تحتاج إعادة تصويت رسمية بعد إدخال RP-01/TF-03 كمدخلات جديدة.
+
+---
+
+## 🏁 Stage 1 — REVIEW: مكتمل (R-1..R10 ✅)
+
+كل مراحل المراجعة أُنجزت بمعيار الدليل. عائلات النتائج الجاهزة لـ PLANNING:
+ASF-01..08 · RF-01..03 · PM-01..04 · RP-01..04 · QG-01..04 + QF-01/02 ·
+UXF-01..05 · TF-01..05 + TD-01..04 — مع الأحكام الاستراتيجية (CP/FD/BET/SR)
+وسجل القوة S-01..S-14 كموجّهات Preserve.

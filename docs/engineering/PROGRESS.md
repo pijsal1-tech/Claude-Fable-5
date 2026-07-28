@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 24 — **دستور جديد FINAL-GOVERNED: بدء Stage 1 REVIEW — R-1 مُنجزة**) |
-| stage | **REVIEW (Stage 1 من الدستور الجديد)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | R0 — Strategic Architecture Assessment (التالية) |
+| last-updated | 2026-07-28 (Session 30 — **Stage 1 REVIEW مكتمل 🏁 (R-1..R10 ✅) — التالي: Stage 2 PLANNING**) |
+| stage | **PLANNING (Stage 2 من الدستور الجديد) — لم تبدأ بعد** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
+| current-phase | Stage 2 PLANNING — ترتيب النتائج P0–P3 (التالية) |
 | current-task | — (لا مهام تنفيذية — Stage 3 لم تبدأ بعد) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1 REVIEW: 1/12 مراحل (R-1 ✅) |
+| completion % (new lifecycle) | Stage 1 REVIEW: **12/12 مراحل ✅ مكتمل** · Stage 2: 0/3 |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -34,12 +34,24 @@
 > الدستور الكامل محفوظ في `docs/engineering/prompet_28_7_final.md` (snapshot مرفوع — لا يُعدَّل).
 
 ### Current Stage
-**REVIEW**
+**PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: REVIEW (Stage 1)
-- Phase/Task: **R10 — Testing & Documentation Review (delta)** (التالية — آخر مرحلة في Stage 1)
-- Last completed step: R9 UX & Agentic Capability ✅ (Session 29) — §R9 في
+- Stage: PLANNING (Stage 2 — التالية؛ Stage 1 مكتمل)
+- Phase/Task: **Stage 2 — PLANNING** (التالية — Stage 1 REVIEW مكتمل 🏁 R-1..R10 ✅)
+- Last completed step: R10 Testing & Docs delta ✅ (Session 30) — §R10 في
+  MASTER_REVIEW.md: (1) تشغيل كامل جديد 1709 = 4F/1671P/34S في ~70s —
+  مجموعة الفشل مطابقة لـ S24 (حتمية، ليست flaky)؛ (2) فرز TF-01..04:
+  ثلاثة كسرتها إعادة تصميم v25 غير الموثّقة — أخطرها TF-03 عيب حي:
+  عنصرا run-history-btn/memory-panel-btn محذوفان من index.html بينما
+  app.js:3639–3643 يربطهما ⇒ TypeError يقطع DOMContentLoaded فيعطّل
+  status-chip وrefreshCapacity أيضًا؛ TF-02 تسرّب نطاق (الانتهاك الوحيد في
+  providers/ المحظورة)؛ TF-05: بوابة check.sh حمراء دائمًا؛ (3) TD-01:
+  صفر اختبارات لمقبض delegate_approve — يفسر نجاة RP-01 من الطبقتين
+  (مع QF-02)؛ TD-02: خطة QA مجسدة (17 ملفًا)؛ (4) TD-03: RRR متجمد على
+  «0/19 TSK» وG1–G3 FAIL رغم اكتمال التنفيذ — يحتاج release re-vote؛
+  TD-04: v25 بلا أي توثيق هندسي.
+  وقبلها: R9 UX & Agentic Capability ✅ (Session 29) — §R9 في
   MASTER_REVIEW.md: (1) تضييق SR-1 بالدليل — لوحة diff موجودة فعلًا (T-065،
   app.js:428/1689–1717) فالفجوة الحقيقية = خطة-تفاعلية + سرد جلسة فقط؛
   (2) أحكام CP النهائية: CP-2/3/7/9 مُغلقة، CP-1/CP-8 ADOPT→PLANNING،
@@ -65,16 +77,23 @@
   chain/agent_loop.py:343–408؛ remember_fact chain/agent_tools.py:38 +
   ProjectMemoryStore server.py:2786–2797؛ Memory Panel app.js:3492–3546؛
   RunHistory app.js:3391–3420؛ diff panel app.js:428/1689–1717 (T-065)؛
-  chain_cancel app.js:1153؛ جرد agents_rules/)
-- Next action: R10 في MASTER_REVIEW.md — Testing & Documentation delta:
-  (أ) فرز إخفاقات الاختبارات الأربعة القديمة (test_file_icons::license_note،
-  test_history_consumers::raw_history_slices، test_rollback_ui::index_wiring،
-  test_theme_tokens::raw_colors — من تشغيل Session 24: 1709 اختبارًا،
-  4F/1671P/34S)؛ يتطلب تثبيت التبعيات أولًا (flask flask-sock pyyaml
-  requests + requirements-dev.txt) ثم pytest للأربعة فقط؛ (ب) فجوات التغطية
-  الدلتا: هل كان لـ RP-01 اختبار سيلتقطه؟ (إن لا — فهذا finding)؛ (ج) فجوات
-  التوثيق انطلاقًا من QA_MASTER_PLAN + RELEASE_READINESS_REPORT (دلتا فقط)؛
-  بعد R10: Stage 1 DoD مكتمل ⇒ الانتقال إلى Stage 2 PLANNING
+  chain_cancel app.js:1153؛ جرد agents_rules/) + R10 (تشغيل كامل للعدة؛
+  فحص الإخفاقات الأربعة بالدليل: sprite.svg رأس، index.html:212/220،
+  app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
+  test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
+  كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
+- Next action: **Stage 2 PLANNING** — (أ) تجميع كل عائلات النتائج
+  (ASF-01..08، RF-01..03، PM-01..04، RP-01..04، QG-01..04+QF-01/02،
+  UXF-01..05، TF-01..05+TD-01..04) وترتيبها P0–P3 مع Engineering
+  Alternatives لكل بند — مرشحو الأولوية المُعلّمون سابقًا: RP-01+UXF-02+
+  TD-01 (مهمة واحدة P1: إصلاح + إظهار فشل + اختبار مقبض)، ASF-01/02 P1،
+  TF-01..04+TF-05 (ربح سريع يعيد دلالة البوابة — TF-03 عيب حي)،
+  RF-01+RP-02 (مهمة خيوط موحدة P2)، PM-01..04 (instrumentation)،
+  QG-01..04 (تفكيك g1)، حزمة الإظهار CP-1/CP-8/UXF-01/04/05؛
+  (ب) ملء DEVELOPMENT_TASKS.md بقالب الدستور + تمديد MASTER_ROADMAP.md؛
+  (ج) قرارات منتج معلّقة تُعرض على المستخدم عند الوصول لها: NF-16
+  (force_command_approval default)، خيار TF-04 (tokenization أم baseline)،
+  إعادة تصويت RRR (TD-03)
 - Current blocker: none
 
 ### Stage Checklists (Definition of Done — الدستور الجديد)
@@ -90,7 +109,7 @@
 - [x] R7 Runtime Pipeline Review *(Session 28 — MASTER_REVIEW.md §R7: خريطة المسارات الأربعة + RP-01..04، أبرزها RP-01 اعتماد التفويض مكسور)*
 - [x] R8 Engineering Quality Review *(delta)* *(Session 28 — MASTER_REVIEW.md §R8: NF-23/24 مُرحّلة + خطة تفكيك g1 (QG-01..04) + QF-01/02)*
 - [x] R9 UX & Agentic Capability Review *(Session 29 — MASTER_REVIEW.md §R9: تضييق SR-1 (diff panel موجودة T-065) + أحكام CP-1..9 النهائية + مصفوفة القدرة الوكلية (8 قدرات، 0 غائبة) + UXF-01..05)*
-- [ ] R10 Testing & Documentation Review *(delta)*
+- [x] R10 Testing & Documentation Review *(delta)* *(Session 30 — MASTER_REVIEW.md §R10: خط أساس مُعاد قياسه 4F/1671P/34S (مطابق S24 — حتمي) + فرز TF-01..05 (TF-03 عيب حي C3: أزرار محذوفة تقطع DOMContentLoaded) + TD-01 صفر تغطية لمقبض delegate_approve + TD-03 RRR متجمد يحتاج re-vote)*
 #### Stage 2 — PLANNING
 - [ ] Findings prioritized (P0–P3) with Engineering Alternatives
 - [ ] DEVELOPMENT_TASKS.md populated (all tasks meet template)
@@ -162,6 +181,15 @@
   CP-5⇒UXF-04 / CP-9 رفض التوليد الصامت — honesty §11.4) · مصفوفة القدرة
   8 قدرات (3✅/5⚠️/0❌ — ثلاثة جذور: RP-01، RP-02+RF-01، الإظهار) ·
   UXF-01..05 · الموقع → R10 (آخر مراحل Stage 1).
+- 2026-07-28 (Session 30): استرداد بعد sandbox reset (clone من 5cb4029 —
+  دمج المستخدم لـ R9) · **R10 أُنجزت كاملة** (§R10): تثبيت التبعيات +
+  تشغيل كامل 1709 = 4F/1671P/34S ~70s (مطابق S24) · فرز TF-01..05
+  (ثلاثة كسرتها v25 غير الموثّقة؛ TF-03 عيب حي C3/S2: أزرار محذوفة تقطع
+  DOMContentLoaded فتعطّل 3 لوحات؛ TF-02 تسرّب نطاق providers/؛ TF-05
+  بوابة حمراء دائمًا) · TD-01 صفر تغطية لمقبض delegate_approve (يفسر
+  نجاة RP-01) · TD-02 خطة QA مجسدة (17 ملفًا) · TD-03 RRR يحتاج re-vote ·
+  TD-04 v25 بلا توثيق · **Stage 1 REVIEW مكتمل 🏁** · الموقع → Stage 2
+  PLANNING.
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
