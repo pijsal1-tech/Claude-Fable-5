@@ -192,7 +192,16 @@ function handleWSMessage(data) {
     // T-066 (R-906): شريحة الحالة تلتقط routing/budget من الإطارات
     // الموجودة — استهلاك فقط، ولا تغيّر مسار أي إطار.
     if (StatusChip.noteFrame(statusChipState, data)) scheduleStatusChipRender();
+    // TSK-403 (NF-12 / A3): أي إطار تالٍ لـ scan_start يعني أن العمل
+    // الفعلي بدأ (start/chunk/error/…) — أزل مؤشر "جاري التفكير…".
+    if (data.type !== "scan_start") removeScanIndicator();
     switch (data.type) {
+        case "scan_start":
+            // TSK-403 (NF-12 / A3): إشارة فورية من الخادم قبل بناء
+            // السياق — مؤشر مرئي ≤200ms بدل صمت الواجهة.
+            showScanIndicator();
+            break;
+
         case "start":
             state.streaming = true;
             startStreamingMessage();
@@ -928,6 +937,29 @@ let currentAgentProgressMsg = null;
 let exploredItems = [];
 let agentStatusLogs = [];
 let currentTerminalCardEl = null; // كارت التيرمنال الحالي (pending/running) لأمر run_command
+let scanIndicatorEl = null; // TSK-403 (NF-12 / A3): مؤشر "جاري التفكير…"
+
+// TSK-403 (NF-12 / A3): مؤشر فوري عند وصول إطار scan_start — يظهر
+// قبل بناء السياق (الذي قد يستغرق ثواني) ويُزال مع أول إطار تالٍ.
+function showScanIndicator() {
+    if (scanIndicatorEl) return; // موجود بالفعل
+    const container = document.getElementById("chat-messages");
+    if (!container) return;
+    scanIndicatorEl = document.createElement("div");
+    scanIndicatorEl.className = "chat-msg assistant scan-indicator";
+    scanIndicatorEl.innerHTML = `
+        <div class="msg-label">🤖 AI <span class="streaming-dot"></span></div>
+        <div class="msg-content">🔎 جاري التفكير…</div>
+    `;
+    container.appendChild(scanIndicatorEl);
+    container.scrollTop = container.scrollHeight;
+}
+
+function removeScanIndicator() {
+    if (!scanIndicatorEl) return;
+    scanIndicatorEl.remove();
+    scanIndicatorEl = null;
+}
 
 function startStreamingMessage() {
     const container = document.getElementById("chat-messages");

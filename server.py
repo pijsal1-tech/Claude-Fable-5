@@ -1426,6 +1426,11 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
     TSK-103 (BUG-03): ``attached_context`` = قائمة ``(key, text)`` لمحتوى
     مرفق (مجلد attach من confirm_path_action) — يمر لـ
     gather_message_context ليُحزم تحت ContextBudget بدل الإلحاق الخام."""
+    # TSK-403 (NF-12 / A3 — طلب المستخدم التاريخي): إشارة فورية قبل أي
+    # عمل (كشف المسارات + بناء السياق قد يستغرقان ثواني) — أول إطار
+    # مرئي كان "start" بعد اكتمال الجمع، فتبدو الواجهة صامتة. الواجهة
+    # تعرض "جاري التفكير…" فور وصول هذا الإطار (≤200ms من الإرسال).
+    sctx.send({"type": "scan_start"})
     attached_context = list(attached_context) if attached_context else []
     # ── 1. كشف ذكي للمسارات (ملفات + مجلدات) ──
     import re
@@ -2062,6 +2067,10 @@ def _handle_ws_message(ctx, sctx, msg):
         if not user_text:
             sctx.send({"type": "error", "text": "رسالة فارغة"})
             return
+
+        # TSK-403 (NF-12 / A3): مؤشر فوري هنا أيضًا — قراءة المجلد/الملفات
+        # قبل أول إطار chain قد تستغرق ثواني ("كل الأوضاع" في Accept).
+        sctx.send({"type": "scan_start"})
 
         force_strategy = msg.get("strategy", None)  # اختياري
 

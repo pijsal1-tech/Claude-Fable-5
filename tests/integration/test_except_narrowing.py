@@ -53,7 +53,10 @@ def _sctx(root="/tmp/x"):
 
 
 def _frames(ws):
-    return [json.loads(p) for p in ws.sent]
+    # TSK-403 (NF-12): إطار scan_start يُرسل دائمًا فور الاستلام —
+    # خارج نطاق هذه البوابة (QA-T08 تفحص إطارات warning فقط).
+    return [json.loads(p) for p in ws.sent
+            if json.loads(p).get("type") != "scan_start"]
 
 
 def _dispatch_until_context(monkeypatch, user_text):
@@ -95,7 +98,8 @@ class TestAcceptCriterion:
         target = tmp_path / "ok.py"
         target.write_text("y = 2", encoding="utf-8")
         ws = _dispatch_until_context(monkeypatch, f'اشرح "{target}"')
-        assert _frames(ws) == []  # صفر إطارات — نفس السلوك القديم
+        # صفر إطارات (عدا scan_start المُستبعد) — نفس السلوك القديم
+        assert _frames(ws) == []
 
     def test_no_detected_file_no_warning(self, monkeypatch):
         ws = _dispatch_until_context(monkeypatch, "اشرح المشروع")
