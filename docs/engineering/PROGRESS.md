@@ -37,9 +37,14 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: PLANNING (Stage 2 — التالية؛ Stage 1 مكتمل)
-- Phase/Task: **Stage 2 — PLANNING** (التالية — Stage 1 REVIEW مكتمل 🏁 R-1..R10 ✅)
-- Last completed step: R10 Testing & Docs delta ✅ (Session 30) — §R10 في
+- Stage: EXECUTION (Stage 3 — التالية؛ Stage 2 PLANNING مكتمل ✅)
+- Phase/Task: **Stage 3 — M6 Restore Trust — TSK-601** (المرشحة الأولى: P1، بلا تبعيات)
+- Last completed step: **Stage 2 PLANNING مكتمل ✅ (Session 31)** — §P.1
+  تصنيف P0–P3 (لا P0؛ 6×P1) + §P.2 كتل ALT-601..604 بـ Competitive check
+  وVision لكل P1 + §P.3 قرارات D-1..D-4 معلّقة للمالك؛ DEVELOPMENT_TASKS.md
+  أُنشئ (TSK-601..626 عبر M6–M10 بقالب الدستور)؛ MASTER_ROADMAP مُمدد
+  (M6–M10 + IR-1/IR-2).
+  وقبلها: R10 Testing & Docs delta ✅ (Session 30) — §R10 في
   MASTER_REVIEW.md: (1) تشغيل كامل جديد 1709 = 4F/1671P/34S في ~70s —
   مجموعة الفشل مطابقة لـ S24 (حتمية، ليست flaky)؛ (2) فرز TF-01..04:
   ثلاثة كسرتها إعادة تصميم v25 غير الموثّقة — أخطرها TF-03 عيب حي:
@@ -82,18 +87,17 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **Stage 2 PLANNING** — (أ) تجميع كل عائلات النتائج
-  (ASF-01..08، RF-01..03، PM-01..04، RP-01..04، QG-01..04+QF-01/02،
-  UXF-01..05، TF-01..05+TD-01..04) وترتيبها P0–P3 مع Engineering
-  Alternatives لكل بند — مرشحو الأولوية المُعلّمون سابقًا: RP-01+UXF-02+
-  TD-01 (مهمة واحدة P1: إصلاح + إظهار فشل + اختبار مقبض)، ASF-01/02 P1،
-  TF-01..04+TF-05 (ربح سريع يعيد دلالة البوابة — TF-03 عيب حي)،
-  RF-01+RP-02 (مهمة خيوط موحدة P2)، PM-01..04 (instrumentation)،
-  QG-01..04 (تفكيك g1)، حزمة الإظهار CP-1/CP-8/UXF-01/04/05؛
-  (ب) ملء DEVELOPMENT_TASKS.md بقالب الدستور + تمديد MASTER_ROADMAP.md؛
-  (ج) قرارات منتج معلّقة تُعرض على المستخدم عند الوصول لها: NF-16
-  (force_command_approval default)، خيار TF-04 (tokenization أم baseline)،
-  إعادة تصويت RRR (TD-03)
+- Next action: **Stage 3 EXECUTION — بدء TSK-601** (M6، P1، بلا تبعيات):
+  إصلاح delegate_approve — استخراج دالة تحويل مشتركة `_parsed_to_actions`
+  من مسار agent (server.py:1791–1800) واستبدال النداءين المكسورين
+  (server.py:2337–2338) بـ parse(mode=...) + التحويل؛ إظهار فشل التحويل
+  للمستخدم (error/warning frame)؛ اختبار جديد
+  tests/integration/test_delegate_approve_handler.py (≥3 حالات — معايير
+  القبول الأربعة في DEVELOPMENT_TASKS.md §TSK-601)؛ قبل التعديل: سجل حفظ
+  السلوك + Fitness pre-check في سجل المهمة؛ بعد الإغلاق: تحديث جدول
+  الحالة + CHANGELOG_ENGINEERING.md (يُنشأ إن لم يوجد) + commit محلي.
+  ملاحظة للمالك: قرارات D-1..D-4 (MASTER_REVIEW §P.3) معلّقة — تحجب
+  TSK-605(جزئيًا)/617/623 فقط؛ باقي M6 غير محجوب
 - Current blocker: none
 
 ### Stage Checklists (Definition of Done — الدستور الجديد)
@@ -190,6 +194,22 @@
   نجاة RP-01) · TD-02 خطة QA مجسدة (17 ملفًا) · TD-03 RRR يحتاج re-vote ·
   TD-04 v25 بلا توثيق · **Stage 1 REVIEW مكتمل 🏁** · الموقع → Stage 2
   PLANNING.
+- 2026-07-28 (Session 31): استرداد بعد sandbox reset (clone من dc60772 —
+  دمج المستخدم لـ R10) · **Stage 2 PLANNING أُنجزت كاملة**: §P.1 تصنيف
+  P0–P3 لكل العائلات (لا P0؛ P1 = RP-01+UXF-02+TD-01، ASF-01، ASF-02،
+  TF-01/03/05، TF-02) · §P.2 كتل البدائل الهندسية ALT-601..604 (موصى:
+  parse(mode=...)+_parsed_to_actions مشترك؛ fence_attached في 5 مواقع
+  حقن؛ قلب need_approval=True في agent_tools.py:485؛ إصلاح الأصول
+  لتطابق الحرّاس) · §P.3 قرارات المالك D-1..D-4 معلّقة ·
+  DEVELOPMENT_TASKS.md أُنشئ (TSK-601..626 عبر M6–M10 بالقالب الكامل +
+  جدول حالة) · MASTER_ROADMAP.md: M6 Restore Trust → M10 Hygiene +
+  IR-1/IR-2 · تحرير PROGRESS انقطع جزئيًا (HEADER+checklist نجيا؛
+  Current Position بقي قديمًا) — دمج المستخدم عند 3b7b330.
+- 2026-07-28 (Session 32): استرداد بعد sandbox reset (clone من 3b7b330) ·
+  التحقق: كل مخرجات Session 31 في origin (DEVELOPMENT_TASKS + §P.1..P.3
+  + ROADMAP) · مصالحة: إصلاح Current Position + Next action في PROGRESS
+  (Stage → EXECUTION، المهمة → TSK-601) + إضافة سجلّي الجلستين 31+32 ·
+  commit محلي للمصالحة · الموقع → Stage 3 EXECUTION — TSK-601.
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
