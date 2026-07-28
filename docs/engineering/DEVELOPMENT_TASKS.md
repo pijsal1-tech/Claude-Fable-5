@@ -368,7 +368,7 @@
 ## M7 — Responsiveness & Guardrails (P2 الجذور التشغيلية)
 
 ### TSK-606 — تخييط _apply_batch والمسار المباشر (إلغاء مستجيب)
-- **Status**: TODO · **Priority**: P2
+- **Status**: IN-PROGRESS (S43) · **Priority**: P2
 - **Objective**: نقل `_apply_batch` (server.py:2081/2415–2462) وتشغيل direct
   runner (1846–1858) إلى خيوط كما chain/agent/delegate — فيصبح cancel من نفس
   الاتصال فعّالًا.
