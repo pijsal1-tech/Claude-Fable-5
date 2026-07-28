@@ -25,6 +25,84 @@
 
 ---
 
+## 🏛 NEW LIFECYCLE — MASTER ENGINEERING CONSTITUTION (FINAL-GOVERNED) — Session 24+
+
+> البرنامج السابق (v4.1 CORE-ONLY) مُقفل 100% ويبقى أدناه كأرشيف مرجعي كامل.
+> من هذه النقطة، الحوكمة للدستور الجديد: Stage 1 REVIEW → Stage 2 PLANNING → Stage 3 EXECUTION.
+> وثيقة المراجعة المركزية الجديدة: `docs/engineering/MASTER_REVIEW.md`
+> (تحوي CONTINUITY MAP يربط كل مرحلة R-x بمخرجات v4.1 الموجودة — لا إعادة عمل).
+> الدستور الكامل محفوظ في `docs/engineering/prompet_28_7_final.md` (snapshot مرفوع — لا يُعدَّل).
+
+### Current Stage
+**REVIEW**
+
+### Current Position
+- Stage: REVIEW (Stage 1)
+- Phase/Task: **R2 — Strengths Preservation** (التالية)
+- Last completed step: R1 Repository Understanding (Delta) ✅ (Session 25) —
+  الوحدات الجديدة الأربع + 11 تغيّر تدفق متحقق منها ساكنًا على HEAD 2e586b0 —
+  MASTER_REVIEW.md §R1 (وقبلها R0 ✅ بنفس الجلسة: CP-1..9، FD-1..9، BET/SR)
+- Files/areas already covered: R-1 (جرد) + R0 (PRODUCT_VISION.md كاملًا) +
+  R1-delta (تحقق spot: response_parser.py:107، command_runner.py:57/107،
+  server.py:172/696/1030/2415، وجود core/ignore_rules.py + context/search.py +
+  static/js/stream_render.js + prompts/templates.py + context/facade.py)؛
+  كل تغطية v4.1 معتمدة عبر CONTINUITY MAP
+- Next action: R2 — Strengths Register رسمي في MASTER_REVIEW.md: تجميع القوّات من
+  PRODUCT_VISION §3 (المتحقق VERIFIED_CURRENT_STATE) + ARCHITECTURE_REVIEW (إيجابيات
+  P1e/P2/P3: NF-19، NF-24، حارس Zip-Slip…) + مكاسب M1–M5 — جدول
+  Component | Location | Why it stays — بلا إعادة قراءة كود إلا للتثبيت الموضعي
+- Current blocker: none
+
+### Stage Checklists (Definition of Done — الدستور الجديد)
+#### Stage 1 — REVIEW
+- [x] R-1 Repository Inventory *(Session 24 — MASTER_REVIEW.md §R-1)*
+- [x] R0 Strategic Architecture Assessment *(Session 25 — MASTER_REVIEW.md §R0)*
+- [x] R1 Repository Understanding *(Session 25 — delta متحقق، MASTER_REVIEW.md §R1)*
+- [x] R2 Strengths Preservation *(Session 25 — Strengths Register S-01..S-14، MASTER_REVIEW.md §R2)*
+- [ ] R3 Architecture Audit + Architecture Scorecard
+- [ ] R4 Security Review (+ Agent Safety)
+- [ ] R5 Reliability Review *(delta)*
+- [ ] R6 Performance Review (with baseline metrics)
+- [ ] R7 Runtime Pipeline Review
+- [ ] R8 Engineering Quality Review *(delta)*
+- [ ] R9 UX & Agentic Capability Review
+- [ ] R10 Testing & Documentation Review *(delta)*
+#### Stage 2 — PLANNING
+- [ ] Findings prioritized (P0–P3) with Engineering Alternatives
+- [ ] DEVELOPMENT_TASKS.md populated (all tasks meet template)
+- [ ] MASTER_ROADMAP.md extended (milestones + innovation reviews)
+#### Stage 3 — EXECUTION
+- [ ] (auto-tracked per task)
+
+### Architecture Scorecard (يُملأ في R3، يُعاد حسابه بعد كل milestone)
+| Subsystem | Score /10 | Last updated | Trend |
+|---|---|---|---|
+| *(pending R3)* | — | — | — |
+
+### Pending Git Actions (awaiting owner instruction)
+- Session 24 commit `1b2a7b0` (MASTER_REVIEW.md + PROGRESS header) — **مدفوع بالفعل إلى main** (تم خارجيًا).
+- commits هذه الجلسة: ستُنشأ محليًا فقط — لا push دون تعليمات صريحة.
+- ملاحظة: `origin/genspark_ai_developer` متأخر عن `main` (توقف عند ac43f6c/P8) —
+  قرار المزامنة بانتظار المالك.
+
+### Baseline snapshot (Session 24 — بيئة جديدة)
+| Metric | Value | How measured | Date |
+|---|---|---|---|
+| Full test suite | 1709 tests: 4 failed / 1671 passed / 34 skipped | pytest --junitxml (تشغيل كامل) | 2026-07-28 |
+| Suite wall time | ~82s | تشغيل مباشر | 2026-07-28 |
+| `import server` | OK | تشغيل مباشر | 2026-07-28 |
+| Legacy failure #5 (test_symbol_index…missing_file) | **PASSES الآن** [SUPERSEDED — 2026-07-28 — grammars متوفرة في البيئة الحالية] | pytest -k | 2026-07-28 |
+
+### Session Log — New Lifecycle (append-only)
+- 2026-07-28 (Session 24): اعتماد الدستور FINAL-GOVERNED · إنشاء MASTER_REVIEW.md
+  (CONTINUITY MAP + R-1 كاملة) · تحقق تشغيلي من baseline الاختبارات ·
+  رصد [SUPERSEDED] للفشل الموروث الخامس.
+- 2026-07-28 (Session 25): إصلاح قسم NEW LIFECYCLE المفقود (تحرير Session 24
+  انقطع قبل الحفظ — أُعيد بناؤه) · بدء R0.
+
+---
+## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
+
 ## SCOPE POLICY (per SECTION 0.8 — binding on every row below)
 
 OUT OF SCOPE — never reviewed, analyzed, planned, or tasked:
