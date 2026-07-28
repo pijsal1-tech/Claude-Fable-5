@@ -247,7 +247,7 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-604 — إصلاح TF-03 (اللوحات المعطلة) + TF-01 (sprite)
-- **Status**: TODO · **Priority**: P1
+- **Status**: IN-PROGRESS (Session 38) · **Priority**: P1
 - **Objective**: إعادة عنصرَي `run-history-btn` و`memory-panel-btn` إلى
   index.html (أو ربط آمن null-checked في app.js مع أهداف Activity Bar) بحيث
   تعمل لوحات Run-History/Memory/status-chip من الواجهة؛ وإعادة سطر «رخصة
@@ -265,6 +265,31 @@
   مرئي فقط.
 - **Metrics**: إخفاقات البوابة: 4 → 2.
 - **Rollback**: revert.
+- **Behavior-preservation pre-check (Session 38)**:
+  - Current (بدليل): v25 حذفت عنصرَي `id="run-history-btn"`
+    و`id="memory-panel-btn"` من index.html (grep = 0 كعناصر؛ كانا
+    زرَي header في 755ca94:73–74) وأبقتهما فقط كأهداف `.click()` في
+    أزرار Activity Bar (index.html:212/220)؛ app.js:3639–3641 يربط
+    الثلاثة في DOMContentLoaded ⇒ `getElementById(...)=null` → TypeError
+    يقطع المعالج: لا يُربط status-chip (3641) ولا يبدأ refreshCapacity
+    والاستطلاع الدوري (3642–3643). اللوحات نفسها (run-history-panel/
+    memory-panel/status-chip-panel) ودوال toggle* موجودة سليمة.
+    sprite.svg v25 أسقط عبارة «رخصة المشروع» من تعليق الرأس
+    (كانت في 3d4801d سطر 3–4)؛ الاختبار test_file_icons.py:143 يثبّتها.
+  - Expected: استعادة الوظيفة المصمَّمة (T-054/T-066/T-114) مع الحفاظ
+    على تصميم v25 البصري (Activity Bar بدل أزرار header): إضافة
+    الزرين كعنصرين وكيلين مخفيين (class="hidden") — أهداف ربط
+    app.js القائم وتفويض Activity Bar، بلا تغيير مرئي ولا تعديل
+    app.js؛ Migration = تحسّن وظيفي فقط.
+- **Architecture-Fitness pre-check (Session 38)**:
+  - الخيار المختار من مساري ALT-604→A: إعادة العنصرين لـ index.html
+    (لا null-guard في app.js) — يصلّح الجذر (العنصران مفقودان) لا
+    العرض (الربط يرمي)، ويُبقي app.js بلا لمس (أقل سطح تغيير).
+  - لا يصح إعطاء زري Activity Bar أنفسهما المعرفين: onclick الحالي
+    يستدعي `.click()` على المعرف ⇒ استدعاء ذاتي لا نهائي.
+  - زرا وكيلان مخفيان = نمط v25 القائم نفسه (التفويض بـ .click()
+    موجود أصلًا في :212/:220) — لا نمط جديد؛ class="hidden" مستعمل
+    سلفًا في الملف. sprite: إعادة جملة الترخيص للتعليق — صفر أثر تنفيذي.
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-605 — استعادة خضرة البوابة: TF-02 (نطاق) + TF-04 (baseline ألوان)

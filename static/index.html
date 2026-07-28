@@ -449,6 +449,13 @@
         </div>
     </div>
 
+    <!-- TSK-604 (TF-03): زرا وكيلان مخفيان — v25 حذفت زري header الأصليين
+         (T-066/T-114) بينما app.js يربطهما في DOMContentLoaded وأزرار
+         Activity Bar تفوّض إليهما بـ .click() — إعادتهما مخفيين تستعيد
+         الوظيفة بلا تغيير مرئي ولا تعديل app.js. -->
+    <button id="run-history-btn" class="hidden" title="تاريخ الـ runs والاستعادة — T-066"></button>
+    <button id="memory-panel-btn" class="hidden" title="ذاكرة المشروع: فحص وتحرير — T-114"></button>
+
     <!-- T-066 (R-902): لوحة تاريخ الـ runs — استعادة بنقرة + تقرير تعارض مقروء -->
     <div id="run-history-panel" class="hidden">
         <div id="run-history-head">
