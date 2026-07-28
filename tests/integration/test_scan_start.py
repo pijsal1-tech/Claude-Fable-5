@@ -84,29 +84,18 @@ class TestServerSendsScanStartFirst:
 
     def test_scan_start_precedes_path_detection(self, monkeypatch,
                                                 tmp_path):
-        """الإطار يسبق حتى كشف المسارات (os.path.isdir أول عمل فعلي)."""
-        import os
-        calls = []
-        real_isdir = os.path.isdir
-
-        def _spy_isdir(p):
-            calls.append(("isdir", p))
-            return real_isdir(p)
-
-        def _raiser(*a, **k):
+        """الإطار يسبق حتى كشف المسارات: نوقف التنفيذ عند **أول**
+        استدعاء isdir ونتحقق أن scan_start أُرسل قبله بالفعل."""
+        def _stopping_isdir(p):
             raise _Stop()
 
-        monkeypatch.setattr(server.os.path, "isdir", _spy_isdir)
-        monkeypatch.setattr(server, "gather_message_context", _raiser)
+        monkeypatch.setattr(server.os.path, "isdir", _stopping_isdir)
         sctx, ws = _sctx()
         with pytest.raises(_Stop):
             server._dispatch_chat_message(None, sctx, f'اشرح "{tmp_path}"',
                                           "chat", {})
-        # scan_start أُرسل (في ws.sent) قبل أول استدعاء isdir:
-        assert _frames(ws)[0] == {"type": "scan_start"}
-        # وجدت استدعاءات كشف لاحقة فعلًا (الترتيب مضمون لأن الإرسال
-        # sync على نفس الـ thread):
-        assert calls, "كشف المسارات لم يعمل — العيّنة غير صالحة"
+        # عند لحظة أول كشف مسار كان scan_start قد أُرسل مسبقًا:
+        assert _frames(ws) == [{"type": "scan_start"}]
 
     def test_no_blocking_work_before_scan_start_structurally(self):
         """≤200ms بنيويًا: لا يوجد بين رأس الدالة وسطر scan_start أي
@@ -116,9 +105,11 @@ class TestServerSendsScanStartFirst:
             SERVER_SRC, re.S)
         assert m, "سطر scan_start غير موجود في _dispatch_chat_message"
         before = m.group(1)
-        for banned in ("os.path.isdir", "os.path.isfile", "open(",
-                       "re.findall", "gather_message_context",
-                       "request_router"):
+        # استدعاءات فعلية فقط (بقوس) — ذكر الأسماء في docstring/تعليق
+        # مسموح (docstring الدالة يذكر gather_message_context توثيقًا).
+        for banned in ("os.path.isdir(", "os.path.isfile(", "open(",
+                       "re.findall(", "gather_message_context(",
+                       "request_router."):
             assert banned not in before, f"عمل حاجب قبل scan_start: {banned}"
 
     def test_chain_message_mode_also_sends_scan_start(self):

@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 19 — MODE B: TSK-402 Completed — QA-T11 (جزء NF-11) خضراء) |
+| last-updated | 2026-07-28 (Session 20 — MODE B: TSK-403 Completed — QA-T11 (جزء NF-12/A3) خضراء) |
 | stage | EXECUTION (MODE B — M4 in progress) |
 | current-phase | M4 (Frontend & Streaming UX) |
-| current-task | TSK-403 — إطار scan_start ومؤشر فوري (NF-12 / A3) |
+| current-task | TSK-404 — تسييج المحتوى المحقون في البرومبت (NF-18) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 79% (15 / 19 TSK) |
+| completion % (execution) | 84% (16 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -166,7 +166,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-305 | quality | تضييق except الحرجة + log (NF-14) | M3 | ✅ Completed (S17) |
 | TSK-401 | perf | بث تدريجي بدل إعادة render (NF-10) | M4 | ✅ Completed (S18) |
 | TSK-402 | fix | backoff+jitter + حماية onmessage (NF-11) | M4 | ✅ Completed (S19) |
-| TSK-403 | feature | إطار scan_start + مؤشر فوري (NF-12/A3) | M4 | ⬜ pending |
+| TSK-403 | feature | إطار scan_start + مؤشر فوري (NF-12/A3) | M4 | ✅ Completed (S20) |
 | TSK-404 | security | تسييج المحتوى المحقون (NF-18) | M4 | ⬜ pending |
 | TSK-501 | perf | فهرس بحث مشترك فوق ProjectIndex (NF-20/21) | M5 | ⬜ pending |
 | TSK-502 | docs/config | حدود النشر + force_command_approval (NF-16) | M5 | ⬜ pending |
@@ -908,10 +908,54 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `FIX(TSK-402): exponential backoff+jitter WS reconnect + guarded onmessage — QA-T11 green (NF-11)`
 
-- **EXACT RESUME POINT: TSK-403 (Current Task)** — إطار scan_start
-  ومؤشر فوري (NF-12 / A3 — طلب المستخدم التاريخي، M4):
-  `server.py:_dispatch_chat_message` — إرسال `{"type":"scan_start"}`
-  فور الاستلام قبل بناء السياق؛ `static/app.js:handleWSMessage` —
-  case جديدة → "جاري التفكير…". Accept: مؤشر مرئي ≤200ms من
-  الإرسال في كل الأوضاع. Validated-by QA-T11. Deps: —.
-  بعدها TSK-404.
+## Session 20 log (2026-07-28) — MODE B — TSK-403 ✅
+
+- **TSK-403 — إطار scan_start ومؤشر فوري (NF-12 / A3 — طلب
+  المستخدم التاريخي)**: أول إشارة مرئية كانت إطار `start` بعد
+  اكتمال كشف المسارات + بناء السياق (قد يستغرق ثواني) —
+  الواجهة تبدو صامتة ("صمت الواجهة في البداية").
+- **`server.py`**: `_dispatch_chat_message` يرسل
+  `{"type":"scan_start"}` **كأول سطر تنفيذي** — قبل كشف
+  المسارات وقبل gather_message_context؛ ومسار `chain_message`
+  يرسله أيضًا قبل قراءة المجلد/الملفات ("كل الأوضاع" في
+  Accept — message وchain معًا).
+- **`static/app.js`**: case جديدة `scan_start` → `showScanIndicator()`
+  (فقاعة "🔎 جاري التفكير…" بنفس بنية رسالة assistant +
+  streaming-dot القائمة — صفر CSS جديد)؛ idempotent (لا تكديس)؛
+  وأي إطار تالٍ ≠ scan_start يستدعي `removeScanIndicator()` قبل
+  الـ switch (start/chunk/plan/error/… كلها تزيله تلقائيًا).
+- **بوابة QA-T11 §4 (NF-12/A3)**: جديد
+  `tests/integration/test_scan_start.py` — **9/9 خضراء**:
+  scan_start أول إطار قبل بناء السياق (إيقاف عند
+  gather_message_context)؛ يسبق أول كشف مسار (إيقاف عند أول
+  isdir)؛ ≤200ms بنيويًا (لا استدعاء حاجب قبل سطر الإرسال —
+  بدل قياس ساعة هش)؛ chain_message يرسله قبل قراءة المجلد؛
+  الواجهة: case + نص المؤشر + إزالة مع أي إطار تالٍ +
+  idempotency + حمولة دنيا للإطار. صفر نداءات AI خارجية.
+- **تعديل مصاحب (مطلوب للمهمة)**:
+  `tests/integration/test_except_narrowing.py::_frames` يستبعد
+  scan_start (بوابة QA-T08 تفحص إطارات warning فقط — كانت
+  تفترض صفر إطارات قبل وجود الإطار الجديد) — 15/15 خضراء
+  للملفين معًا.
+- **الحزمة الكاملة**: `5 failed, 1601 passed, 63 skipped` — نفس
+  الفشلات الخمس الموجودة مسبقًا فقط (خارج النطاق، لم تُمس).
+  (1592 سابقة + 9 جديدة.) `python -c "import server"` سليم.
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🛠 tests/integration/test_scan_start.py (إصلاح اختبارين:
+     إيقاف عند أول isdir بدل spy، وأنماط استدعاء بقوس في
+     الحارس البنيوي)
+  2. 🛠 docs/engineering/PROGRESS.md
+  (server.py + static/app.js + الملف الجديد test_scan_start.py +
+  تعديل test_except_narrowing.py مرفوعة مسبقًا في c3522ff — لم
+  يُعدّل إلا الاختبار وهذا الملف.)
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `FEAT(TSK-403): immediate scan_start frame + "thinking" indicator in all modes — QA-T11 green (NF-12/A3)`
+
+- **EXACT RESUME POINT: TSK-404 (Current Task)** — تسييج المحتوى
+  المحقون في البرومبت (NF-18، M4 — آخر مهام M4):
+  `prompts/templates.py:build_prompt:L104–135` + مواضع الحقن بعد
+  TSK-103 — أغلفة حدود صريحة (مثل `<attached-content …>`) +
+  تعليمة system أن المحتوى المرفق بيانات لا أوامر. Accept:
+  ملف يحوي تعليمة حقن → تصل مسيّجة؛ فحص نصي للبرومبت
+  المبني (stub). Validated-by QA-T12. Deps: TSK-103.
+  بعدها M5 (TSK-501).
