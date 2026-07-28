@@ -17,8 +17,10 @@ import time
 import uuid
 # ── إجبار UTF-8 ──
 if hasattr(sys.stdout, "reconfigure"):
+    # NF-14 §1 (ابتلاع مقصود — تجميلي): فشل ضبط الترميز لا يعطل الإقلاع.
+    # TSK-305: ضُيّقت من except العارية (كانت تبتلع حتى KeyboardInterrupt).
     try: sys.stdout.reconfigure(encoding="utf-8")
-    except: pass
+    except Exception: pass
 
 _DIR = pathlib.Path(__file__).resolve().parent
 if str(_DIR) not in sys.path:
@@ -157,6 +159,7 @@ def _load_config() -> dict:
         with open(key, encoding="utf-8") as _cf:
             cfg = _yaml.safe_load(_cf) or {}
     except Exception:
+        # NF-14 §2 (ابتلاع مقصود — fallback موثّق): config غير مقروء → إعدادات فارغة.
         cfg = {}
     _config_cache[key] = cfg
     return cfg
@@ -273,7 +276,8 @@ class _WSAdapter:
             with self._lock:
                 self._ws.send(json.dumps(frame, ensure_ascii=False))
         except Exception:
-            pass  # WS مقفول/معطوب — نفس ابتلاع القديم
+            # NF-14 §3 (ابتلاع مقصود): WS مقفول/معطوب — نفس ابتلاع القديم (عقد T-047).
+            pass
 
 
 def _frame_publisher(bus: EventBus, conn_key: str | None = None):
@@ -375,7 +379,8 @@ def _begin_run_ticket(kind, send_fn, sctx=None):
         try:
             project_id = sctx.project.project_id
         except Exception:
-            project_id = ""  # مقبض بلا هوية → الخانة العالمية (موثّق)
+            # NF-14 §4 (ابتلاع مقصود — قرار TSK-302): مقبض بلا هوية → الخانة العالمية.
+            project_id = ""
     # TSK-303 (NF-06): طَهْر التذاكر المنتهية القديمة عند كل تسجيل جديد
     # — يمنع تسرّب الذاكرة وتضخّم إطار runs_list (السقف: آخر 50 منتهية).
     execution_registry.purge_terminal()
@@ -720,6 +725,8 @@ def api_search():
                                 if len(results) >= 35:
                                     break
                     except Exception:
+                        # NF-14 §5 (ابتلاع مقصود): ملف غير مقروء أثناء بحث المحتوى —
+                        # يُتخطى (إسقاط البحث كله لملف تالف واحد أسوأ للمستخدم).
                         pass
                 if len(results) >= 35:
                     break
@@ -1476,8 +1483,17 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
                 f"detected_file:{detected_file}",
                 f"[📄 محتوى الملف: {detected_file}]:\n```{file_ext.lstrip('.')}\n{file_content}\n```",
             ))
-        except Exception:
-            pass  # تجاهل أخطاء القراءة
+        except Exception as e:
+            # NF-14 §6 (TSK-305 — الموضع الحرج): كان pass صامتًا — المستخدم
+            # ذكر ملفًا وفشلت قراءته فيُرسل الطلب للـ AI **بدون** محتواه
+            # بلا أي إشارة. الآن: إطار warning للواجهة + log — التدفق
+            # يكمل كالسابق (لا تغيير سلوك آخر — معيار القبول).
+            print(f"  ⚠️ فشل قراءة الملف المكتشف {detected_file}: {e}")
+            sctx.send({
+                "type": "warning",
+                "text": (f"⚠️ تعذّرت قراءة الملف المكتشف {detected_file} — "
+                         f"سيُرسل طلبك بدون محتواه ({e})"),
+            })
         detected_file = None  # لا نغير المجلد
 
     # ── معالجة مجلد مكتشف: عدم التبديل التلقائي إلا إذا كان نص الرسالة هو المسار فقط ──
@@ -1529,7 +1545,10 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
         project_context = _msg_ctx.project_context
         if _msg_ctx.dropped_attached:
             print(f"  ⚖️ ContextBudget: أُسقط من المرفقات: {_msg_ctx.dropped_attached}")
-    except Exception:
+    except Exception as e:
+        # NF-14 §7 (يحتاج log — أضيف): فشل جمع السياق كاملًا كان صامتًا —
+        # الرسالة تمضي بلا سياق مشروع (fallback مقصود) لكن السبب يُسجّل.
+        print(f"  ⚠️ gather_message_context فشل — مواصلة بلا سياق: {e}")
         mentioned_files = []
         user_text_with_files = user_text
         project_context = ""
@@ -1554,6 +1573,8 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
                     try:
                         files_dict[f_path] = sctx.fm.read_file(f_path)
                     except Exception:
+                        # NF-14 §8 (ابتلاع مقصود): ملف مذكور غير مقروء — التوجيه
+                        # يكمل ببقية الملفات (إثراء اختياري للراوتر).
                         pass
 
             # اتخاذ القرار
@@ -1562,6 +1583,7 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
                 try:
                     file_content_for_routing = sctx.fm.read_file(mentioned_files[0])
                 except Exception:
+                    # NF-14 §9 (ابتلاع مقصود): نفس §8 — إثراء اختياري للراوتر.
                     pass
 
             routing = request_router.route(
@@ -2078,8 +2100,10 @@ def _handle_ws_message(ctx, sctx, msg):
             try:
                 with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
                     file_content = f.read(MAX_SMART_FILE_SIZE)
-            except Exception:
-                pass
+            except Exception as e:
+                # NF-14 §10 (يحتاج log — أضيف): فشل قراءة ملف الـ chain كان
+                # صامتًا — الـ chain تكمل بلا محتوى لكن السبب يُسجّل.
+                print(f"  ⚠️ فشل قراءة ملف للـ chain {file_path}: {e}")
 
         if not sctx.chain_bridge:
             sctx.send({"type": "error", "text": "Chain system غير مفعّل"})
@@ -2213,14 +2237,18 @@ def _handle_ws_message(ctx, sctx, msg):
                     content = sctx.fm.read_file(f["path"])
                     files_context[f["path"]] = content
                 except Exception:
+                    # NF-14 §11 (ابتلاع مقصود): ملف سياق غير مقروء — التفويض
+                    # يكمل ببقية الملفات (إثراء اختياري).
                     pass
-        except Exception:
-            pass
+        except Exception as e:
+            # NF-14 §12 (يحتاج log — أضيف): فشل scan المشروع كله كان صامتًا.
+            print(f"  ⚠️ فشل جمع سياق التفويض: {e}")
 
         project_context = ""
         try:
             project_context = sctx.fm.get_project_context()
         except Exception:
+            # NF-14 §13 (ابتلاع مقصود): سياق المشروع إثراء اختياري للتفويض.
             pass
 
         # T-041 (R-501): نفس مسار الإرسال الموحّد — DelegateRunner فوق
@@ -2256,6 +2284,8 @@ def _handle_ws_message(ctx, sctx, msg):
                 try:
                     sctx.send({"type": et, **ed})
                 except Exception:
+                    # NF-14 §14 (ابتلاع مقصود): WS مقفول أثناء حدث اعتماد —
+                    # نفس سياسة §3 (الإرسال لا يعطل الهبوط).
                     pass
 
             landed = sctx.delegate_bridge.land(on_event=approval_handler)
@@ -2280,7 +2310,10 @@ def _handle_ws_message(ctx, sctx, msg):
                             "options": options,
                             "summary": f"✅ تم اعتماد التعديلات (delegation #{run.run_id})",
                         })
-                    except Exception:
+                    except Exception as e:
+                        # NF-14 §15 (يحتاج log — أضيف): فشل تحليل رد التفويض كان
+                        # صامتًا — fallback لـ done فارغ يبقى، والسبب يُسجّل.
+                        print(f"  ⚠️ فشل تحليل رد التفويض بعد الاعتماد: {e}")
                         sctx.send({
                             "type": "done",
                             "actions": [],
@@ -2328,6 +2361,8 @@ def ws_handler(ws):
                     break
                 data = json.loads(raw)
             except Exception:
+                # NF-14 §16 (ابتلاع مقصود): انقطاع WS/إطار تالف — إنهاء
+                # الحلقة هو السلوك الصحيح (التنظيف في finally).
                 break
             _handle_ws_message(ctx, sctx, data)
     finally:
@@ -2558,6 +2593,7 @@ def main():
     try:
         _auto_execute = bool(_load_config().get("auto_execute", False))
     except Exception:
+        # NF-14 §17 (ابتلاع مقصود): config غير مقروء → الوضع التفاعلي الآمن.
         pass
     global approval_gate
     approval_gate = ApprovalGate(
@@ -2667,7 +2703,8 @@ def main():
                 fb_provider.initialize()
                 provider_pool.add(fb_name, fb_provider)
             except Exception:
-                pass  # Fallback providers — not critical
+                # NF-14 §18 (ابتلاع مقصود): مزود احتياطي فشل تهيئته — غير حرج.
+                pass
 
     account_budget = AccountAwareBudget(provider_pool.all_providers)
     # T-102: نفس سجل الإضافات المُحمَّل عند الإقلاع (لا اكتشاف ثانٍ).

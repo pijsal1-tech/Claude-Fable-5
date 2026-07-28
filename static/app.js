@@ -206,6 +206,12 @@ function handleWSMessage(data) {
             showErrorInChat(data.text);
             break;
 
+        case "warning":
+            // TSK-305 (NF-14): تنبيه غير معطّل — toast فقط، لا يوقف البث
+            // (مثال: فشل قراءة ملف مكتشف — الطلب يكمل بدون محتواه).
+            toast(data.text || "⚠️ تحذير", "error");
+            break;
+
         case "action_result":
             handleActionResult(data);
             break;
