@@ -17,9 +17,10 @@
 from __future__ import annotations
 
 import pathlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
+from context.budget import BudgetItem, ContextBudget
 from context.engine import ContextEngine, ContextItem, ContextRequest
 from context.sources.keyword import KeywordSource
 from context.sources.mention import (
@@ -55,12 +56,21 @@ def _app_config() -> dict:
         return {}
 
 
+#: TSK-103 (BUG-03): وسم إسقاط ظاهر — لا اقتطاع صامت بلا وسم (QA-T03R).
+_DROP_MARKER = ("[⚠️ أُسقط جزء من المحتوى المرفق وفق ميزانية السياق "
+                "(context_budget) — القائمة في dropped_attached]")
+
+
 @dataclass(frozen=True)
 class MessageContext:
-    """ما كانت الكتلة المضمّنة تنتجه — بنفس الدلالات حرفيًا."""
+    """ما كانت الكتلة المضمّنة تنتجه — بنفس الدلالات حرفيًا.
+
+    TSK-103: ``dropped_attached`` (افتراضي []) = مفاتيح العناصر المرفقة
+    التي أسقطتها الميزانية — للرصد (لا تدهور صامت)."""
     mentioned_files: list[str]
     user_text_with_files: str
     project_context: str
+    dropped_attached: list[str] = field(default_factory=list)
 
 
 def _default_engine(index: Any = None,
@@ -95,13 +105,24 @@ def gather_message_context(project_root: str | pathlib.Path, user_text: str,
                            engine: ContextEngine | None = None,
                            max_files: int = MAX_MENTIONED_FILES,
                            index: Any = None,
-                           memory_source: Any = None) -> MessageContext:
+                           memory_source: Any = None,
+                           attached: "list[tuple[str, str]] | None" = None,
+                           budget: "ContextBudget | None" = None,
+                           ) -> MessageContext:
     """النداء الوحيد الذي يحتاجه معالج WS (معيار قبول T-019).
 
     T-049: مرّر ``index=sctx.project.index`` لاستعلام الفهرس المقلوب
     بدل مشية شجرية لكل رسالة. ``engine`` الصريح يتقدّم على الفهرس.
     T-105: ``memory_source`` (MemorySource محقون بطبقتي الجلسة) يُضاف
-    للتركيبة عند تمريره — الافتراضي None = السلوك القديم حرفيًا."""
+    للتركيبة عند تمريره — الافتراضي None = السلوك القديم حرفيًا.
+
+    TSK-103 (BUG-03): ``attached`` = قائمة ``(key, text)`` لمحتوى
+    مكتشف/مرفق (ملف مكتشف، مجلد attach) — يُحزم تحت ``ContextBudget``
+    (الافتراضي: ``config.yaml:context_budget``) بدل الإلحاق الخام في
+    ``user_text``. رسالة المستخدم must_have (لا تُسقط أبدًا)، المرفقات
+    high؛ أي إسقاط يُوسم بوسم ظاهر في الحمولة + ``dropped_attached``.
+    ``attached=None`` (الافتراضي) = السلوك القديم بايت-بايت
+    (goldens T-017 محفوظة بالبناء)."""
     eng = engine or _default_engine(index, memory_source=memory_source)
     bundle = eng.gather(ContextRequest(
         message=user_text,
@@ -128,8 +149,31 @@ def gather_message_context(project_root: str | pathlib.Path, user_text: str,
             structure = item.content or ""
             break
 
+    user_text_with_files = render_legacy_injection(user_text, file_items)
+    dropped_attached: list[str] = []
+    if attached:
+        # TSK-103 (BUG-03): حزم المرفقات تحت الميزانية — الرسالة
+        # must_have، المرفقات high (تُسقط الأكبر أولًا عند الفيض).
+        b = budget or ContextBudget.from_config(_app_config())
+        items = [BudgetItem("user_message", user_text_with_files,
+                            tier="must_have")]
+        items += [BudgetItem(key, text, tier="high")
+                  for key, text in attached]
+        result = b.pack(items)
+        if result.dropped:
+            # وسم ظاهر ثابت الحجم يدخل must_have ثم إعادة الحزم —
+            # الميزانية أضيق فالإسقاط يبقى غير فارغ (لا اقتطاع صامت).
+            items = ([items[0],
+                      BudgetItem("attached_drop_marker", _DROP_MARKER,
+                                 tier="must_have")]
+                     + items[1:])
+            result = b.pack(items)
+        user_text_with_files = "\n\n".join(it.text for it in result.kept)
+        dropped_attached = [d.key for d in result.dropped]
+
     return MessageContext(
         mentioned_files=[it.path for it in file_items],
-        user_text_with_files=render_legacy_injection(user_text, file_items),
+        user_text_with_files=user_text_with_files,
         project_context=structure,
+        dropped_attached=dropped_attached,
     )

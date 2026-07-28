@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-27 (Session 7 — MODE B: TSK-201+101+102 Completed, QA-T05 green) |
+| last-updated | 2026-07-28 (Session 8 — MODE B: TSK-103 Completed, QA-T06 جزء 103 أخضر) |
 | stage | EXECUTION (MODE B — M1 in progress) |
 | current-phase | M1 (Safety) |
-| current-task | TSK-103 — توحيد مسارات حقن السياق تحت ContextBudget (BUG-03) |
+| current-task | TSK-104 — سقف تاريخ المحادثة عند نقطة الإرسال (NF-07) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 16% (3 / 19 TSK) |
+| completion % (execution) | 21% (4 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -153,7 +153,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 |---|---|---|---|---|
 | TSK-101 | fix | تمرير mode للمحلّل + فلترة actions في chat (BUG-01) | M1 | ✅ Completed (S7) |
 | TSK-102 | fix | تهذيب fallback الأوامر (NF-13) | M1 | ✅ Completed (S7) |
-| TSK-103 | fix | توحيد مسارات حقن السياق تحت ContextBudget (BUG-03) | M1 | ⬜ pending |
+| TSK-103 | fix | توحيد مسارات حقن السياق تحت ContextBudget (BUG-03) | M1 | ✅ Completed (S8) |
 | TSK-104 | fix | سقف تاريخ المحادثة (NF-07) | M1 | ⬜ pending |
 | TSK-105 | security | Zip-Slip guard للاستعادة (NF-15) | M1 | ⬜ pending |
 | TSK-201 | refactor | دمج apply_all_actions/execute_plan (NF-23.1) | M2 | ✅ Completed (S7) |
@@ -426,10 +426,53 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
   - `FIX(TSK-201): merge apply_all_actions/execute_plan into _apply_batch (NF-23.1), golden-verified`
   - `FIX(TSK-101+102): mode-aware parser, chat emits zero actions (BUG-01), bash fallback requires CMD: tag (NF-13) — QA-T05 green`
 
-- **EXACT RESUME POINT: TSK-103 (Current Task)** — توحيد مسارات حقن السياق
-  تحت ContextBudget (BUG-03): في server.py مسار الملف المُكتشف
-  (كان L1332–L1339) + مسار attach-folder (كان L1782–L1791) → تمرير المحتوى
-  كـ source إلى gather_message_context بدل الإلحاق الخام في user_text؛
-  السقف من config.yaml:context_budget. معيار القبول: مجلد 15 ملفًا + ملف
-  100KB → الحمولة ≤ السقف (QA-T06). بعدها TSK-104 ثم TSK-105؛ بوابة
-  QA-T06/T07 تُغلق M1.
+- **EXACT RESUME POINT (superseded by Session 8)**: TSK-103 أُنجز في Session 8.
+
+---
+
+## Session 8 log (2026-07-28) — MODE B: TSK-103 (BUG-03)
+
+- **قاعدة ثابتة من المستخدم**: المستخدم يرفع/يسجل كل التغييرات يدويًا —
+  العمل دائمًا working-tree فقط، صفر عمليات git. الرفع اليدوي لـ S7 هبط
+  على فرع **main** (HEAD 8936329) — العمل استمر من هناك.
+- **TSK-103 (BUG-03، يُغلق NF-09)**: توحيد مساري حقن السياق تحت ContextBudget:
+  - `context/facade.py`: معاملان جديدان لـ `gather_message_context` —
+    `attached: list[(key, text)] | None` و`budget: ContextBudget | None`
+    (الافتراضي `ContextBudget.from_config(config.yaml:context_budget)`).
+    الرسالة must_have (لا تُسقط)، المرفقات high (الأكبر يُسقط أولًا)؛
+    أي إسقاط → وسم ظاهر `_DROP_MARKER` في الحمولة + حقل جديد
+    `MessageContext.dropped_attached` (افتراضي [] — frozen dataclass بـ field).
+    `attached=None` = السلوك القديم بايت-بايت (goldens T-017 محفوظة).
+  - `server.py` مسار الملف المُكتشف: بدل `user_text += "[📄 محتوى الملف..."`
+    → `attached_context.append(("detected_file:<path>", ...))`.
+  - `server.py` مسار attach-folder (confirm_path_action/attach): بدل الإلحاق
+    الخام → عنصر header + عنصر لكل ملف (`attach_file:<rel>`) تمر عبر
+    معامل جديد `_dispatch_chat_message(..., attached_context=...)`.
+  - موقع gather: تمرير `attached=attached_context or None` + طباعة رصد
+    للمُسقَط.
+- **بوابة QA-T06 (جزء TSK-103)**: tests/unit/test_context_injection_budget.py —
+  7 اختبارات: معيار القبول الحرفي (15 ملفًا + 100KB → الحمولة ≤ السقف)،
+  سقف config.yaml افتراضيًا، لا اقتطاع صامت (وسم QA-T03R)، مرفق صغير
+  يبقى كاملًا، السلوك التاريخي محفوظ (None/[])، الأكبر يُسقط أولًا —
+  كلها خضراء، صفر نداءات AI خارجية. (جزء TSK-104 من QA-T06 — تاريخ
+  200 رسالة — يأتي مع TSK-104.)
+- **الحزمة الكاملة**: `5 failed, 1497 passed, 63 skipped` — نفس الفشلات
+  الخمس الموجودة مسبقًا (خارج نطاق M1، لم تُمس): test_file_icons /
+  test_history_consumers / test_rollback_ui / test_symbol_index /
+  test_theme_tokens.
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🛠 server.py
+  2. 🛠 context/facade.py
+  3. 🆕 tests/unit/test_context_injection_budget.py
+  4. 🛠 docs/engineering/PROGRESS.md
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `FIX(TSK-103): unify detected-file + attach-folder injection under ContextBudget (BUG-03), visible drop marker, QA-T06 part green`
+
+- **EXACT RESUME POINT: TSK-104 (Current Task)** — سقف تاريخ المحادثة عند
+  نقطة الإرسال (NF-07 — جزء الحمولة؛ جزء الذاكرة في TSK-303):
+  server.py مواضع تمرير history (كانت L1559، L1654 — الآن
+  `sctx.chat_history[:-1]` في مساري agent/direct) → تمرير آخر N
+  رسالة/حرف وفق مفتاح config جديد (افتراضي متوافق سلوكيًا موثّق).
+  معيار القبول: جلسة 200 رسالة → حمولة history مسقوفة؛ اختبار وحدة
+  على القصّ (QA-T06). Deps: TSK-103 ✅. بعدها TSK-105 (Zip-Slip، QA-T07)؛
+  بوابة QA-T06/T07 تُغلق M1.

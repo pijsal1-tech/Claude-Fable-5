@@ -1282,8 +1282,13 @@ def _build_session_context(ws):
     )
 
 
-def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip_path_detection: bool = False):
-    """إرسال ومعالجة رسالة الشات مع الـ AI (جمع السياق والتوجيه)"""
+def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip_path_detection: bool = False, attached_context: list | None = None):
+    """إرسال ومعالجة رسالة الشات مع الـ AI (جمع السياق والتوجيه).
+
+    TSK-103 (BUG-03): ``attached_context`` = قائمة ``(key, text)`` لمحتوى
+    مرفق (مجلد attach من confirm_path_action) — يمر لـ
+    gather_message_context ليُحزم تحت ContextBudget بدل الإلحاق الخام."""
+    attached_context = list(attached_context) if attached_context else []
     # ── 1. كشف ذكي للمسارات (ملفات + مجلدات) ──
     import re
     detected_dir = None
@@ -1329,12 +1334,17 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
         detected_file = os.path.abspath(user_text.strip())
 
     # ── معالجة ملف مكتشف: قراءة محتواه وإرفاقه ──
+    # TSK-103 (BUG-03): لا إلحاق خام في user_text — المحتوى يدخل
+    # attached_context ليُحزم تحت ContextBudget في gather_message_context.
     if detected_file:
         try:
             with open(detected_file, 'r', encoding='utf-8', errors='replace') as df:
                 file_content = df.read(MAX_SMART_FILE_SIZE)
             file_ext = os.path.splitext(detected_file)[1]
-            user_text += f"\n\n[📄 محتوى الملف: {detected_file}]:\n```{file_ext.lstrip('.')}\n{file_content}\n```"
+            attached_context.append((
+                f"detected_file:{detected_file}",
+                f"[📄 محتوى الملف: {detected_file}]:\n```{file_ext.lstrip('.')}\n{file_content}\n```",
+            ))
         except Exception:
             pass  # تجاهل أخطاء القراءة
         detected_file = None  # لا نغير المجلد
@@ -1377,12 +1387,17 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
         return  # ← وقف التنفيذ — لا يُرسل للـ AI حتى يختار المستخدم
 
     # ── 2. جمع السياق — ContextEngine (T-019, R-201) ──
+    # TSK-103 (BUG-03): attached يمرر المحتوى المكتشف/المرفق ليُحزم
+    # تحت سقف config.yaml:context_budget — أي إسقاط مرصود لا صامت.
     try:
         _msg_ctx = gather_message_context(sctx.fm.root, user_text,
-                                          index=sctx.project.index)
+                                          index=sctx.project.index,
+                                          attached=attached_context or None)
         mentioned_files = _msg_ctx.mentioned_files
         user_text_with_files = _msg_ctx.user_text_with_files
         project_context = _msg_ctx.project_context
+        if _msg_ctx.dropped_attached:
+            print(f"  ⚖️ ContextBudget: أُسقط من المرفقات: {_msg_ctx.dropped_attached}")
     except Exception:
         mentioned_files = []
         user_text_with_files = user_text
@@ -1785,22 +1800,31 @@ def _handle_ws_message(ctx, sctx, msg):
             except Exception as e:
                 sctx.send({"type": "error", "text": f"فشل فتح المجلد: {e}"})
                 return
-        elif action == "attach":
+        attached_context = []
+        if action == "attach":
+            # TSK-103 (BUG-03): لا إلحاق خام في user_text — كل ملف يدخل
+            # attached_context كعنصر مستقل ليُحزم تحت ContextBudget.
             try:
                 from chain.bridge import scan_folder_for_chain
                 scanned_files = scan_folder_for_chain(detected_path)
-                folder_context_str = f"\n\n[📂 سياق المجلد المرفق: {detected_path} ({len(scanned_files)} ملفات)]:\n"
+                header = (f"[📂 سياق المجلد المرفق: {detected_path} "
+                          f"({len(scanned_files)} ملفات)]")
+                attached_context.append((f"attach_folder:{detected_path}", header))
                 for sf in scanned_files[:15]:
                     rel_p = sf.get("rel_path", sf.get("path", ""))
                     content_preview = (sf.get("content") or "")[:2000]
-                    folder_context_str += f"\n--- {rel_p} ---\n{content_preview}\n"
-                user_text += folder_context_str
+                    attached_context.append((
+                        f"attach_file:{rel_p}",
+                        f"--- {rel_p} ---\n{content_preview}",
+                    ))
             except Exception as e:
                 print(f"⚠️ فشل إرفاق المجلد كسياق: {e}")
 
         # استئناف تنفيذ الرسالة للـ AI بعد اتخاذ القرار
         if user_text:
-            _dispatch_chat_message(ctx, sctx, user_text, mode, orig_msg, skip_path_detection=True)
+            _dispatch_chat_message(ctx, sctx, user_text, mode, orig_msg,
+                                   skip_path_detection=True,
+                                   attached_context=attached_context or None)
         return
 
     # ── Chain: رد المستخدم على إطار chain_approval_request (T-012) ──
