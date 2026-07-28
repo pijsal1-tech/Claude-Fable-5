@@ -66,6 +66,17 @@ class SearchService:
 
     def __init__(self, index) -> None:
         self._index = index
+        # حدود القراءة (R-204): كل قراءة محتوى داخل context/ تمر من
+        # SafeReader — لا قراءة خام (بوابة test_safe_reader_routing).
+        # السقف الضخم مقصود: سقوف الحجم الفعلية يحكمها المستهلك
+        # (max_size في read_lines) حفظًا للعقد القديم لكل مسار.
+        # فارق موثّق: ملف يحجبه SafeReader (denylist/sniff) يُتخطى من
+        # البحث بدل أن يُقرأ خامًا — تشديد أمني مقصود (لا تسريب
+        # أسرار في نتائج بحث تصل للموديل/الواجهة)؛ المساران القديمان
+        # كانا يفلتران is_secret_file قبل القراءة أصلًا فالتكافؤ الذهبي
+        # على الملفات غير السرية محفوظ حرفيًا.
+        from context.safe_reader import SafeReader
+        self._reader = SafeReader(index.root, max_file_size=1 << 40)
         # (path(str), splitter) → (mtime_ns, size, lines: list[str])
         # splitter يُحفظ في المفتاح لأن المستهلكيْن القديمين اختلفا:
         # api_search استخدم splitlines()، tool_search_code استخدم
@@ -95,10 +106,12 @@ class SearchService:
         hit = self._cache.get(key)
         if hit is not None and hit[0] == st.st_mtime_ns and hit[1] == st.st_size:
             return hit[2]
-        try:
-            text = p.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+        # القراءة عبر حدود SafeReader (نفس فك الترميز: utf-8 + replace)؛
+        # محجوب (سري) أو فاشل ⇒ None (الملف يُتخطى من البحث).
+        result = self._reader.read_text(str(p))
+        if not result.ok or result.redacted or result.content is None:
             return None
+        text = result.content
         lines = text.split("\n") if splitter == "nl" else text.splitlines()
         if st.st_size <= _CACHE_FILE_CAP:
             if len(self._cache) >= _CACHE_MAX_ENTRIES:
