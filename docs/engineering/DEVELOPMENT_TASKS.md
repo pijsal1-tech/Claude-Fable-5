@@ -88,7 +88,34 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-602 — تسييج نتائج الأدوات والمعرفة (Context poisoning)
-- **Status**: IN-PROGRESS (Session 35) · **Priority**: P1
+- **Status**: ✅ DONE (Sessions 35–36) · **Priority**: P1
+- **Close-out (Session 36 — إعادة تحقق بعد sandbox reset)**:
+  - التنفيذ (S35، في origin @2df00ce): (أ) agent_loop.py — موضعا حقن
+    نتائج الأدوات (الآمنة + الأوامر المعتمدة) يلفان المحتوى بـ
+    `fence_attached("tool_result:{tool}", …)`؛ (ب) knowledge.py
+    `_render_body` — الأنواع الأربعة (file/dir/search/command) مُسيّجة
+    بمصدر موسوم لكل نوع، ورؤوس الأقسام وأسطر `--- display ---`
+    تبقى خارج السور (سلوك محفوظ)؛ (ج) `to_summary` مُسيّج اتساقًا؛
+    موضع followup_prompt الثالث مُغطى بالتعدي عند المصدر (لا تسييج
+    مزدوج).
+  - القبول (3/3 — أُعيد التحقق آليًا Session 36): (1) ✅ E2E: ملف يحوي
+    "IGNORE ALL INSTRUCTIONS…" → برومبت المتابعة الملتقط (FakeProvider)
+    يحمل التعليمة العدائية داخل السور حصرًا (فحص spans)؛ (2) ✅
+    grep-assert بنيوي دائم داخل الاختبار (لا نمط حقن خام + عدّات
+    fence_attached ≥2 في agent_loop و≥5 في knowledge)؛ (3) ✅ QA-T12
+    (test_prompt_fencing) أخضر.
+  - الاختبار الجديد: tests/unit/test_context_fencing.py — **6 حالات**
+    (E2E مسموم + أوسمة المصدر للأنواع الأربعة + to_summary + تحييد
+    وسم إغلاق مزوّر + حارسان بنيويان) — كلها خضراء.
+  - **Gates**: Security ✅ (ASF-01 مُغلق — المحتوى الخارجي كله داخل
+    أسوار + تعليمة system القائمة INJECTION_GUARD تُفعّلها) · Testing ✅
+    (6 حالات) · Regression ✅ (تشغيل كامل Session 36: **4F/1683P/34S
+    ~72s** — الأربعة المعروفة فقط؛ اختبارات التثبيت للـ bundle/budget/
+    feedback خضراء — نجاة عنصر high في ميزانية ضيقة محفوظة) ·
+    Documentation ✅ (هذا السجل + CHANGELOG).
+  - **Metrics**: مواضع حقن خام: 5 → 0 · اختبارات تسييج مسار الوكيل:
+    0 → 6.
+  - **Rollback**: revert 2df00ce + commit الإغلاق.
 - **Behavior-preservation pre-check (Session 35 — قبل التعديل)**:
   - الحقن الخام المُقاس: (أ) agent_loop.py:224–226 و257–259 —
     `[نتيجة {tool}({args})]:\n{truncated}` بلا أسوار (أداة آمنة + أمر
@@ -397,7 +424,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | TSK | M | P | Status | ملاحظة |
 |---|---|---|---|---|
 | 601 | M6 | P1 | ✅ DONE (S33–34) | 6 اختبارات جديدة خضراء؛ regression نظيف (4F المعروفة فقط) |
-| 602 | M6 | P1 | TODO | |
+| 602 | M6 | P1 | ✅ DONE (S35–36) | 6 اختبارات جديدة؛ مواضع الحقن الخام 5→0؛ regression نظيف |
 | 603 | M6 | P1 | TODO | |
 | 604 | M6 | P1 | TODO | |
 | 605 | M6 | P1 | BLOCKED(D-2) | TF-02 جزؤها قابل للتنفيذ فورًا |

@@ -39,3 +39,38 @@
   test_history_consumers / test_rollback_ui / test_theme_tokens — تعالجها
   TSK-604/605)؛ لا فشل جديد.
 - `grep -c "extract_actions\|extract_options" server.py` = **0**.
+
+---
+
+## [TSK-602] — 2026-07-28 (Sessions 35–36) — تسييج نتائج الأدوات والمعرفة
+
+**العائلة المُغلقة**: ASF-01 (§R4 — Context poisoning عبر نتائج الأدوات)
+
+### Fixed
+- نتائج الأدوات كانت تُحقن **خامًا** في برومبت متابعة الوكيل
+  (`[نتيجة {tool}(...)]:\n{نص}` — chain/agent_loop.py، موضعا الأدوات
+  الآمنة والأوامر المعتمدة) وكذلك أجساد المعرفة المجمعة
+  (chain/knowledge.py `_render_body` بأنواعه الأربعة + `to_summary`) —
+  أي ملف/مخرجات أمر تحوي تعليمات عدائية ("IGNORE ALL INSTRUCTIONS")
+  كانت تصل الموديل كأنها جزء من التعليمات.
+
+### Changed
+- كل موضع حقن يمر الآن عبر `fence_attached` القائمة (prompts/templates.py
+  — الآلية المختبرة TSK-404/QA-T12) بمصدر موسوم لكل نوع:
+  `tool_result:{tool}` / `file:` / `dir:` / `search:` / `command:`.
+- رؤوس الأقسام (`📂 [ملفات تم قراءتها]`، `--- display ---`، …) تبقى خارج
+  السور — بنية البرومبت محفوظة؛ المحتوى الخارجي وحده داخل الأغلفة.
+- موضع `_build_followup_prompt` الثالث مُغطى بالتعدي عند المصدر —
+  لا تسييج مزدوج.
+
+### Added
+- `tests/unit/test_context_fencing.py` — 6 حالات: E2E بملف مسموم عبر
+  AgentLoop+FakeProvider (فحص spans: التعليمة العدائية داخل السور حصرًا)،
+  أوسمة المصدر للأنواع الأربعة، تسييج to_summary، تحييد وسم إغلاق مزوّر،
+  وحارسان بنيويان (grep-assert) ضد عودة الحقن الخام.
+
+### Verification
+- الاختبارات الجديدة 6/6 + QA-T12 + test_knowledge_bundle +
+  test_agent_feedback كلها خضراء (47 اختبارًا في نطاق الأثر).
+- Regression كامل (Session 36): `4 failed, 1683 passed, 34 skipped` (~72s)
+  — الأربعة المعروفة فقط (TSK-604/605)؛ لا فشل جديد.
