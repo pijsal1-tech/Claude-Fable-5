@@ -304,6 +304,21 @@
   **إغلاق TSK-604 ✅**: Close-out + Gates + جدول الحالة 604→DONE +
   CHANGELOG مدخلة TSK-604 · تحديث PROGRESS (4/26 — M6: 4/5) · commit
   محلي · الموقع → TSK-605 (جزء TF-02 فورًا).
+- 2026-07-28 (Session 40): استرداد بعد sandbox reset (clone من 4ab3f41) ·
+  تنفيذ جزء TF-02 من TSK-605: pre-checks (حفظ السلوك + Fitness — الحارس
+  ملكيّته core وإدراج providers/ يناقض §0.8؛ الانتهاك الوحيد
+  openai_shelby.py:105) في §TSK-605 · إخراج `providers` من قائمة المسح
+  بتعليق معلّل (test_history_consumers.py:229) · 41/41 · regression
+  **1F/1693P/34S** (المتبقي الوحيد theme_tokens/TF-04) · Partial
+  close-out + جدول الحالة + CHANGELOG مدخلة TF-02 · الجلسة انقطعت
+  أثناء تحديث PROGRESS؛ دمج المستخدم عند 5ab1c59.
+- 2026-07-28 (Sessions 41–42): استرداد بعد sandbox reset (S41 من
+  5ab1c59، S42 من 847532b — header/position/Next action وصلت origin
+  في S41؛ الناقص سجل الجلسات فقط) · إعادة تحقق S41:
+  test_history_consumers 41/41 + regression كامل **1F/1693P/34S ~72s**
+  (test_theme_tokens/TF-04 حصرًا — فشل search_perf العابر لم يتكرر
+  في S40/S41) · S42: إكمال سجل الجلسات + commit محلي · الموقع →
+  M7/TSK-606؛ TSK-605 مفتوحة تنتظر D-2.
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
