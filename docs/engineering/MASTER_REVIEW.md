@@ -558,8 +558,78 @@ runtime-مكسور (RP-01) كان قابلًا للالتقاط الساكن.
 
 ---
 
-## R9 — UX Findings + Agentic Capability Matrix
-*(TODO)*
+## R9 — UX Findings + Agentic Capability Matrix ✅ (Session 29 — 2026-07-28)
+
+> **المنهج**: استهلاك أحكام CP-1..9 من §R0 ومقاطعتها مع الواقع المؤكد من
+> R4–R8 (بلا إعادة قراءة واسعة — greps مصوَّبة فقط لمواقع الربط UI/plan/memory).
+> مدخلات: PRODUCT_VISION Pillars/Filters (R0)، RP-01..04 (R7)، NF-10/11/12
+> المُرحّلة (R5/R6)، علم R3 السطر 284 (فجوة الإظهار SR-1).
+
+### R9.0 — تصحيح نطاق SR-1 (فجوة الإظهار) — أضيق مما سُجّل
+
+علم R3 (§R3، سطر 284) ذكر الفجوة كـ«diff panel/plan-artifact/سرد الجلسة».
+التحقق المباشر هذه الجلسة يُظهر أن **لوحة diff موجودة فعلًا**:
+- `static/app.js:428` — T-065 (R-901): «لوحة مراجعة الـ diff لطلبات الموافقة».
+- `static/app.js:1689–1717` — DOM glue فوق وحدة نقية `static/js/diff_panel.js`
+  (`diffPanelState = DiffPanel.openState(frame, oldContents)`)، مع حساب diff
+  حقيقي من المحتوى القديم لكل write/delete.
+
+⇒ فجوة SR-1 الفعلية تنحصر في عنصرين: **(1) الخطة-كـartifact تفاعلي** و
+**(2) سرد الجلسة** — لوحة diff لكل طلب موافقة **ALREADY-HAVE**. لا يُحذف نص
+R3؛ هذا تضييق مُثبت بالدليل.
+
+### R9.1 — استهلاك أحكام CP-1..9 × الواقع المؤكد (R4–R8)
+
+| CP | حكم R0 | الواقع المؤكد الآن | حكم R9 النهائي |
+|---|---|---|---|
+| CP-1 Plan Mode | ADOPT-CANDIDATE | الخطة تُبث كإطار `plan` (`server.py:1898–1904` للمسار المُوجَّه؛ `server.py:1804–1810` لمسار agent) وتُعرض بطاقة `showPlanCard` (`static/app.js:3099–3128`) — لكن البطاقة **قائمة قراءة فقط** بأربعة أزرار (نفّذ/حدّث/راجع/إلغاء): لا تحرير لخطوة، لا تعطيل خطوة، لا إعادة ترتيب | **ADOPT** — مهمة PLANNING: ترقية بطاقة الخطة إلى artifact تفاعلي (per-step toggle/edit) فوق الآلية القائمة؛ امتداد Extend لا انعطاف |
+| CP-2 Checkpoints | ALREADY-HAVE | مؤكد: RunHistory UI (`static/app.js:3391–3420`) فوق `/api/rollback/history` + أمرا WS `rollback_run/rollback_file` (T-054) | **ALREADY-HAVE — مُغلق** (فجوة الإظهار المتبقية = سرد الجلسة CP-8، لا الآلية) |
+| CP-3 Rules ملفية | ALREADY-HAVE (أقوى) | مؤكد: `agents_rules/AGENTS.md` موجود فعلًا (توافق المعيار البيني حاصل) + manifest.yaml governed-allowlist (R4: ASF سياق الأسطول) | **ALREADY-HAVE — مُغلق** |
+| CP-4 Hooks حتمية | ADOPT-CANDIDATE | لدينا نقطتا اعتراض حتميتان فقط: ApprovalGate (fail-closed، payload_hash — R4) + verify-step في agent_loop (`chain/agent_loop.py:343–408`: تعليمة تحقق من مفاتيح test/lint/typecheck/build) — لا آلية hooks يعرّفها المستخدم لأحداث دورة الحياة | **ADOPT-CANDIDATE يبقى** → PLANNING: تقييم hooks tighten-only كامتداد لـ verify-step؛ ليست P0/P1 |
+| CP-5 Permissions UI | PARTIAL | مؤكد: allowlist + SAFE/DANGEROUS_COMMANDS + `force_command_approval` (TSK-502، config.yaml) — **لا واجهة استعراض/تحرير للأذونات**؛ المستخدم لا يرى سياسة الأمان إلا بفتح config.yaml | **PARTIAL يبقى** → UXF-04 أدناه |
+| CP-6 Subagents معزولة | EVALUATE | أسطول 21-agent هو **fleet-as-data** (ملفات prompts/rules في `agents_rules/` — 14 دورًا + manifest) لا سياقات تشغيل معزولة؛ المسار التشغيلي الوحيد شبيه-subagent هو delegate runner (سياق مستقل + بوابة land) — وهو **مكسور الاعتماد حاليًا** (RP-01, `server.py:2337–2338`) | **EVALUATE محسوم**: لا حاجة لعزل سياقي جديد الآن؛ الأولوية إصلاح RP-01 ليعمل subagent-path الوحيد الموجود أصلًا |
+| CP-7 Review-after | REJECT الترتيب / ADOPT الإظهار | مؤكد أن الإظهار موجود جزئيًا: diff panel لكل موافقة (T-065) — يتبقى إظهار مُجمّع بعد الدفعة (batch summary) | **مُغلق كما هو**: consent-first صامد؛ إظهار الدفعة يُدمج في مهمة سرد الجلسة (CP-8) |
+| CP-8 سرد الجلسة | ADOPT-CANDIDATE (السرد فقط) | RunHistory قائمة rollback لكل run — **ليست سردًا**: لا timeline يجمع (طلب → خطة → موافقات → تنفيذ → نتائج) في عرض واحد | **ADOPT** → مهمة PLANNING (محليًا، بلا cloud — Non-Goal §15.2)؛ UXF-05 |
+| CP-9 Auto-memories | PARTIAL | مؤكد: الذاكرة provenance-tracked — الكتابة إما يدوية أو عبر أداة `remember_fact` ضمن SAFE set (`chain/agent_tools.py:38`) بقرار صريح من الوكيل داخل الحلقة؛ Memory Panel كامل CRUD (`static/app.js:3492–3546` فوق `static/js/memory_panel.js`) | **REJECT التوليد التلقائي الصامت** — يخالف honesty §11.4 (الوكيل يكتب فقط عبر أداة مُعلنة تظهر في السجل)؛ الوضع الحالي هو النموذج الصحيح. مُغلق |
+
+**خلاصة CP**: من 9 أنماط — 4 مُغلقة (CP-2/3/7/9)، 2 ADOPT إلى PLANNING
+(CP-1 خطة-تفاعلية، CP-8 سرد)، 1 ADOPT-CANDIDATE مؤجل (CP-4 hooks)،
+1 محسوم بإصلاح قائم (CP-6 ⇒ RP-01)، 1 فجوة UI (CP-5 ⇒ UXF-04).
+لا انعطاف معماري — كل المقبول امتدادات Extend.
+
+### R9.2 — Agentic Capability Matrix
+
+| القدرة | الحالة | الدليل | الفجوة |
+|---|---|---|---|
+| **Plan** | ⚠️ موجودة غير تفاعلية | planner heuristic/llm/hybrid (`config.yaml:132`، `server.py:2654–2664`)؛ إطار `plan` يصل الواجهة (`server.py:1898`، `app.js:219–223`) | البطاقة قراءة-فقط — لا تحرير/تعطيل خطوة (CP-1 → PLANNING) |
+| **Execute** | ⚠️ تعمل مع عيوب خيوط | 4 مسارات موثقة (R7)؛ `_apply_batch` بنقاط ticket+cancel (`server.py:2415–2462`) | direct غير مُخيَّط داخل حلقة ws (`server.py:1846–1858` — RP-02)؛ التطبيق in-loop (RF-01) |
+| **Verify** | ⚠️ جزئية | verify-step في حلقة الوكيل: تعليمة من مفاتيح test/lint/typecheck/build (`chain/agent_loop.py:343–408`) | تحقق نصّي-إرشادي (تعليمة للنموذج) لا بوابة حتمية بعد التنفيذ؛ hooks حتمية = CP-4 مؤجل |
+| **Memory** | ✅ | `remember_fact` SAFE (`chain/agent_tools.py:38`)؛ ProjectMemoryStore + provenance (`server.py:2786–2797`)؛ Memory Panel CRUD (`app.js:3492–3546`) | لا فجوة بنيوية — التوليد التلقائي مرفوض عمدًا (CP-9) |
+| **Multi-file** | ✅ | `_apply_batch` يمر على دفعة إجراءات بملفات متعددة مع checkpoint لكل خطوة (`server.py:2415–2462`)؛ diff panel لكل موافقة (T-065) | عرض مُجمّع بعد الدفعة ضمن سرد الجلسة (CP-8) |
+| **Cancel** | ⚠️ | عقد Runner بنقطتي cancel (started→cancel→gate→cancel→work — R7)؛ UI يرسل `chain_cancel` (`app.js:1153`) ويعالج `chain_cancelled/chain_cancel_result` (404/424) | مسار direct غير مُخيَّط ⇒ الإلغاء غير مستجيب أثناء نداء المزود المباشر (RP-02) → UXF-03 |
+| **Approve** | ⚠️ مسار واحد مكسور | ApprovalGate fail-closed + payload_hash (R4)؛ diff panel قبل الموافقة (T-065)؛ force_command_approval (TSK-502) | **delegate approve مكسور وظيفيًا** (RP-01، `server.py:2337–2338`) → UXF-02؛ لا Permissions UI (CP-5) → UXF-04 |
+| **Rollback** | ✅ | CheckpointManager + RunHistory UI + `rollback_run/rollback_file` (T-054، `app.js:3391–3420`) | لا فجوة آلية؛ الإظهار السردي = CP-8 |
+
+**قراءة المصفوفة**: 3 قدرات خضراء (memory/multi-file/rollback)، 5 صفراء —
+وكلها ترجع إلى **ثلاثة جذور** معروفة: RP-01 (اعتماد delegate)،
+RP-02+RF-01 (نموذج الخيوط)، فجوة الإظهار CP-1/CP-8. لا قدرة حمراء/غائبة.
+
+### R9.3 — UX Findings (من الواقع المؤكد فقط)
+
+| ID | الخطورة | الوصف | الدليل |
+|---|---|---|---|
+| UXF-01 | C3/S3 | بطاقة الخطة غير تفاعلية: كل-أو-لا-شيء (نفّذ/إلغاء) — لا تعديل أو استبعاد خطوة قبل الموافقة؛ يُضعف قيمة consent-first عمليًا لأن رفض خطوة واحدة يعني إلغاء الخطة كلها | `static/app.js:3099–3128` (أزرار فقط، `state.planActions` تُنفَّذ كتلة واحدة) |
+| UXF-02 | C2/S1 | طريق مسدود للمستخدم: واجهة مراجعة التفويض ترسل `delegate_approve` وتبدو الموافقة مقبولة، لكن الخادم يسقط إلى `actions=[]` بصمت (RP-01) — المستخدم يوافق ولا يحدث شيء بلا رسالة خطأ | `app.js:3347/3359` + `server.py:2337–2338` + بلع الاستثناء (NF-14 §15) |
+| UXF-03 | C3/S2 | زر الإلغاء غير مستجيب أثناء المسار المباشر: `chain_cancel` يُرسَل لكن حلقة ws محجوزة بنداء المزود غير المُخيَّط — انطباع «تجمّد» | `server.py:1846–1858` (RP-02) × `app.js:1153` |
+| UXF-04 | C4/S3 | لا واجهة استعراض للأذونات: سياسة SAFE/DANGEROUS/force_approval غير مرئية إلا في config.yaml — يخالف مبدأ glass box لأهم عقد أمان بين المستخدم والوكيل (CP-5) | `config.yaml` (TSK-502)؛ صفر عناصر UI للأذونات في app.js |
+| UXF-05 | C4/S3 | لا سرد جلسة: RunHistory قائمة rollback تقنية لا timeline يحكي (طلب→خطة→موافقة→تنفيذ→نتيجة)؛ هذه بقية SR-1 الحقيقية بعد تضييق R9.0 (CP-8) | `app.js:3391–3420` (بنية القائمة) |
+
+**خلاصة R9:** المحرك الوكيلي شبه مكتمل القدرات (لا قدرة غائبة) والفلسفة
+consent-first مؤكدة خارجيًا (CP-7). الفجوات الخمس المسجلة تتركز في **السطح
+لا المحرك** — ثلاثة جذور فقط تغذيها كلها، واثنان منها (RP-01، RP-02/RF-01)
+مسجلان أصلًا كعيوب runtime من R7؛ الجديد الصافي لـ PLANNING هو حزمة الإظهار:
+خطة-تفاعلية (UXF-01/CP-1) + سرد الجلسة (UXF-05/CP-8) + Permissions UI
+(UXF-04/CP-5)، وإصلاح صمت UXF-02 يجب أن يُضم لمهمة RP-01 نفسها.
 
 ---
 

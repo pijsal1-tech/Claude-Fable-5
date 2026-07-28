@@ -38,26 +38,43 @@
 
 ### Current Position
 - Stage: REVIEW (Stage 1)
-- Phase/Task: **R8 — Engineering Quality Review (delta)** (التالية)
-- Last completed step: R7 Runtime Pipeline ✅ (Session 28) — خريطة المسارات
-  الأربعة (عقد Runner متناظر — إيجابي بنيوي) + RP-01..04:
-  **RP-01 (C4/S2 مكسور مؤكد)**: delegate_approve ينادي
-  parser.extract_actions/extract_options غير الموجودتين (hasattr=False
-  runtime-verified، server.py:2337–2338) — AttributeError يُبتلع وكل اعتماد
-  تفويض يرجع actions=[]؛ RP-02 direct غير مُخيّط (عائلة RF-01)؛ RP-03 سياق
-  delegate خارج ContextBudget (L2265–2284)؛ RP-04 فرع proposed_actions خامل
-  إنتاجيًا — MASTER_REVIEW.md §R7
+- Phase/Task: **R10 — Testing & Documentation Review (delta)** (التالية — آخر مرحلة في Stage 1)
+- Last completed step: R9 UX & Agentic Capability ✅ (Session 29) — §R9 في
+  MASTER_REVIEW.md: (1) تضييق SR-1 بالدليل — لوحة diff موجودة فعلًا (T-065،
+  app.js:428/1689–1717) فالفجوة الحقيقية = خطة-تفاعلية + سرد جلسة فقط؛
+  (2) أحكام CP النهائية: CP-2/3/7/9 مُغلقة، CP-1/CP-8 ADOPT→PLANNING،
+  CP-4 مؤجل، CP-6 محسوم بإصلاح RP-01، CP-5 ⇒ UXF-04؛ (3) مصفوفة القدرة:
+  3 خضراء (memory/multi-file/rollback)، 5 صفراء ترجع لثلاثة جذور (RP-01،
+  RP-02+RF-01، فجوة الإظهار)، 0 غائبة؛ (4) UXF-01..05 (أبرزها UXF-02 C2:
+  موافقة delegate صامتة الفشل — تُضم لمهمة RP-01).
+  وقبلها: R8 Engineering Quality delta ✅ (Session 28) — NF-23.1/2/3
+  VERIFIED-FIXED + NF-24 أُعيد فحصه آليًا (81 موديول، 0 دورات)؛ بوابة mypy
+  خضراء (59 ملفًا)؛ تشخيص g1: ـ_dispatch_chat_message ~477 سطرًا +
+  ـ_handle_ws_message ~469 + main ~281؛ خطة تفكيك QG-01..04 (راوتر WS →
+  مسارات الإرسال → REST بعد قرار g5 → ضم mypy)؛ QF-01 improvements/ تلوث،
+  QF-02 فجوة بوابة mypy (RP-01 كان قابلًا للالتقاط الساكن) — §R8.
+  وقبلها بنفس الجلسة: R7 ✅ (خريطة المسارات + RP-01..04، أبرزها RP-01
+  اعتماد التفويض مكسور — runtime-verified، server.py:2337–2338)
 - Files/areas already covered: R-1..R6 (سابقًا) + R7 (قراءة كاملة runners/direct+
   agent+chain ورأس delegate؛ مقاطع server.py L1560–1900 توجيه/إرسال،
   L2312–2368 delegate_approve/reject، L2385–2403 ws_handler؛ chain/delegate.py
-  land/reject L588–640؛ app.js معالجات delegate 615–637/3279+)
-- Next action: R8 في MASTER_REVIEW.md — Engineering Quality delta: (أ) ترحيل
-  NF-23 (التكرارات — TSK-201/202/203 أصلحت 4 من الحزمة) وNF-24 (صفر دورات —
-  يُعاد الفحص الآلي سريعًا)؛ (ب) خطة تفكيك g1 (server.py 2,823 سطرًا):
-  تحديد الكتل القابلة للاقتطاع (REST blueprints، ws message router،
-  وسطاء الإطارات الوحدوية الموجودة أصلًا كبذور) — خطة لـ PLANNING لا تنفيذ؛
-  (ج) مرشح تنظيف: improvements/شامل/ نسخ تاريخية؛ (د) حالة mypy/lint إن
-  وجدت بوابة في scripts/check.sh
+  land/reject L588–640؛ app.js معالجات delegate 615–637/3279+) + R8 (فحص
+  دورات آلي، scripts/check.sh كامل، إحصاء بنيوي لـ server.py، mypy run)
+  + R9 (greps مصوَّبة فقط: showPlanCard app.js:3099–3128 + plan handler
+  219–223؛ إطارا plan server.py:1804/1898؛ verify-step
+  chain/agent_loop.py:343–408؛ remember_fact chain/agent_tools.py:38 +
+  ProjectMemoryStore server.py:2786–2797؛ Memory Panel app.js:3492–3546؛
+  RunHistory app.js:3391–3420؛ diff panel app.js:428/1689–1717 (T-065)؛
+  chain_cancel app.js:1153؛ جرد agents_rules/)
+- Next action: R10 في MASTER_REVIEW.md — Testing & Documentation delta:
+  (أ) فرز إخفاقات الاختبارات الأربعة القديمة (test_file_icons::license_note،
+  test_history_consumers::raw_history_slices، test_rollback_ui::index_wiring،
+  test_theme_tokens::raw_colors — من تشغيل Session 24: 1709 اختبارًا،
+  4F/1671P/34S)؛ يتطلب تثبيت التبعيات أولًا (flask flask-sock pyyaml
+  requests + requirements-dev.txt) ثم pytest للأربعة فقط؛ (ب) فجوات التغطية
+  الدلتا: هل كان لـ RP-01 اختبار سيلتقطه؟ (إن لا — فهذا finding)؛ (ج) فجوات
+  التوثيق انطلاقًا من QA_MASTER_PLAN + RELEASE_READINESS_REPORT (دلتا فقط)؛
+  بعد R10: Stage 1 DoD مكتمل ⇒ الانتقال إلى Stage 2 PLANNING
 - Current blocker: none
 
 ### Stage Checklists (Definition of Done — الدستور الجديد)
@@ -71,8 +88,8 @@
 - [x] R5 Reliability Review *(delta)* *(Session 26 — MASTER_REVIEW.md §R5: NF-01..14 مُرحّلة + RF-01..03)*
 - [x] R6 Performance Review (with baseline metrics) *(Session 27 — MASTER_REVIEW.md §R6: NF-20/21/22 VERIFIED-FIXED + baselines + PM-01..04 NOT INSTRUMENTED)*
 - [x] R7 Runtime Pipeline Review *(Session 28 — MASTER_REVIEW.md §R7: خريطة المسارات الأربعة + RP-01..04، أبرزها RP-01 اعتماد التفويض مكسور)*
-- [ ] R8 Engineering Quality Review *(delta)*
-- [ ] R9 UX & Agentic Capability Review
+- [x] R8 Engineering Quality Review *(delta)* *(Session 28 — MASTER_REVIEW.md §R8: NF-23/24 مُرحّلة + خطة تفكيك g1 (QG-01..04) + QF-01/02)*
+- [x] R9 UX & Agentic Capability Review *(Session 29 — MASTER_REVIEW.md §R9: تضييق SR-1 (diff panel موجودة T-065) + أحكام CP-1..9 النهائية + مصفوفة القدرة الوكلية (8 قدرات، 0 غائبة) + UXF-01..05)*
 - [ ] R10 Testing & Documentation Review *(delta)*
 #### Stage 2 — PLANNING
 - [ ] Findings prioritized (P0–P3) with Engineering Alternatives
@@ -133,7 +150,18 @@
 - 2026-07-28 (Session 28): استرداد بعد sandbox reset (clone من 2c7a10d) ·
   R7 كاملة ✅: خريطة المسارات الأربعة + RP-01..04 — أهم اكتشاف البرنامج
   حتى الآن: RP-01 اعتماد التفويض مكسور (نداء دوال parser غير موجودة،
-  مُتحقق runtime) · commit محلي (بلا push).
+  مُتحقق runtime) · commit محلي (بلا push) · ثم R8 كاملة ✅ بنفس الجلسة:
+  NF-23/24 مُرحّلة (إعادة فحص الدورات: 0/81) + بوابة mypy خضراء (59 ملفًا) +
+  خطة تفكيك g1 (QG-01..04) + QF-01/02 (§R8 وصلت origin عبر دمج المستخدم؛
+  مصالحة PROGRESS اكتملت في Session 29 بعد انقطاع التحرير).
+- 2026-07-28 (Session 29): استرداد بعد sandbox reset (clone من 1e2246c) ·
+  إصلاح مصالحة PROGRESS المنقطعة لـ R8 (القسم §R8 كان سليمًا في origin) ·
+  بدء R9 · **R9 أُنجزت كاملة** (§R9 في MASTER_REVIEW.md): تضييق SR-1
+  (diff panel موجودة T-065 — الفجوة = plan-artifact + سرد فقط) · أحكام
+  CP-1..9 نهائية (4 مُغلقة / CP-1+CP-8 ADOPT / CP-4 مؤجل / CP-6⇒RP-01 /
+  CP-5⇒UXF-04 / CP-9 رفض التوليد الصامت — honesty §11.4) · مصفوفة القدرة
+  8 قدرات (3✅/5⚠️/0❌ — ثلاثة جذور: RP-01، RP-02+RF-01، الإظهار) ·
+  UXF-01..05 · الموقع → R10 (آخر مراحل Stage 1).
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
