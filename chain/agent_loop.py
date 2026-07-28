@@ -243,7 +243,10 @@ class AgentLoop:
                             "status": "running",
                         })
                         
-                        result = self.tools.execute(call)
+                        # TSK-603 (ASF-02): تمرير قرار البوابة صراحة —
+                        # execute يحقن الرمز الحارس APPROVAL_GRANTED؛
+                        # النداء المباشر بلا القرار يُرفض fail-closed.
+                        result = self.tools.execute(call, approved=True)
                         success = not result.startswith("❌")
                         
                         self.knowledge.add_tool_result(

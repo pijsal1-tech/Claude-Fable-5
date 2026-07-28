@@ -39,6 +39,13 @@ SAFE_TOOLS = {"read_file", "list_dir", "search_code", "get_file_info",
 APPROVAL_TOOLS = {"run_command"}
 ALL_TOOLS = SAFE_TOOLS | APPROVAL_TOOLS
 
+# TSK-603 (ASF-02 · ALT-603→A): رمز قرار الموافقة — كائن حارس (sentinel)
+# يُقارَن بـ ``is`` حصرًا. وسائط الأدوات تُفكّ من نص AI
+# (parse_tool_calls) ⇒ لا يمكن لأي نص أن يُنتج هذا الكائن، فلا يمكن
+# تزوير الموافقة داخل بلوك TOOL. الحلقة (المسار المُدقَّق عبر
+# ApprovalGate) تحقنه عبر ``execute(call, approved=True)`` فقط.
+APPROVAL_GRANTED = object()
+
 
 # ═══════════════ سياسة أوامر الـ Agent (T-058 / R-504) ═══════════════
 
@@ -204,13 +211,23 @@ class AgentTools:
             return str(self._ctx.project.root)
         return self._static_root
     
-    def execute(self, call: ToolCall) -> str:
-        """تنفيذ أداة — يرجع النتيجة كنص"""
+    def execute(self, call: ToolCall, approved: bool = False) -> str:
+        """تنفيذ أداة — يرجع النتيجة كنص.
+
+        TSK-603 (ASF-02): ``approved=True`` يعني أن المستدعي حسم قرار
+        الموافقة عبر البوابة (AgentLoop._request_approval → ApprovalGate)
+        — يُترجم هنا إلى حقن الرمز الحارس APPROVAL_GRANTED لأدوات
+        APPROVAL_TOOLS. أي مفتاح ``_approval`` قادم من وسائط النص
+        يُسقَط أولًا (منع التزوير عبر بلوك TOOL).
+        """
         handler = self._handlers.get(call.tool)
         if not handler:
             return f"❌ أداة غير معروفة: {call.tool}"
+        args = {k: v for k, v in call.args.items() if k != "_approval"}
+        if approved and call.needs_approval:
+            args["_approval"] = APPROVAL_GRANTED
         try:
-            return handler(self, **call.args)
+            return handler(self, **args)
         except Exception as e:
             return f"❌ خطأ في {call.tool}: {e}"
     
@@ -429,15 +446,32 @@ class AgentTools:
         return (f"✅ حُفظت في ذاكرة المشروع "
                 f"({entry.kind} · id={entry.entry_id[:8]})")
     
-    def tool_run_command(self, command: str, reason: str = "") -> str:
+    def tool_run_command(self, command: str, reason: str = "",
+                         _approval: object = None) -> str:
         """تنفيذ أمر في Terminal — موافقة + allowlist (T-058 / R-504).
 
-        المسار: فحص allowlist (فرضها من config — رفض مهيكل ومسجَّل، لا
-        تنفيذ صامت أبدًا) → تنفيذ عبر cmd_runner في خيط عامل مع استطلاع
-        إلغاء RunTicket ومهلة قصوى → التقاط stdout/stderr/exit code
-        بسقف حجم. نمط المهلة نمط T-057: بلا ``with ThreadPoolExecutor``
-        (خروجه ينتظر الخيط البطيء فيهزم المهلة) — ``shutdown(wait=False)``.
+        TSK-603 (ASF-02 · ALT-603→A) — **fail-closed بنيويًا**: التنفيذ
+        يتطلب الرمز الحارس ``_approval is APPROVAL_GRANTED`` الذي لا
+        يحقنه إلا ``execute(call, approved=True)`` بعد حكم ApprovalGate
+        في الحلقة. أي نداء مباشر بلا الرمز (أو بقيمة نصية مزوّرة من
+        بلوك TOOL) → رفض مهيكل قبل أي فحص آخر — لا تنفيذ صامت أبدًا.
+
+        المسار: بوابة fail-closed → فحص allowlist (فرضها من config —
+        رفض مهيكل ومسجَّل، لا تنفيذ صامت أبدًا) → تنفيذ عبر cmd_runner
+        في خيط عامل مع استطلاع إلغاء RunTicket ومهلة قصوى → التقاط
+        stdout/stderr/exit code بسقف حجم. نمط المهلة نمط T-057: بلا
+        ``with ThreadPoolExecutor`` (خروجه ينتظر الخيط البطيء فيهزم
+        المهلة) — ``shutdown(wait=False)``.
         """
+        if _approval is not APPROVAL_GRANTED:
+            _LOG.warning(
+                "run_command REJECTED (fail-closed — no approval "
+                "token): %r", command)
+            return (
+                "❌ رفض بنيوي: تنفيذ الأوامر يتطلب قرار موافقة صريحًا "
+                "عبر بوابة الموافقة (AgentLoop → ApprovalGate) — "
+                "لا مسار تنفيذ مباشر بلا بوابة."
+            )
         if not self.cmd:
             return "❌ CommandRunner غير متاح"
 
@@ -482,6 +516,10 @@ class AgentTools:
         try:
             future = pool.submit(
                 self.cmd.run, actual,
+                # TSK-603: need_approval=False هنا صحيح بالبناء — قرار
+                # الموافقة حُسم أعلاه (الرمز الحارس APPROVAL_GRANTED من
+                # ApprovalGate)؛ بوابة CommandRunner الكونسولية
+                # (_ask_approval = input() حاجب) غير صالحة لخادم ويب.
                 need_approval=False,
                 timeout=int(max(1, policy.timeout_seconds)),
                 retries=0,

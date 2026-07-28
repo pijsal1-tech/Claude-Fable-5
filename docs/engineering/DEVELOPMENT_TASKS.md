@@ -160,7 +160,7 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-603 — بوابة موافقة fail-closed بنيويًا
-- **Status**: TODO · **Priority**: P1
+- **Status**: IN-PROGRESS (Session 37) · **Priority**: P1
 - **Objective**: قلب افتراض `need_approval` في `tool_run_command` إلى True؛
   الحلقة (المسار المُدقَّق) تمرر قرارها صراحة.
 - **Background**: ASF-02 (§R4) · **ALT-603 → A**.
@@ -177,6 +177,42 @@
   المستدعي الجديد فقط يواجه fail-closed؛ Migration = لا شيء للمسارات الحية.
 - **Metrics**: مسارات تنفيذ أمر بلا بوابة: 1 → 0.
 - **Rollback**: revert.
+- **Behavior-preservation pre-check (Session 37)**:
+  - Current (بدليل): `tool_run_command` (chain/agent_tools.py:432) يمرر
+    `need_approval=False` حرفيًا إلى `cmd.run` (:485) — أي مستدعٍ مباشر
+    ينفّذ أوامر بلا أي بوابة (ASF-02). المسار المُدقَّق الوحيد: الحلقة
+    تبوّب عبر `_request_approval`/ApprovalGate (agent_loop.py:236) **قبل**
+    `tools.execute(call)` (:246)؛ الفرع الآمن (:196/:204) لا يصل أبدًا
+    لـ run_command (`needs_approval` = عضوية APPROVAL_TOOLS، :130).
+  - مستدعو `tools.execute` الوحيدون في الإنتاج: agent_loop.py:204 و:246
+    (grep شامل — لا غيرهما). مستدعو `tool_run_command` المباشرون: اختبارات
+    فقط (tests/unit/test_run_command.py ×20، tests/integration/
+    test_agent_feedback.py:189).
+  - Expected بعد التعديل: مسار الحلقة يعمل حرفيًا كما قبل (القرار يُمرَّر
+    صراحة out-of-band)؛ النداء المباشر بلا قرار → رفض مهيكل «❌» بلا تنفيذ؛
+    الاختبارات المباشرة تُحدَّث لتمرير رمز القرار الصريح (تعاقد جديد مقصود
+    — هو جوهر التاسك، ليس كسر سلوك).
+- **Architecture-Fitness pre-check (Session 37)**:
+  - قلب `need_approval` إلى True عند مستوى CommandRunner **غير صالح**:
+    (أ) الخادم يبني `CommandRunner(auto_approve=True)` في المواضع الثلاثة
+    (server.py:625/:1283/:2585) ⇒ فرع البوابة
+    `need_approval and not is_safe and not auto_approve`
+    (command_runner.py:112) مُحيَّد بنيويًا؛ (ب) `_ask_approval`
+    (command_runner.py:260) هو `input()` كونسولي حاجب — استدعاؤه من خيط
+    عامل في خادم ويب تعليق دائم. ⇒ التنفيذ الأمين لروح ALT-603→A:
+    **fail-closed عند طبقة الأداة نفسها**.
+  - خطر التزوير: `execute()` يفكّ `handler(self, **call.args)` ووسائط
+    الـ AI نصوص من `parse_tool_calls` ⇒ قرار الموافقة يجب ألا يكون قابلًا
+    للتمثيل كنص. الحل: **sentinel object** وحدوي (`APPROVAL_GRANTED =
+    object()`) يُقارَن بـ `is` — لا يمكن لنص AI إنتاجه؛ `execute` يسقط أي
+    مفتاح `approval` قادم من النص ويحقن الكائن الحارس فقط عندما يمرر
+    المستدعي `approved=True` (الحلقة بعد ApprovalGate).
+  - `need_approval=False` المتبقي في :485 يصبح صحيحًا بالبناء (القرار
+    حُسم أعلاه) ويُوثَّق بتعليق TSK-603 + حارس بنيوي (استيفاء معيار
+    القبول 3)؛ مواضع server.py الثلاثة موثقة سلفًا عبر TSK-502
+    (test_force_approval::TestStructural) و`run_safe` واجهة داخلية آمنة.
+  - لا طبقة جديدة، لا تبعية جديدة — تعديل موضعي في agent_tools + سطر واحد
+    في الحلقة (اتساق مع خريطة الطبقات).
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-604 — إصلاح TF-03 (اللوحات المعطلة) + TF-01 (sprite)
