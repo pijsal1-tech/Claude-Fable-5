@@ -920,6 +920,10 @@ let currentTerminalCardEl = null; // كارت التيرمنال الحالي (p
 function startStreamingMessage() {
     const container = document.getElementById("chat-messages");
     currentStreamText = "";
+    // TSK-401 (NF-10): memo جديد لكل رسالة + إسقاط أي رندر معلّق
+    // من بث سابق (يمسك مرجع رسالة قديمة).
+    streamSectionMemo = StreamRender.createSectionMemo();
+    streamThrottler.cancel();
 
     currentStreamMsg = document.createElement("div");
     currentStreamMsg.className = "chat-msg assistant";
@@ -931,43 +935,64 @@ function startStreamingMessage() {
     container.scrollTop = container.scrollHeight;
 }
 
-function appendStreamChunk(text) {
-    if (!currentStreamMsg) return;
-    currentStreamText += text;
+// TSK-401 (NF-10): حالة البث التدريجي — throttler واحد + memo مقطعي
+// لكل رسالة بث (يُعاد إنشاء الـ memo في startStreamingMessage).
+const streamThrottler = StreamRender.createThrottler();
+let streamSectionMemo = StreamRender.createSectionMemo();
 
-    const content = currentStreamMsg.querySelector(".streaming-content");
-    const channels = parseResponseChannels(currentStreamText);
+function renderStreamContent(content, fullText, memo, open) {
+    // الرندر الفعلي — يُستدعى من الـ throttler (أثناء البث) أو مباشرة
+    // (finalize). memo يخدم المقاطع المغلقة من الكاش — المقطع المفتوح
+    // الأخير فقط يُعاد تحليله (marked.parse) — بالاتساق مع كاش T-064.
+    const channels = parseResponseChannels(fullText);
     if (channels.hasChannels) {
         let html = "";
         if (channels.other) {
-            html += `<div class="other-section">${renderMarkdown(channels.other)}</div>`;
+            html += `<div class="other-section">${memo("other", channels.other, renderMarkdown)}</div>`;
         }
         if (channels.thinking) {
             html += `
-                <details class="thinking-accordion" open>
+                <details class="thinking-accordion"${open ? " open" : ""}>
                     <summary>💭 التفكير (Thinking Stream)</summary>
-                    <div class="thinking-content">${renderMarkdown(channels.thinking)}</div>
+                    <div class="thinking-content">${memo("thinking", channels.thinking, renderMarkdown)}</div>
                 </details>
             `;
         }
         if (channels.result) {
-            html += `<div class="result-section">${renderMarkdown(channels.result)}</div>`;
+            html += `<div class="result-section">${memo("result", channels.result, renderMarkdown)}</div>`;
         }
         content.innerHTML = html;
     } else {
-        content.innerHTML = renderMarkdown(currentStreamText);
+        content.innerHTML = memo("plain", fullText, renderMarkdown);
     }
 
     // T-064: إبراز تدفقي — البلوكات المكتملة تُخدم من كاش LRU (نفس
     // السلسلة حرفيًا = لا وميض)، والبلوك المفتوح الأخير فقط يُعاد تحليله.
     CodeHighlight.highlightContainer(content);
+}
 
-    // Auto scroll
-    const container = document.getElementById("chat-messages");
-    container.scrollTop = container.scrollHeight;
+function appendStreamChunk(text) {
+    if (!currentStreamMsg) return;
+    currentStreamText += text;
+
+    // TSK-401 (NF-10): كان هنا parse + innerHTML للرد كاملًا مع كل
+    // chunk (بث 100KB = مئات الرندرات الكاملة — تجمّد). الآن:
+    // الرندر مُجمّع تحت rAF + فاصل زمني — آخر طلب فقط يُنفّذ ويقرأ
+    // currentStreamText الكامل (لا فقد لأي محتوى).
+    streamThrottler.request(() => {
+        if (!currentStreamMsg) return; // انتهى البث قبل الإطار — finalize تولى الرندر
+        const content = currentStreamMsg.querySelector(".streaming-content");
+        renderStreamContent(content, currentStreamText, streamSectionMemo, true);
+        // Auto scroll
+        const container = document.getElementById("chat-messages");
+        container.scrollTop = container.scrollHeight;
+    });
 }
 
 function finalizeStreamMessage(data = {}) {
+    // TSK-401 (NF-10): أسقط أي رندر معلّق — الرندر النهائي الكامل أدناه
+    // يتكفل بكل شيء (لا سباق بين إطار مؤجل والـ finalize).
+    streamThrottler.cancel();
     if (currentStreamMsg) {
         // إزالة streaming dot
         const label = currentStreamMsg.querySelector(".msg-label");
