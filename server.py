@@ -126,7 +126,38 @@ session_mgr: SessionManager = None
 # R-303 (T-031): بانر تنبيه ربط الجلسة — يُملأ عند تبديل المشروع تحت
 # سياسة warn ويُحقن في project_context لكل رسالة حتى بدء جلسة جديدة.
 _binding_banner: str = ""
+# TSK-203 (NF-23.2): التعريف الوحيد للثابت — النسخة المكررة أسفل
+# الملف أُزيلت (كانت تطغى على هذه بصمت بنفس القيمة).
 MAX_SMART_FILE_SIZE = 100 * 1024  # حد أقصى لحجم ملف يقرأه Smart Path (100KB)
+
+
+# ── قارئ config الموحّد (TSK-203 / NF-23.3) ──
+# مصدر واحد لقراءة config.yaml بدل ستة مواضع yaml.safe_load متفرقة.
+# مُكاش بمفتاح المسار (يحترم monkeypatch لـ _DIR في الاختبارات) —
+# config يُقرأ مرة واحدة لكل مسار؛ تغييره يتطلب إعادة تشغيل (موثّق).
+# تسامحي: فشل القراءة يعيد {} — لا يمنع الإقلاع (نفس عقد _read_config
+# التاريخي)؛ صخب الـ schema المكسورة يبقى في المحلّلات المتخصصة
+# (thresholds_from_config / planner_from_config …) لا في القارئ.
+_config_cache: dict = {}
+
+
+def _load_config() -> dict:
+    """قراءة config.yaml مُكاشة — تسامحية: فشل القراءة يعيد {}."""
+    key = str(_DIR / "config.yaml")
+    if key in _config_cache:
+        return _config_cache[key]
+    try:
+        import yaml as _yaml
+        with open(key, encoding="utf-8") as _cf:
+            cfg = _yaml.safe_load(_cf) or {}
+    except Exception:
+        cfg = {}
+    _config_cache[key] = cfg
+    return cfg
+
+
+# الاسم التاريخي — alias للتوافق الخلفي (تستهلكه الاختبارات وmain).
+_read_config = _load_config
 
 # ── نظام المسارات المعلقة: منع التبديل التلقائي ──
 # بدلاً من تغيير المجلد فوراً، نحفظ الطلب هنا وننتظر قرار المستخدم.
@@ -156,15 +187,11 @@ def pop_pending_path_request(req_id: str) -> dict | None:
 # (_json_sender/ws_handler) نقلٌ محلي داخل-العملية بطبيعته — تبقى
 # EventBus() مباشرة خارج الدرزة (T-109 يوزّع الرصد لا النقل).
 from core.backends import backends_from_config
-try:
-    import yaml as _yaml_backends
-    with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
-        _cfg_root = _yaml_backends.safe_load(_cf) or {}
-    _backend_cfg = _cfg_root.get("backend")
-    _dispatch_cfg = _cfg_root.get("dispatch")
-except OSError:
-    _backend_cfg = None  # قراءة متعذرة ⇒ الافتراضي (نفس تسامح الإقلاع)
-    _dispatch_cfg = None
+# TSK-203 (NF-23.3): القراءة عبر القارئ الموحّد — قراءة متعذرة ⇒ {}
+# ⇒ الافتراضيان (نفس تسامح الإقلاع السابق حرفيًا).
+_cfg_root = _load_config()
+_backend_cfg = _cfg_root.get("backend")
+_dispatch_cfg = _cfg_root.get("dispatch")
 _backends = backends_from_config(_backend_cfg)
 
 # T-110 (R-804): درزة الإرسال — ``dispatch:`` من config (غائب/in-proc =
@@ -1125,9 +1152,7 @@ def _session_binding_policy() -> str:
     (warn / fork / block). أي خطأ في القراءة → "warn" (أأمن سلوك).
     """
     try:
-        import yaml as _yaml
-        with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
-            _sb = (_yaml.safe_load(_cf) or {}).get("session_binding") or {}
+        _sb = _load_config().get("session_binding") or {}
         if not isinstance(_sb, dict):
             return "warn"
         if _sb.get("warn_only", True):
@@ -2282,10 +2307,8 @@ def ws_handler(ws):
 sock.route("/ws")(ws_handler)
 
 
-# ── حد أقصى لحجم ملف يقرأه Smart Path (100KB) ──
-MAX_SMART_FILE_SIZE = 100 * 1024
-
-
+# TSK-203 (NF-23.2): التعريف المكرر لـ MAX_SMART_FILE_SIZE أُزيل —
+# التعريف الوحيد أعلى الملف (قسم Globals).
 def _apply_batch(sctx, actions: list) -> None:
     """TSK-201 (NF-23.1): المسار الموحّد لتطبيق دفعة إجراءات.
 
@@ -2351,16 +2374,8 @@ def _apply_single_action(action: dict, sctx) -> dict:
 # ════════════════════════════════════════════════════
 # Main
 # ════════════════════════════════════════════════════
-def _read_config() -> dict:
-    """قراءة config.yaml — تسامحية: فشل القراءة يعيد {} (لا يمنع الإقلاع)."""
-    try:
-        import yaml as _yaml
-        with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
-            return _yaml.safe_load(_cf) or {}
-    except Exception:
-        return {}
-
-
+# TSK-203 (NF-23.3): تعريف _read_config انتقل أعلى الملف كـ alias
+# للقارئ الموحّد المُكاش _load_config (قرب تعريف _DIR).
 def _resolve_default_provider(cli_model, cfg):
     """T-051 (R-703): حل (مزود، موديل) الإقلاع — **config يفوز**.
 
@@ -2478,9 +2493,7 @@ def main():
     # — إعادة للسلوك القديم لكن بقرار مسجّل ومن مسار النجاح فقط (لا finally).
     _auto_execute = False
     try:
-        import yaml as _yaml
-        with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
-            _auto_execute = bool((_yaml.safe_load(_cf) or {}).get("auto_execute", False))
+        _auto_execute = bool(_load_config().get("auto_execute", False))
     except Exception:
         pass
     global approval_gate
@@ -2509,9 +2522,7 @@ def main():
     # غائب = heuristic. T-107: llm/hybrid يستهلكان المزود النشط —
     # التبديل بينها = تعديل config فقط، صفر تعديل كود (بند القبول).
     from chain.planner import planner_from_config
-    import yaml as _yaml
-    with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
-        _planner_cfg = (_yaml.safe_load(_cf) or {}).get("planner")
+    _planner_cfg = _load_config().get("planner")
     chain_planner = planner_from_config(
         _planner_cfg,
         SmartOrchestrator(plugin_registry=plugin_registry),
@@ -2554,9 +2565,7 @@ def main():
     # dry-run افتراضيًّا (تسجيل فقط، لا حذف) حتى يفعّله المستخدم.
     try:
         from sessions.retention import policy_from_config, sweep
-        import yaml as _yaml
-        with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
-            _retention_cfg = (_yaml.safe_load(_cf) or {}).get("retention")
+        _retention_cfg = _load_config().get("retention")
         _rp = policy_from_config(_retention_cfg)
         if project_path:
             _report = sweep(pathlib.Path(project_path) / ".ai_runs", _rp,
@@ -2604,9 +2613,7 @@ def main():
     # مكسورة (لا نبتلع الخطأ: عتبات خاطئة صامتة أسوأ من فشل إقلاع واضح)؛
     # قسم مفقود فقط = الافتراضات التاريخية.
     from chain.routing_config import thresholds_from_config
-    import yaml as _yaml
-    with open(_DIR / "config.yaml", encoding="utf-8") as _cf:
-        _routing_cfg = (_yaml.safe_load(_cf) or {}).get("routing")
+    _routing_cfg = _load_config().get("routing")
     routing_thresholds = thresholds_from_config(_routing_cfg)
     request_router = RequestRouter(
         orchestrator=orchestrator,
