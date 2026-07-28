@@ -14,6 +14,16 @@ language: "mix"
 # طلب إذن قبل تنفيذ الأوامر
 auto_execute: false
 
+# TSK-502 (NF-16) — راية إلزام الموافقة على كل أمر:
+# false (الافتراضي) = التوافق السلوكي الكامل: مواضع REST/apply تنفّذ
+#   بلا موافقة تفاعلية (need_approval=False) وحارس DANGEROUS_COMMANDS
+#   الساكن هو الخط الوحيد — مقبول لأداة localhost فقط.
+# true = كل أمر (REST /api/run، /api/run-file، apply-actions) يمر
+#   ببوابة الموافقة إلزاميًا مهما كان آمنًا ومهما كان auto_approve —
+#   **إلزامية عند أي ربط خارج 127.0.0.1** (راجع قسم «حدود النشر
+#   والأمان» في README.md).
+force_command_approval: false
+
 # نسخ احتياطي قبل أي تعديل
 backup_before_edit: true
 

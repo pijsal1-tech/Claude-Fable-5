@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 22 — MODE B: TSK-501 Completed — QA-T13 خضراء) |
-| stage | EXECUTION (MODE B — M5 in progress) |
-| current-phase | M5 (Performance & Search) |
-| current-task | TSK-502 — توثيق حدود النشر + راية إلزام الموافقة (NF-16) |
+| last-updated | 2026-07-28 (Session 23 — MODE B: TSK-502 Completed — **الخطة كلها مُقفلة 🏁**) |
+| stage | EXECUTION (MODE B — **ALL TASKS COMPLETE**) |
+| current-phase | — (M1–M5 كلها مُقفلة) |
+| current-task | — (لا مهام متبقية — TSK-502 كانت الأخيرة) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 95% (18 / 19 TSK) |
+| completion % (execution) | **100% (19 / 19 TSK)** |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -169,7 +169,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-403 | feature | إطار scan_start + مؤشر فوري (NF-12/A3) | M4 | ✅ Completed (S20) |
 | TSK-404 | security | تسييج المحتوى المحقون (NF-18) | M4 | ✅ Completed (S21) |
 | TSK-501 | perf | فهرس بحث مشترك فوق ProjectIndex (NF-20/21) | M5 | ✅ Completed (S22) |
-| TSK-502 | docs/config | حدود النشر + force_command_approval (NF-16) | M5 | ⬜ pending |
+| TSK-502 | docs/config | حدود النشر + force_command_approval (NF-16) | M5 | ✅ Completed (S23) |
 
 ---
 
@@ -1060,10 +1060,75 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `PERF(TSK-501): shared search over ProjectIndex for api_search + tool_search_code — QA-T13 green (NF-20/21)`
 
-- **EXACT RESUME POINT: TSK-502 (Current Task)** — توثيق حدود
-  النشر + راية إلزام الموافقة (NF-16، M5): قسم توثيق حدود النشر
-  + مفتاح إعداد `force_command_approval` يقلب مواقع
-  `need_approval=False` (`server.py:L769، L1246، L2275` — الأرقام
-  تقريبية، تحقّق بـ grep). Accept: الراية مفعّلة ⇒ كل الأوامر
-  تتطلب موافقة؛ الافتراضي متوافق سلوكيًا.
-  **آخر مهمة في الخطة كلها.**
+- **EXACT RESUME POINT (superseded by Session 23)**: TSK-502 أُنجز في Session 23.
+
+---
+
+## Session 23 log (2026-07-28) — MODE B: TSK-502 — توثيق حدود النشر + راية إلزام الموافقة (NF-16) — آخر مهمة 🏁
+
+- **TSK-502 ✅ Completed** — بوابتها خضراء (12/12،
+  tests/integration/test_force_approval.py).
+- **ما نُفّذ**:
+  1. **🛠 `actions/command_runner.py`**: وسيط جديد
+     `run(..., force_approval: bool = False)` — مفعّل ⇒ بوابة
+     `_ask_approval` إلزامية لكل أمر مهما كان
+     `auto_approve`/`SAFE_COMMANDS`/`need_approval` (الافتراضي False =
+     توافق سلوكي كامل). الخطير (`DANGEROUS_COMMANDS`) يطلب موافقة
+     دائمًا في الحالتين — الراية توسّع البوابة ولا تضيّقها.
+  2. **🛠 `server.py`**: دالة `_force_command_approval()` (تقرأ
+     المفتاح `force_command_approval` من config.yaml عبر القارئ
+     الموحّد المُكاش، تسامحية: فشل/غياب ⇒ False) + تمرير
+     `force_approval=_force_command_approval()` في مواضع
+     `need_approval=False` الثلاثة كلها (بعد grep):
+     `/api/run` (L851)، `/api/run-file` (L1371)،
+     `_apply_single_action:run_command` (L2498).
+  3. **🛠 `config.yaml`**: المفتاح `force_command_approval: false`
+     موثّقًا (الافتراضي = توافق؛ true = إلزامي عند أي ربط خارج
+     127.0.0.1).
+  4. **🛠 `README.md`**: قسم جديد «🚧 حدود النشر والأمان
+     (Deployment Limits — TSK-502 / NF-16)» تحت قسم الأمان: لا
+     مصادقة على REST/WS، الربط الافتراضي 127.0.0.1 وتحذير
+     صريح من 0.0.0.0، مواضع need_approval=False وحارس
+     DANGEROUS_COMMANDS كخط وحيد افتراضيًا، والراية كحل +
+     صف في جدول الأمان + المفتاح في مثال config.yaml.
+  5. **🆕 `tests/integration/test_force_approval.py` (12 اختبارًا)**:
+     وحدوي (الراية تجبر الآمن على البوابة / الموافقة تمضي /
+     الافتراضي صفر نداءات بوابة / الخطير مُبوّب دائمًا) +
+     راية config (مفعّلة/معطّلة/غائبة=False + config.yaml يوثّقها
+     false) + REST كاملًا (test_client على /api/run مع راصد
+     _ask_approval: مفعّلة ⇒ بوابة + رفض؛ افتراضي ⇒ لا بوابة) +
+     بنيوي (مواضع النداء الثلاثة كلها تمرر الراية + README يوثّق
+     حدود النشر).
+- **التحقق**: بوابة TSK-502 ‏12/12 خضراء؛ `import server` سليم؛
+  config.yaml يُحلّل والراية false؛ الحزمة الكاملة:
+  **5 failed / 1641 passed / 63 skipped** — الإخفاقات الخمسة هي
+  الموروثة المعروفة نفسها (خارج النطاق). صفر نداءات AI خارجية.
+- **Files changed (المهمة كاملة)**:
+  1. 🛠 actions/command_runner.py (وسيط force_approval)
+  2. 🛠 server.py (_force_command_approval + المواضع الثلاثة)
+  3. 🛠 config.yaml (المفتاح موثّقًا)
+  4. 🛠 README.md (قسم حدود النشر والأمان)
+  5. 🆕 tests/integration/test_force_approval.py (بوابة TSK-502)
+  6. 🛠 docs/engineering/PROGRESS.md
+  (ملحوظة: الرفعة 88a3d66 التقطت 1–2 منتصف الجلسة؛ الرفع التالي
+  يلتقط 3–6.)
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `SEC(TSK-502): force_command_approval flag gating all need_approval=False sites + deployment-limits docs (NF-16) — plan complete`
+
+---
+
+## 🏁 إغلاق الخطة — MASTER ENGINEERING PROMPT v4.1 CORE-ONLY SCOPE
+
+- **كل المهام الـ 19 ✅** عبر المراحل M1–M5:
+  - M1: TSK-201، 101–105 — M2: TSK-202، 203 — M3: TSK-301–305 —
+    M4: TSK-401–404 — M5: TSK-501، 502.
+- **الحالة النهائية للحزمة**: 5 failed / 1641 passed / 63 skipped —
+  الخمسة الفاشلة موروثة من قبل الخطة وخارج نطاقها (موثّقة في
+  سجلات الجلسات السابقة):
+  test_file_icons::test_license_note_present،
+  test_history_consumers::test_no_raw_history_slices_outside_sessions،
+  test_rollback_ui::test_index_wiring_and_load_order،
+  test_symbol_index::test_missing_file_empty_table_with_reason،
+  test_theme_tokens::test_no_raw_colors_outside_themes.
+- **لا مهام متبقية.** أي عمل لاحق (إصلاح الإخفاقات الموروثة،
+  توسعات جديدة …) يتطلب خطة جديدة من المستخدم.
