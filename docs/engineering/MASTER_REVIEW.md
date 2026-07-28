@@ -288,13 +288,105 @@ pre-check؛ أي مساس بـ S-01…S-14 يستوجب بديلًا موثقً�
 
 ---
 
-## R4 — Security Findings + Agent Safety Findings
-*(TODO — يبدأ من NF-16/TSK-502 كحالة VERIFIED ويكمل مصفوفة Agent-Safety.)*
+## R4 — Security Findings + Agent Safety Findings ✅ (Session 26 — 2026-07-28)
+
+**منهجية:** (أ) ترحيل حالات الأمن الكلاسيكي NF-15..18 لدورة الحياة الجديدة بعد
+إصلاحات M1/M4/M5؛ (ب) Agent Safety Review مُهيكل — أول تشريح كامل لطبقة
+الوكيل: قراءة كاملة لـ `chain/agent_tools.py` (768 سطر)، `chain/agent_loop.py`
+(585)، `chain/path_policy.py` (120)، `chain/plugin_registry.py` (180)،
+`core/approval.py` §ApprovalGate (L139–286)، `chain/bridge.py` §`_gated_apply`
+(L502–588)، `chain/knowledge.py` §ToolResult/render (L25–70, L160–215).
+
+### R4.1 — ترحيل حالة الأمن الكلاسيكي (NF-15..18)
+
+| # | الاكتشاف | الحالة الجديدة | الدليل |
+|---|---|---|---|
+| NF-15 | Zip-Slip في استعادة الباك-أب | **VERIFIED-FIXED** (TSK-105) | `server.py:1030` `_zip_member_violations` — فحص الأعضاء قبل الفك موجود ومُختبر (M1) |
+| NF-16 | REST بلا auth + `need_approval=False` | **MITIGATED** (TSK-502) — خطر متبقٍ مقبول | `server.py:172` `_force_command_approval` + `config.yaml:25` `force_command_approval: false` (افتراضي localhost) — التفعيل إلزامي عند أي ربط خارج 127.0.0.1 (موثق في config.yaml:19–24). القرار المتبقي منتجي: هل يُفعَّل افتراضيًا؟ → يُرحَّل لـ PLANNING |
+| NF-17 | ادعاء A6 قصّ المسارات | **CLOSED** (غير مُعاد إنتاجه) | تتبّع ساكن كامل في NF-17 نفسه؛ لا دليل runtime جديد |
+| NF-18 | حقن خام في البرومبت | **[SUPERSEDED → مُقسَّم]**: مسار templates **VERIFIED-FIXED** (TSK-404)؛ مسار حلقة الوكيل **مفتوح** → ASF-01 أدناه | `prompts/templates.py:39` `fence_attached` موجود ويُستخدم في مسار build_prompt فقط؛ grep مؤكد: **صفر** استخدام في `chain/agent_loop.py` / `chain/knowledge.py` / `chain/context_builder.py` |
+
+**إيجابيات مؤكدة بقراءة كاملة هذه الجلسة** (ترقية من spot-check إلى VERIFIED):
+- `chain/path_policy.py` سليم بنيويًا: احتواء قاطع (`relative_to` L88–95 + فرع
+  Windows case-insensitive L80–87)، denylist أسرار متعدد الطبقات (أسماء L14–17،
+  امتدادات L18–20، مجلدات L21–23 مع فحص كل مقاطع المسار L41–47، واستثناء
+  `.env.example` الوحيد L30–31)، فحص symlink تصاعدي L98–109.
+- `ApprovalGate` fail-closed بالكامل: timeout ⇒ deny (`approval.py:261–262`)،
+  deny mode ⇒ رفض فوري (L190–191)، `resolve()` يشترط تطابق request_id
+  **و** payload_hash معًا (L214–221) — لا قبول ردود قديمة/مزوّرة، وفشل قناة
+  الإشعار لا يعلّق البوابة (L250–254) بل ينتهي برفض المهلة.
+
+### R4.2 — Agent Safety Findings (ASF)
+
+| ID | المحور | الخطورة | الوصف | الدليل |
+|---|---|---|---|---|
+| ASF-01 | Context poisoning | **C3/S3 — الأعلى في R4** | نتائج الأدوات (محتوى ملفات/مخرجات أوامر/نتائج بحث) تُحقن في برومبت المتابعة **بلا تسييج**: `[نتيجة {tool}...]:\n{نص خام}` — ملف بالمشروع يحوي تعليمات عدائية يقودها الموديل في التكرار التالي. نفس النمط في knowledge: `to_summary()` و`_render_body()` يركّبان المحتوى الخام حرفيًا. إصلاح NF-18 (fence_attached) غطّى مسار templates فقط | `agent_loop.py:224–226, 256–259, 350–381`؛ `knowledge.py:41–49, 191–205`؛ `templates.py:39` (الدالة موجودة وغير مستدعاة من هذه المسارات) |
+| ASF-02 | Approval bypassability | C3/S3 | بوابة الموافقة على `run_command` **موضعية لا بنيوية**: `tool_run_command` ينفّذ داخليًا بـ `need_approval=False` (agent_tools.py:485) — الفرض يقع في AgentLoop فوقه (L466–522). أي مسار مستقبلي ينادي `AgentTools.tool_run_command` مباشرة (REST جديد، plugin، اختبار مدمج بالخطأ) يتجاوز الموافقة كليًا. TSK-502 خفّف مسارات REST الحالية لكن الثغرة البنيوية باقية | `agent_tools.py:432–538`؛ `agent_loop.py:466–479` (بلا gate ⇒ رفض آمن — لكن فقط لمن يمر عبر الحلقة) |
+| ASF-03 | Rollback coverage | C4/S3 | سقف snapshot ما-قبل-الأمر: `_CKPT_MAX_FILES=400` و512KB/ملف — أمر معتمد يلمس >400 ملف أو ملفات أكبر لا يُلتقط أثره كاملًا ⇒ rollback جزئي صامت بعد موافقة المستخدم (المستخدم وافق على الأمر، لا على فقدان قابلية التراجع) | `agent_tools.py:464–537` (caps + snapshot/seal T-059) |
+| ASF-04 | Dangerous command detection | C4/S4 (إيجابي غالبًا) | `CommandPolicy.resolve()` تطابق **حرفي تام** — لا prefix matching ولا حقن معاملات؛ لكن `enforce=False` هو الافتراضي البرمجي (وضع legacy عند حذف allowlist من config) ⇒ الحماية config-dependent لا code-default. config الحالي يفعّلها (allowlist بأربعة أوامر ثابتة) | `agent_tools.py:51–119`؛ `config.yaml:36–37, 57–62` |
+| ASF-05 | ApprovalGate concurrency | C4/S4 | نموذج طلب-معلّق-واحد: طلبان تفاعليان متزامنان (chain + agent مثلًا) — الثاني يكتب فوق `_pending_id` للأول (L242–247)، فيستحيل حلّ الأول ⇒ يموت بمهلة 60s. fail-closed (لا موافقة خاطئة) لكنه استنزاف موافقات صامت | `approval.py:170–175, 238–247` |
+| ASF-06 | Parsing robustness | C4/S4 | `_parse_args_body` تفكيك key:value ساذج — قيمة تحوي `\n` أو سطر يشبه مفتاحًا تُفسَّر خطأ؛ مدخله مخرج موديل عدائي محتمل (يتقاطع مع ASF-01: حقن بالسياق → توليد TOOL block مشوّه). `parse_tool_calls` نفسها fence-aware (تتجاهل بلوكات داخل ```) — جيد | `agent_tools.py` §parse (fence-awareness مؤكد بالقراءة الكاملة) |
+| ASF-07 | path_policy edge | C4/S4 | حلقة فحص symlink تبتلع كل الاستثناءات (`except Exception: pass` L107–108) — خطأ FS أثناء `is_symlink()` ⇒ تخطٍّ صامت للفحص؛ ونافذة TOCTOU نظرية بين resolve والفحص. الاحتواء النهائي (`relative_to` على المسار المحلول) يبقى الخط الصلب | `path_policy.py:98–109` |
+| ASF-08 | Plugin capability scope | C4/S4 (مقبول موثَّق) | `discover()` ينفّذ كود الإضافة فعليًا (import + `build()` dry-run) وقت الاكتشاف — تثبيت حزمة = ثقة كاملة بها (نموذج Python القياسي). التعويضات قوية: PluginContext حصري (لا file_manager/جلسات/خادم)، بوابة 3 مراحل مع حجر صحي، وأول-اسم-يفوز ضد التبديل الصامت | `plugin_registry.py:115–157, 163–175`؛ `plugin_api.fixture_context` |
+
+### R4.3 — حكم المحاور الستة
+
+| المحور | الحكم | الأساس |
+|---|---|---|
+| Tool permission boundaries | **قوي** | فصل صريح SAFE/APPROVAL (`agent_tools.py:37–40`)؛ كل مسارات الملفات عبر `resolve_workspace_path(allow_symlinks=False)` (L603–613)؛ plugins معزولة بـ PluginContext |
+| Autonomous action limits | **قوي** | MAX_ITERATIONS=8، TOOL_RESULT_MAX_LEN=3000، سقف مخرجات 8000، timeout 60s، retries=0، إلغاء تعاوني 0.05s polling — كل الحدود ثابتة بالكود |
+| Approval bypassability | **متوسط** | البوابة نفسها fail-closed ومحصّنة بـ payload_hash، لكن الفرض موضعي (ASF-02) وأحادي-الطلب (ASF-05) |
+| Dangerous command detection | **جيد مشروط** | allowlist تطابق-تام ممتاز، لكنه config-dependent (ASF-04) + `force_command_approval:false` افتراضيًا (NF-16 المتبقي) |
+| Context/memory poisoning resistance | **ضعيف — الفجوة الرئيسية** | ASF-01: مسار حقن غير مسيَّج كامل في قلب الحلقة؛ `remember_fact` يسجّل provenance (run_id/index_hash/fingerprint) لكن نص الحقيقة نفسه يدخل البرومبت خامًا |
+| Goal drift | **مقبول** | سقف 8 تكرارات + `_verification_instruction` عند توفر أوامر تحقق بالـ allowlist؛ لا إعادة-تثبيت هدف لكل تكرار (تحسين محتمل، ليس خطرًا) |
+
+**خلاصة R4:** الأمن الكلاسيكي ما-بعد M1/M4/M5 في حالة جيدة (NF-15 مُصلح،
+NF-16 مخفَّف بقرار منتجي مؤجل، NF-17 مغلق). فجوة الوكيل الأهم هي **ASF-01**
+(تسييج نتائج الأدوات — امتداد مباشر لعلاج NF-18 على المسار الثاني)، تليها
+**ASF-02** (نقل فرض الموافقة لطبقة الأداة نفسها). كلاهما مرشح P1 في PLANNING.
 
 ---
 
-## R5 — Reliability Findings (Delta)
-*(TODO)*
+## R5 — Reliability Findings (Delta) ✅ (Session 26 — 2026-07-28)
+
+**منهجية:** ترحيل حالات NF-01..14 (فئات a–g القديمة) بعد M1–M4، ثم دلتا كود
+موجَّهة حيث تغيّر السلوك فقط: `server.py` (§pending_path L108–123، §_apply_batch
+L2415–2462، مواقع التخييط L1662/L1818/L2294، دفعة L2081)، `core/execution.py`
+(§purge_terminal L351+، §reap_stale L322)، `chain/bridge.py` (§حالة الركض
+L236/294–299/364/403/512). لا إعادة قراءة لما غطّته R4.
+
+### R5.1 — ترحيل حالات الاعتمادية (NF-01..14)
+
+| # | الاكتشاف | الحالة الجديدة | الدليل |
+|---|---|---|---|
+| NF-01 | تنظيف pending_path خارج القفل | **VERIFIED-FIXED** (TSK-301) | `server.py:108–123` — الطوفان والحذف داخل القفل، موثّق بالعقد في docstring |
+| NF-02 | خانة run عالمية (project_id="") | **FIXED** (TSK-302, S14) | أرشيف PROGRESS §TASK TABLE |
+| NF-03 | ازدواجية REST-globals/WS-SessionContext (g5) | **مفتوح — مقبول موثَّق** | globals قائمة (`server.py:128–133`)؛ g5 open في R3؛ قرار توحيد → PLANNING (P4 قديمًا) |
+| NF-04 | apply يحجب حلقة WS (g6) | **[SUPERSEDED → مُقسَّم]**: الإلغاء **FIXED** (TSK-304)؛ الحجب **باقٍ** → RF-01 | `server.py:2430–2462` (ticket + checkpoint) لكن L2081 نداء مباشر داخل الحلقة |
+| NF-05 | خيوط daemon بلا join عند الإيقاف | **مفتوح — ملاحظة معمارية** (P7) | التخييط قائم L1662/1818/2294 `daemon=True`؛ الكتابة الذرية (NF-19) تخفف أثر الملف الواحد |
+| NF-06 | `_tickets` نمو غير محدود | **VERIFIED-FIXED** (TSK-303) | `core/execution.py:351` `purge_terminal(keep_last=50)` + استدعاء `server.py:406` |
+| NF-07 | chat_history بلا حد | **VERIFIED-FIXED** (TSK-104) | `server.py:1436` `select_history(..., _history_payload_policy(cfg))` — بوابة سياسة مسماة لا قصّ خام |
+| NF-08 | TTL يعمل عند الإضافة فقط | **مفتوح — أثر ضئيل مقبول** | `_clean_expired_pending_requests` لا يزال يُستدعى من store فقط (docstring L110–111) |
+| NF-10 | O(n²) rendering | FIXED (TSK-401) — يُتحقق تفصيلًا في R6/R9 | أرشيف S18 |
+| NF-11 | WS reconnect بلا backoff + JSON.parse | FIXED (TSK-402) — يُتحقق في R9 | أرشيف S19 |
+| NF-12 | لا scan_start | FIXED (TSK-403) | أرشيف S20 |
+| NF-13 | fallback أوامر bash التوضيحية | FIXED (TSK-102 مع BUG-01/TSK-101) | أرشيف S7 |
+| NF-14 | ابتلاع استثناءات واسع | **جزئي** (TSK-305 ضيّق الحرجة + log) — المتبقي مواضع مقصودة مُعلَّمة | `server.py:2271–2284` نمط "NF-14 §N (ابتلاع مقصود)" موثّق موضعًا-بموضع |
+
+### R5.2 — اكتشافات دلتا جديدة (RF)
+
+| ID | الخطورة | الوصف | الدليل |
+|---|---|---|---|
+| RF-01 | **C4/S3** | **بقية g6**: `_apply_batch` يعمل داخل حلقة `ws_handler` مباشرة (النداء الوحيد غير المُخيَّط بين الـ runs الأربعة) — نقاط تفتيش الإلغاء (TSK-304) تعمل، لكن `cancel_run` **من نفس الاتصال** لا يمكن أن يصل أصلًا لأن `ws.receive()` محجوب حتى نهاية الدفعة؛ الإلغاء الفعّال ممكن فقط من تبويب/اتصال آخر. تخييط الدفعة (كما chain/agent/delegate) يكمل العلاج | `server.py:2081` (نداء مباشر) مقابل L1662/L1818/L2294 (`threading.Thread`)؛ checkpoint L2442 |
+| RF-02 | C4/S4 | `reap_stale()` **بلا أي مستدعٍ إنتاجي** — آلية TTL/heartbeat للتذاكر اليتيمة (خيط مات بلا `finish`) موجودة ومُختبرة لكنها ميتة تشغيليًا؛ خانة المشروع الحصرية تبقى محجوزة للأبد لو انهار خيط run دون finally (المسارات الحالية كلها finally — الخطر كامن لا فعلي) | `core/execution.py:322–348` (التعريف)؛ grep إنتاجي: الموضع الوحيد `core/backends.py:81` (إعلان بروتوكول) |
+| RF-03 | C4/S4 | حالة ركض مزدوجة داخل الجسر: `_active_run` (bridge) موازٍ لتذاكر `ExecutionRegistry` — نسخة مصغّرة من نمط g5 داخل طبقة واحدة. مُخفَّف فعليًا: القراءة النهائية من frozen snapshot لا من `_active_run` (تعليق صريح بالكود)، والتنظيف في finally (L403) | `chain/bridge.py:236, 294–299, 364, 403, 512` |
+
+### خلاصة R5
+حصاد M3 (الاعتمادية) صامد: 4/5 إصلاحات VERIFIED بالكود الحالي (NF-01/06/07
++ إلغاء NF-04)، وNF-14 جزئي بنمط توثيق-الابتلاع-المقصود المنضبط. الفجوات
+الحية: **RF-01** (تخييط `_apply_batch` — يُكمل TSK-304 فعليًا) مرشح P2،
+**RF-02** (تشغيل reap_stale دوريًا — سطر واحد تقريبًا) مرشح P3، g5/NF-03
+قرار توحيد معماري يُحسم في PLANNING مع g1 (تفكيك server.py).
 
 ---
 

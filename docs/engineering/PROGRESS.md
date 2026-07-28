@@ -38,21 +38,27 @@
 
 ### Current Position
 - Stage: REVIEW (Stage 1)
-- Phase/Task: **R4 — Security Review + Agent Safety** (التالية)
-- Last completed step: R3 Subsystem Map + Architecture Scorecard ✅ (Session 25) —
-  14 subsystem مُقيّمة + حالة مخاطر P1g بعد M1–M5 (g2/g3/g4/g7/g10/g11 ✅،
-  g1/g5/g6/g9 مفتوحة) + أعلام موجّهة لـ R4–R10 — MASTER_REVIEW.md §R3
-  (وقبلها بنفس الجلسة: R0 ✅ + R1-delta ✅ + R2 Strengths S-01..S-14 ✅)
-- Files/areas already covered: R-1 (جرد) + R0 (PRODUCT_VISION.md كاملًا) +
-  R1-delta (تحقق spot: response_parser.py:107، command_runner.py:57/107،
-  server.py:172/696/1030/2415، وجود الوحدات الجديدة الأربع) + R2/R3 (تجميع
-  من الوثائق المعتمدة، بلا قراءة كود جديدة)؛ كل تغطية v4.1 معتمدة عبر CONTINUITY MAP
-- Next action: R4 في MASTER_REVIEW.md — (أ) تثبيت حالة الأمن الكلاسيكي من NF-15..18
-  بعد إصلاحات M1/M4/M5 (ترحيل الحالات لدورة الحياة الجديدة)؛ (ب) **Agent Safety
-  Review المُهيكل** — الغوص في chain/ (agent_tools، agent_loop، bridge، plugin_registry):
-  tool permission boundaries، autonomous action limits، approval bypassability،
-  dangerous command detection، context/memory poisoning resistance، goal drift —
-  هذا أول غوص كود حقيقي جديد (chain/ لم تُشرّح كاملة في v4.1)
+- Phase/Task: **R6 — Performance Review + Baseline Metrics** (التالية)
+- Last completed step: R5 Reliability delta ✅ (Session 26) — ترحيل NF-01..14:
+  4/5 إصلاحات M3 مُتحقّقة بالكود (NF-01/06/07 + إلغاء NF-04)؛ NF-04
+  [SUPERSEDED→مُقسَّم] (الحجب باقٍ = RF-01)؛ جديد: RF-01 (ـ_apply_batch غير
+  مُخيّط — cancel من نفس الاتصال مستحيل، server.py:2081)، RF-02
+  (reap_stale بلا مستدعٍ إنتاجي، execution.py:322)، RF-03 (dual-state مُخفّف
+  في bridge) — MASTER_REVIEW.md §R5. وقبلها بنفس الجلسة: R4 ✅ (NF-15..18
+  مُرحّلة + ASF-01..08، أبرز فجوة ASF-01 حقن بلا تسييج + ASF-02 فرض موضعي)
+- Files/areas already covered: R-1..R3 (سابقًا) + R4 (قراءة كاملة agent_tools/
+  agent_loop/path_policy/plugin_registry + مقاطع approval/bridge/knowledge/
+  config.yaml) + R5 (مقاطع server.py: pending_path L108–123، _apply_batch
+  L2415–2462، مواقع التخييط، history L1436؛ core/execution.py: purge/reap؛
+  chain/bridge.py: حالة الركض)
+- Next action: R6 في MASTER_REVIEW.md — (أ) ترحيل NF-20/21/22 بعد TSK-401/501
+  (فهرس البحث المشترك — تحقّق أن api_search وtool_search_code كلاهما على
+  الفهرس: context/search.py + server.py:696)؛ (ب) baseline metrics: زمن
+  الاختبارات مسجل (~82s)، يُضاف قياس بسيط لزمن الإقلاع وحجم الوحدات؛
+  (ج) AI-runtime metrics — متوقع NOT INSTRUMENTED (سكور Observability=3):
+  لا قياس tokens/latency/cost للطلبات — يُسجّل كفجوة مرشحة للتخطيط.
+  ملاحظة: لو لزم تشغيل اختبارات — البيئة الحالية بلا deps (أعِد تثبيت
+  requirements-dev.txt أولًا)
 - Current blocker: none
 
 ### Stage Checklists (Definition of Done — الدستور الجديد)
@@ -62,8 +68,8 @@
 - [x] R1 Repository Understanding *(Session 25 — delta متحقق، MASTER_REVIEW.md §R1)*
 - [x] R2 Strengths Preservation *(Session 25 — Strengths Register S-01..S-14، MASTER_REVIEW.md §R2)*
 - [x] R3 Architecture Audit + Architecture Scorecard *(Session 25 — MASTER_REVIEW.md §R3)*
-- [ ] R4 Security Review (+ Agent Safety)
-- [ ] R5 Reliability Review *(delta)*
+- [x] R4 Security Review (+ Agent Safety) *(Session 26 — MASTER_REVIEW.md §R4: NF-15..18 مُرحّلة + ASF-01..08 + حكم المحاور الستة)*
+- [x] R5 Reliability Review *(delta)* *(Session 26 — MASTER_REVIEW.md §R5: NF-01..14 مُرحّلة + RF-01..03)*
 - [ ] R6 Performance Review (with baseline metrics)
 - [ ] R7 Runtime Pipeline Review
 - [ ] R8 Engineering Quality Review *(delta)*
@@ -82,7 +88,7 @@
 | Core runtime | 8.5 | 2026-07-28 | baseline |
 | Server composition (server.py) | 5.5 | 2026-07-28 | baseline (g1 مفتوح) |
 | WS lifecycle & dispatch | 7 | 2026-07-28 | baseline |
-| Chain system | 7 | 2026-07-28 | baseline (ثقة أدلة أدنى → R4/R7) |
+| Chain system | 7 | 2026-07-28 | R4 غطّت الأمن (ASF-01..08)؛ يتبقى R7 للتدفق |
 | Context engine | 8.5 | 2026-07-28 | baseline |
 | Actions | 8 | 2026-07-28 | baseline |
 | Runners contract | 8 | 2026-07-28 | baseline |
@@ -114,6 +120,13 @@
   رصد [SUPERSEDED] للفشل الموروث الخامس.
 - 2026-07-28 (Session 25): إصلاح قسم NEW LIFECYCLE المفقود (تحرير Session 24
   انقطع قبل الحفظ — أُعيد بناؤه) · بدء R0.
+- 2026-07-28 (Session 26): استرداد بعد sandbox reset (إعادة clone من 44b2ded —
+  commit المستخدم دمج aa02320) · R4 كاملة ✅: ترحيل NF-15..18 + Agent Safety
+  (ASF-01..08، قراءة كاملة لأربع وحدات chain/ + مقاطع approval/bridge/knowledge)
+  · فجوتا P1 مرشحتان للـ PLANNING: ASF-01 (تسييج نتائج الأدوات) وASF-02
+  (فرض الموافقة داخل طبقة الأداة) · commit محلي 381a73c (بلا push)
+  · ثم R5 كاملة ✅ بنفس الجلسة: ترحيل NF-01..14 + RF-01..03 (أبرزها RF-01:
+  بقية g6 — الدفعة داخل حلقة WS) · commit محلي ثانٍ (بلا push).
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
