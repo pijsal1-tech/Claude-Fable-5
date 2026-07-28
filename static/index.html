@@ -59,6 +59,10 @@
 
     <!-- Memory Panel — T-114 (R-805): منطق نقي (مستقل) قبل app.js. -->
     <script src="/static/js/memory_panel.js?v=1"></script>
+
+    <!-- Stream throttle/memo — TSK-401 (NF-10): منطق نقي (مستقل) قبل
+         app.js لأن appendStreamChunk يستهلك StreamRender. -->
+    <script src="/static/js/stream_render.js?v=1"></script>
 </head>
 
 <body>
