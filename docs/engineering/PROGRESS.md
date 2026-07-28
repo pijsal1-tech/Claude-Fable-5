@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 10 — MODE B: TSK-105 Completed, QA-T07 خضراء — M1 مُغلق) |
-| stage | EXECUTION (MODE B — M1 مكتمل ✅، M2 يبدأ) |
+| last-updated | 2026-07-28 (Session 11 — MODE B: TSK-202 Completed, QA-T09 خضراء) |
+| stage | EXECUTION (MODE B — M2 in progress) |
 | current-phase | M2 (Consistency) |
-| current-task | TSK-202 — قائمة تجاهل موحّدة تشمل test---results (BUG-04) |
+| current-task | TSK-203 — توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 32% (6 / 19 TSK) |
+| completion % (execution) | 37% (7 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -157,7 +157,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-104 | fix | سقف تاريخ المحادثة (NF-07) | M1 | ✅ Completed (S9) |
 | TSK-105 | security | Zip-Slip guard للاستعادة (NF-15) | M1 | ✅ Completed (S10) |
 | TSK-201 | refactor | دمج apply_all_actions/execute_plan (NF-23.1) | M2 | ✅ Completed (S7) |
-| TSK-202 | fix | قائمة تجاهل موحّدة تشمل test---results (BUG-04) | M2 | ⬜ pending |
+| TSK-202 | fix | قائمة تجاهل موحّدة تشمل test---results (BUG-04) | M2 | ✅ Completed (S11) |
 | TSK-203 | refactor | توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) | M2 | ⬜ pending |
 | TSK-301 | fix | تنظيف pending_path داخل القفل (NF-01) | M3 | ⬜ pending |
 | TSK-302 | fix | سياسة خانة الـ run / project_id (NF-02) | M3 | ⬜ pending |
@@ -541,9 +541,53 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `FIX(TSK-105): zip-slip guard test snapshot fix — QA-T07 green, M1 closed (NF-15)`
 
-- **EXACT RESUME POINT: TSK-202 (Current Task)** — قائمة تجاهل موحّدة
-  تشمل `test---results` (BUG-04 + NF-23(4)، M2 Consistency): وحدة جديدة
-  `core/ignore_rules.py` تُعرّف قائمة التجاهل الموحّدة وتُستهلك في كل
-  مواقع الفحص/المسح المتفرقة بدل القوائم المكررة. بوابة QA-T09 (إعادة
-  تشغيل سيناريو T02). Deps: —. بعدها TSK-203 (توحيد MAX_SMART_FILE_SIZE
-  + قارئ config — NF-23.2/3، بوابة QA-T08).
+---
+
+## Session 11 log — 2026-07-28 (MODE B: TSK-202 مكتملة، QA-T09 خضراء — BUG-04 مُغلق)
+
+- **TSK-202 — قائمة تجاهل موحّدة تشمل test---results (BUG-04 + NF-23(4)) — ✅ Completed**:
+  - **وحدة جديدة `core/ignore_rules.py`** (leaf — بلا imports لتجنب أي
+    دورة استيراد): `IGNORED_DIRS` (frozenset، 23 عضوًا) = اتحاد قائمتي
+    file_manager وbridge القديمتين ∪ `{"test---results", "test-results",
+    ".ai_runs", ".webdev_backups"}` + دالة `is_ignored_dir(name)`.
+  - **مواقع الاستهلاك الثلاثة** (القوائم الحرفية المكررة أُزيلت):
+    1. `actions/file_manager.py`: `IGNORE_DIRS = IGNORED_DIRS` (alias للتوافق
+       الخلفي — مواقع _walk / _walk_for_backup / _build_tree ترثه تلقائيًا).
+    2. `chain/bridge.py`: `_IGNORE_DIRS = IGNORED_DIRS` (يغذي _collect_files
+       لـ scan_folder_for_chain).
+    3. `chain/agent_tools.py`: (أ) فلتر `tool_search_code` وُسّع من tuple
+       ثابتة من 5 أسماء إلى `IGNORED_DIRS` كاملة (مطلب المواصفة
+       صراحة)؛ (ب) skip-set في `_tree` (يغذي tool_list_dir
+       وtool_get_project_tree) → `IGNORED_DIRS`.
+  - تحقّق هوية: المستهلكان alias لنفس الكائن (`is` check) — grep واحد
+    للمصدر الموحّد محقّق (معيار القبول).
+- **بوابة QA-T09 — ✅ خضراء (10/10)** — تُغلق BUG-04:
+  tests/integration/test_ignore_rules_isolation.py — Setup: مشروع tmp فيه
+  `test-results/answer.md` و`test---results/answer.md` بـ canary فريد +
+  `app.py` حقيقي. Asserts: canary موجود فعليًا على القرص (ضد
+  false-negative)؛ `scan_project` + `get_project_tree` (file_manager)،
+  `scan_folder_for_chain` (bridge)، `tool_search_code` + `tool_list_dir`
+  (agent_tools) — كلها لا تُرجع الـ canary من أي من المجلدين بينما
+  الملف الحقيقي يظهر؛ المجموعة الموحّدة تحوي الأعضاء الأربعة
+  الإلزامية؛ لا قوائم حرفية مكررة في مواقع الاستهلاك (grep-assert).
+  صفر نداءات AI خارجية.
+- **الحزمة الكاملة**: `5 failed, 1522 passed, 63 skipped` — نفس الفشلات
+  الخمس الموجودة مسبقًا فقط (خارج النطاق، لم تُمس): test_file_icons /
+  test_history_consumers / test_rollback_ui / test_symbol_index /
+  test_theme_tokens. لا انحدار من توسيع مجموعات التجاهل.
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🆕 core/ignore_rules.py
+  2. 🛠 actions/file_manager.py
+  3. 🛠 chain/bridge.py
+  4. 🛠 chain/agent_tools.py
+  5. 🆕 tests/integration/test_ignore_rules_isolation.py
+  6. 🛠 docs/engineering/PROGRESS.md
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `FIX(TSK-202): unified ignore list incl. test---results — core/ignore_rules.py, QA-T09 green (BUG-04, NF-23.4)`
+
+- **EXACT RESUME POINT: TSK-203 (Current Task)** — توحيد
+  MAX_SMART_FILE_SIZE وقارئ config (NF-23(2)+(3)، M2 Consistency):
+  `server.py:L128, L2240` → تعريف واحد للثابت؛ مواضع قراءة config الست
+  (L159, L1083, L2412, L2444, L2489, L2539) → helper `_load_config()` مُكاش.
+  معيار القبول (grep): تعريف واحد للثابت؛ ≤1 موضع `yaml.safe_load` في
+  server.py. بوابة QA-T08. Deps: —. بعدها M3 (TSK-301…).

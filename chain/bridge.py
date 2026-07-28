@@ -35,6 +35,7 @@ from core.approval import ApprovalGate, ApprovalRequest, ProposedAction
 from core.checkpoint import CheckpointManager
 from core.execution import RunTicket
 from .path_policy import is_secret_file  # T-025 (R-204): فلتر حدود الماسح
+from core.ignore_rules import IGNORED_DIRS  # TSK-202 (BUG-04): قائمة التجاهل الموحّدة
 
 
 def _build_project_snapshot(project_root: str,
@@ -651,14 +652,10 @@ _TEXT_EXTENSIONS = {
     ".dockerfile", ".tf", ".hcl",
 }
 
-# مجلدات يجب تجاهلها
-_IGNORE_DIRS = {
-    "node_modules", ".git", "__pycache__", ".next", ".nuxt",
-    "dist", "build", ".cache", ".vscode", ".idea",
-    "venv", ".venv", "env", ".env", ".tox",
-    "target", "bin", "obj", ".gradle",
-    ".ai_runs",  # مجلد الـ chain runs نفسه
-}
+# مجلدات يجب تجاهلها — TSK-202 (BUG-04 + NF-23(4)): المصدر الموحّد
+# في core/ignore_rules.py (يشمل test---results / test-results /
+# .ai_runs / .webdev_backups). الاسم القديم _IGNORE_DIRS يبقى alias.
+_IGNORE_DIRS = IGNORED_DIRS
 
 # حدود
 _MAX_FILE_SIZE = 200 * 1024   # 200KB per file

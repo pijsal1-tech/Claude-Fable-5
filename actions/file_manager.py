@@ -11,6 +11,7 @@ import pathlib
 import zipfile
 from datetime import datetime
 from chain.path_policy import resolve_workspace_path, is_secret_file
+from core.ignore_rules import IGNORED_DIRS
 
 
 # ── امتدادات الملفات المدعومة ──
@@ -24,11 +25,10 @@ WEB_EXTENSIONS = {
 }
 
 # ── مجلدات يجب تجاهلها ──
-IGNORE_DIRS = {
-    "node_modules", ".git", "__pycache__", ".next", ".nuxt",
-    "dist", "build", ".cache", ".vscode", ".idea",
-    "venv", ".venv", "env", ".env", "test-results",
-}
+# TSK-202 (BUG-04 + NF-23(4)): المصدر الموحّد في core/ignore_rules.py —
+# يشمل test---results / test-results / .ai_runs / .webdev_backups.
+# الاسم القديم IGNORE_DIRS يبقى alias للتوافق الخلفي.
+IGNORE_DIRS = IGNORED_DIRS
 
 # ── حد أقصى لحجم الملف (500 KB) ──
 MAX_FILE_SIZE = 500 * 1024

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 from chain.path_policy import resolve_workspace_path, is_secret_file
 from core.execution import RunTicket
+from core.ignore_rules import IGNORED_DIRS  # TSK-202 (BUG-04): قائمة التجاهل الموحّدة
 import hashlib
 import json
 
@@ -296,9 +297,10 @@ class AgentTools:
                 files.extend(search_path.rglob(f"*{ext}"))
         
         for fpath in files:
-            # تخطي node_modules, .git, __pycache__
+            # TSK-202 (BUG-04): تخطي كل مجلدات التجاهل الموحّدة
+            # (تشمل test---results / test-results / .ai_runs …)
             parts = fpath.parts
-            if any(p in (".git", "node_modules", "__pycache__", ".venv", "venv") for p in parts):
+            if any(p in IGNORED_DIRS for p in parts):
                 continue
             if is_secret_file(fpath):
                 continue
@@ -592,10 +594,9 @@ class AgentTools:
         except PermissionError:
             return
         
-        # تخطي المجلدات المخفية والمشهورة
-        skip = {".git", "node_modules", "__pycache__", ".venv", "venv",
-                ".next", ".cache", "dist", ".idea", ".vscode"}
-        entries = [e for e in entries if e not in skip and not is_secret_file(pathlib.Path(root) / e)]
+        # تخطي المجلدات المخفية والمشهورة — TSK-202 (BUG-04):
+        # المصدر الموحّد core/ignore_rules.py بدل القائمة المحلية المكررة
+        entries = [e for e in entries if e not in IGNORED_DIRS and not is_secret_file(pathlib.Path(root) / e)]
         
         dirs = [e for e in entries if os.path.isdir(os.path.join(root, e))]
         files = [e for e in entries if not os.path.isdir(os.path.join(root, e))]
