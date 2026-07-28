@@ -1436,6 +1436,43 @@ def _payload_history(sctx, cfg: dict | None = None) -> list:
     return select_history(sctx.chat_history[:-1], _history_payload_policy(cfg))
 
 
+#: TSK-607 (RP-03): وسم اقتطاع ظاهر لسياق التفويض — لا إسقاط صامت.
+DELEGATE_DROP_MARKER_KEY = "__context_budget_drop_marker__"
+_DELEGATE_DROP_MARKER = ("[⚠️ أُسقطت ملفات من سياق التفويض وفق ميزانية "
+                         "السياق (context_budget) — الأكبر أولًا]")
+
+
+def _budget_delegate_files(files_context: dict, cfg: dict | None = None,
+                           budget=None) -> tuple[dict, list]:
+    """TSK-607 (RP-03): سقف ContextBudget على ملفات سياق التفويض.
+
+    كان معالج ``delegate_message`` يقرأ أول 10 ملفات **كاملة بلا سقف**
+    ويمررها لـ DelegateBridge.write_brief الذي يُلحقها حرفيًا — آخر
+    جيب برومبت خارج توحيد الميزانية (T-024/TSK-103). هنا: كل ملف
+    BudgetItem بطبقة high (كامل-أو-إسقاط — لا قصّ منتصف؛ الأكبر أولًا
+    عند الفيض)، وأي إسقاط يضيف وسمًا ظاهرًا داخل files_context
+    (يظهر في البريف) — لا تدهور صامت. المشاريع الصغيرة: المحتوى
+    يصل بايت-بايت كما كان (حفظ السلوك).
+
+    نقية وحدويًا: ``(kept_dict, dropped_keys)`` — الترتيب الأصلي محفوظ.
+    """
+    if not files_context:
+        return files_context, []
+    from context.budget import BudgetItem, ContextBudget
+    b = budget or ContextBudget.from_config(
+        cfg if cfg is not None else _read_config())
+    result = b.pack([BudgetItem(path, content, tier="high")
+                     for path, content in files_context.items()])
+    kept_keys = {it.key for it in result.kept}
+    dropped = [d.key for d in result.dropped]
+    kept = {path: content for path, content in files_context.items()
+            if path in kept_keys}
+    if dropped:
+        kept[DELEGATE_DROP_MARKER_KEY] = (
+            f"{_DELEGATE_DROP_MARKER}\nالمُسقط: {', '.join(dropped)}")
+    return kept, dropped
+
+
 def _parsed_to_actions(parsed) -> list[dict]:
     """TSK-601 (RP-01): تحويل ``ParsedResponse`` إلى قائمة actions للواجهة.
 
@@ -2311,6 +2348,14 @@ def _handle_ws_message(ctx, sctx, msg):
         except Exception as e:
             # NF-14 §12 (يحتاج log — أضيف): فشل scan المشروع كله كان صامتًا.
             print(f"  ⚠️ فشل جمع سياق التفويض: {e}")
+
+        # TSK-607 (RP-03): سقف الميزانية على ملفات السياق — كانت تمر
+        # كاملة بلا سقف (آخر جيب خارج توحيد T-024/TSK-103). أي إسقاط
+        # موسوم داخل البريف + مرصود في اللوج.
+        files_context, _dropped_delegate = _budget_delegate_files(
+            files_context)
+        if _dropped_delegate:
+            print(f"  ⚖️ ContextBudget (delegate): أُسقط: {_dropped_delegate}")
 
         project_context = ""
         try:

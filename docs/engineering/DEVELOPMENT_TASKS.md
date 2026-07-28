@@ -458,7 +458,7 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-607 — ضم جمع سياق delegate إلى ContextBudget
-- **Status**: TODO · **Priority**: P2
+- **Status**: ✅ DONE (S45) · **Priority**: P2
 - **Objective**: إخضاع القراءة المباشرة لأول 10 ملفات (server.py:2265–2284)
   لسقوف ContextBudget (آخر جيب خارج توحيد TSK-103).
 - **Background**: RP-03 (§R7). · **Files**: `server.py`، اختبار budget قائم يوسَّع.
@@ -469,8 +469,36 @@
   بدل تضخم غير مسقوف.
 - **Metrics**: حجم برومبت delegate الأقصى قبل/بعد.
 - **Rollback**: revert. · **Resume notes / Blocker**: —
-
-### TSK-608 — تفعيل reap_stale إنتاجيًا
+- **Pre-checks (S45 — مسجّلة قبل أي تعديل)**:
+  - **الموقع الفعلي (تزحزح بعد TSK-606)**: بلوك جمع سياق delegate هو
+    server.py:2299–2313 داخل معالج `delegate_message` — يقرأ أول 10
+    ملفات من `scan_project()` **كاملة بلا أي سقف** في
+    `files_context = {path: content}` ثم يمررها لـ
+    `RUNNERS["delegate"]` عبر `RunRequest.context["files"]`؛
+    `DelegateBridge.write_brief` (chain/delegate.py:288–310) يُلحق كل
+    محتوى في `files_block` حرفيًا — تضخم برومبت غير مسقوف (RP-03).
+    ملاحظة: `build_delegate` في chain/strategies **سبق ضمه** للميزانية
+    (T-024) — هذا المدخل (delegate_message عبر الجسر) هو الجيب الأخير.
+  - **حفظ السلوك**:
+    1. المشاريع الصغيرة (المحتوى ≤ الميزانية): `files_context` يصل
+       بالمحتويات نفسها بايت-بايت — الحزم لا يغيّر نص عنصر مقبول
+       (ContextBudget.pack كامل-أو-إسقاط، لا قصّ منتصف).
+    2. الحقول والترتيب: dict يحافظ على ترتيب الإدراج؛ يُعاد بناؤه
+       بترتيب المسح الأصلي للملفات المقبولة فقط.
+    3. عند الفيض: إسقاط الأكبر أولًا (tier=high — نفس سياسة مرفقات
+       TSK-103) مع **وسم ظاهر** يدخل files_context كعنصر باسم ثابت
+       (لا اقتطاع صامت) + سطر log «⚖️ ContextBudget» كنمط :1608.
+    4. رسالة المستخدم لا تمر بالميزانية هنا (تبقى كما هي — الميزانية
+       تسقف الملفات فقط؛ user_text صغير ولا يصح إسقاطه = must_have
+       ضمنيًا خارج الحزمة).
+    5. `project_context` (get_project_context) يبقى كما هو — نفس
+       دلالة TSK-103 حيث بقي خارج حزمة المرفقات.
+  - **Architecture-Fitness**: يعيد استعمال `ContextBudget.from_config`
+    (config.yaml:context_budget — نفس السقف المركزي) + `BudgetItem`
+    القائمين — صفر مفاهيم جديدة؛ الدالة مساعدة وحدوية نقية في server.py
+    (قابلة للاختبار بلا WS) على نمط `_payload_history` (TSK-104)؛
+    توسيع `tests/unit/test_budget_wiring.py` القائم (يغطي المواقع
+    الموصولة بالميزانية) لا ملف جديد.
 - **Status**: TODO · **Priority**: P2
 - **Objective**: استدعاء دوري (أو عند كل run جديد) لـ
   `ExecutionRegistry.reap_stale` كي لا تبقى خانة مشروع محجوزة بعد موت خيط.

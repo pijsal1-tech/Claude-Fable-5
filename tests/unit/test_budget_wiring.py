@@ -275,3 +275,76 @@ class TestOversizeE2E:
         assert "مقطوع" not in section
         # الضجيج الضخم أُسقط مرصودًا
         assert "أُسقط" in section
+
+
+# ═══════════ TSK-607 (RP-03): سياق delegate_message تحت الميزانية ═══════════
+
+class TestDelegateFilesBudget:
+    """server._budget_delegate_files — آخر جيب برومبت خارج التوحيد:
+    معالج delegate_message كان يمرر أول 10 ملفات كاملة بلا سقف."""
+
+    def _budget(self, tokens):
+        # ميزانية دقيقة: window=tokens بلا حجز ولا هامش
+        return ContextBudget(model_window=tokens, reserved_output=0,
+                             safety_margin=0.0)
+
+    def test_small_project_passes_byte_identical(self):
+        """حفظ السلوك: المحتوى ≤ الميزانية ⇒ نفس الـ dict بايت-بايت."""
+        import server
+        files = {"a.py": "def a():\n    pass\n", "b.py": "x = 1\n"}
+        kept, dropped = server._budget_delegate_files(
+            files, budget=self._budget(10_000))
+        assert kept == files          # لا تغيير — ولا وسم
+        assert dropped == []
+        assert server.DELEGATE_DROP_MARKER_KEY not in kept
+
+    def test_empty_context_untouched(self):
+        import server
+        kept, dropped = server._budget_delegate_files({})
+        assert kept == {} and dropped == []
+
+    def test_oversized_drops_largest_first_with_visible_marker(self):
+        """الفيض: الأكبر يسقط أولًا (tier=high) + وسم ظاهر لا صامت."""
+        import server
+        files = {"small.py": "s" * 40,          # ~10 توكن
+                 "huge.py": "h" * 4000,          # ~1000 توكن — الأكبر
+                 "mid.py": "m" * 400}            # ~100 توكن
+        kept, dropped = server._budget_delegate_files(
+            files, budget=self._budget(200))
+        assert "huge.py" in dropped              # الأكبر أولًا
+        assert "small.py" in kept                # الصغير كامل بلا قصّ
+        assert kept["small.py"] == files["small.py"]
+        # وسم الاقتطاع ظاهر داخل files_context (يصل البريف)
+        marker = kept[server.DELEGATE_DROP_MARKER_KEY]
+        assert "أُسقطت" in marker and "huge.py" in marker
+
+    def test_no_mid_truncation(self):
+        """كامل-أو-إسقاط: أي ملف مقبول يصل بمحتواه الحرفي الكامل."""
+        import server
+        files = {"kept.py": "K" * 100, "big.py": "B" * 9000}
+        kept, dropped = server._budget_delegate_files(
+            files, budget=self._budget(500))
+        for path, content in kept.items():
+            if path == server.DELEGATE_DROP_MARKER_KEY:
+                continue
+            assert content == files[path]        # لا بتر في المنتصف
+
+    def test_result_within_budget(self):
+        """معيار القبول: مشروع اصطناعي كبير ⇒ الحمولة ≤ سقف الميزانية."""
+        import server
+        files = {f"f{i}.py": "x" * 2000 for i in range(10)}  # ~5000 توكن
+        b = self._budget(1000)
+        kept, dropped = server._budget_delegate_files(files, budget=b)
+        assert dropped                            # حصل إسقاط فعلًا
+        est = CharsPerTokenEstimator()
+        payload = sum(est.estimate(c) for k, c in kept.items()
+                      if k != server.DELEGATE_DROP_MARKER_KEY)
+        assert payload <= b.budget_tokens
+
+    def test_order_of_kept_files_preserved(self):
+        """ترتيب الإدراج الأصلي للملفات المقبولة محفوظ."""
+        import server
+        files = {"z.py": "1", "a.py": "2", "m.py": "3"}
+        kept, _ = server._budget_delegate_files(
+            files, budget=self._budget(10_000))
+        assert list(kept.keys()) == ["z.py", "a.py", "m.py"]
