@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 9 — MODE B: TSK-104 Completed, QA-T06 مكتملة خضراء) |
-| stage | EXECUTION (MODE B — M1 in progress) |
-| current-phase | M1 (Safety) |
-| current-task | TSK-105 — Zip-Slip guard للاستعادة (NF-15) |
+| last-updated | 2026-07-28 (Session 10 — MODE B: TSK-105 Completed, QA-T07 خضراء — M1 مُغلق) |
+| stage | EXECUTION (MODE B — M1 مكتمل ✅، M2 يبدأ) |
+| current-phase | M2 (Consistency) |
+| current-task | TSK-202 — قائمة تجاهل موحّدة تشمل test---results (BUG-04) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 26% (5 / 19 TSK) |
+| completion % (execution) | 32% (6 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -155,7 +155,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-102 | fix | تهذيب fallback الأوامر (NF-13) | M1 | ✅ Completed (S7) |
 | TSK-103 | fix | توحيد مسارات حقن السياق تحت ContextBudget (BUG-03) | M1 | ✅ Completed (S8) |
 | TSK-104 | fix | سقف تاريخ المحادثة (NF-07) | M1 | ✅ Completed (S9) |
-| TSK-105 | security | Zip-Slip guard للاستعادة (NF-15) | M1 | ⬜ pending |
+| TSK-105 | security | Zip-Slip guard للاستعادة (NF-15) | M1 | ✅ Completed (S10) |
 | TSK-201 | refactor | دمج apply_all_actions/execute_plan (NF-23.1) | M2 | ✅ Completed (S7) |
 | TSK-202 | fix | قائمة تجاهل موحّدة تشمل test---results (BUG-04) | M2 | ⬜ pending |
 | TSK-203 | refactor | توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) | M2 | ⬜ pending |
@@ -504,11 +504,46 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `TEST(TSK-104): history payload cap unit tests — 200-msg session capped per config (NF-07), QA-T06 complete`
 
-- **EXACT RESUME POINT: TSK-105 (Current Task)** — Zip-Slip guard للاستعادة
-  (NF-15، security): `server.py:api_restore_backup` (كان L947–960) — قبل
-  `extractall`: رفض أي عضو مساره مطلق أو يحلّ خارج `fm.root` (إعادة
-  استخدام منطق `chain/path_policy.py:resolve_workspace_path:L51`).
-  معيار القبول: ZIP مُصنّع بعضو `../evil.txt` → 400 ورفض كامل (لا فك
-  جزئي). بوابة QA-T07: ZIP سليم يُستعاد؛ عضو `../`، مسار مطلق، symlink
-  → 400 ولا ملف واحد يُكتب خارج الجذر (فحص فعلي للقرص). Deps: —.
-  بوابة QA-T06 ✅ + QA-T07 تُغلق M1؛ بعدها M2 (TSK-202 ثم TSK-203).
+---
+
+## Session 10 log — 2026-07-28 (MODE B: TSK-105 مكتملة، QA-T07 خضراء، M1 مُغلق)
+
+- **TSK-105 — Zip-Slip guard للاستعادة (NF-15, security) — ✅ Completed**:
+  - **الكود (مرفوع مسبقًا في 7604ad3)**: `server.py:_zip_member_violations(zf, root)`
+    (L948، دالة مساعدة بلا decorator) — فحص مسبق لكل أعضاء الأرشيف قبل
+    `extractall`: مسار مطلق/حرف قرص → `absolute_path`؛ عضو symlink
+    (`(external_attr >> 16) & 0o170000 == 0o120000`) → `symlink_member`؛
+    يحلّ خارج الجذر بعد التطبيع (`.resolve().relative_to(root_resolved)`)
+    → `escapes_root` (نفس دلالات الاحتواء في
+    `chain/path_policy.py:resolve_workspace_path`).
+  - داخل `api_restore_backup` (L994): أي مخالفة → 400 + JSON
+    (`أرشيف مرفوض: أعضاء خارج جذر المشروع أو غير آمنة` + violations)
+    ورفض كامل — لا فك جزئي إطلاقًا. أرشيف غير موجود يظل 404.
+  - **إصلاح هذه الجلسة (الوحيد غير المرفوع)**:
+    `tests/integration/test_restore_zip_slip.py:_disk_snapshot` كان يحتسب
+    ملف zip الاحتياطي نفسه داخل اللقطة → 3 فشلات زائفة؛ أُصلح باستثناء
+    أي مسار يحوي `.webdev_backups` ضمن أجزائه.
+- **بوابة QA-T07 — ✅ خضراء (5/5)**:
+  tests/integration/test_restore_zip_slip.py — ZIP سليم يُستعاد (200)؛
+  عضو `../evil.txt` → 400 + سبب escapes_root + رفض كامل (الطُعم `ok.txt`
+  لم يُفك) + لقطة القرص لم تتغير؛ مسار مطلق → 400؛ عضو symlink → 400 +
+  سبب symlink_member؛ أرشيف مفقود → 404. صفر نداءات AI خارجية.
+- **الحزمة الكاملة**: `5 failed, 1512 passed, 63 skipped` — نفس الفشلات
+  الخمس الموجودة مسبقًا فقط (خارج النطاق، لم تُمس): test_file_icons /
+  test_history_consumers / test_rollback_ui / test_symbol_index /
+  test_theme_tokens.
+- **🏁 M1 (Safety) مُغلق**: بوابات QA-T05 ✅ + QA-T06 ✅ + QA-T07 ✅
+  كلها خضراء (TSK-201, TSK-101, TSK-102, TSK-103, TSK-104, TSK-105).
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🛠 tests/integration/test_restore_zip_slip.py
+  2. 🛠 docs/engineering/PROGRESS.md
+  (كود server.py لـ TSK-105 مرفوع مسبقًا في 7604ad3 — لم يُمس هذه الجلسة.)
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `FIX(TSK-105): zip-slip guard test snapshot fix — QA-T07 green, M1 closed (NF-15)`
+
+- **EXACT RESUME POINT: TSK-202 (Current Task)** — قائمة تجاهل موحّدة
+  تشمل `test---results` (BUG-04 + NF-23(4)، M2 Consistency): وحدة جديدة
+  `core/ignore_rules.py` تُعرّف قائمة التجاهل الموحّدة وتُستهلك في كل
+  مواقع الفحص/المسح المتفرقة بدل القوائم المكررة. بوابة QA-T09 (إعادة
+  تشغيل سيناريو T02). Deps: —. بعدها TSK-203 (توحيد MAX_SMART_FILE_SIZE
+  + قارئ config — NF-23.2/3، بوابة QA-T08).

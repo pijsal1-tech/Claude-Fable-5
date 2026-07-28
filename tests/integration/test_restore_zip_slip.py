@@ -49,7 +49,11 @@ def _post_restore(name):
 
 
 def _disk_snapshot(root):
-    return sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
+    """لقطة ملفات المشروع — باستثناء مجلد النسخ الاحتياطية نفسه."""
+    return sorted(
+        str(p.relative_to(root)) for p in root.rglob("*")
+        if p.is_file() and ".webdev_backups" not in p.parts
+    )
 
 
 class TestSafeZipRestored:
