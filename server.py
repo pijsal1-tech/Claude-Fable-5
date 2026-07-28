@@ -1883,44 +1883,57 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
         # TSK-104 (NF-07): سقف تاريخ الحمولة وفق config
         context={"history": _payload_history(sctx)},
     )
-    _direct_result = RUNNERS["direct"](
-        stream_fn=lambda p, h, s: sctx.active_provider().stream(p, h, s)
-    ).run(_direct_req, direct_ticket, _RunnerWSAdapter(sctx.send))
 
-    full_response = _direct_result.text
-    if _direct_result.status != RESULT_COMPLETED:
-        sctx.send({
-            "type": "error",
-            "text": _direct_result.error or "الرد لم يكتمل",
-        })
+    # TSK-606 (RF-01/RP-02/UXF-03): تشغيل الـ runner المباشر صار على
+    # خيط عامل — كان متزامنًا على خيط حلقة استقبال WS فلا يُقرأ إطار
+    # cancel_run من نفس الاتصال أثناء البث أبدًا. ما قبل هذا السطر
+    # (إطار start + فحص busy للتذكرة) بقي متزامنًا حفاظًا على ترتيب
+    # الإطارات؛ نفس نمط agent (_run_agent أعلاه) حرفيًا.
+    def _run_direct():
+        _direct_result = RUNNERS["direct"](
+            stream_fn=lambda p, h, s: sctx.active_provider().stream(p, h, s)
+        ).run(_direct_req, direct_ticket, _RunnerWSAdapter(sctx.send))
 
-    sctx.chat_history.append(Message(role="assistant", content=full_response))
-    if sctx.session_mgr:
-        sctx.session_mgr.append_message("assistant", full_response)
+        full_response = _direct_result.text
+        if _direct_result.status != RESULT_COMPLETED:
+            sctx.send({
+                "type": "error",
+                "text": _direct_result.error or "الرد لم يكتمل",
+            })
 
-    parsed = parser.parse(full_response, mode=mode)
+        sctx.chat_history.append(Message(role="assistant", content=full_response))
+        if sctx.session_mgr:
+            sctx.session_mgr.append_message("assistant", full_response)
 
-    actions = _parsed_to_actions(parsed)  # TSK-601: التحويل المشترك
-    options = _parsed_options(parsed)
+        parsed = parser.parse(full_response, mode=mode)
 
-    sctx.backup_done_for_batch = False
+        actions = _parsed_to_actions(parsed)  # TSK-601: التحويل المشترك
+        options = _parsed_options(parsed)
 
-    if mode in ("plan", "build", "edit") and actions:
-        sctx.send({
-            "type": "plan",
-            "actions": actions,
-            "options": options,
-            "summary": parsed.summary(),
-        })
-    else:
-        sctx.send({
-            "type": "done",
-            # TSK-101 (BUG-01): إطار done في وضع chat لا يحمل إجراءات أبدًا —
-            # الواجهة تعرض شريط الإجراءات لأي actions غير فارغة.
-            "actions": [] if mode == "chat" else actions,
-            "options": options,
-            "summary": parsed.summary(),
-        })
+        sctx.backup_done_for_batch = False
+
+        if mode in ("plan", "build", "edit") and actions:
+            sctx.send({
+                "type": "plan",
+                "actions": actions,
+                "options": options,
+                "summary": parsed.summary(),
+            })
+        else:
+            sctx.send({
+                "type": "done",
+                # TSK-101 (BUG-01): إطار done في وضع chat لا يحمل إجراءات أبدًا —
+                # الواجهة تعرض شريط الإجراءات لأي actions غير فارغة.
+                "actions": [] if mode == "chat" else actions,
+                "options": options,
+                "summary": parsed.summary(),
+            })
+
+    threading.Thread(
+        target=_run_direct,
+        daemon=True,
+        name=f"runner-direct-{direct_ticket.run_id}",
+    ).start()
 
 
 def _handle_ws_message(ctx, sctx, msg):
@@ -2088,7 +2101,17 @@ def _handle_ws_message(ctx, sctx, msg):
         # (apply_all_actions / execute_plan) — دُمجا في _apply_batch
         # الواحدة. السلوك مقفول بالـ golden:
         # tests/goldens/apply_batch_frames.json
-        _apply_batch(sctx, msg.get("actions", []))
+        # TSK-606 (RF-01/RP-02/UXF-03): النداء صار على خيط عامل — كان
+        # متزامنًا على خيط حلقة استقبال WS فلا يُقرأ إطار cancel_run من
+        # نفس الاتصال أثناء الدفعة أبدًا. _apply_batch نفسها بلا تغيير
+        # (التذكرة + نقطة تفتيش الإلغاء موجودتان منذ TSK-304)؛ نمط
+        # الخيوط نفسه المستعمل لـ chain/agent/delegate.
+        threading.Thread(
+            target=_apply_batch,
+            args=(sctx, msg.get("actions", [])),
+            daemon=True,
+            name="runner-apply-batch",
+        ).start()
 
     # ═══════════════════════════════════════════
     #  M5: Chain System — WebSocket Handlers
@@ -2254,9 +2277,12 @@ def _handle_ws_message(ctx, sctx, msg):
 
     elif msg_type == "cancel_run":
         # إلغاء تعاوني لـ run محدد بمعرّفه — acknowledged / not_found
+        # TSK-606 (اكتشاف جانبي BUG): كان النداء يمرر ensure_ascii=False
+        # لكن توقيع sctx.send هو Callable[[dict], None] — TypeError عند
+        # أول cancel_run حقيقي عبر WS (الاختبارات كانت تنادي
+        # _cancel_run_frame مباشرة فلم تكشفه). أُزيل الوسيط الدخيل.
         sctx.send(
             _cancel_run_frame(msg.get("run_id", ""), msg.get("reason", "")),
-            ensure_ascii=False,
         )
 
     # ── M6: Delegate System ──

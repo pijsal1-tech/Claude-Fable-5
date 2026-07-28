@@ -181,3 +181,40 @@
 ### Pending
 - TF-04 ينتظر D-2 — عند الرد: baseline-allowlist مؤرَّخ + سطر دين في
   TECHNICAL_DEBT.md ⇒ `pytest tests` = 0 failed (أول خضرة كاملة).
+
+---
+
+## TSK-606 — تخييط _apply_batch والمسار المباشر (إلغاء مستجيب) — Session 43
+
+### Fixed
+- **RF-01 + RP-02 + UXF-03**: `cancel_run` من نفس الاتصال أثناء دفعة
+  apply أو رد direct كان مستحيلًا بنيويًا — `_handle_ws_message` كانت
+  تنفّذهما متزامنَين على خيط حلقة استقبال WS فلا يُقرأ أي إطار تالٍ
+  (بما فيه الإلغاء) قبل الاكتمال. آلية الإلغاء التعاوني نفسها كانت
+  موجودة منذ TSK-304 بلا جدوى من نفس الاتصال.
+- **اكتشاف جانبي (BUG)**: معالج `cancel_run` (server.py) كان يمرر
+  `ensure_ascii=False` لـ `sctx.send` وتوقيعه `Callable[[dict], None]`
+  → TypeError عند أول cancel_run حقيقي عبر WS. أُزيل الوسيط الدخيل.
+
+### Changed
+- `server.py`: نداء `_apply_batch` صار على خيط daemon باسم
+  `runner-apply-batch`؛ بلوك direct runner انتقل لدالة `_run_direct`
+  على خيط `runner-direct-{run_id}` (إطار start + فحص busy بقيا
+  متزامنين — ترتيب الإطارات محفوظ). نفس نمط خيوط chain/agent/delegate
+  حرفيًا — `_apply_batch` نفسها لم تُمس.
+- `tests/integration/test_apply_batch_golden.py`: الـ harness يَـjoin
+  خيط الدفعة قبل قراءة الإطارات — ملف الـ golden JSON **بلا تغيير**.
+- `tests/integration/test_apply_cancel.py`: +2 اختبارات
+  (TestSameConnectionCancel) — معيار القبول الحرفي: cancel_run أثناء
+  دفعة 20-action من نفس الاتصال يوقفها عند 5/20 مع إقرار
+  acknowledged=True أثناء الدفعة؛ + اختبار التحرر البنيوي للحلقة.
+
+### Verification
+- الملفان المستهدفان: **11 passed** (منها goldens QA-T08 مطابقة).
+- بوابة العمارة: `scripts/lint_handler_state.py` → clean.
+- Performance: أول task_progress بعد التخييط وسيط 0.18ms / p95
+  0.28ms (20 عينة) — لا تدهور.
+- Regression كامل (Session 43): `1 failed, 1695 passed, 34 skipped`
+  (~71s) — المتبقي الوحيد test_theme_tokens (TF-04 — محجوب بـ D-2).
+- Metrics: استجابة cancel أثناء دفعة من نفس الاتصال:
+  **مستحيل → ≤ خطوة واحدة** (الهدف حرفيًا).

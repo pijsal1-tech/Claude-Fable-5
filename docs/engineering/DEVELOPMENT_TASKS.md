@@ -368,7 +368,7 @@
 ## M7 — Responsiveness & Guardrails (P2 الجذور التشغيلية)
 
 ### TSK-606 — تخييط _apply_batch والمسار المباشر (إلغاء مستجيب)
-- **Status**: IN-PROGRESS (S43) · **Priority**: P2
+- **Status**: ✅ DONE (S43) · **Priority**: P2
 - **Objective**: نقل `_apply_batch` (server.py:2081/2415–2462) وتشغيل direct
   runner (1846–1858) إلى خيوط كما chain/agent/delegate — فيصبح cancel من نفس
   الاتصال فعّالًا.
@@ -382,6 +382,80 @@
   المتغير الوحيد = استجابة الإلغاء.
 - **Metrics**: قبل/بعد: استجابة cancel أثناء دفعة (مستحيل → ≤ خطوة واحدة).
 - **Rollback**: revert. · **Resume notes / Blocker**: —
+- **Pre-checks (S43 — مسجّلة قبل أي تعديل)**:
+  - **تشخيص الجذر (بالدليل)**: `_apply_batch` (server.py:2433) مُخيّطة
+    فعلًا تحت ticket مع نقطة تفتيش `apply_ticket.is_cancelled` بين كل
+    action (TSK-304 — server.py:2460). المشكلة ليست غياب الإلغاء
+    التعاوني بل **التنفيذ المتزامن على خيط حلقة استقبال WS**: النداء
+    `_apply_batch(sctx, msg.get("actions", []))` (server.py:2091) يجري
+    داخل `_handle_ws_message`، وحلقة `ws_handler` (server.py:2403–2417)
+    لا تقرأ الإطار التالي إلا بعد عودة المعالج — فإطار `cancel_run` من
+    **نفس الاتصال** لا يُقرأ أبدًا أثناء الدفعة. الشيء نفسه للمسار
+    المباشر: بلوك direct runner (server.py:1876–1923 داخل
+    `_dispatch_chat_message`) يجري متزامنًا على نفس الخيط.
+  - **حفظ السلوك**:
+    1. `_apply_batch` نفسها **لا تُمس** (مقفولة بالـ golden
+       `tests/goldens/apply_batch_frames.json` — QA-T08) — يُخيَّط
+       **نداؤها** فقط عند :2091 بنمط الخيوط القائم (daemon Thread
+       مسمّى، كما chain :1698 / agent :1848 / delegate :2304).
+       الإطارات: نفس المحتوى والترتيب النسبي بالضبط (منتِج وحيد =
+       خيط الدفعة)؛ ملف الـ golden JSON يبقى بلا تغيير — يُعدَّل فقط
+       harness الالتقاط (`_run_batch_via_ws`) ليَـjoin خيط الدفعة قبل
+       قراءة الإطارات (قفل السلوك هو ملف الـ golden لا تزامنية الـ harness).
+    2. المسار المباشر: `chat_history.append(user)` + `session_mgr` +
+       إطار `start` + إنشاء `direct_ticket` (فحص busy المتزامن — يحفظ
+       ترتيب إطار busy) تبقى على خيط النداء؛ ما بعدها (runner.run،
+       parse، إطار plan/done، chat_history.append(assistant)) ينتقل
+       لخيط `runner-direct-{run_id}` — كما يفعل agent حرفيًا (:1841–1852).
+    3. اختبارات `test_apply_cancel.py` القائمة تنادي `_apply_batch`
+       مباشرة (متزامنة) — لا تتأثر. اختبارات `_dispatch_chat_message`
+       القائمة (test_scan_start / test_prompt_fencing /
+       test_except_narrowing) توقف التنفيذ **قبل** بلوك الـ runner
+       (عند gather_message_context أو isdir) — لا تتأثر. لا اختبار
+       قائم يستهلك إطارات المسار المباشر بعد `_handle_ws_message`
+       تزامنيًا (تحقق grep S43: الوحيد test_session_context يرسل
+       "type":"message" لكن نصّه مسار مجلد → يسلك فرع project_switched
+       قبل بلوك الـ runner).
+  - **Architecture-Fitness**: يوحّد الأنماط لا يضيف نمطًا جديدًا — كل
+    الـ runs (chain/agent/delegate/direct/apply) تصير على خيوط عاملة
+    daemon مسمّاة `runner-*`، وحلقة استقبال WS تبقى حرة دائمًا (مبدأ
+    R-701: المعالج لا يحتجز الحلقة). صفر حالة جديدة في globals؛
+    التذاكر تبقى مملوكة لـ ExecutionRegistry كما هي.
+- **Close-out (Session 43)**:
+  - **Implementation**: `server.py` — (1) نداء `_apply_batch` عند معالج
+    `apply_all_actions`/`execute_plan` صار على خيط عامل daemon باسم
+    `runner-apply-batch` (كان :2091 متزامنًا)؛ `_apply_batch` نفسها لم
+    تُمس. (2) بلوك direct runner داخل `_dispatch_chat_message` (من
+    `RUNNERS["direct"].run` حتى إطار plan/done) انتقل لدالة داخلية
+    `_run_direct` على خيط `runner-direct-{run_id}` — إطار `start`
+    وفحص busy للتذكرة بقيا متزامنين حفاظًا على ترتيب الإطارات (نمط
+    agent حرفيًا). (3) **اكتشاف جانبي BUG مصحح**: معالج `cancel_run`
+    كان يمرر `ensure_ascii=False` لـ `sctx.send` وتوقيعه
+    `Callable[[dict], None]` → TypeError عند أول cancel_run حقيقي عبر
+    WS (الاختبارات القائمة كانت تنادي `_cancel_run_frame` مباشرة فلم
+    تكشفه) — أُزيل الوسيط الدخيل بتعليق موثق. `tests/integration/`
+    `test_apply_batch_golden.py` — الـ harness يَـjoin خيط الدفعة قبل
+    قراءة الإطارات (ملف الـ golden JSON نفسه **بلا تغيير**).
+    `test_apply_cancel.py` — صنف `TestSameConnectionCancel` (+2):
+    (أ) معيار القبول الحرفي — إطار دفعة 20-action ثم إطار `cancel_run`
+    عبر `_handle_ws_message` على **نفس sctx** أثناء الدفعة (بوابتا
+    Event تضبطان التزامن حتميًا): توقفت عند 5/20، إقرار
+    `cancel_run_result acknowledged=True` وصل أثناء الدفعة، عقد إطارات
+    الإلغاء المقفول (error ثم all_actions_done) محفوظ، التذكرة
+    cancelled والخانة تحررت؛ (ب) التحرر البنيوي — `_handle_ws_message`
+    يعود قبل اكتمال الدفعة.
+  - **Acceptance**: (1) ✅ cancel_run أثناء دفعة 20-action من نفس
+    الاتصال يوقفها (الاختبار أ أعلاه)؛ (2) ✅ goldens QA-T08 مطابقة —
+    `test_apply_batch_golden.py` 3/3 وملف الـ golden لم يُلمس.
+  - **Gates**: Architecture ✅ (`scripts/lint_handler_state.py` →
+    handler state clean؛ نمط خيوط موحّد) · Testing ✅ (اختبارا
+    الملفين المستهدفين 11/11) · Regression ✅ (**1F/1695P/34S** —
+    الإخفاق الوحيد theme_tokens/TF-04 المحجوب بـ D-2؛ +2 اختبارات
+    جديدة خضراء) · Performance ✅ (زمن أول task_progress بعد التخييط:
+    وسيط 0.18ms / p95 0.28ms — كلفة spawn لا تُذكر، لا تدهور).
+  - **Metrics**: استجابة cancel أثناء دفعة من نفس الاتصال:
+    **مستحيل بنيويًا → ≤ خطوة واحدة** ✅ (المقياس المستهدف حرفيًا).
+- **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-607 — ضم جمع سياق delegate إلى ContextBudget
 - **Status**: TODO · **Priority**: P2
@@ -575,7 +649,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 603 | M6 | P1 | ✅ DONE (S37) | fail-closed بـ sentinel؛ 7 اختبارات جديدة؛ regression نظيف |
 | 604 | M6 | P1 | ✅ DONE (S38–39) | زرا وكيلان مخفيان + سطر الترخيص؛ إخفاقات البوابة 4→2 |
 | 605 | M6 | P1 | TF-02 ✅ (S40) · TF-04 BLOCKED(D-2) | إخفاقات البوابة 2→1؛ المتبقي ينتظر رد المالك |
-| 606 | M7 | P2 | TODO | |
+| 606 | M7 | P2 | ✅ DONE (S43) | تخييط apply/direct + إصلاح BUG جانبي في معالج cancel_run؛ +2 اختبارات |
 | 607 | M7 | P2 | TODO | |
 | 608 | M7 | P2 | TODO | |
 | 609 | M7 | P2 | TODO | |

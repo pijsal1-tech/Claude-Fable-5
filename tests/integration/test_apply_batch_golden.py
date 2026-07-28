@@ -7,6 +7,7 @@
 tests/goldens/apply_batch_frames.json
 """
 import json
+import threading
 from pathlib import Path
 
 import pytest
@@ -94,6 +95,13 @@ def _run_batch_via_ws(msg_type, actions, fm):
     server._apply_single_action = _stubbed
     try:
         server._handle_ws_message(None, sctx, {"type": msg_type, "actions": actions})
+        # TSK-606: النداء صار على خيط عامل (runner-apply-batch) —
+        # الـ harness ينتظر اكتماله قبل قراءة الإطارات. قفل السلوك هو
+        # ملف الـ golden نفسه (لم يتغير)؛ فقط تزامنية الالتقاط تغيّرت.
+        for t in threading.enumerate():
+            if t.name == "runner-apply-batch":
+                t.join(timeout=10)
+                assert not t.is_alive(), "خيط الدفعة لم يكتمل في المهلة"
     finally:
         server._apply_single_action = orig
     return sctx.frames, sctx.backup_done_for_batch
