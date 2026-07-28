@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 16 — MODE B: TSK-304 Completed, إلغاء مستجاب أثناء apply — QA-T10 خضراء) |
-| stage | EXECUTION (MODE B — M3 in progress) |
-| current-phase | M3 (Runtime Robustness) |
-| current-task | TSK-305 — تضييق مواضع except الحرجة + log (NF-14) |
+| last-updated | 2026-07-28 (Session 17 — MODE B: TSK-305 Completed — **M3 مُقفلة** — QA-T08 خضراء) |
+| stage | EXECUTION (MODE B — M4 starting) |
+| current-phase | M4 (Frontend & Streaming UX) |
+| current-task | TSK-401 — بث تدريجي بدل إعادة render كاملة (NF-10) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 63% (12 / 19 TSK) |
+| completion % (execution) | 68% (13 / 19 TSK) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -163,7 +163,7 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 | TSK-302 | fix | سياسة خانة الـ run / project_id (NF-02) | M3 | ✅ Completed (S14) |
 | TSK-303 | fix | طَهْر تذاكر terminal (NF-06) | M3 | ✅ Completed (S15) |
 | TSK-304 | fix | استجابة الإلغاء أثناء apply (NF-04) | M3 | ✅ Completed (S16) |
-| TSK-305 | quality | تضييق except الحرجة + log (NF-14) | M3 | ⬜ pending |
+| TSK-305 | quality | تضييق except الحرجة + log (NF-14) | M3 | ✅ Completed (S17) |
 | TSK-401 | perf | بث تدريجي بدل إعادة render (NF-10) | M4 | ⬜ pending |
 | TSK-402 | fix | backoff+jitter + حماية onmessage (NF-11) | M4 | ⬜ pending |
 | TSK-403 | feature | إطار scan_start + مؤشر فوري (NF-12/A3) | M4 | ⬜ pending |
@@ -785,10 +785,47 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 - **رسالة commit مقترحة للرفع اليدوي**:
   - `FIX(TSK-304): cancel-responsive apply batch under run ticket — QA-T10 green (NF-04)`
 
-- **EXACT RESUME POINT: TSK-305 (Current Task)** — تضييق مواضع
-  except الحرجة + log (NF-14، M3 Runtime Robustness):
-  `server.py:L1338–1339` — إطار warning بدل pass الصامت؛ جرد
-  مواضع except الـ 41 وتصنيفها (ابتلاع مشروع / يحتاج log)
-    بتعليقات مرقّمة. بوابة QA-T08: فشل قراءة ملف مكتشف → المستخدم
-  يرى تنبيهًا؛ لا تغيير سلوك آخر. Deps: —. بعدها M3 يُقفل وتبدأ
-  M4 (TSK-401 — بث تدريجي بدل إعادة render كاملة، NF-10).
+---
+
+## Session 17 log — MODE B: TSK-305 (تضييق مواضع except الحرجة + log — NF-14) — **M3 مُقفلة ✅**
+
+- **TSK-305 ✅ Completed** — Fixes NF-14 · Validated-by QA-T08.
+- **الموضع الحرج (معيار القبول)**: بلوك قراءة الملف المكتشف في
+  `_dispatch_chat_message` — كان `except: pass` صامتًا: المستخدم
+  يذكر ملفًا وتفشل قراءته فيُرسل طلبه للـ AI بدون المحتوى بلا أي
+  إشارة. الآن: إطار **`warning`** جديد للواجهة + log — التدفق يكمل
+  كالسابق (لا تغيير سلوك آخر). `static/app.js`: معالج
+  `case "warning"` جديد (toast غير معطّل — لا يوقف البث).
+- **الجرد (NF-14 §1–§18)**: كل مواضع الابتلاع الصامت في server.py
+  صُنّفت بتعليقات مرقّمة `NF-14 §N`: ابتلاع مقصود موثّق (§1–§5،
+  §8–§9، §11، §13–§14، §16–§18) أو يحتاج log فأضيف print تشخيصي
+  (§6 الحرج + §7 gather_message_context + §10 قراءة ملف chain +
+  §12 scan التفويض + §15 تحليل رد التفويض). الـ `except:` العارية
+  الوحيدة (L21، إقلاع) ضُيّقت لـ `except Exception`.
+- **بوابة QA-T08 (جزء NF-14)**: جديد
+  `tests/integration/test_except_narrowing.py` — **6/6 خضراء**:
+  معيار القبول الحرفي (open مزيّف يفشل → إطار warning واحد
+  باسم الملف)؛ قراءة ناجحة → صفر إطارات (لا تغيير سلوك)؛ بلا
+  ملف → صفر إطارات؛ حارس grep: صفر `except:` عارية؛ حارس جرد:
+  كل ابتلاع صامت مصنّف NF-14 §N (يفشل لو أُضيف ابتلاع جديد بلا
+  تصنيف)؛ إطار warning معالَج في الواجهة. صفر نداءات AI خارجية.
+- **الحزمة الكاملة**: `5 failed, 1570 passed, 63 skipped` — نفس
+  الفشلات الخمس الموجودة مسبقًا فقط (خارج النطاق، لم تُمس):
+  test_file_icons / test_history_consumers / test_rollback_ui /
+  test_symbol_index / test_theme_tokens. (1564 سابقة + 6 جديدة.)
+- **🏁 M3 (Runtime Robustness) مُقفلة**: TSK-301+302+303+304+305 كلها
+  ✅ — بوابات QA-T10 (إلغاء/طهر/خانات) وQA-T08 (NF-14) خضراء.
+- **Files changed (working tree — للرفع اليدوي)**:
+  1. 🛠 tests/integration/test_except_narrowing.py (إصلاح fixture —
+     ProjectHandle + fm stub بدل sctx بلا مشروع)
+  2. 🛠 docs/engineering/PROGRESS.md
+  (server.py §1–§18 + static/app.js `case "warning"` + ملف الاختبار
+  نفسه مرفوعة مسبقًا في 11c48bd — لم تُعدّل إلا الاختبار.)
+- **رسالة commit مقترحة للرفع اليدوي**:
+  - `FIX(TSK-305): narrow critical excepts + NF-14 audit, warning frame for unreadable detected file — QA-T08 green (M3 closed)`
+
+- **EXACT RESUME POINT: TSK-401 (Current Task)** — بث تدريجي بدل
+  إعادة render كاملة (NF-10، M4 Frontend & Streaming UX):
+  `static/app.js:appendStreamChunk:L928–962` — throttle (rAF/زمن) +
+  إعادة render للمقطع المفتوح الأخير فقط. Validated-by QA-T11.
+  Deps: —. بعدها TSK-402.

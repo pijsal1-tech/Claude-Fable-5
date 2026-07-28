@@ -34,11 +34,22 @@ class FakeWS:
         self.sent.append(payload)
 
 
-def _sctx():
+class _StubFM:
+    """fm أدنى — يكفي وصول _dispatch_chat_message لـ sctx.fm.root."""
+
+    def __init__(self, root):
+        self.root = root
+
+
+def _sctx(root="/tmp/x"):
+    from core.app_context import ProjectHandle
     from core.session_context import SessionContext
     ws = FakeWS()
     send = lambda m: ws.send(json.dumps(m, ensure_ascii=False))
-    return SessionContext(send=send), ws
+    sctx = SessionContext(
+        send=send,
+        project=ProjectHandle(root=str(root), fm=_StubFM(pathlib.Path(root))))
+    return sctx, ws
 
 
 def _frames(ws):
