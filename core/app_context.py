@@ -50,6 +50,13 @@ class ProjectHandle:
     index: Any = None              # slot — filled by R-702
     _valid: bool = field(default=True, repr=False)
 
+    @property
+    def project_id(self) -> str:
+        """TSK-302 (NF-02): هوية المشروع لخانة الـ run في
+        ExecutionRegistry — المسار المطلق المُطبّع للجذر (هوية
+        مستقرة: نفس المجلد = نفس الخانة مهما اختلف شكل كتابة المسار)."""
+        return os.path.normpath(os.path.abspath(self.root))
+
     def invalidate(self) -> None:
         self._valid = False
 
