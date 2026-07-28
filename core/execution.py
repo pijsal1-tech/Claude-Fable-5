@@ -344,3 +344,36 @@ class ExecutionRegistry:
                         del self._active_by_project[ticket._project_id]
                     reaped.append(ticket)
         return reaped
+
+    # ── طَهْر التذاكر المنتهية (TSK-303 / NF-06) ──
+    def purge_terminal(self, keep_last: int = 50) -> int:
+        """حذف أقدم التذاكر المنتهية مع إبقاء آخر ``keep_last`` منها.
+
+        NF-06 (+جزء ذاكرة NF-07): ``_tickets`` كان ينمو بلا سقف — كل run
+        منتهٍ يبقى للأبد (تسريب ذاكرة + ``list_all``/``runs_list`` frame
+        يتضخمان). الطَهْر يمس التذاكر **المنتهية فقط** (الحالات النهائية
+        من ``TERMINAL_STATES``) — التذاكر النشطة لا تُحذف أبدًا مهما كان
+        عددها؛ والاحتفاظ بأحدث ``keep_last`` منتهية يُبقي تاريخًا كافيًا
+        للواجهة (``_list_runs_frame``) وللتشخيص.
+
+        Args:
+            keep_last: عدد التذاكر المنتهية المُبقاة (الأحدث إنشاءً).
+                0 = حذف كل المنتهية. قيمة سالبة ⇒ ValueError.
+
+        Returns:
+            عدد التذاكر المحذوفة.
+        """
+        if keep_last < 0:
+            raise ValueError("keep_last must be >= 0")
+        with self._lock:
+            terminal_ids = [
+                rid for rid, t in self._tickets.items()
+                if t._state in TERMINAL_STATES
+            ]
+            excess = len(terminal_ids) - keep_last
+            if excess <= 0:
+                return 0
+            # dict يحفظ ترتيب الإدراج (= ترتيب الإنشاء) — الأقدم أولًا.
+            for rid in terminal_ids[:excess]:
+                del self._tickets[rid]
+            return excess
