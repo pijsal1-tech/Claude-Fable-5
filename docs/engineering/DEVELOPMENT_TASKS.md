@@ -247,7 +247,7 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-604 — إصلاح TF-03 (اللوحات المعطلة) + TF-01 (sprite)
-- **Status**: IN-PROGRESS (Session 38) · **Priority**: P1
+- **Status**: ✅ DONE (Sessions 38–39) · **Priority**: P1
 - **Objective**: إعادة عنصرَي `run-history-btn` و`memory-panel-btn` إلى
   index.html (أو ربط آمن null-checked في app.js مع أهداف Activity Bar) بحيث
   تعمل لوحات Run-History/Memory/status-chip من الواجهة؛ وإعادة سطر «رخصة
@@ -290,6 +290,29 @@
   - زرا وكيلان مخفيان = نمط v25 القائم نفسه (التفويض بـ .click()
     موجود أصلًا في :212/:220) — لا نمط جديد؛ class="hidden" مستعمل
     سلفًا في الملف. sprite: إعادة جملة الترخيص للتعليق — صفر أثر تنفيذي.
+- **Close-out (Session 39)**:
+  - **Implementation**: `static/index.html` — زرا وكيلان مخفيان
+    (`id="run-history-btn"` + `id="memory-panel-btn"`، class="hidden"،
+    بتعليق TSK-604 موثّق) قبل run-history-panel مباشرة — أهداف ربط
+    app.js:3639–3640 وتفويض Activity Bar `.click()` (:212/:220) بلا
+    تغيير مرئي ولا لمس app.js. `static/icons/sprite.svg` — إعادة
+    عبارة «رخصة المشروع» لتعليق الرأس (TF-01).
+  - **Acceptance**: (1) ✅ `pytest tests/unit/test_rollback_ui.py
+    tests/unit/test_file_icons.py` → **25 passed** كاملًا؛ (2) ✅ فحص
+    يدوي موثق: الخادم الحي (port 5000) — الصفحة تُحمّل بـ **صفر
+    أخطاء JS** (قبل الإصلاح: TypeError في app.js:3639 يقطع
+    DOMContentLoaded)؛ الأثر الوحيد في الكونسول = favicon.ico 404
+    موروث غير ذي صلة (خطأ مورد لا سكربت)؛ /api/capacity يُستطلع
+    (200) — دليل اكتمال المعالج؛ تحقق سكوني كامل: المعرفات الثلاثة
+    مربوطة وموجودة + دوال toggle* الثلاث قائمة + وكيلا Activity Bar
+    سليمان.
+  - **Gates**: Testing ✅ (25/25 في ملفي القبول) · Regression ✅
+    (**2F/1692P/33S** — المتبقيان ملك TSK-605 حصرًا؛
+    test_search_perf فشل عابر تحت حمل التوازي — معزولًا 18/18 ✅) ·
+    Documentation ✅ (تعليق TSK-604 في index.html + هذا السجل +
+    CHANGELOG).
+  - **Metrics**: إخفاقات البوابة المعروفة: 4 → **2** ✅ (بقي
+    test_history_consumers + test_theme_tokens — TSK-605).
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-605 — استعادة خضرة البوابة: TF-02 (نطاق) + TF-04 (baseline ألوان)
@@ -518,7 +541,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 601 | M6 | P1 | ✅ DONE (S33–34) | 6 اختبارات جديدة خضراء؛ regression نظيف (4F المعروفة فقط) |
 | 602 | M6 | P1 | ✅ DONE (S35–36) | 6 اختبارات جديدة؛ مواضع الحقن الخام 5→0؛ regression نظيف |
 | 603 | M6 | P1 | ✅ DONE (S37) | fail-closed بـ sentinel؛ 7 اختبارات جديدة؛ regression نظيف |
-| 604 | M6 | P1 | TODO | |
+| 604 | M6 | P1 | ✅ DONE (S38–39) | زرا وكيلان مخفيان + سطر الترخيص؛ إخفاقات البوابة 4→2 |
 | 605 | M6 | P1 | BLOCKED(D-2) | TF-02 جزؤها قابل للتنفيذ فورًا |
 | 606 | M7 | P2 | TODO | |
 | 607 | M7 | P2 | TODO | |

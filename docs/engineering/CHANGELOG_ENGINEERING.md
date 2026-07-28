@@ -118,3 +118,39 @@
 - Regression كامل (Session 37): `4 failed, 1690 passed, 34 skipped`
   (~71s) — الأربعة المعروفة فقط (TSK-604/605)؛ لا فشل جديد؛ +7 اختبارات.
 - Metrics: مسارات تنفيذ أمر بلا بوابة 1 → 0.
+
+---
+
+## TSK-604 — إصلاح TF-03 (اللوحات المعطلة) + TF-01 (sprite) — Sessions 38–39
+
+### Fixed
+- **TF-03 (عيب C3/S2 حي)**: v25 حذفت عنصرَي `id="run-history-btn"`
+  و`id="memory-panel-btn"` من index.html بينما app.js:3639–3641 يربطهما
+  في DOMContentLoaded ⇒ TypeError يقطع المعالج: لوحتا Run-History
+  وMemory معطلتا الفتح، status-chip غير مربوطة، refreshCapacity
+  والاستطلاع الدوري لا يبدآن، وأزرار Activity Bar ترمي عند النقر.
+- **TF-01**: إعادة كتابة sprite.svg (v25) أسقطت عبارة «رخصة المشروع»
+  التي يثبّتها test_file_icons.py:143.
+
+### Changed
+- `static/index.html`: زرا وكيلان مخفيان (`class="hidden"`) بتعليق
+  TSK-604 — أهداف ربط app.js وتفويض Activity Bar `.click()` القائم
+  (:212/:220)؛ بلا تغيير مرئي وبلا لمس app.js (إصلاح الجذر لا العرض؛
+  إعطاء زري Activity Bar المعرفين مباشرة كان سيخلق استدعاء `.click()`
+  ذاتيًا لا نهائيًا).
+- `static/icons/sprite.svg`: سطر «رخصة المشروع نفسها — لا مجموعة
+  خارجية» أُعيد لتعليق الرأس — صفر أثر تنفيذي.
+
+### Verification
+- القبول: `pytest tests/unit/test_rollback_ui.py
+  tests/unit/test_file_icons.py` → **25 passed** كاملًا.
+- فحص يدوي موثق (خادم حي port 5000 + متصفح Playwright): الصفحة تُحمّل
+  بصفر أخطاء JS (الأثر الوحيد favicon.ico 404 موروث غير ذي صلة)؛
+  /api/capacity يُستطلع (200) — دليل اكتمال معالج DOMContentLoaded
+  الذي كان ينقطع قبل الإصلاح؛ تحقق سكوني: المعرفات الثلاثة مربوطة
+  وموجودة + دوال toggle* الثلاث + وكيلا Activity Bar سليمان.
+- Regression كامل (Session 39): `3 failed, 1692 passed, 33 skipped`
+  (~72s) — منها test_search_perf فشل عابر تحت حمل التوازي (معزولًا
+  18/18 ✅)؛ الفشلان الدائمان المتبقيان (test_history_consumers +
+  test_theme_tokens) ملك TSK-605 حصرًا.
+- Metrics: إخفاقات البوابة المعروفة **4 → 2**.

@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 37 — **TSK-603 ✅ DONE — التالي: TSK-604**) |
+| last-updated | 2026-07-28 (Session 39 — **TSK-604 ✅ DONE — التالي: TSK-605 (جزء TF-02 فورًا)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — M6 Restore Trust (3/5 — 601+602+603 ✅) |
-| current-task | TSK-604 (التالية — P1، بلا تبعيات) |
+| current-phase | Stage 3 EXECUTION — M6 Restore Trust (4/5 — 601+602+603+604 ✅) |
+| current-task | TSK-605 (التالية — P1؛ TF-02 فورًا، TF-04 محجوبة بـ D-2) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **3/26 TSK** (601+602+603 ✅؛ 604..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **4/26 TSK** (601..604 ✅؛ 605..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,9 +37,17 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — M6: 3/5)
-- Phase/Task: **Stage 3 — M6 Restore Trust — TSK-604** (التالية: P1، بلا تبعيات)
-- Last completed step: **TSK-603 ✅ DONE (Session 37)** — بوابة موافقة
+- Stage: EXECUTION (Stage 3 — جارية — M6: 4/5)
+- Phase/Task: **Stage 3 — M6 Restore Trust — TSK-605** (التالية: P1؛
+  TF-02 قابلة للتنفيذ فورًا، TF-04 محجوبة بقرار D-2)
+- Last completed step: **TSK-604 ✅ DONE (Sessions 38–39)** — إصلاح TF-03
+  (العيب الحي): زرا وكيلان مخفيان `run-history-btn`/`memory-panel-btn`
+  في index.html — أهداف ربط app.js وتفويض Activity Bar، بلا تغيير
+  مرئي ولا لمس app.js؛ + إعادة سطر «رخصة المشروع» لـ sprite.svg
+  (TF-01)؛ القبول: 25/25 في ملفي القبول + فحص يدوي حي موثق (صفر
+  أخطاء JS، /api/capacity يُستطلع)؛ إخفاقات البوابة 4→2؛ Regression:
+  2F دائم (ملك TSK-605) /1692P/33S.
+  وقبلها: **TSK-603 ✅ DONE (Session 37)** — بوابة موافقة
   fail-closed بنيويًا (ASF-02 · ALT-603→A): sentinel وحدوي
   `APPROVAL_GRANTED = object()` يُقارن بـ `is` — لا يمكن لنص AI
   إنتاجه؛ `tool_run_command` يرفض أي نداء بلا الرمز قبل أي فحص؛
@@ -107,21 +115,22 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-604** (M6، P1، بلا تبعيات): إصلاح TF-03
-  (اللوحات المعطلة) + TF-01 (sprite) — ALT-604→A: إعادة عنصرَي
-  `run-history-btn` و`memory-panel-btn` إلى static/index.html (أو ربط
-  آمن null-checked في app.js مع أهداف Activity Bar) لتعمل لوحات
-  Run-History/Memory/status-chip؛ وإعادة سطر «رخصة المشروع» إلى
-  static/icons/sprite.svg. القبول: `pytest tests/unit/test_rollback_ui.py
-  tests/unit/test_file_icons.py` أخضر كاملًا + فحص يدوي موثق؛ الأدلة
-  المحفوظة من R10: sprite.svg رأس، index.html:212/220،
-  app.js:3638–3645، test_rollback_ui.py:424–434، test_file_icons.py:143.
-  قبل التعديل: سجل حفظ السلوك + Fitness pre-check في
-  DEVELOPMENT_TASKS.md §TSK-604؛ بعد الإغلاق: جدول الحالة + CHANGELOG
-  + commit محلي. ملاحظة: إصلاح 604 يُخفّض إخفاقات البوابة المعروفة
-  4→2 (يبقى test_history_consumers + test_theme_tokens لـ TSK-605).
+- Next action: **بدء TSK-605 — جزء TF-02 فورًا** (M6، P1؛ Resume notes
+  المسجلة: TF-02 لا تنتظر D-2، TF-04 هي المعلقة فقط): استثناء
+  `providers/` من مسح test_history_consumers (حارس core لا مزودات —
+  اتساقًا مع §0.8) في tests/unit/test_history_consumers.py؛ قبل
+  التعديل: سجل حفظ السلوك + Fitness pre-check في §TSK-605؛ بعد
+  جزء TF-02: إخفاقات البوابة 2→1 (يبقى test_theme_tokens محجوبًا
+  بـ D-2 — التوصية المسجلة: baseline-allowlist مؤرَّخ + دين
+  tokenization في TECHNICAL_DEBT.md)؛ التاسك يبقى مفتوحًا (لا DONE)
+  حتى رد D-2؛ ثم الموقع → M7/TSK-606 (P2) إن بقي D-2 معلقًا.
+  ملاحظة: في regression الجلسة 39 ظهر فشل عابر وحيد في
+  test_search_perf::test_tool_search_code_path_under_1s تحت حمل
+  التوازي (معزولًا 18/18 ✅) — يُراقب؛ إن تكرر فهو مرشح مهلة/بيئة
+  لا كود.
   ملاحظة للمالك: قرارات D-1..D-4 (MASTER_REVIEW §P.3) ما زالت معلّقة —
-  تحجب TSK-605(جزئيًا)/617/623 فقط؛ باقي M6 غير محجوب
+  D-2 صار الآن الحاجب الوحيد لإكمال M6 (TF-04/خضرة البوابة الكاملة)؛
+  D-1→TSK-617، D-3→TSK-623، D-4→TSK-622
 - Current blocker: none
 
 ### Stage Checklists (Definition of Done — الدستور الجديد)
@@ -272,6 +281,23 @@
   Close-out + Gates في DEVELOPMENT_TASKS.md + جدول الحالة 603→DONE ·
   CHANGELOG مدخلة TSK-603 · تحديث PROGRESS (3/26) · commit محلي ·
   الموقع → TSK-604.
+- 2026-07-28 (Session 38): استرداد بعد sandbox reset (clone من a2f7981) ·
+  بدء TSK-604: pre-checks (حفظ السلوك + Fitness — الخيار: زرا وكيلان
+  مخفيان لا null-guard؛ لا يصح إعطاء أزرار Activity Bar المعرفين — استدعاء
+  ذاتي) في §TSK-604 · تنفيذ: index.html (الزران المخفيان) + sprite.svg
+  (سطر الترخيص) · القبول 25/25 · فحص حي بدأ (خادم 5000 + متصفح — صفر
+  أخطاء JS؛ favicon 404 موروث) · الجلسة انقطعت أثناء التحقق اليدوي؛
+  دمج المستخدم عند 454f7ac.
+- 2026-07-28 (Session 39): استرداد بعد sandbox reset (clone من 454f7ac —
+  كل تنفيذ S38 في origin) · إعادة التحقق اليدوي الموثق: تحقق سكوني كامل
+  (المعرفات الثلاثة مربوطة وموجودة + toggle* الثلاث + وكيلا Activity
+  Bar) + خادم حي: صفر أخطاء JS، /api/capacity مُستطلَع (200)، الـ 404
+  الوحيد = favicon.ico موروث · القبول 25/25 مؤكَّد · regression كامل
+  **3F/1692P/33S** منها test_search_perf فشل عابر تحت التوازي (معزولًا
+  18/18 ✅) — الدائمان (history_consumers + theme_tokens) ملك TSK-605 ·
+  **إغلاق TSK-604 ✅**: Close-out + Gates + جدول الحالة 604→DONE +
+  CHANGELOG مدخلة TSK-604 · تحديث PROGRESS (4/26 — M6: 4/5) · commit
+  محلي · الموقع → TSK-605 (جزء TF-02 فورًا).
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
