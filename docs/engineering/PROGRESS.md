@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-27 (Session 7 — MODE B: TSK-201+101+102 Completed, QA-T05 green) |
-| stage | EXECUTION (MODE B — M1 in progress) |
-| current-phase | M1 (Safety) |
-| current-task | TSK-103 — توحيد مسارات حقن السياق تحت ContextBudget (BUG-03) |
+| last-updated | 2026-07-27 (Session 6 — P7+P8 complete — PLANNING 100%) |
+| stage | PLANNING COMPLETE (MODE A done — awaiting user decision to enter MODE B) |
+| current-phase | — (all P1–P8 complete) |
+| current-task | GATE: user approval for MODE B → start TSK-201 then TSK-101 (M1) |
 | completion % (planning) | 100% (40 / 40 in-scope phase-checkpoints) |
-| completion % (execution) | 16% (3 / 19 TSK) |
+| completion % (execution) | N/A (task table empty until P5) |
 | repository | pijsal1-tech/Claude-Fable-5 (branch: genspark_ai_developer) |
 | governing prompt | MASTER ENGINEERING PROMPT v4.1 (CORE-ONLY SCOPE) |
 
@@ -151,12 +151,12 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
 
 | TSK-ID | Type | Title | Milestone | Status |
 |---|---|---|---|---|
-| TSK-101 | fix | تمرير mode للمحلّل + فلترة actions في chat (BUG-01) | M1 | ✅ Completed (S7) |
-| TSK-102 | fix | تهذيب fallback الأوامر (NF-13) | M1 | ✅ Completed (S7) |
+| TSK-101 | fix | تمرير mode للمحلّل + فلترة actions في chat (BUG-01) | M1 | ⬜ pending |
+| TSK-102 | fix | تهذيب fallback الأوامر (NF-13) | M1 | ⬜ pending |
 | TSK-103 | fix | توحيد مسارات حقن السياق تحت ContextBudget (BUG-03) | M1 | ⬜ pending |
 | TSK-104 | fix | سقف تاريخ المحادثة (NF-07) | M1 | ⬜ pending |
 | TSK-105 | security | Zip-Slip guard للاستعادة (NF-15) | M1 | ⬜ pending |
-| TSK-201 | refactor | دمج apply_all_actions/execute_plan (NF-23.1) | M2 | ✅ Completed (S7) |
+| TSK-201 | refactor | دمج apply_all_actions/execute_plan (NF-23.1) | M2 | ⬜ pending |
 | TSK-202 | fix | قائمة تجاهل موحّدة تشمل test---results (BUG-04) | M2 | ⬜ pending |
 | TSK-203 | refactor | توحيد MAX_SMART_FILE_SIZE + قارئ config (NF-23.2/3) | M2 | ⬜ pending |
 | TSK-301 | fix | تنظيف pending_path داخل القفل (NF-01) | M3 | ⬜ pending |
@@ -378,47 +378,9 @@ EARLY EVIDENCE (pre-P2, recorded for P2 pickup — not yet classified):
   3. FI-10 (client-side sanitizer) logged as the one new P7-stage finding
      (renderMarkdown app.js:L2281–2295 unsanitized innerHTML) — non-blocking,
      SHORT, independent.
-- **EXACT RESUME POINT (superseded by Session 7)**: MODE B gate — approved
-  by user ("MODE B GO").
-
-### Session 7 — 2026-07-27 (MODE B — TSK-201 + TSK-101 + TSK-102 ✅, QA-T05 ✅)
-- **User directive**: ممنوع git commit/push/PR — المستخدم يرفع يدويًا.
-  كل التغييرات في working tree فقط فوق ac43f6c.
-- **TSK-201** ✅ Completed — `server.py`: كتلتا `apply_all_actions`/
-  `execute_plan` المتطابقتان (سابقًا L1862–1925) دُمجتا في `_apply_batch`؛
-  السلوك مُثبَّت بـ golden التُقط من الكود قبل التعديل
-  (`tests/goldens/apply_batch_frames.json`) — مطابقة بايت-بايت.
-- **TSK-101** ✅ Completed — `actions/response_parser.py`: توقيع
-  `parse(response, mode=None)`؛ في chat يُعطّل الـ fallback العدواني كليًا.
-  `server.py`: موقعا النداء (agent + direct) يمرران mode؛ إطار `done`
-  في chat يحمل `actions: []` دائمًا؛ مسار agent يصفّر actions في chat.
-  mode=None (chain/action_applier) = سلوك تاريخي كامل.
-- **TSK-102** ✅ Completed — بلوكات bash في الـ fallback لا تُنتج أوامر
-  إلا بوسم سطري صريح `CMD:`؛ `rm -rf build/` كمثال شرح لم يعد يصبح
-  CommandBlock. بلوك ```CMD الصريح بلا تغيير.
-- **QA-T05 gate** ✅ — `tests/unit/test_parser_mode_awareness.py` (11 اختبارًا):
-  3 ردود مزيفة (منها rm -rf) → صفر actions في chat؛ بقية الأوضاع بلا
-  تغيير؛ صفر نداءات AI خارجية.
-- **QA-T08 seed** ✅ — `tests/integration/test_apply_batch_golden.py`
-  (golden/parity/backup-flag — 3 اختبارات).
-- **Full suite**: 5 failed / 1490 passed / 63 skipped — الإخفاقات الخمسة
-  موجودة مسبقًا على HEAD النظيف (تحقق سابقًا عبر git worktree منفصل):
-  test_file_icons / test_history_consumers / test_rollback_ui /
-  test_symbol_index / test_theme_tokens — خارج نطاق M1، لم تُلمس.
-- **Files changed (للرفع اليدوي)**:
-  1. `server.py` — مُعدّل (TSK-201 + TSK-101)
-  2. `actions/response_parser.py` — مُعدّل (TSK-101 + TSK-102)
-  3. `tests/unit/test_parser_mode_awareness.py` — جديد (QA-T05)
-  4. `tests/integration/test_apply_batch_golden.py` — جديد (QA-T08 seed)
-  5. `tests/goldens/apply_batch_frames.json` — جديد (golden قبل الدمج)
-  6. `docs/engineering/PROGRESS.md` — هذا التحديث
-- **Suggested commit messages (للرفع اليدوي)**:
-  - `FIX(TSK-201): merge apply_all_actions/execute_plan into _apply_batch (NF-23.1), golden-verified`
-  - `FIX(TSK-101+102): mode-aware parser, chat emits zero actions (BUG-01), bash fallback requires CMD: tag (NF-13) — QA-T05 green`
-- **EXACT RESUME POINT**: TSK-103 (Current Task) — توحيد مسارات حقن
-  السياق تحت ContextBudget (BUG-03): server.py مسار الملف المكتشف
-  (كان L1332–1339) + مسار attach المجلد (كان L1782–1791) ← تمرير
-  المحتوى كمصدر إلى gather_message_context بدل الإلحاق الخام
-  بـ user_text؛ السقف من config.yaml:context_budget؛ القبول: مجلد 15
-  ملفًا + ملف 100KB → الحمولة ≤ السقف (QA-T06). بعدها: TSK-104 ثم
-  TSK-105؛ بوابة QA-T06/T07 تُغلق M1.
+- **EXACT RESUME POINT**: PLANNING COMPLETE (40/40). Program is gated on an
+  explicit user decision to enter MODE B (execution). Upon approval, start:
+  **TSK-201 (merge apply paths → _apply_batch) then TSK-101 (mode-aware
+  parser + drop actions from chat done-frame) then TSK-102** — M1 path;
+  first QA gate after the trio = QA-T05. Task table above is the execution
+  SSOT (0/19 done). No further MODE A work remains.
