@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Session 39 — **TSK-604 ✅ DONE — التالي: TSK-605 (جزء TF-02 فورًا)**) |
+| last-updated | 2026-07-28 (Session 41 — **TSK-605/TF-02 ✅ — TF-04 محجوبة بـ D-2 — التالي: TSK-606 (M7)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — M6 Restore Trust (4/5 — 601+602+603+604 ✅) |
-| current-task | TSK-605 (التالية — P1؛ TF-02 فورًا، TF-04 محجوبة بـ D-2) |
+| current-phase | Stage 3 EXECUTION — M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) → M7 |
+| current-task | TSK-606 (التالية — P2، بلا تبعيات)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **4/26 TSK** (601..604 ✅؛ 605..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
@@ -37,10 +37,17 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — M6: 4/5)
-- Phase/Task: **Stage 3 — M6 Restore Trust — TSK-605** (التالية: P1؛
-  TF-02 قابلة للتنفيذ فورًا، TF-04 محجوبة بقرار D-2)
-- Last completed step: **TSK-604 ✅ DONE (Sessions 38–39)** — إصلاح TF-03
+- Stage: EXECUTION (Stage 3 — جارية — M6: 4/5 + 605/TF-02 ✅)
+- Phase/Task: **Stage 3 — M7 — TSK-606** (التالية: P2، بلا تبعيات)؛
+  TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
+  لخضرة البوابة الكاملة 0F)
+- Last completed step: **TSK-605 جزء TF-02 ✅ (Sessions 40–41)** —
+  تصحيح نطاق حارس التاريخ: إخراج `providers/` من مسح
+  test_history_consumers (§0.8 — المزودات خارج النطاق) بتعليق
+  معلّل؛ 41/41 في الملف؛ regression (S41): **1F/1693P/34S** —
+  المتبقي الوحيد test_theme_tokens (TF-04)؛ إخفاقات البوابة 2→1؛
+  فشل test_search_perf العابر (S39) لم يتكرر في S40 ولا S41.
+  وقبلها: **TSK-604 ✅ DONE (Sessions 38–39)** — إصلاح TF-03
   (العيب الحي): زرا وكيلان مخفيان `run-history-btn`/`memory-panel-btn`
   في index.html — أهداف ربط app.js وتفويض Activity Bar، بلا تغيير
   مرئي ولا لمس app.js؛ + إعادة سطر «رخصة المشروع» لـ sprite.svg
@@ -115,22 +122,21 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-605 — جزء TF-02 فورًا** (M6، P1؛ Resume notes
-  المسجلة: TF-02 لا تنتظر D-2، TF-04 هي المعلقة فقط): استثناء
-  `providers/` من مسح test_history_consumers (حارس core لا مزودات —
-  اتساقًا مع §0.8) في tests/unit/test_history_consumers.py؛ قبل
-  التعديل: سجل حفظ السلوك + Fitness pre-check في §TSK-605؛ بعد
-  جزء TF-02: إخفاقات البوابة 2→1 (يبقى test_theme_tokens محجوبًا
-  بـ D-2 — التوصية المسجلة: baseline-allowlist مؤرَّخ + دين
-  tokenization في TECHNICAL_DEBT.md)؛ التاسك يبقى مفتوحًا (لا DONE)
-  حتى رد D-2؛ ثم الموقع → M7/TSK-606 (P2) إن بقي D-2 معلقًا.
-  ملاحظة: في regression الجلسة 39 ظهر فشل عابر وحيد في
-  test_search_perf::test_tool_search_code_path_under_1s تحت حمل
-  التوازي (معزولًا 18/18 ✅) — يُراقب؛ إن تكرر فهو مرشح مهلة/بيئة
-  لا كود.
-  ملاحظة للمالك: قرارات D-1..D-4 (MASTER_REVIEW §P.3) ما زالت معلّقة —
-  D-2 صار الآن الحاجب الوحيد لإكمال M6 (TF-04/خضرة البوابة الكاملة)؛
-  D-1→TSK-617، D-3→TSK-623، D-4→TSK-622
+- Next action: **بدء TSK-606** (M7، P2، بلا تبعيات — أول مهمة بعد
+  استنفاد كل P1 غير المحجوب): تخييط `_apply_batch`
+  (server.py:2081/2415–2462) وتشغيل direct runner (1846–1858) إلى
+  خيوط كما chain/agent/delegate (نمط الخيوط الموجود
+  L1662/L1818/L2294) — فيصبح cancel من نفس الاتصال فعّالًا
+  (RF-01 + RP-02 + UXF-03). القبول: cancel_run أثناء دفعة 20-action
+  من نفس الاتصال يوقفها؛ goldens تسلسل الإطارات (QA-T08) مطابقة؛
+  الملفات: server.py + توسيع test_apply_cancel.py؛ بوابة Performance
+  (زمن أول إطار لا يتدهور). قبل التعديل: سجل حفظ السلوك + Fitness
+  pre-check في §TSK-606؛ بعد الإغلاق: جدول الحالة + CHANGELOG +
+  commit محلي.
+  تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
+  لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
+  baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
+  TECHNICAL_DEBT.md. كذلك D-1→TSK-617، D-3→TSK-623، D-4→TSK-622
 - Current blocker: none
 
 ### Stage Checklists (Definition of Done — الدستور الجديد)
