@@ -529,17 +529,49 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-608 — تفعيل reap_stale إنتاجيًا
-- **Status**: TODO · **Priority**: P2
+- **Status**: IN-PROGRESS (S47) · **Priority**: P2
 - **Objective**: استدعاء دوري (أو عند كل run جديد) لـ
   `ExecutionRegistry.reap_stale` كي لا تبقى خانة مشروع محجوزة بعد موت خيط.
 - **Background**: RF-02 (§R5) — الآلية موجودة ومختبرة بلا مستدعٍ (execution.py:322).
 - **Files**: `server.py` (نقطة تشغيل واحدة)، اختبار تكامل.
+  **انحراف موثّق (S47)**: + `core/backends.py` (تمرير TTL عبر الدرزة —
+  docstring الموديول نفسه ينص: «in-mem يأخذ ttl/clock … المستهلكون لا
+  يبنون مباشرة بل عبر backends_from_config») + سطر config.yaml.
 - **Acceptance**: محاكاة تذكرة يتيمة (بلا finish) → run جديد لنفس المشروع
   يُقبل بعد TTL؛ لا reap لتذاكر حية.
 - **Gates**: Testing · Regression.
 - **Behavior preservation**: المسارات السليمة (finally) بلا تغيير.
 - **Metrics**: زمن تحرير الخانة بعد انهيار: ∞ → TTL.
 - **Rollback**: revert. · **Resume notes / Blocker**: —
+- **Evidence (S47)**:
+  - التسجيل يُبنى بلا وسائط: `backends_from_config` (core/backends.py:150)
+    → `InMemoryRegistryBackend()` → `_ttl is None` → `reap_stale()` no-op
+    (execution.py:328). اختبار مثبِّت: test_backends.py:203 يفرض أن نداء
+    المصنع **بلا وسائط** يعطي `_ttl is None` — التفعيل يجب أن يمرر TTL
+    صراحةً لا أن يغيّر الافتراضي التاريخي.
+  - **صفر مستدعين إنتاجيين لـ `ticket.heartbeat()`** (grep شامل: توثيق
+    execution.py:51 + اختبارات فقط) → `_last_heartbeat = created_at`
+    للأبد → TTL ساذج يحصد runs حية طويلة زورًا. الحل داخل server.py:
+    كل أحداث الـ runners تمر عبر `_RunnerWSAdapter.emit` (يحمل
+    `event.run_id` → lookup + heartbeat)؛ مسار resume يرسل مباشرة عبر
+    `sctx.send` (server.py:2288 — يحتاج غلاف heartbeat)؛ حلقة
+    `_apply_batch` محلية (نبضة لكل action بجوار نقطة تفتيش الإلغاء).
+  - **Pre-check حفظ السلوك**: reap_stale لا يُصدر أي إطار WS (goldens
+    سليمة)؛ heartbeat على تذكرة منتهية يعيد False بلا أثر (execution.py:171)؛
+    `finish` على تذكرة محصودة يعيد False بلا استثناء (execution.py:294) —
+    فمسار delegate land/reject بعد الحصد آمن (chain/delegate.py:614/635)؛
+    الاختبارات القائمة تحقن `ExecutionRegistry()` بلا TTL → reap no-op
+    فيها حرفيًا. مسارات finally السليمة بلا أي تغيير.
+  - **Pre-check ملاءمة معمارية**: نقطة التفعيل داخل `_begin_run_ticket`
+    بجوار `purge_terminal()` (نفس نمط TSK-303 — أرخص نقطة تغطي كل
+    الأنواع)؛ الترتيب reap ثم purge (المحصود يصير terminal فيخضع للسقف).
+    TTL من config (`execution.stale_ttl_seconds`، الافتراضي عند غياب
+    المفتاح 900s؛ null صريح = تعطيل؛ قيمة غير موجبة/غير رقمية = فشل
+    إقلاع صاخب — نفس فلسفة resolve_backend_name).
+  - **قيد معروف (موثّق)**: تذكرة delegate في `waiting_approval` لا تبث
+    إطارات أثناء انتظار قرار المستخدم → صمت > TTL يحصدها ويحرر الخانة؛
+    land/reject اللاحقان يعملان بلا كسر (finish no-op). سلوك مقصود
+    (الهدف نفسه: لا خانة محجوزة للأبد) وقابل للتعطيل عبر null.
 
 ### TSK-609 — Instrumentation: توقيت المسارات + التوكنز
 - **Status**: TODO · **Priority**: P2
