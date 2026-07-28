@@ -33,7 +33,7 @@ from actions.file_manager import FileManager
 from actions.command_runner import CommandRunner
 from actions.response_parser import ResponseParser
 from actions.session_manager import SessionManager
-from prompts.templates import build_prompt, get_system_prompt
+from prompts.templates import build_prompt, fence_attached, get_system_prompt
 from providers.registry import register_provider, get_provider, list_providers
 from providers.use_ai import UseAIProvider, UseAIConfig
 from providers.genspark import GensparkProvider, GensparkConfig, GENSPARK_MODELS
@@ -1484,9 +1484,13 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
             with open(detected_file, 'r', encoding='utf-8', errors='replace') as df:
                 file_content = df.read(MAX_SMART_FILE_SIZE)
             file_ext = os.path.splitext(detected_file)[1]
+            # TSK-404 (NF-18): المحتوى المكتشف يدخل البرومبت مسيّجًا
+            # بأغلفة حدود صريحة — بيانات لا أوامر (تعليمة system).
             attached_context.append((
                 f"detected_file:{detected_file}",
-                f"[📄 محتوى الملف: {detected_file}]:\n```{file_ext.lstrip('.')}\n{file_content}\n```",
+                fence_attached(
+                    f"detected_file:{detected_file}",
+                    f"[📄 محتوى الملف: {detected_file}]:\n```{file_ext.lstrip('.')}\n{file_content}\n```"),
             ))
         except Exception as e:
             # NF-14 §6 (TSK-305 — الموضع الحرج): كان pass صامتًا — المستخدم
@@ -1971,12 +1975,15 @@ def _handle_ws_message(ctx, sctx, msg):
                 header = (f"[📂 سياق المجلد المرفق: {detected_path} "
                           f"({len(scanned_files)} ملفات)]")
                 attached_context.append((f"attach_folder:{detected_path}", header))
+                # TSK-404 (NF-18): كل محتوى ملف مرفق يدخل مسيّجًا
+                # بأغلفة حدود صريحة — بيانات لا أوامر (تعليمة system).
                 for sf in scanned_files[:15]:
                     rel_p = sf.get("rel_path", sf.get("path", ""))
                     content_preview = (sf.get("content") or "")[:2000]
                     attached_context.append((
                         f"attach_file:{rel_p}",
-                        f"--- {rel_p} ---\n{content_preview}",
+                        fence_attached(f"attach_file:{rel_p}",
+                                       f"--- {rel_p} ---\n{content_preview}"),
                     ))
             except Exception as e:
                 print(f"⚠️ فشل إرفاق المجلد كسياق: {e}")
