@@ -812,7 +812,7 @@
 ## M8 — Decompose g1 (خطة R8: QG-01→04)
 
 ### TSK-611 — QG-01: استخراج راوتر WS
-- **Status**: IN PROGRESS (S58–59) · **Priority**: P2
+- **Status**: ✅ DONE (S58–60) · **Priority**: P2
 - **Objective**: نقل توجيه 16 نوع رسالة من `_handle_ws_message` (~469 سطرًا)
   إلى جدول dispatch في وحدة جديدة، مع بقاء المقابض نفسها مؤقتًا في server.py.
 - **Background**: QG-01 (§R8 خطة التفكيك — ترتيب المخاطرة الصريح).
@@ -878,6 +878,56 @@
   root؛ **تغيير معماري ⇒ ADR-001 + قيد Decision Log قبل الكود**
   (الدستور :1038 — ARCHITECTURE_DECISIONS.md وDECISION_LOG.md
   يُنشآن الآن، أول ADR في M8 وفق الخارطة :127).
+- **Close-out (S59–60)**:
+  - **ما نُفّذ** (ADR-001):
+    - `core/ws_router.py` (جديد): وحدة نقية — دالة
+      `dispatch(handlers, ctx, sctx, msg)` تبحث في جدول
+      `msg_type → handler` وتستدعي بتوقيع `(ctx, sctx, msg)`؛
+      نوع مجهول = no-op صامت (حفظ حرفي — السلسلة الأصلية بلا
+      else)؛ لا استيراد server/Flask (لا دورة).
+    - `server.py`: الفروع الـ23 استُخرجت **آليًا** (سكربت يقطع
+      الجسم عند حدود الفروع مع التعليقات القائدة، dedent 4) إلى
+      23 دالة `_ws_<type>(ctx, sctx, msg)` بنفس الأجسام حرفيًا
+      (‏`_ws_rollback` تعيد اشتقاق msg_type محليًا لتفرعها
+      الداخلي)؛ جدول `WS_HANDLERS` (25 مفتاحًا؛ المركّبان
+      rollback_run/rollback_file وapply_all_actions/execute_plan
+      → مقبض مشترك)؛ `_handle_ws_message` صار غلافًا يستدعي
+      `ws_dispatch(WS_HANDLERS, ctx, sctx, msg)` + import :73.
+    - `scripts/lint_handler_state.py`: إضافة البادئة `"_ws_"` إلى
+      HANDLER_NAMES — قاعدة T-048 (منع الحالة الوحدوية) تتبع
+      المقابض المستخرجة؛ fixture الانتهاك ما يزال يفشل (exit 1) ✓.
+    - تحديث فحصين بنيويين كانا يثبّتان نص السلسلة القديمة:
+      test_scan_start.py:119 (regex → جسم `_ws_chain_message`)
+      وtest_rollback_ui.py:418 (سطر `in (...)` → مفتاحا الجدول
+      لنفس المقبض) — نفس الضمانات على البنية الجديدة.
+  - **فجوة التغطية أُغلقت**: `tests/unit/test_ws_router.py` (+10)
+    — dispatch النقية (5: توجيه بالتوقيع الكامل، نوع مجهول
+    no-op، غياب مفتاح type → ""، قيمة الإرجاع، مقبض واحد فقط
+    يُستدعى)؛ جدول server (5: **المفاتيح == الأنواع الـ25
+    الأصلية حرفيًا** (تجميد التوجيه)، كلها `_ws_*` قابلة
+    للنداء، المركّبات تتشارك المقبض بالهوية، نوع مجهول عبر
+    `_handle_ws_message` لا يرسل شيئًا، إطار pong bit-identical).
+  - **Gates**:
+    - Architecture: **ADR-001** + قيد DECISION_LOG قبل الكود ✓؛
+      `lint_handler_state.py` → "handler state clean" (بنطاق
+      موسّع يشمل `_ws_*`)؛ contracts + dispatch_parity (113)
+      خضراء؛ الوحدة نقية بلا تبعيات.
+    - Testing: goldens (chain replay + apply_batch + routing) =
+      ‏22 خضراء؛ +10 اختبارات راوتر جديدة؛ الاختبارات الثمانية
+      المثبّتة لسلوك WS كلها خضراء.
+    - Regression: `pytest` → **1 failed، 1756 passed، 34 skipped**
+      (‏72.9s) — الإخفاق الوحيد هو المعروف (theme_tokens —
+      TF-04/D-2)؛ ‏1746 + 10 = 1756 ✓ (لا انحدار).
+  - **Metrics (القبول)**: كتلة `_handle_ws_message` هبطت
+    **506 → 13 سطرًا (−493 ≥ 300 ✓)**؛ server.py إجمالًا
+    2987 → 3045 (+58: 23 توقيع دالة + جدول 29 سطرًا + docstrings
+    — الكتلة تفككت، الإجمالي ينخفض في QG-02..04 عند نقل المقابض).
+    صفر تغيير في أي إطار (bit-identical — تثبته الاختبارات).
+  - **انحرافات المواصفة الموثقة**: 506≠~469 سطرًا؛ 23≠16 نوعًا؛
+    «goldens routing» = توجيه السلسلة لا WS (فسّرناه: goldens
+    القائمة + الاختبارات المثبّتة + اختبار جدول جديد).
+  - **Commits**: e3f13e2 (الأدلة) · 28398d1 (ADR-001 + سجل
+    القرارات) · 41cc87a (دمج خارجي — الكود + الاختبارات).
 
 ### TSK-612 — QG-02: استخراج مسارات الإرسال
 - **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-611, TSK-601.
@@ -1008,7 +1058,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 608 | M7 | P2 | ✅ DONE (S47–48) | reap_stale مفعّل + نبض حياة في المحوّل/الدفعة/الاستكمال؛ +17 اختبارًا |
 | 609 | M7 | P2 | ✅ DONE (S49–54) | duration_ms على bus للمسارات 4/4 + توقيت المصادر + duration/token في plan/done؛ +11 اختبارًا |
 | 610 | M7 | P2 | ✅ DONE (S55–57) | سجل JSONL لكل run منتهٍ + p50/p95 (nearest-rank) + REST قراءة /api/metrics/runs؛ +17 اختبارًا |
-| 611 | M8 | P2 | IN PROGRESS (S58–59) | ADR |
+| 611 | M8 | P2 | ✅ DONE (S58–60) | استخراج راوتر WS إلى core/ws_router.py (ADR-001)؛ الكتلة 506→13 سطرًا؛ +10 اختبارات |
 | 612 | M8 | P2 | TODO | بعد 611+601 |
 | 613 | M8 | P2 | TODO | بعد 612 |
 | 614 | M8 | P2 | TODO | بعد 611..613 — يغلق QF-02 |

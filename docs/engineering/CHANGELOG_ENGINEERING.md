@@ -380,3 +380,49 @@
   — المتبقي الوحيد test_theme_tokens (TF-04 — محجوب بـ D-2)؛
   1729 + 17 = 1746 ✓.
 - Metrics: سجل runs التاريخي: **لا شيء → JSONL لكل run + p50/p95**.
+
+## TSK-611 — QG-01: استخراج راوتر WS إلى جدول dispatch — Sessions 58–60
+
+### Added
+- `docs/engineering/ARCHITECTURE_DECISIONS.md` (جديد — أول ADR):
+  **ADR-001** — راوتر WS بجدول dispatch في وحدة نقية، المقابض تبقى
+  مؤقتًا في server.py (بدائل مرفوضة: نقل الأجسام الآن / راوتر صنفي /
+  تقسيم داخلي بلا فصل).
+- `docs/engineering/DECISION_LOG.md` (جديد — يُنشأ عند أول ADR في M8
+  وفق MASTER_ROADMAP:127) + قيد TSK-611 **قبل تعديل الكود**
+  (الدستور :1038).
+- `core/ws_router.py` (جديد): `dispatch(handlers, ctx, sctx, msg)` —
+  بحث قاموسي بـ `msg.get("type", "")`؛ نوع مجهول = no-op صامت
+  (حفظ حرفي)؛ بلا استيراد server/Flask.
+- `tests/unit/test_ws_router.py` (+10): dispatch النقية (5) + جدول
+  server (5 — تجميد المفاتيح على الأنواع الـ25 الأصلية، تشارك
+  المقبض للمركّبات بالهوية، pong bit-identical، نوع مجهول صامت).
+
+### Changed
+- `server.py`: الفروع الـ23 (‏506 أسطر — :2034..2539) استُخرجت آليًا
+  إلى 23 دالة `_ws_<type>(ctx, sctx, msg)` بأجسام حرفية + جدول
+  `WS_HANDLERS` (25 مفتاحًا)؛ `_handle_ws_message` صار غلافًا
+  (‏**506 → 13 سطرًا، −493 ≥ 300 ✓**) يستدعي `ws_dispatch`.
+- `scripts/lint_handler_state.py`: بادئة `"_ws_"` في HANDLER_NAMES —
+  قاعدة T-048 تتبع المقابض المستخرجة (fixture الانتهاك ما يزال
+  يفشل exit 1 ✓).
+- فحصان بنيويان حُدّثا لنفس الضمانات على البنية الجديدة:
+  `test_scan_start.py` (جسم `_ws_chain_message` بدل regex السلسلة)
+  و`test_rollback_ui.py` (مفتاحا rollback → مقبض مشترك).
+
+### Deviations (موثقة في §TSK-611)
+- الكتلة الفعلية 506 أسطر (النص: ~469)؛ 23 فرعًا/25 نوعًا (النص: 16)؛
+  «goldens routing» في القبول = توجيه استراتيجية السلسلة لا WS —
+  فُسِّر: goldens القائمة + 8 ملفات اختبار مثبّتة لسلوك WS +
+  اختبار جدول جديد يغلق الفجوة.
+
+### Verification
+- goldens (chain replay + apply_batch + routing): **22 passed**؛
+  contracts + dispatch_parity: **113 passed**؛
+  `lint_handler_state.py` → clean (بنطاق موسّع).
+- Regression كامل (S60): `1 failed, 1756 passed, 34 skipped` (72.9s)
+  — المتبقي الوحيد test_theme_tokens (TF-04 — محجوب بـ D-2)؛
+  1746 + 10 = 1756 ✓.
+- Metrics: كتلة التوجيه **506 → 13** (−493)؛ server.py إجمالًا
+  2987 → 3045 (+58 توقيعات/جدول — ينخفض في QG-02..04)؛ صفر تغيير
+  في أي إطار.

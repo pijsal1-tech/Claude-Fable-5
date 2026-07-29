@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Sessions 55–58 — **TSK-610 ✅ DONE — M7 مكتملة 5/5 — التالي: TSK-611 (M8)**) |
+| last-updated | 2026-07-29 (Sessions 58–60 — **TSK-611 ✅ DONE (QG-01 راوتر WS + ADR-001) — التالي: TSK-612 (QG-02)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M7 مكتملة (5/5: 606..610 ✅)**؛ M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) |
-| current-task | TSK-611 (التالية — M8، P2 — QG-01 راوتر WS)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M8 جارية (1/4: 611 ✅)**؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | TSK-612 (التالية — M8، P2 — QG-02 استخراج مسارات الإرسال)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **9/26 TSK** (601..604،606..610 ✅؛ 605/TF-04 تنتظر D-2؛ 611..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **10/26 TSK** (601..604،606..611 ✅؛ 605/TF-04 تنتظر D-2؛ 612..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,11 +37,25 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M7 مكتملة 5/5**؛ M6: 4/5 + 605/TF-02 ✅)
-- Phase/Task: **Stage 3 — M8 — TSK-611** (التالية: P2 — QG-01 استخراج راوتر WS)؛
+- Stage: EXECUTION (Stage 3 — جارية — **M8: 1/4 (611 ✅)**؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M8 — TSK-612** (التالية: P2 — QG-02 استخراج مسارات الإرسال)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-610 ✅ DONE (Sessions 55–57)** —
+- Last completed step: **TSK-611 ✅ DONE (Sessions 58–60)** —
+  QG-01 (§R8): استخراج راوتر WS — **ADR-001** (أول ADR؛
+  ARCHITECTURE_DECISIONS.md + DECISION_LOG.md أُنشئا **قبل الكود**
+  وفق الدستور :1038)؛ `core/ws_router.py` جديدة (dispatch نقية —
+  نوع مجهول no-op صامت حرفيًا)؛ الفروع الـ23 (506 أسطر) استُخرجت
+  آليًا إلى 23 دالة `_ws_<type>` بأجسام حرفية + جدول WS_HANDLERS
+  (25 مفتاحًا؛ المركّبات → مقبض مشترك)؛ **الكتلة 506 → 13 سطرًا
+  (−493 ≥ 300 ✓)**؛ lint_handler_state وُسّع لبادئة `_ws_`؛
+  فحصان بنيويان حُدّثا (scan_start/rollback_ui) بنفس الضمانات؛
+  +10 اختبارات (test_ws_router.py — تجميد الأنواع الـ25 + pong
+  bit-identical)؛ gates: goldens 22 · contracts+parity 113 · lint
+  clean؛ regression **1F/1756P/34S** (theme_tokens/TF-04 حصرًا؛
+  1746+10=1756 ✓)؛ انحرافات المواصفة موثقة (506≠469؛ 23≠16؛
+  «goldens routing» = توجيه سلسلة لا WS — فُسِّر وأُغلقت الفجوة).
+  وقبلها: **TSK-610 ✅ DONE (Sessions 55–57)** —
   Metrics aggregation (PM-03 §R6): `core/run_metrics.py` جديدة —
   `RunMetricsStore` (JSONL ملحق-فقط نمط ProjectMemoryStore؛ قارئ
   يتخطى الأسطر الممزّقة؛ p50/p95 nearest-rank بلا تبعيات؛ ملخّص
@@ -181,17 +195,18 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-611** (M8، P2 — QG-01 §R8): استخراج راوتر
-  WS — نقل توجيه 16 نوع رسالة من `_handle_ws_message` (~469 سطرًا)
-  إلى جدول dispatch في وحدة جديدة `core/ws_router.py`، مع بقاء
-  المقابض نفسها مؤقتًا في server.py. القبول: goldens routing كاملة
-  خضراء؛ الكتلة تهبط ≥ 300 سطر؛ صفر تغيير في أي إطار.
-  Gates: Architecture (ADR) · Testing · Regression. حفظ السلوك: بنية
-  الإطارات bit-identical (goldens). ملاحظة: أول مهام M8 — تحتاج
-  **ADR** مسجّلًا قبل التفكيك (نمط الدستور للقرارات المعمارية)؛
-  IR-1 (Innovation Review) مجدولة بعد اكتمال M8.
-  قبل التعديل: أدلة + سجل حفظ السلوك + Fitness pre-check في
-  §TSK-611؛ بعد الإغلاق: جدول الحالة + CHANGELOG + commit محلي.
+- Next action: **بدء TSK-612** (M8، P2 — QG-02 §R8، تبعيات 611 ✅
+  + 601 ✅): استخراج مسارات الإرسال — نقل `_dispatch_chat_message`
+  (~477 سطرًا وفق النص — تُقاس فعليًا في الأدلة) إلى وحدة إرسال
+  مستقلة تستهلك `_parsed_to_actions` الموحدة (من TSK-601).
+  القبول: goldens dispatch parity خضراء؛ mypy على الوحدة الجديدة
+  نظيف. Gates: Architecture (ADR) · Testing · Regression. حفظ
+  السلوك: bit-identical frames. Metrics: سطور server.py.
+  ملاحظة: تغيير معماري ⇒ **ADR-002 + قيد DECISION_LOG قبل الكود**
+  (الدستور :1038)؛ IR-1 بعد اكتمال M8 (611 ✅، تبقى 612..614).
+  قبل التعديل: أدلة (قياس الكتلة الفعلية + خريطة التبعيات) + سجل
+  حفظ السلوك + Fitness pre-check في §TSK-612؛ بعد الإغلاق: جدول
+  الحالة + CHANGELOG + commit محلي.
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -488,6 +503,29 @@
   تحديث PROGRESS (header/position/Next action → TSK-611 + هذا
   السجل) + commit محلي · **🏁 M7 Observability مُقفلة (5/5)** ·
   الموقع → M8/TSK-611 (QG-01 راوتر WS — تحتاج ADR)؛ TSK-605
+  تنتظر D-2.
+- **2026-07-29 — Sessions 58–60 (متابعة) — TSK-611 ✅ (M8: 1/4)**:
+  S58 (متابعة): أدلة TSK-611 قبل أي تعديل — الكتلة الفعلية
+  server.py:2034..2539 = **506 أسطر** (≠~469)، **23 فرعًا/25 نوعًا**
+  (≠16)، خريطة فروع كاملة بأرقام أسطر، لا else (نوع مجهول no-op
+  صامت)، المستدعي الوحيد ws_handler:2554، **فجوة تفسير**:
+  tests/goldens/routing = توجيه استراتيجية السلسلة لا WS (التثبيت
+  غير مباشر عبر 8 ملفات اختبار) · S59: reset → استئناف من origin
+  b06e6a7 (دمج PROGRESS S58) → commit الأدلة e3f13e2 → **ADR-001 +
+  إنشاء ARCHITECTURE_DECISIONS.md وDECISION_LOG.md قبل الكود**
+  (الدستور :1038، أول ADR في M8 وفق الخارطة :127) commit 28398d1 →
+  التنفيذ: `core/ws_router.py` + استخراج آلي للفروع الـ23 إلى
+  `_ws_<type>` بأجسام حرفية + WS_HANDLERS (25 مفتاحًا) + غلاف
+  `_handle_ws_message` (**506→13 سطرًا، −493**) + توسيع
+  lint_handler_state لبادئة `_ws_` + تحديث فحصين بنيويين
+  (scan_start/rollback_ui) + test_ws_router.py (+10) · S60: reset →
+  استئناف من origin **41cc87a** (دمج المستخدم شمل كل كود S59) →
+  إعادة تشغيل البوابات على الشجرة المدموجة: router 10/10 ·
+  contracts+parity 113 · goldens 22 · lint clean (وfixture
+  الانتهاك يفشل exit 1 ✓) · regression **1F/1756P/34S** (72.9s؛
+  theme_tokens/TF-04 حصرًا؛ 1746+10=1756 ✓) → Close-out + جدول
+  الحالة 611→DONE + CHANGELOG (commit 8a90d97) + هذا التحديث ·
+  الموقع → M8/TSK-612 (QG-02 — تحتاج ADR-002 قبل الكود)؛ TSK-605
   تنتظر D-2.
 
 ---
