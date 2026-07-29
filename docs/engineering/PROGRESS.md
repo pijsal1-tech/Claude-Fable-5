@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Session 71 — **TSK-615 ✅ DONE (ApprovalGate طلبات متزامنة — أصلحت ASF-05 + NF-27) — التالي: TSK-616 (إظهار سقف snapshot)**) |
+| last-updated | 2026-07-29 (Session 72 — **TSK-616 ✅ DONE (إظهار سقف snapshot — علم partial_rollback في الإطار والواجهة — ASF-03) — التالي: TSK-618 (تضييق except path_policy؛ 617 محجوبة بـ D-1)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M9 جارية (1/8)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | **TSK-616** (M9 — P2 — إظهار سقف snapshot / rollback جزئي — ASF-03)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M9 جارية (2/8)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | **TSK-618** (M9 — P2 — تضييق except الابتلاعي في path_policy؛ TSK-617 محجوبة بـ D-1)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **14/26 TSK** (601..604،606..615 ✅؛ 605/TF-04 تنتظر D-2؛ 616..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **15/26 TSK** (601..604،606..616 ✅؛ 605/TF-04 تنتظر D-2؛ 617..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,11 +37,28 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M9 جارية 1/8**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M9 — TSK-616** (P2 — إظهار سقف snapshot — ASF-03)؛
+- Stage: EXECUTION (Stage 3 — جارية — **M9 جارية 2/8**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M9 — TSK-618** (P2 — تضييق except الابتلاعي
+  في path_policy؛ TSK-617 محجوبة بقرار D-1)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-615 ✅ DONE (Session 71 — أولى M9)** —
+- Last completed step: **TSK-616 ✅ DONE (Session 72 — M9: 2/8)** —
+  إظهار سقف snapshot (ASF-03): اقتطاع مسح الـ checkpoint
+  (`_CKPT_MAX_FILES`/`_CKPT_MAX_FILE_BYTES`) لم يعد صامتًا —
+  العلم يُشتق حيث تحدث الحقيقة (`_workspace_signatures` →
+  tuple مع علم اقتطاع) ويصعد: سطر ⚠️ صريح في تقرير الأداة
+  («التراجع عن آثار هذا الأمر سيكون جزئيًا») + حقل
+  `partial_rollback` في إطار agent_step/done + إظهار في الواجهة
+  (toast تحذيري + نص دائم على كارت التيرمنال) — السقفان
+  نفساهما لم يتغيرا («إظهار لا رفع سقف» MASTER_REVIEW:722).
+  10 اختبارات جديدة (test_snapshot_cap_visibility.py) بما فيها
+  E2E عبر AgentLoop حقيقي + سلبيان. Gates: contracts+parity 113 ·
+  goldens+ws_router 32 · mypy بوابة 81 ملفًا Success · lint نظيف ·
+  regression junitxml **1841 = 1F/1806P/34S** (theme_tokens/TF-04
+  حصرًا؛ 1831+10=1841 ✓) — **خط انحدار جديد: 1841**. Commits:
+  2911a90 (أدلة+pre-checks قبل الكود — دمج 51a0a1b) · 39bbc64
+  (التنفيذ+الاختبارات — دمج 088c2d3) · cdf06c8 (CHANGELOG).
+  وقبلها: **TSK-615 ✅ DONE (Session 71 — أولى M9)** —
   ApprovalGate طلبات متزامنة (ASF-05): الخانة المفردة
   (`_pending_id` + Event مشترك) استُبدلت بخريطة
   `request_id → _PendingEntry` (Event مستقل لكل طلب؛ الخيط
@@ -279,21 +296,21 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-616** (M9، P2 — ASF-03 §R4): إظهار سقف
-  snapshot (rollback جزئي) — عند تجاوز `_CKPT_MAX_FILES`/سقف الحجم،
-  تحذير صريح في إطار الموافقة/النتيجة («التراجع سيكون جزئيًا») بدل
-  الصمت. القبول: اختبار بحد مصغّر → إطار يحمل علم partial_rollback؛
-  الواجهة تعرضه (toast/نص). Gates: Security · Testing ·
-  Documentation · Rollback: revert. المرجع: §TSK-616 في
-  DEVELOPMENT_TASKS.md + ASF-03 (MASTER_REVIEW §R4).
-  الدورة القياسية: أدلة أولًا (موضع `_CKPT_MAX_FILES` وسقف الحجم في
-  CheckpointManager، أين يُبنى إطار الموافقة/النتيجة، أي مسار يصمت
-  اليوم — بأرقام أسطر) + سجل حفظ السلوك + Fitness pre-check في
-  §TSK-616 — **commit قبل الكود**؛ ملاحظة: المهمة تلمس الواجهة
-  (عرض العلم) — التغيير عرضي لا يغيّر سلوك المنتج (إظهار حالة قائمة
-  فقط، ضمن نطاق المهمة المقررة). بعد الإغلاق: Close-out + جدول
-  الحالة + CHANGELOG + PROGRESS + commit محلي.
-  خط الانحدار المرجعي الحالي: **1831 = 1F/1796P/34S**
+- Next action: **بدء TSK-618** (M9، P2 — ASF-07 §R4): تضييق except
+  الابتلاعي في path_policy — استبدال `except Exception: pass`
+  (path_policy.py:107–108) بمعالجة OSError موسومة (سجل تحذير) —
+  الفحص لا يُتخطى بصمت. القبول: اختبار symlink خطأ FS → تحذير مسجل
+  والاحتواء النهائي يعمل؛ عدّاد NF-14 لا يرتفع. Gates: Security ·
+  Testing · Rollback: revert. المرجع: §TSK-618 في
+  DEVELOPMENT_TASKS.md + ASF-07 (MASTER_REVIEW §R4).
+  (اختيرت لأن TSK-617 محجوبة بقرار D-1 — أولوية P2 التالية غير
+  المحجوبة في M9.)
+  الدورة القياسية: أدلة أولًا (النص الحالي للـ except بأرقام أسطر،
+  من ينادي الدالة، ماذا يعني الابتلاع أمنيًا، أين عدّاد NF-14) +
+  سجل حفظ السلوك + Fitness pre-check في §TSK-618 — **commit قبل
+  الكود**. بعد الإغلاق: Close-out + جدول الحالة + CHANGELOG +
+  PROGRESS + commit محلي.
+  خط الانحدار المرجعي الحالي: **1841 = 1F/1806P/34S**
   (theme_tokens/TF-04 حصرًا).
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
@@ -768,6 +785,38 @@
   الحالة 615→DONE (ضمن f37be66/84b58d9) + تحديث PROGRESS (هذا
   القيد) + commit محلي · الموقع → **M9/TSK-616** (إظهار سقف
   snapshot — ASF-03)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-29 — Session 72 — TSK-616 ✅ (M9: 2/8)**:
+  استرداد من origin 97931af (دمج المستخدم شمل 63e51ec + 3bab15f) →
+  **أدلة TSK-616**: السقفان `_CKPT_MAX_FILES=400`/`_CKPT_MAX_FILE_BYTES
+  =512KB` (agent_tools.py:190–191)؛ نقاط الصمت في `_workspace_signatures`
+  (return مبكر عند سقف العدد؛ continue عند سقف الحجم — معلومة الاقتطاع
+  تُفقد في المصدر)؛ سطر `🧷 [checkpoint]` القائم مضلِّل إيجابيًا عند
+  الاقتطاع؛ AgentTools بلا ws_send (صفر مطابقات) ⇒ القناة نص التقرير +
+  إطار agent_step/done (preview)؛ إطار الموافقة يُبنى قبل المسح البعدي
+  ⇒ السطح الصادق إطار **النتيجة**؛ مسار apply خارج النطاق (snapshot
+  بأسماء batch لا مسح)؛ `_workspace_signatures` بلا مستهلك خارجي
+  (تحقق grep) — أدلة + pre-checks (commit 2911a90 قبل الكود — دمج
+  51a0a1b) → **التنفيذ**: علم `last_partial_rollback` يُصفَّر مطلع كل
+  أمر؛ `_workspace_signatures` → `tuple[dict, bool]` و`_changed_paths`
+  → `tuple[list, bool]` (الحقيقة تُشتق حيث تحدث)؛ عند
+  `pre_truncated or post_truncated`: العلم + `_LOG.warning` + سطر ⚠️
+  عربي في التقرير — خارج `if changed:` عمدًا (تغييرات فوق السقف غير
+  مرئية للمقارنة)؛ agent_loop: حقل `partial_rollback` في إطار done
+  المعتمد (getattr-آمن)؛ app.js: `showPartialRollbackWarning` (toast +
+  نص دائم `.terminal-partial-rollback`)؛ style.css: `.toast.warning` +
+  كلاس الكارت بتوكنز فقط (TF-04 منضبط) · **10 اختبارات جديدة**
+  (test_snapshot_cap_visibility.py: سقفا عدد/حجم مصغّران → علم+⚠️ /
+  سلبيان تحت-السقف وبلا-checkpoint / تصفير بين الأوامر / E2E عبر
+  AgentLoop حقيقي → الإطار يحمل العلم True/False / فحص نصي app.js+css)
+  (commit 39bbc64 — دمج المستخدم 088c2d3) · كل البوابات: pyflakes
+  (تحذيرات agent_loop الـ4 قائمة بالأصل — تحقق git stash) · lint نظيف ·
+  contracts+parity 113 · goldens+ws_router 32 · mypy بوابة **Success
+  81 ملفًا** · regression junitxml **1841 = 1F/1806P/34S 80.2s**
+  (theme_tokens/TF-04 حصرًا؛ 1831+10=1841 ✓) → Close-out + جدول
+  الحالة 616→DONE (ضمن 088c2d3) + CHANGELOG (commit cdf06c8) +
+  تحديث PROGRESS (هذا القيد) + commit محلي · الموقع → **M9/TSK-618**
+  (تضييق except path_policy — ASF-07؛ TSK-617 محجوبة بـ D-1)؛
+  TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي

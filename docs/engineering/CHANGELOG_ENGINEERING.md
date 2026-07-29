@@ -548,3 +548,46 @@
   lint_handler_state نظيف · contracts+parity 113 · goldens+ws_router 32 ·
   بوابة mypy: Success 81 ملفًا · Regression junitxml:
   **1831 = 1F/1796P/34S** (79.9s؛ theme_tokens/TF-04 حصرًا؛ 1822+9=1831 ✓).
+
+---
+
+## TSK-616 — إظهار سقف snapshot (rollback جزئي — ASF-03) — Session 72
+
+**العائلة المُغلقة**: ASF-03 (§R4 — «الإصلاح: إظهار لا رفع سقف» MASTER_REVIEW:722)
+
+### Fixed
+- اقتطاع مسح snapshot لم يعد صامتًا: `_workspace_signatures` كانت تعيد
+  dict فقط وتُسقط معلومة بلوغ `_CKPT_MAX_FILES` (return مبكر) أو تخطي
+  ملف فوق `_CKPT_MAX_FILE_BYTES` (continue) — أمر معتمد يلمس >400 ملف
+  كان يحصل على rollback جزئي **بصمت**، وسطر `🧷 [checkpoint]` القائم
+  كان مضلِّلًا إيجابيًا (يوحي بتغطية كاملة).
+
+### Changed
+- `chain/agent_tools.py`: `_workspace_signatures` → `tuple[dict, bool]`
+  و`_changed_paths` → `tuple[list, bool]` (علم الاقتطاع يُشتق حيث تحدث
+  الحقيقة — دالتان خاصتان بلا مستهلك خارجي)؛ `tool_run_command` يرفع
+  `self.last_partial_rollback` + `_LOG.warning` + سطر ⚠️ عربي صريح في
+  التقرير («التراجع عن آثار هذا الأمر سيكون جزئيًا» مع قيم السقفين) —
+  خارج `if changed:` عمدًا (تغييرات فوق السقف غير مرئية للمقارنة أصلًا).
+  السقفان نفساهما لم يتغيرا (إظهار لا رفع).
+- `chain/agent_loop.py`: إطار `agent_step/done` للمسار المعتمد يحمل
+  حقل `partial_rollback` (getattr-آمن؛ حقل إضافي لا يكسر مستهلكين).
+- `static/app.js`: `showPartialRollbackWarning` — toast تحذيري + نص
+  دائم `.terminal-partial-rollback` على كارت التيرمنال.
+- `static/style.css`: `.toast.warning` + `.terminal-partial-rollback`
+  بتوكنز الثيم فقط (`var(--warning)` — منضبط TF-04).
+
+### Added
+- `tests/unit/test_snapshot_cap_visibility.py` — 10 اختبارات: سقفا
+  عدد/حجم مصغّران → علم + ⚠️ في التقرير؛ سلبيان (تحت السقف / بلا
+  checkpoint)؛ تصفير العلم بين الأوامر؛ E2E عبر AgentLoop حقيقي →
+  إطار done يحمل partial_rollback=True/False؛ فحص نصي لواجهة العرض
+  (app.js + style.css).
+
+### Verification
+- الاختبارات الجديدة 10/10 خضراء؛ test_run_command/test_checkpoint
+  القائمة تمر بلا تعديل · pyflakes نظيف (تحذيرات agent_loop الأربعة
+  قائمة بأصل المستودع — تحقق git stash) · lint_handler_state نظيف ·
+  contracts+parity 113 · goldens+ws_router 32 · بوابة mypy: Success
+  81 ملفًا · Regression junitxml: **1841 = 1F/1806P/34S** (80.2s؛
+  theme_tokens/TF-04 حصرًا؛ 1831+10=1841 ✓) — **خط انحدار جديد: 1841**.
