@@ -607,7 +607,43 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-609 — Instrumentation: توقيت المسارات + التوكنز
-- **Status**: TODO · **Priority**: P2
+- **Status**: IN-PROGRESS (S49) · **Priority**: P2
+- **Evidence (S49)**:
+  - PM-02 مؤكد حيًا: صفر `monotonic` في runners/ (direct.py وagent.py
+    وdelegate.py بلا أي توقيت)؛ chain وحده يقيس (executor.py:352
+    `duration_ms=int((time.monotonic()-start_time)*1000)` ويبثه في
+    الإطارات — bridge.py:107).
+  - PM-04 مؤكد: `ContextEngine.gather` (engine.py:123–133) حلقة
+    مصادر بلا أي توقيت لكل مصدر.
+  - PM-01: مقدّر توكنز مركزي جاهز — `CharsPerTokenEstimator`
+    (context/budget.py:58، chars÷4) — يُعاد استعماله لا يُخترع جديد.
+  - إطارا الختام للمسارين direct/agent يُبنيان في إغلاقي server.py
+    `_run_direct` (:1929+) و`_run_agent` (:1838+) — `plan`/`done`.
+    delegate يبث إطاراته من الجسر (خارج قائمة ملفات المهمة).
+- **Pre-check حفظ السلوك**:
+  - حقول إضافية فقط في إطاري `plan`/`done` — app.js يتجاهل المجهول.
+  - `run_finished` لا يُنتج إطار WS أبدًا (المحوّل يعيد مبكرًا) →
+    إضافة duration_ms لبيانات `stream.finished` تصل bus الرصد فقط؛
+    اختبارات العقود تفحص `data["reason"]` حصرًا (runner_contract.py:96)
+    — مفاتيح إضافية آمنة.
+  - goldens: apply_batch بلا إطار done (all_actions_done كما هو)؛
+    goldens السياق تقارن مفاتيح golden الموجودة فقط
+    (test_replay_goldens.py:53 `live[key] == golden[key]`) — حقل
+    MessageContext إضافي لا يُقارن؛ goldens chain لا تُمس (chain
+    خارج التعديل). dispatch_parity يقارن إطارات المحوّل فقط —
+    run_finished لا يظهر فيها.
+  - dataclasses مجمّدة تبقى مجمّدة: القياس بمتغيرات محلية لا طفرات.
+- **Pre-check ملاءمة معمارية**: التوقيت بجوار النداء (نفس نمط chain
+  executor — time.monotonic → int ms)؛ التقدير عبر المقدّر المركزي
+  القائم (T-024) لا ثابت جديد؛ توقيت المصادر داخل ContextEngine.gather
+  نفسه (النقطة الوحيدة التي تمر بها المصادر السبعة) محمولًا على
+  ContextBundle، والكشف في MessageContext بحقل افتراضي متوافق.
+- **انحراف موثّق (S49) عن قائمة الملفات**: `chain/agent_loop.py` لا
+  يُعدَّل — توقيت الحلقة يُلتقط عند نداء `_agent_runner.run` في
+  server.py (يغطي الحلقة كاملة end-to-end وهو تعريف PM-02: زمن
+  الطلب المفرد)؛ توقيت لكل دورة داخلية خارج نطاق القبول. كذلك
+  `runners/delegate.py` يُضاف له duration_ms في finished (تغطية bus
+  للمسار الرابع — المقياس 4/4) رغم غيابه من القائمة.
 - **Objective**: التقاط duration للمسار المباشر وحلقة الوكيل وبناء السياق
   (لكل مصدر من مصادر ContextBuilder السبعة)، وتقدير توكنز محلي للمخرج —
   يُبث في الإطارات الختامية كما يفعل chain.
