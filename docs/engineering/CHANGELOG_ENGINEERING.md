@@ -591,3 +591,45 @@
   contracts+parity 113 · goldens+ws_router 32 · بوابة mypy: Success
   81 ملفًا · Regression junitxml: **1841 = 1F/1806P/34S** (80.2s؛
   theme_tokens/TF-04 حصرًا؛ 1831+10=1841 ✓) — **خط انحدار جديد: 1841**.
+
+---
+
+## TSK-618 — تضييق except الابتلاعي في path_policy (ASF-07/NF-28) — Session 73
+
+**العائلة المُغلقة**: ASF-07 (§R4) + NF-28 (المكتشفة أثناء الأدلة)
+
+### Fixed
+- **NF-28 (C4/S2 — أشد من توصيف ASF-07)**: `raise PermissionError`
+  (رفض symlink) كان **داخل نفس الـ try** الذي يلتقط
+  `except Exception: pass` (path_policy.py:102–108) —
+  وPermissionError ⊂ Exception ⇒ الرفض يُبتلع فور رفعه والفحص **ميت
+  بالكامل** منذ كتابته (تجربة حية: symlink داخلي وملف عبر مجلد
+  symlink كانا يمران). [SUPERSEDES جزئيًا توصيف ASF-07 «تخطٍّ عند
+  خطأ FS»]. الخطان الصلبان (الاحتواء على المحلول + فحص الأسرار على
+  المحلول) كانا وما زالا يصمدان — المفقود طبقة الدفاع الإضافية.
+
+### Changed
+- `chain/path_policy.py`: فصل القياس عن القرار — `is_symlink()` وحده
+  داخل try ضيق يلتقط **OSError حصرًا** مع `_LOG.warning` موسوم
+  (المقطع + المسار + الخطأ + تذكير بأن الاحتواء/الأسرار النهائيين
+  يطبقان)؛ `raise PermissionError` خارج الـ try ⇒ الرفض حي وخطأ FS
+  لم يعد صامتًا. logger جديد `chain.path_policy`. نفس مبدأ TSK-616:
+  الحقيقة تُشتق حيث تحدث ولا تُبتلع في الطريق.
+
+### Added
+- `tests/unit/test_path_policy_symlink.py` — 9 اختبارات (أول تغطية
+  مباشرة لـ path_policy): إحياء الرفض (ملف/مجلد)؛ allow_symlinks=True
+  يمر؛ المسار العادي بلا تغيير؛ خطأ FS محقون (monkeypatch) → تحذير
+  caplog + الاحتواء النهائي يعمل (القبول حرفيًا)؛ سلبي بلا ضجيج؛
+  الخطان الصلبان محفوظان؛ حارس بنيوي regex ضد عودة
+  `except Exception: pass` (عدّاد NF-14 لا يرتفع).
+
+### Verification
+- تحقق حي قبل/بعد: A/B (fail-open) → يُرفضان؛ C/D محفوظان؛ المسار
+  العادي وallow_symlinks=True بلا تغيير · pyflakes نظيف ·
+  lint_handler_state نظيف · mypy Success 81 ملفًا · contracts+parity
+  113 · goldens+ws_router 32 · Regression junitxml:
+  **1850 = 1F/1815P/34S** (77.5s؛ theme_tokens/TF-04 حصرًا؛
+  1841+9=1850 ✓؛ فشل test_search_perf بالتمريرة الأولى ثبت أنه flaky —
+  يمر معزولًا ×2 وفي الإعادة الكاملة؛ حد 1s على عتاد مشترك) —
+  **خط انحدار جديد: 1850**.

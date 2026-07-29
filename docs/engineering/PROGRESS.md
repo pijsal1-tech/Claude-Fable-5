@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Session 72 — **TSK-616 ✅ DONE (إظهار سقف snapshot — علم partial_rollback في الإطار والواجهة — ASF-03) — التالي: TSK-618 (تضييق except path_policy؛ 617 محجوبة بـ D-1)**) |
+| last-updated | 2026-07-29 (Session 73 — **TSK-618 ✅ DONE (إحياء فحص symlink الميت + تضييق except إلى OSError موسوم — ASF-07/NF-28) — التالي: TSK-619 (بطاقة الخطة التفاعلية — CP-1)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M9 جارية (2/8)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | **TSK-618** (M9 — P2 — تضييق except الابتلاعي في path_policy؛ TSK-617 محجوبة بـ D-1)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M9 جارية (3/8)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | **TSK-619** (M9 — P2 — بطاقة الخطة التفاعلية — CP-1/UXF-01)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **15/26 TSK** (601..604،606..616 ✅؛ 605/TF-04 تنتظر D-2؛ 617..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **16/26 TSK** (601..604،606..616،618 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 619..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,12 +37,30 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M9 جارية 2/8**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M9 — TSK-618** (P2 — تضييق except الابتلاعي
-  في path_policy؛ TSK-617 محجوبة بقرار D-1)؛
+- Stage: EXECUTION (Stage 3 — جارية — **M9 جارية 3/8**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M9 — TSK-619** (P2 — بطاقة الخطة التفاعلية —
+  CP-1/UXF-01؛ TSK-617 محجوبة بقرار D-1)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-616 ✅ DONE (Session 72 — M9: 2/8)** —
+- Last completed step: **TSK-618 ✅ DONE (Session 73 — M9: 3/8)** —
+  تضييق except الابتلاعي في path_policy (ASF-07): أدلة S73
+  كشفت **NF-28** (C4/S2) — `raise PermissionError` كان داخل نفس
+  الـ try الذي يبتلع Exception ⇒ فحص symlink **ميت بالكامل**
+  منذ كتابته (تجربة حية: symlink داخلي ومجلد symlink يمران؛
+  الخطان الصلبان — الاحتواء والأسرار على المحلول — يصمدان)
+  [SUPERSEDES جزئيًا توصيف ASF-07]. الإصلاح: فصل القياس عن
+  القرار — is_symlink داخل try ضيق يلتقط OSError وحده مع
+  `_LOG.warning` موسوم؛ الرفض خارجه ⇒ حي الآن. 9 اختبارات
+  جديدة (أول تغطية مباشرة لـ path_policy) منها خطأ FS محقون →
+  تحذير caplog + الاحتواء يعمل (القبول حرفيًا) + حارس بنيوي
+  ضد عودة النمط. Gates: contracts+parity 113 · goldens+ws_router
+  32 · mypy 81 Success · lint نظيف · regression junitxml
+  **1850 = 1F/1815P/34S** (theme_tokens/TF-04 حصرًا؛ 1841+9=1850 ✓؛
+  test_search_perf فشل مرة ثم ثبت flaky — يمر معزولًا ×2 وفي
+  الإعادة الكاملة) — **خط انحدار جديد: 1850**. Commits: 94c92ce
+  (أدلة+NF-28 قبل الكود) · 7ebc5b9 (التنفيذ+الاختبارات — دمج
+  المستخدم b0f4da5) · 4893403 (CHANGELOG+جدول الحالة).
+  وقبلها: **TSK-616 ✅ DONE (Session 72 — M9: 2/8)** —
   إظهار سقف snapshot (ASF-03): اقتطاع مسح الـ checkpoint
   (`_CKPT_MAX_FILES`/`_CKPT_MAX_FILE_BYTES`) لم يعد صامتًا —
   العلم يُشتق حيث تحدث الحقيقة (`_workspace_signatures` →
@@ -296,22 +314,25 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-618** (M9، P2 — ASF-07 §R4): تضييق except
-  الابتلاعي في path_policy — استبدال `except Exception: pass`
-  (path_policy.py:107–108) بمعالجة OSError موسومة (سجل تحذير) —
-  الفحص لا يُتخطى بصمت. القبول: اختبار symlink خطأ FS → تحذير مسجل
-  والاحتواء النهائي يعمل؛ عدّاد NF-14 لا يرتفع. Gates: Security ·
-  Testing · Rollback: revert. المرجع: §TSK-618 في
-  DEVELOPMENT_TASKS.md + ASF-07 (MASTER_REVIEW §R4).
-  (اختيرت لأن TSK-617 محجوبة بقرار D-1 — أولوية P2 التالية غير
-  المحجوبة في M9.)
-  الدورة القياسية: أدلة أولًا (النص الحالي للـ except بأرقام أسطر،
-  من ينادي الدالة، ماذا يعني الابتلاع أمنيًا، أين عدّاد NF-14) +
-  سجل حفظ السلوك + Fitness pre-check في §TSK-618 — **commit قبل
-  الكود**. بعد الإغلاق: Close-out + جدول الحالة + CHANGELOG +
-  PROGRESS + commit محلي.
-  خط الانحدار المرجعي الحالي: **1841 = 1F/1806P/34S**
-  (theme_tokens/TF-04 حصرًا).
+- Next action: **بدء TSK-619** (M9، P2 — CP-1/UXF-01 §R9): بطاقة
+  الخطة التفاعلية — ترقية `showPlanCard` (app.js:3099–3128 وقت
+  الفرز) إلى artifact تفاعلي: تعطيل/تفعيل خطوة (checkbox) قبل
+  «نفّذ» — executePlan يرسل المفعّل فقط. Files: static/app.js +
+  وحدة نقية جديدة `static/js/plan_card.js` + اختبار node لها؛
+  server.py لا يتغير (actions المرسلة subset). القبول: اختبار وحدة —
+  تعطيل خطوة → payload التنفيذ بدونها؛ سيناريو يدوي موثق. Gates:
+  Testing · Regression (كل-الخطوات-مفعلة = السلوك القديم حرفيًا).
+  Rollback: revert. المرجع: §TSK-619 في DEVELOPMENT_TASKS.md.
+  الدورة القياسية: أدلة أولًا (showPlanCard/executePlan الحاليان
+  بأرقام أسطر فعلية، شكل payload التنفيذ الحالي، هل يوجد اختبار
+  node قائم كنمط — بأدلة) + سجل حفظ السلوك (الافتراضي بلا لمس =
+  تنفيذ كامل حرفيًا) + Fitness pre-check في §TSK-619 — **commit
+  قبل الكود**. ملاحظة: المهمة UX مقررة في Stage 2 (CP-1 ADOPT) —
+  التفاعل الجديد opt-in لا يغيّر المسار الافتراضي. بعد الإغلاق:
+  Close-out + جدول الحالة + CHANGELOG + PROGRESS + commit محلي.
+  خط الانحدار المرجعي الحالي: **1850 = 1F/1815P/34S**
+  (theme_tokens/TF-04 حصرًا؛ test_search_perf معروف flaky على
+  عتاد مشترك — يعاد تشغيله معزولًا عند فشله).
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -817,6 +838,37 @@
   تحديث PROGRESS (هذا القيد) + commit محلي · الموقع → **M9/TSK-618**
   (تضييق except path_policy — ASF-07؛ TSK-617 محجوبة بـ D-1)؛
   TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-29 — Session 73 — TSK-618 ✅ (M9: 3/8)**:
+  استرداد من origin 5f6d7c3 (دمج المستخدم شمل cdf06c8 + edbead6) →
+  **أدلة TSK-618**: قراءة path_policy.py كاملة + **4 تجارب حية** على
+  النسخة القديمة كشفت **NF-28** (C4/S2): `raise PermissionError` داخل
+  نفس الـ try الذي يلتقط `except Exception: pass` (:102–108) —
+  وPermissionError ⊂ OSError ⊂ Exception ⇒ **الرفض نفسه يُبتلع فور
+  رفعه**: فحص symlink ميت بالكامل منذ كتابته لا «يُتخطى عند خطأ FS»
+  فقط (A: symlink داخلي يمر؛ B: ملف عبر مجلد symlink يمر) —
+  [SUPERSEDES جزئيًا توصيف ASF-07]. الخطان الصلبان يصمدان (C: الهروب
+  خارج الجذر يُرفض بالاحتواء على المحلول؛ D: ألياس سر داخلي يُرفض
+  بفحص الأسرار) · المستهلكون: كل النداءات allow_symlinks=False
+  (7 مواضع) · الملف بلا logging — أدلة + pre-checks + NF-28 في
+  NEW_FINDINGS (commit 94c92ce قبل الكود) → **التنفيذ**: فصل القياس
+  عن القرار — `is_link = curr.is_symlink()` داخل try ضيق يلتقط
+  **OSError وحده** مع `_LOG.warning` موسوم (مقطع + مسار + خطأ +
+  تذكير بالخطوط الصلبة)؛ `raise` خارج الـ try؛ logger جديد
+  `chain.path_policy` · تحقق حي: A/B يُرفضان الآن؛ المسار العادي +
+  allow_symlinks=True بلا تغيير · **9 اختبارات جديدة**
+  (test_path_policy_symlink.py — أول تغطية مباشرة لـ path_policy:
+  إحياء الرفض ×2 / allow=True يمر / مسار عادي / خطأ FS محقون →
+  تحذير caplog + الاحتواء يعمل / سلبي بلا ضجيج / الخطان الصلبان ×2 /
+  حارس بنيوي regex ضد عودة النمط) (commit 7ebc5b9 — دمج المستخدم
+  b0f4da5) · كل البوابات: pyflakes نظيف · lint نظيف · mypy **Success
+  81 ملفًا** · contracts+parity 113 · goldens+ws_router 32 ·
+  regression junitxml **1850 = 1F/1815P/34S 77.5s** (theme_tokens/
+  TF-04 حصرًا؛ 1841+9=1850 ✓؛ test_search_perf فشل بالتمريرة الأولى
+  ثم ثبت flaky: يمر معزولًا ×2 وفي الإعادة الكاملة — حد 1s على عتاد
+  مشترك) → Close-out (ضمن b0f4da5) + جدول الحالة 618→DONE +
+  CHANGELOG (commit 4893403) + تحديث PROGRESS (هذا القيد) + commit
+  محلي · الموقع → **M9/TSK-619** (بطاقة الخطة التفاعلية — CP-1/
+  UXF-01)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
