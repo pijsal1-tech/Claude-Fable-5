@@ -118,8 +118,10 @@ class TestAllowlistMatrix:
         assert out.startswith("❌")
 
     def test_legacy_mode_no_enforcement(self):
-        # بلا سياسة (قسم config غائب) — سلوك ما قبل T-058: التنفيذ يمر
-        # (بوابة الموافقة T-013 تبقى الحاكم في المسار الحقيقي)
+        # بناء مباشر بلا سياسة (CommandPolicy() الافتراضي) — سلوك legacy:
+        # التنفيذ يمر (بوابة الموافقة T-013 تبقى الحاكم في المسار الحقيقي).
+        # TSK-617: المسار الإنتاجي (command_policy_from) لم يعد ينتج
+        # legacy أبدًا — هذا المسار للبناء المباشر (اختبارات) فقط.
         tools, runner = _tools(policy=None)
         out = tools.tool_run_command("echo anything", _approval=APPROVAL_GRANTED)
         assert runner.calls == ["echo anything"]
@@ -146,16 +148,20 @@ class TestPolicyFromConfig:
         assert p.timeout_seconds == 30.0
         assert p.output_max_chars == 500
 
-    def test_missing_section_means_legacy(self):
+    def test_missing_section_fail_closed(self):
+        # TSK-617 (قرار D-1 — ASF-04): غياب القسم ⇒ enforce=True بقائمة
+        # فارغة (رفض الكل) — قبل TSK-617 كان legacy (enforce=False).
         for cfg in (None, {}, {"agent": {}}, {"agent": None}):
             p = command_policy_from(cfg)
-            assert p.enforce is False
+            assert p.enforce is True
+            assert p.allowlist == {}
 
-    def test_garbage_types_tolerated(self):
+    def test_garbage_types_fail_closed(self):
+        # TSK-617: الأنواع الفاسدة ⇒ نفس fail-closed (لا legacy صامت).
         p = command_policy_from({"agent": "not-a-dict"})
-        assert p.enforce is False
+        assert p.enforce is True and p.allowlist == {}
         p2 = command_policy_from({"agent": {"command_allowlist": ["a", "b"]}})
-        assert p2.enforce is False
+        assert p2.enforce is True and p2.allowlist == {}
 
     def test_non_string_and_empty_entries_dropped(self):
         p = command_policy_from({"agent": {"command_allowlist": {

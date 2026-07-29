@@ -83,13 +83,15 @@ class TestConfigFlag:
                             lambda: {"force_command_approval": False})
         assert server._force_command_approval() is False
 
-    def test_flag_absent_defaults_false(self, monkeypatch):
-        """config بلا المفتاح ⇒ False — التوافق السلوكي الافتراضي."""
+    def test_flag_absent_defaults_true(self, monkeypatch):
+        """TSK-617 (قرار D-1): config بلا المفتاح ⇒ **True** —
+        الافتراض البرمجي الآمن (fail-closed)؛ قبل TSK-617 كان False."""
         monkeypatch.setattr(server, "_load_config", lambda: {})
-        assert server._force_command_approval() is False
+        assert server._force_command_approval() is True
 
     def test_repo_config_documents_flag_default_false(self):
-        """config.yaml يوثّق الراية وقيمتها الافتراضية false."""
+        """config.yaml المشحون يوثّق الراية بقيمة **صريحة** false
+        (تعطيل واعٍ لـ localhost — TSK-617 يحترم الصريح كما هو)."""
         import yaml
         cfg = yaml.safe_load((REPO / "config.yaml").read_text(encoding="utf-8"))
         assert "force_command_approval" in cfg
@@ -123,8 +125,20 @@ class TestApiRunEndToEnd:
         assert data["ok"] is False
         assert data["error"] == "رفض المستخدم"
 
-    def test_default_api_run_not_gated(self, spy_runner, monkeypatch):
+    def test_flag_absent_api_run_gated(self, spy_runner, monkeypatch):
+        """TSK-617 (قرار D-1): غياب المفتاح ⇒ البوابة تعمل (fail-closed)؛
+        قبل TSK-617 كان الغياب = لا بوابة."""
         monkeypatch.setattr(server, "_load_config", lambda: {})
+        client = server.app.test_client()
+        resp = client.post("/api/run", json={"command": "echo hi"})
+        data = resp.get_json()
+        assert spy_runner._approval_calls == ["echo hi"]
+        assert data["ok"] is False
+
+    def test_explicit_false_api_run_not_gated(self, spy_runner, monkeypatch):
+        """false صريح يُحترم — السلوك التاريخي (توافق config المشحون)."""
+        monkeypatch.setattr(server, "_load_config",
+                            lambda: {"force_command_approval": False})
         client = server.app.test_client()
         resp = client.post("/api/run", json={"command": "echo hi"})
         data = resp.get_json()

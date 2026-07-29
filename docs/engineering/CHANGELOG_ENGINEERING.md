@@ -803,3 +803,23 @@
 - **regression كامل: 1900 = 0 failed / 1866 passed / 34 skipped (79.9s)
   — أول خضرة كاملة في تاريخ البرنامج**؛ `bash scripts/check.sh` →
   **ALL GREEN (exit 0) لأول مرة** = معيار خروج M6 الأخير؛ pyflakes نظيف.
+
+## [TSK-617] — 2026-07-29 — أمان الافتراضات البرمجية (قرار D-1): قلب enforce وforce_command_approval إلى fail-closed
+### Changed
+- `server.py:_force_command_approval` — غياب المفتاح أو تعذّر قراءة config
+  ⇒ **True** (إلزام الموافقة)؛ القيمة الصريحة تُحترم (false الصريح في
+  config المشحون = السلوك التاريخي كما هو).
+- `chain/agent_tools.py:command_policy_from` — غياب/فساد قسم
+  `agent.command_allowlist` ⇒ `enforce=True` بقائمة فارغة = رفض كل أوامر
+  الـ agent برسالة مهيكلة (لا legacy صامت)؛ البناء المباشر بلا سياسة
+  (مسار الاختبارات) يبقى legacy موثَّقًا.
+- توثيق: config.yaml (تعليقا NF-16 + agent) + README (:422 + «حدود
+  النشر» بند 4).
+- اختبارات الافتراضي القديم حُدِّثت معلنةً القلب: test_force_approval
+  (flag_absent→True + flag_absent_api_run_gated + explicit_false جديد)؛
+  test_run_command (missing_section/garbage_types → fail-closed).
+### Verification
+- الملفات المتأثرة الخمسة خضراء كاملة؛ regression: 1F/1866P/34S —
+  الفشل الوحيد test_search_perf العابر الموثَّق (معزولًا 18 passed)؛
+  القبول مُثبَت تنفيذيًا (حذف المفاتيح ⇒ آمن؛ config الحالي ⇒ صفر تغيير)؛
+  pyflakes delta صفر (stash-diff)؛ mypy Success 81 ملفًا.

@@ -1589,7 +1589,7 @@
   - **خط انحدار جديد: 1841**.
 
 ### TSK-617 — أمان الافتراضات البرمجية (قرار D-1: قلبهما)
-- **Status**: IN-PROGRESS (S83 — قرار D-1 وصل ضمن التوجيه الشامل:
+- **Status**: ✅ DONE (S83 — قرار D-1 وصل ضمن التوجيه الشامل:
   «continue with the remaining owner-gated tasks…»؛ التوصية المسجَّلة
   MASTER_REVIEW:810 «نعم — قلبهما، أمان زائد لا كسر» صارت نافذة) ·
   **Priority**: P2
@@ -1649,6 +1649,28 @@
     في README إن ذكر الافتراضي القديم؛ docstrings المواضع الثلاثة.
   - لا ADR: تنفيذ قرار مالك مسجَّل (D-1) بلا بدائل معمارية — قيد
     DECISION_LOG S83 (التوجيه الشامل) يغطيه، وسجل التاسك هذا هو الأثر.
+- **Close-out ✅ (Session 83)**:
+  - **Implementation**: (1) NF-16 — `server.py:_force_command_approval`:
+    الافتراضي `.get(..., True)` + fallback الـ except → True
+    (fail-closed؛ وسم NF-14 §2 محدَّث)؛ docstring يوثّق القلب.
+    (2) ASF-04 — `chain/agent_tools.py:command_policy_from`: مسارا
+    غياب/فساد القسم يعيدان `CommandPolicy(enforce=True, allowlist={})`
+    (رفض الكل برسالة مهيكلة قائمة) بدل `CommandPolicy()` (legacy)؛
+    افتراضي الـ dataclass و`AgentTools.__init__` بقيا legacy للبناء
+    المباشر (اختبارات) — موثَّق في docstring الصنف.
+    (3) التوثيق: config.yaml (تعليقا NF-16 + agent) + README
+    (:422 + قسم حدود النشر بند 4). (4) اختبارات الافتراضي القديم
+    حُدّثت معلنةً القلب: test_force_approval (flag_absent→True +
+    flag_absent_api_run_gated + explicit_false_not_gated جديد)؛
+    test_run_command (missing_section/garbage_types → fail_closed).
+  - **Verification (S83)**: الملفات المتأثرة الخمسة → خضراء كاملة؛
+    regression كامل: 1F/1866P/34S — الفشل الوحيد test_search_perf
+    العابر الموثَّق بيئيًا (معزولًا: 18 passed — نفس إجراء S79)؛
+    القبول مُثبَت تنفيذيًا (حذف المفاتيح ⇒ True/enforce؛ config
+    الحالي ⇒ false صريح مُحترم + enforce=True بـ 4 مداخل كما قبل)؛
+    pyflakes delta صفر (stash-diff)؛ mypy Success 81 ملفًا.
+  - **Metrics**: الافتراضات config-dependent الخطرة 2 → **0**؛
+    ASF-04 + NF-16 مغلقان بقرار D-1.
 
 ### TSK-618 — تضييق except الابتلاعي في path_policy
 - **Status**: ✅ DONE (S73) · **Priority**: P2
@@ -2277,7 +2299,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 614 | M8 | P2 | ✅ DONE (S69–70) | بوابة mypy موسعة (+routes/ +server.py، --check-untyped-defs، ADR-004)؛ 81 ملفًا Success؛ أغلقت QF-02 وكشفت NF-25/NF-26 وأصلحتهما |
 | 615 | M9 | P2 | ✅ DONE (S71) | خريطة طلبات معلّقة بمفاتيح + Event لكل طلب؛ أصلحت ASF-05 (استنزاف) وNF-27 (موافقة زائفة)؛ 9 اختبارات تزامن جديدة |
 | 616 | M9 | P2 | ✅ DONE (S72) | علم partial_rollback يُشتق عند المسح ويصل الإطار والواجهة (⚠️ toast + نص على الكارت)؛ 10 اختبارات جديدة؛ خط الانحدار 1841 |
-| 617 | M9 | P2 | BLOCKED(D-1) | |
+| 617 | M9 | P2 | ✅ DONE (S83) | قرار D-1: الافتراضان الآمنان في الكود (fail-closed)؛ config الحالي بلا تغيير سلوكي |
 | 618 | M9 | P2 | ✅ DONE (S73) | فصل القياس عن القرار أحيا فحص symlink الميت (NF-28) وضيّق الالتقاط إلى OSError موسوم؛ 9 اختبارات (أول تغطية لـ path_policy)؛ خط الانحدار 1850 |
 | 619 | M9 | P2 | ✅ DONE (S74) | بطاقة الخطة التفاعلية: checkbox لكل خطوة عبر وحدة نقية plan_card.js وexecutePlan يرسل المفعّل فقط؛ server.py بلا لمس؛ 10 اختبارات node؛ خط الانحدار 1860 |
 | 620 | M9 | P2 | ✅ DONE (S75) | سرد الجلسة: timeline من الأطر الحية (استهلاك-فقط) عبر وحدة نقية session_narrative.js فوق قائمة RunHistory؛ server.py بلا لمس؛ 10 اختبارات node؛ خط الانحدار 1870 |
