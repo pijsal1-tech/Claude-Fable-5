@@ -262,25 +262,22 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-614** (M8، P2 — QG-04 §R8 + QF-02، تبعيات
-  611..613 ✅ — الأخيرة في M8): توسيع نطاق mypy في check.sh ليشمل
-  الوحدات المستخرجة (routes/ فُحصت يدويًا في 613 لكنها غير مضمومة
-  لبوابة check.sh:12 بعد) ثم server.py المتبقي — إغلاق QF-02
-  (عيوب كـ RP-01 تُلتقط ساكنًا). القبول: mypy أخضر على النطاق
-  الموسع في check.sh؛ البوابة تفشل عند دس نداء لدالة غير موجودة
-  (اختبار سلبي موثق). Gates: Testing · Regression. تنبيهات:
-  (1) خطأ providers/openai_shelby.py:166 القائم مسبقًا في نطاق
-  check.sh الحالي — providers/ خارج النطاق §0.8، لا يُصلح؛ وثّق
-  كيفية إبقاء البوابة الموسعة خضراء دون مسّه. (2) server.py غير
-  مفحوص إطلاقًا اليوم — شغّل mypy استكشافيًا أولًا وجرد الأخطاء
-  بالأرقام في الأدلة؛ القرار (إصلاح تدريجي أم سياسة ignore
-  per-module موثَّقة) يُسجَّل قبل التعديل. قبل التعديل: أدلة +
-  سجل حفظ السلوك (تغيير check.sh و/أو type hints لا-سلوكية فقط) +
-  Fitness pre-check في §TSK-614؛ إن اقتضت قرارًا بنيويًا (سياسة
-  ignore/تقسيم بوابة) فـ ADR-004 + DECISION_LOG قبله؛ بعد الإغلاق:
-  جدول الحالة + CHANGELOG + commit محلي. **بعد إغلاق 614: M8
-  مكتملة 4/4 ⇒ تنفيذ IR-1** (Innovation Review — MASTER_ROADMAP:122:
-  السؤال المحوري + تسجيله في DECISION_LOG).
+- Next action: **بدء TSK-615** (أولى M9 — Exposure & Consent Surface،
+  P2 — ASF-05 §R4): ApprovalGate طلبات متزامنة — استبدال `_pending_id`
+  المفرد بخريطة طلبات معلقة بمفاتيح؛ طلبان متداخلان يُحلان مستقلين
+  بلا موت بمهلة؛ **fail-closed يبقى** (مهلة لكل طلب). القبول: اختبار
+  طلبين متداخلين → كلاهما قابل للحل؛ المهلة لكل طلب على حدة.
+  Gates: Security · Testing · Regression · Rollback: revert.
+  المرجع: §TSK-615 في DEVELOPMENT_TASKS.md (~:1323) +
+  ASF-05 (MASTER_REVIEW §R4، approval.py:170–175/238–247).
+  الدورة القياسية: أدلة (قراءة core/approval.py كاملة — بنية
+  `_pending_id`/المهلة/نقاط الحل، ومستهلكيها في server/chat_dispatch/
+  agent_loop) + سجل حفظ السلوك + Fitness pre-check في §TSK-615 —
+  **commit قبل الكود**؛ إن اقتضى تغييرًا بنيويًا (تغيير عقد
+  ApprovalGate العام) فـ ADR + DECISION_LOG قبله؛ بعد الإغلاق:
+  Close-out + جدول الحالة + CHANGELOG + PROGRESS + commit محلي.
+  خط الانحدار المرجعي الحالي: **1822 = 1F/1787P/34S**
+  (theme_tokens/TF-04 حصرًا).
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -676,6 +673,53 @@
   S68: reset → استئناف → إتمام PROGRESS (Next action→TSK-614 +
   هذا السجل) + commit محلي · الموقع → M8/TSK-614 (QG-04 —
   الأخيرة في M8؛ **بعد إغلاقها: IR-1**)؛ TSK-605 تنتظر D-2.
+- **2026-07-29 — Sessions 68–70 — TSK-614 ✅ (M8: 4/4 🏁) + IR-1**:
+  S68: commit سجل الجلسات 032343a (دمج fa9382b) → بدء أدلة TSK-614 ·
+  S69: reset → إعادة تحقق الأدلة على clone نظيف — **اكتشاف محوري**:
+  mypy الافتراضي لا يفحص أجسام الدوال غير الموسومة (تجربة موثقة:
+  نداء زائف داخل def غير موسوم = Success بدون `--check-untyped-defs`
+  وخطأ [name-defined] معه) — كل 25 route و46/61 دالة في server.py
+  غير موسومة ⇒ توسيع القائمة وحده بوابة صورية تخالف القبول · جرد
+  الأخطاء بالأرقام: 4 قائمة + 79 routes [union-attr] + 47 server ⇒
+  **129 صُفّرت لا-سلوكيًا** · **اكتشاف NF-25** (C4/S2 — انحدار من
+  612): provider_pool + approval_gate غير معرّفين في chat_dispatch
+  (:306/:307/:332 — كانا globals في 77ca23a:server.py:1827/1853
+  وسقطا من خريطة deps ⇒ NameError على مسار إرسال agent) — أُصلح
+  بالحقن في deps · **اكتشاف NF-26** (C4/S3 — قائم منذ 0d74dad):
+  server.py يقصّ dict — scan_folder_for_chain تعيد dict[str,str]
+  (chain/bridge.py:666–681) لكن الكود `[:15]` + `.get` ⇒ TypeError
+  مبتلَع ⇒ تدهور صامت يناقض قبول TSK-404 — أُصلح بـ
+  `list(scanned_files.items())[:15]` · أدلة + pre-checks + NF-25/26
+  + تصويب close-out 612 (commit db46952) → **ADR-004 + DECISION_LOG
+  قبل الكود** (تصميم البوابة: `--check-untyped-defs` + استثناء
+  وحيد `providers/openai_shelby.py` مع بقاء بقية providers/ ممسوحة +
+  النطاق الكامل routes/ + server.py؛ بدائل مرفوضة موثقة) commit
+  ea28700 → التنفيذ: `_srv: Any` ×7 ملفات routes + إصلاح NF-25/26 +
+  16 sentinel ignores + purge_terminal في RegistryBackend Protocol +
+  توسيمات RUNNERS/frame/cfg (دمج المستخدم 0160b1e شمل تعديلات
+  غير ملتزمة) · S70: reset → درس Python موثَّق: `provider: Any`
+  محليًا مع `global provider` = SyntaxError — الحل: توسيم التعريف
+  على مستوى الوحدة (server.py:137) · سطر البوابة الجديد في check.sh
+  → **Success على 81 ملفًا exit=0** (كان 73) · اختبار سلبي بطريقتين
+  (دائم في الاختبارات + زرع يدوي في routes/meta.py → exit=1 →
+  استعادة) · tests/unit/test_mypy_gate_614.py (**10 اختبارات**:
+  بنية السطر 3 + سلبي 2 + NF-25 حقن 3 + NF-26 استهلاك dict 2)
+  commit 151f2e0 — دمج المستخدم 3c516b6 · كل البوابات على الشجرة
+  المدموجة: contracts+parity 113 · goldens+ws_router 32 · المتأثرة
+  104 · lint clean · check.sh أحمر عند فحص الألوان فقط (TF-04/D-2) ·
+  regression عبر `--junitxml`: **1822 = 1F/1787P/34S 69.7s**
+  (theme_tokens/TF-04 حصرًا؛ 1812+10 جديدة = 1822 ✓) → Close-out +
+  جدول الحالة 614→DONE + CHANGELOG (commit 1b05703) → **IR-1**
+  (Innovation Review بعد M8 — MASTER_ROADMAP:122) مسجلة في
+  DECISION_LOG: التفكيك كافٍ، **لا بنية worker/process الآن**
+  (local-first أحادي المستخدم؛ server.py 3045→2132 = −30%؛ الخيوط
+  محكومة بـ ExecutionRegistry TTL+reap+purge)؛ CP-4 (hooks) يبقى
+  ADOPT-CANDIDATE مؤجلًا (MASTER_REVIEW:588)؛ CP-6 (subagents)
+  حُسم بإصلاح RP-01 في TSK-601 (:590) — commit 8450204 → تحديث
+  PROGRESS (رأس/موقع/Next action→TSK-615 + هذا السجل) + commit
+  محلي — دمج المستخدم 7a33798 (شمل تعديلات PROGRESS غير الملتزمة) ·
+  الموقع → **M9/TSK-615** (ApprovalGate طلبات متزامنة — ASF-05)؛
+  TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي

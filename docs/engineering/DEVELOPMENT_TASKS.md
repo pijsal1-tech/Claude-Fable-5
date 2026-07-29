@@ -1321,13 +1321,69 @@
 ## M9 — Exposure & Consent Surface (حزمة الإظهار + بقايا الأمان)
 
 ### TSK-615 — ApprovalGate: طلبات متزامنة
-- **Status**: TODO · **Priority**: P2
+- **Status**: IN PROGRESS (S71) · **Priority**: P2
 - **Objective**: خريطة طلبات معلقة بمفاتيح بدل `_pending_id` المفرد — طلبان
   متزامنان يُحلان مستقلين.
 - **Background**: ASF-05 (§R4، approval.py:170–175/238–247).
 - **Acceptance**: اختبار: طلبان متداخلان → كلاهما قابل للحل بلا موت بمهلة؛
   fail-closed يبقى (مهلة لكل طلب).
 - **Gates**: Security · Testing · Regression. · **Rollback**: revert.
+- **Evidence (S71 — قراءة core/approval.py كاملة 286 سطرًا + تجارب
+  تزامن حية)**:
+  - **الخانة المفردة**: `_pending_id/_pending_hash/_pending_event/
+    _pending_result/_pending_reason` (approval.py:171–175)؛
+    `_interactive` يكتب فوقها بلا شرط (:242–247)؛ `resolve` يطابق
+    الخانة الوحيدة (:214–222)؛ أول خيط يخرج **يصفّر الخانة للجميع**
+    (:258–260).
+  - **تجارب حية (4 سيناريوهات، طلبان متداخلان r1 ثم r2)**:
+    - **A — resolve(r2, approve) ⇒ r1 اعتُمد أيضًا** (`user_approved`
+      للاثنين): `_pending_event` واحد مشترك — `set()` يوقظ كل
+      المنتظرين وكلهم يقرأون `_pending_result=True` ⇒ **موافقة زائفة
+      fail-OPEN** — أسوأ من توصيف ASF-05 («fail-closed، استنزاف
+      فقط») ⇒ **NF-27** (C5/S2 — NEW_FINDINGS).
+    - B — resolve(r1) بعد الكتابة فوقه ⇒ matched=False والاثنان
+      يموتان بمهلة (الاستنزاف الموثق في ASF-05).
+    - C — resolve(r2, deny) ⇒ الاثنان `user_denied` (fail-closed لكن
+      تلويث تدقيق: r1 سُجّل قرار مستخدم لم يصدر بحقه).
+    - D — resolve متأخر بعد المهلة ⇒ False (سليم).
+  - **المستهلكون (لا تغيير عقد مطلوب)**: نسخة بوابة واحدة مشتركة
+    (server.py:1937، mode من auto_execute، مهلة 120s) تُحقن في deps
+    (server.py:1104 — NF-25) وChainBridge (:1979) وحلقات agent ·
+    `resolve` يُستدعى من bridge.resolve_approval (chain/bridge.py:289
+    ← WS server.py:1214) وagent_loop (:305 cancel، :318
+    approve_command ← WS server.py:1130) — كلاهما يمرر request_id +
+    payload_hash فالخريطة المفتاحية تحفظ التحقق لكل مدخل ·
+    `request()` يُستدعى من bridge:567 وagent_loop:524 وrunners
+    direct:88/chain:102/agent:115/delegate:111 · `pending_request_id()`
+    لا يستهلكه إنتاج إطلاقًا — اختبارات فقط
+    (test_approval.py:98/121/138/189/207) · agent_loop يحتفظ بمرجعيه
+    `_pending_approval_id/_hash` (:504–505/:527–528) للإلغاء فقط —
+    لا يمسّه التغيير الداخلي.
+  - **حكم ADR**: لا يلزم — بنية بيانات داخلية لصنف واحد يمليها نص
+    المهمة حرفيًا؛ التواقيع العامة (request/resolve/pending_request_id/
+    audit_entries) بلا تغيير؛ لا حدود وحدات جديدة.
+- **Behavior-preservation pre-check (S71 — قبل التعديل)**:
+  1. السطح العام دون تغيير: تواقيع request/resolve/pending_request_id/
+     audit_entries وشكل قيد التدقيق كما هي.
+  2. مسارات الطلب الواحد (كل ما تمارسه الاختبارات الـ19 القائمة
+     والإنتاج أحادي المستخدم) متطابقة دلاليًا: تسجيل → انتظار →
+     حل/مهلة → قيد؛ رفض hash خاطئ يبقى؛ المهلة تبقى deny (fail-closed).
+  3. `pending_request_id()` يعيد الأحدث تسجيلًا (مع ≤1 معلّق =
+     السلوك الحالي حرفيًا — يكفي الاختبارات القائمة).
+  4. التغيير السلوكي **المقصود والمحصور**: عزل الطلبات المتداخلة
+     (إصلاح A/B/C أعلاه) — هذا هو نص القبول لا انحرافًا عنه.
+  5. التحقق: test_approval.py الـ19 تمرّ بلا تعديل + الانحدار الكامل
+     عند خط 1822 = 1F/1787P/34S (theme_tokens/TF-04 حصرًا).
+- **Architecture-Fitness pre-check (S71)**:
+  - التغيير محصور في core/approval.py (صنف واحد)؛ صفر تبعيات جديدة؛
+    صفر تغيير في bridge/agent_loop/runners/server.
+  - النمط: خريطة `request_id → مدخل (hash, Event, result, reason)`
+    مع Event لكل مدخل — نفس نمط التذاكر المفتاحية في
+    ExecutionRegistry (المعيار القائم في المستودع).
+  - لا نموّ غير محدود: المدخل يزيله خيطه المالك في finally ⇒ حجم
+    الخريطة = عدد الخيوط المنتظرة آنيًا (محدود بخيوط runners).
+  - إضافة قراءة `pending_request_ids()` (جمع) للاختبارات/الرصد —
+    توسعة لا كسر.
 
 ### TSK-616 — إظهار سقف snapshot (rollback جزئي)
 - **Status**: TODO · **Priority**: P2
