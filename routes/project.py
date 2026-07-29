@@ -4,6 +4,7 @@
 حيًّا عبر ``_srv`` (كائن وحدة server يُحقن في ``register()``) —
 نفس دلالة globals الأصلية (late binding، نمط ADR-002).
 """
+from typing import Any
 from flask import Blueprint, jsonify, request
 import os
 
@@ -11,7 +12,7 @@ from actions.file_manager import FileManager
 from actions.command_runner import CommandRunner
 
 bp = Blueprint("project", __name__)
-_srv = None  # كائن وحدة server — يُحقن عند register() (ADR-003)
+_srv: Any = None  # كائن وحدة server — يُحقن عند register() (ADR-003)
 
 
 def register(app, srv):

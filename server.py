@@ -130,12 +130,12 @@ def _clean_expired_pending_requests() -> None:
 
 
 # ── Globals (يتم تعيينها في main) ──
-fm: FileManager = None
-cmd_runner: CommandRunner = None
+fm: FileManager = None  # type: ignore[assignment]  # sentinel يُملأ في main (ADR-004)
+cmd_runner: CommandRunner = None  # type: ignore[assignment]  # sentinel يُملأ في main (ADR-004)
 parser = ResponseParser()
 provider = None
 chat_history: list[Message] = []
-session_mgr: SessionManager = None
+session_mgr: SessionManager = None  # type: ignore[assignment]
 # R-303 (T-031): بانر تنبيه ربط الجلسة — يُملأ عند تبديل المشروع تحت
 # سياسة warn ويُحقن في project_context لكل رسالة حتى بدء جلسة جديدة.
 _binding_banner: str = ""
@@ -515,7 +515,7 @@ def _memory_list_frame(project_root, index=None):
     كاملة) + ``stale`` عبر is_stale ضد الفهرس الحي (غياب أي بصمة =
     «لا حكم» ⇒ False — نفس دلالات core/project_memory).
     """
-    frame = {"type": "memory_list_result", "entries": []}
+    frame: dict[str, Any] = {"type": "memory_list_result", "entries": []}
     project_id = _memory_project_id(project_root)
     if project_memory is None or not project_id:
         frame["error"] = "memory_unavailable"
@@ -612,7 +612,7 @@ def _memory_delete_frame(project_root, entry_id):
 # are one-way ALIASES of the AppContext fields — both paths see identical
 # objects. T-007 migrates consumers to resolve ctx.project.* at call time;
 # T-008 deletes the private-attribute pokes and the dead aliases.
-ctx: AppContext = None
+ctx: AppContext = None  # type: ignore[assignment]  # sentinel يُملأ في main (ADR-004)
 
 
 def _active_provider():
@@ -669,33 +669,33 @@ def _build_ctx(project_path: str) -> AppContext:
         budget=account_budget,
         handle_factory=_server_handle_factory,
     )
-chain_bridge: ChainBridge = None   # M5: جسر السلسلة → WebSocket
-delegate_bridge: DelegateBridge = None  # M6: جسر التفويض
+chain_bridge: ChainBridge = None  # type: ignore[assignment]   # M5: جسر السلسلة → WebSocket
+delegate_bridge: DelegateBridge = None  # type: ignore[assignment]  # M6: جسر التفويض
 
 # ── Smart Request Pipeline (Phase 1-5) ──
-provider_pool: ProviderPool = None          # إدارة مزودين متعددين
-account_budget: AccountAwareBudget = None   # ميزانية واعية بالحسابات
-capacity_model: CapacityModel = None        # سعة صادقة من pool+breakers (T-038)
-request_router: RequestRouter = None        # توجيه ذكي للطلبات
-action_applier: ActionApplier = None        # تطبيق نتائج Chain
-orchestrator: SmartOrchestrator = None      # تحليل التعقيد
+provider_pool: ProviderPool = None  # type: ignore[assignment]          # إدارة مزودين متعددين
+account_budget: AccountAwareBudget = None  # type: ignore[assignment]   # ميزانية واعية بالحسابات
+capacity_model: CapacityModel = None  # type: ignore[assignment]        # سعة صادقة من pool+breakers (T-038)
+request_router: RequestRouter = None  # type: ignore[assignment]        # توجيه ذكي للطلبات
+action_applier: ActionApplier = None  # type: ignore[assignment]        # تطبيق نتائج Chain
+orchestrator: SmartOrchestrator = None  # type: ignore[assignment]      # تحليل التعقيد
 plugin_registry = None                       # T-102 (R-801): سجل الإضافات — يُملأ عند الإقلاع
 
 # ── Agent System ──
-agent_tools: AgentTools = None              # أدوات الـ Agent
+agent_tools: AgentTools = None  # type: ignore[assignment]              # أدوات الـ Agent
 
 # ── Project Memory (T-114, R-805) — نفس المخزن المحقون في AgentTools ──
 # service global (نمط execution_registry): الـ handlers لا تلمسه مباشرة؛
 # دوال الإطارات الوحدوية أدناه هي الوسيط الوحيد.
-project_memory: ProjectMemoryStore = None
+project_memory: ProjectMemoryStore = None  # type: ignore[assignment]
 
 # ── ApprovalGate (T-012, R-104) — نقطة الموافقة الوحيدة قبل أي كتابة ──
-approval_gate: ApprovalGate = None
+approval_gate: ApprovalGate = None  # type: ignore[assignment]
 
 # ── Run Metrics (TSK-610, PM-03 §R6) — تجميع مقاييس الـ runs ──
 # service global (نفس نمط project_memory): مشترك على bus الرصد
 # يُلحق سطر JSONL لكل run منتهٍ؛ REST القراءة أدناه هو الوسيط الوحيد.
-run_metrics_store: RunMetricsStore = None
+run_metrics_store: RunMetricsStore = None  # type: ignore[assignment]
 
 
 # ════════════════════════════════════════════════════
@@ -725,7 +725,7 @@ def _search_service():
     if index is None or pathlib.Path(index.root) != pathlib.Path(fm.root):
         index = ProjectIndex(fm.root)
         index.attach(fm)
-        fm._api_search_index = index
+        fm._api_search_index = index  # type: ignore[attr-defined]  # كاش ديناميكي متعمد (TSK-410)
     return shared_search(index)
 
 
@@ -1093,6 +1093,10 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
         event_bus=event_bus,
         request_router=request_router,
         agent_tools=agent_tools,
+        # NF-25 (S69): كانا globals في الجسم الأصلي وسقطا من خريطة
+        # حقن TSK-612 — استعادة دلالة ما قبل 612 (لقطة وقت النداء).
+        provider_pool=provider_pool,
+        approval_gate=approval_gate,
         gather_message_context=gather_message_context,
         store_pending_path_request=store_pending_path_request,
         _RunnerWSAdapter=_RunnerWSAdapter,
@@ -1177,9 +1181,11 @@ def _ws_confirm_path_action(ctx, sctx, msg):
             attached_context.append((f"attach_folder:{detected_path}", header))
             # TSK-404 (NF-18): كل محتوى ملف مرفق يدخل مسيّجًا
             # بأغلفة حدود صريحة — بيانات لا أوامر (تعليمة system).
-            for sf in scanned_files[:15]:
-                rel_p = sf.get("rel_path", sf.get("path", ""))
-                content_preview = (sf.get("content") or "")[:2000]
+            # NF-26 (S69): scan_folder_for_chain يرجع dict[str, str]
+            # {rel_path: content} — تقطيع dict القديم كان يرمي
+            # TypeError يبتلعه except أدناه (تدهور صامت بلا محتوى).
+            for rel_p, content in list(scanned_files.items())[:15]:
+                content_preview = (content or "")[:2000]
                 attached_context.append((
                     f"attach_file:{rel_p}",
                     fence_attached(f"attach_file:{rel_p}",

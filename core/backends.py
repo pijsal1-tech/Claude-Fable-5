@@ -80,6 +80,10 @@ class RegistryBackend(Protocol):
 
     def reap_stale(self) -> list[RunTicket]: ...
 
+    # TSK-614 (ADR-004): السطح مستخدَم فعلًا منذ TSK-303
+    # (server._begin_run_ticket) وكان ناقصًا من العقد.
+    def purge_terminal(self, keep_last: int = 50) -> int: ...
+
 
 # ═══════════════════════════════════════════════════════
 #   التنفيذان داخل-العملية = aliases (صفر انحراف بالبناء)

@@ -4,11 +4,12 @@
 حيًّا عبر ``_srv`` (كائن وحدة server يُحقن في ``register()``) —
 نفس دلالة globals الأصلية (late binding، نمط ADR-002).
 """
+from typing import Any
 from flask import Blueprint, jsonify, request
 import pathlib
 
 bp = Blueprint("rollback", __name__)
-_srv = None  # كائن وحدة server — يُحقن عند register() (ADR-003)
+_srv: Any = None  # كائن وحدة server — يُحقن عند register() (ADR-003)
 
 
 def register(app, srv):

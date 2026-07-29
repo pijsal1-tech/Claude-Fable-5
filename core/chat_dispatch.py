@@ -303,8 +303,8 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
                     print(f"  ⚠️ Agent WS send error: {e}")
 
             def _agent_send_fn(prompt_text, hist, sys_prompt):
-                if provider_pool:
-                    result, used_name = provider_pool.send_with_fallback(
+                if deps.provider_pool:
+                    result, used_name = deps.provider_pool.send_with_fallback(
                         prompt_text, hist, sys_prompt
                     )
                     return result
@@ -329,7 +329,7 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
                     ws_send_fn=frame_sink,
                     system_prompt=get_system_prompt(),
                     max_iterations=6,
-                    approval_gate=approval_gate,
+                    approval_gate=deps.approval_gate,
                 )
 
             def _publish_agent_loop(loop):
