@@ -239,20 +239,25 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-613** (M8، P2 — QG-03 §R8، تبعية 612 ✅):
-  تجميع 27 route في Flask Blueprints موضوعية (rollback/memory/
-  project/…) — بعد استقرار قرار g5. القبول: كل endpoints تستجيب
-  كما قبل (اختبار smoke REST)، عدد routes ثابت. Gates:
-  Architecture · Testing · Regression. ملاحظة: تغيير معماري ⇒
-  **ADR-003 + قيد DECISION_LOG قبل الكود** (الدستور :1038)؛
-  تحقق أولًا من حالة «g5» المذكورة في نص المهمة (ابحث في
-  ARCHITECTURE_REVIEW/MASTER_ROADMAP/DEVELOPMENT_TASKS) — إن لم
-  تُحسم وثّق الحاجب أو نفّذ الجزء المستقر. قبل التعديل: أدلة
-  (جرد الـ routes الفعلي بأرقام الأسطر — العدد 27 يُقاس فعليًا،
-  توقّع انحرافًا — + تصنيفها موضوعيًا + ما تلمسه من globals) +
-  سجل حفظ السلوك + Fitness pre-check في §TSK-613؛ بعد الإغلاق:
-  جدول الحالة + CHANGELOG + commit محلي. IR-1 بعد اكتمال M8
-  (611،612 ✅، تبقى 613..614).
+- Next action: **بدء TSK-614** (M8، P2 — QG-04 §R8 + QF-02، تبعيات
+  611..613 ✅ — الأخيرة في M8): توسيع نطاق mypy في check.sh ليشمل
+  الوحدات المستخرجة (routes/ فُحصت يدويًا في 613 لكنها غير مضمومة
+  لبوابة check.sh:12 بعد) ثم server.py المتبقي — إغلاق QF-02
+  (عيوب كـ RP-01 تُلتقط ساكنًا). القبول: mypy أخضر على النطاق
+  الموسع في check.sh؛ البوابة تفشل عند دس نداء لدالة غير موجودة
+  (اختبار سلبي موثق). Gates: Testing · Regression. تنبيهات:
+  (1) خطأ providers/openai_shelby.py:166 القائم مسبقًا في نطاق
+  check.sh الحالي — providers/ خارج النطاق §0.8، لا يُصلح؛ وثّق
+  كيفية إبقاء البوابة الموسعة خضراء دون مسّه. (2) server.py غير
+  مفحوص إطلاقًا اليوم — شغّل mypy استكشافيًا أولًا وجرد الأخطاء
+  بالأرقام في الأدلة؛ القرار (إصلاح تدريجي أم سياسة ignore
+  per-module موثَّقة) يُسجَّل قبل التعديل. قبل التعديل: أدلة +
+  سجل حفظ السلوك (تغيير check.sh و/أو type hints لا-سلوكية فقط) +
+  Fitness pre-check في §TSK-614؛ إن اقتضت قرارًا بنيويًا (سياسة
+  ignore/تقسيم بوابة) فـ ADR-004 + DECISION_LOG قبله؛ بعد الإغلاق:
+  جدول الحالة + CHANGELOG + commit محلي. **بعد إغلاق 614: M8
+  مكتملة 4/4 ⇒ تنفيذ IR-1** (Innovation Review — MASTER_ROADMAP:122:
+  السؤال المحوري + تسجيله في DECISION_LOG).
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -607,6 +612,47 @@
   PROGRESS (Current Position + Last completed + Next action +
   هذا السجل) + commit محلي · الموقع → M8/TSK-613 (QG-03 — تحتاج
   ADR-003 قبل الكود + تحقق من حالة «g5»)؛ TSK-605 تنتظر D-2.
+- **2026-07-29 — Sessions 64–68 — TSK-613 ✅ (M8: 3/4)**:
+  S64: استرداد من origin 80081b4 → إعادة تحديث PROGRESS المفقود
+  (commit 28454a8) → بدء أدلة TSK-613: **تحقق حالة g5 = مستقرة**
+  (NF-03 «مفتوح — مقبول موثَّق» MASTER_REVIEW:364؛ موثّق عمدًا
+  core/session_context.py:14–27؛ التوحيد مؤجَّل FI-01:16–26؛ خطر
+  «تجميد الازدواجية» :543 مُحيَّد بالحقن الحي ⇒ لا مانع) · S65:
+  أدلة كاملة (**28** @app.route فعلية ≠ «27» في نص المهمة —
+  انحراف موثّق؛ خريطة globals عبر AST؛ 4 routes تعيد ربط
+  globals؛ استثناءات §0.8: api_models + api_switch_model تبقيان؛
+  لا url_for/view_functions في المستودع) + سجلا حفظ السلوك
+  وFitness (commit 41908fe) → **ADR-003 + قيد DECISION_LOG قبل
+  الكود** (نمط register(app, srv) + قراءة حية `_srv.X` + إعادة
+  الربط بإسناد سمة؛ البدائل المرفوضة: تمرير globals عند التسجيل /
+  انتظار FI-01 / blueprint واحد / نقل routes المزوّدين) commit
+  a860d44 → توليد routes/ (7 وحدات موضوعية، 25 route، 633 سطرًا)
+  بتحويل آلي عبر **tokenize** (آمن ضد السلاسل/التعليقات — درس
+  612 وقائيًا) — دمج المستخدم c534c4c · S66: reset → استئناف →
+  إزالة الكتل من server.py + كتلة التسجيل قبل
+  _build_session_context (server.py 2596→**2118** = −478؛ M8
+  تراكمي −927) + **تكافؤ سلوكي**: smoke 28/28 متطابق على
+  الشجرتين (git archive → /tmp/pre613) + url_map **30 قاعدة
+  متطابقة بتّيًا** + تحقق عكسي حرفي **25/25 = 0 فروق** (commit
+  75b72f3) → +21 اختبارًا جديدًا (test_rest_blueprints:
+  FROZEN_RULES 30 + smoke 16 + حقن حي + لا-دورة) + 4 تحديثات
+  بنيوية بنفس الضمانات (force_approval يجمع server+routes/run؛
+  search_perf→routes/files؛ rollback_ui→routes/rollback؛
+  capacity_model + "routes/" تقوية) commit ed59219 — دمج
+  المستخدم f5e0fa3 · S67: reset → استئناف → كل البوابات على
+  الشجرة المدموجة: mypy نظيف **70 ملفًا**
+  (chain+core+context+sessions+**routes**؛ routes/ ليست بعد في
+  بوابة check.sh:12 — هذا TSK-614) · contracts+parity 113 ·
+  goldens+ws_router 32 · المتأثرة 89 · lint clean · regression
+  عبر `--junitxml`: **1812 = 1F/1777P/34S 73.0s** (theme_tokens/
+  TF-04 حصرًا؛ ملاحظة: test_search_perf/TestPerf5k هشّ توقيتيًا —
+  فشل مرة في تشغيل جزئي ونجح منفردًا وفي الكامل — موثّق، ليس
+  انحدارًا) → Close-out + جدول الحالة 613→DONE + CHANGELOG
+  (commit a17eb44) + تحديث PROGRESS (انقطع عند Next action) —
+  دمج المستخدم bbb8ad1 (شمل حتى تعديلات PROGRESS غير الملتزمة) ·
+  S68: reset → استئناف → إتمام PROGRESS (Next action→TSK-614 +
+  هذا السجل) + commit محلي · الموقع → M8/TSK-614 (QG-04 —
+  الأخيرة في M8؛ **بعد إغلاقها: IR-1**)؛ TSK-605 تنتظر D-2.
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
