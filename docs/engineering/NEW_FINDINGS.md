@@ -201,6 +201,29 @@ grep شامل لم يُظهر أي كتابة مباشرة غير ذرية. خط
 dependency-free of chain") ونمط الحقن في AppContext. يُعاد التحقق في P6 بأداة
 CI (pycycle/grimp) ضمن QA-T.
 
+## (n) اكتشافات Stage 3 (أثناء التنفيذ)
+
+### NF-25 — أسماء غير معرّفة في core/chat_dispatch.py (انحدار من TSK-612)
+**C4 / S2 — اكتُشف S69 (أدلة TSK-614، mypy --check-untyped-defs + pyflakes).**
+`core/chat_dispatch.py:306,307` (`provider_pool`) و`:332` (`approval_gate`)
+غير معرّفة في الوحدة — كانتا globals في server الأصلي
+(77ca23a:server.py:1827,1853) وسقطتا من خريطة الـ14 رمزًا المحقونة في
+deps (§TSK-612). الأثر: `NameError` عند تنفيذ `_agent_send_fn` أو مصنع
+AgentLoop ⇒ مسار agent عبر dispatch مكسور منذ دمج 612. لم يُكتشف لأن
+التحقق العكسي سطرًا-بسطر لا يلتقط تغيّر سياق الوحدة لسطر لم يُعدَّل،
+ولا اختبار يقود agent حتى نداء الإرسال. → يُصلح ضمن TSK-614 (استعادة
+دلالة ما قبل 612: حقنهما في deps + بادئة `deps.`).
+
+### NF-26 — تقطيع dict في إرفاق مجلد كسياق (server.py:1180)
+**C4 / S3 — اكتُشف S69 (نفس الفحص)؛ قائم منذ 0d74dad (عصر TSK-404).**
+`scan_folder_for_chain` يرجع `dict[str, str]` (chain/bridge.py:666–681،
+التوثيق `{relative_path: content}`) بينما `server.py:1180–1184` يعامله
+كقائمة dicts (`scanned_files[:15]` ثم `sf.get("rel_path")`) ⇒
+`TypeError: unhashable type 'slice'` يبتلعه `except Exception` (:1188)
+⇒ إرفاق المجلد يتدهور صامتًا (header بلا محتوى) — عكس قبول
+TSK-404/BUG-03. → يُصلح ضمن TSK-614 (`list(scanned_files.items())[:15]`)
+مع اختبار تغطية جديد.
+
 ---
 
 ## جدول تجميعي (مدخل P4/P5)

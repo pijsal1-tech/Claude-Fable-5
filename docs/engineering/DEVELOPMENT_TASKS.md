@@ -1170,13 +1170,89 @@
     (الاختبارات) — دمج خارجي c534c4c + f5e0fa3.
 
 ### TSK-614 — QG-04: ضم server.py (والوحدات المستخرجة) لبوابة mypy
-- **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-611..613.
+- **Status**: IN PROGRESS (S69) · **Priority**: P2 · **Dependencies**: TSK-611..613.
 - **Objective**: توسيع نطاق mypy في check.sh ليشمل الوحدات المستخرجة ثم
   server.py المتبقي — إغلاق QF-02 (عيوب كـ RP-01 تُلتقط ساكنًا).
 - **Background**: QG-04 + QF-02 (§R8)؛ RP-01 كدليل الكلفة.
 - **Acceptance**: `mypy` أخضر على النطاق الموسع في check.sh؛ البوابة تفشل
   عند دس نداء لدالة غير موجودة (اختبار سلبي موثق).
 - **Gates**: Architecture · Testing · Documentation. · **Rollback**: revert سطر البوابة.
+- **Evidence (S69 — mypy 2.3.0 / Python 3.13.13، كل الأرقام مُعادة
+  التحقق على clone نظيف عند fa9382b)**:
+  - **بوابة check.sh:13 الحالية حمراء اليوم**: `mypy … providers/ chain/
+    core/ context/ sessions/` → exit=1 — خطأ واحد
+    (`providers/openai_shelby.py:166 [union-attr]`) في 73 ملفًا. مع
+    `set -euo pipefail` (check.sh:4) السكريبت كله يفشل ⇒ نقطة الدخول
+    الموحدة معطّلة فعليًا بخطأ خارج نطاق البرنامج (§0.8).
+  - **حدّ mypy الافتراضي**: أجسام الدوال غير المُعنونة لا تُفحص —
+    تجربة موثّقة: نداء `nonexistent_function_abc()` داخل def غير
+    مُعنون → **Success** بدون `--check-untyped-defs` و**error
+    [name-defined]** معه. دوال routes الـ25 وأغلب دوال server.py غير
+    مُعنونة (routes: 0/32 لها `->`؛ server: 15/61 فقط) ⇒ توسيع
+    قائمة الملفات وحده **لا يحقق شرط القبول** (النداء المدسوس في
+    جسم route لن يُلتقط). العلم مطلوب.
+  - **كلفة `--check-untyped-defs` بالأرقام**:
+    - النطاق القائم (providers+chain+core+context+sessions): 1→**4**
+      أخطاء — الثلاثة الجديدة كلها `[name-defined]` في
+      `core/chat_dispatch.py` = **علة فعلية NF-25** (أدناه).
+    - routes/: نظيفة بدون العلم؛ معه **79** خطأ كلها `[union-attr]`
+      من استنتاج `_srv = None` كنوع None — تُصفَّر جميعًا بتعنوين
+      `_srv: Any = None` في 7 ملفات (مُجرَّب في نسخة scratch →
+      Success 8 ملفات). صفر تغيير سلوكي (تعنوين فقط).
+    - server.py: **16** خطأ بدون العلم (`X: Type = None` — نمط
+      sentinel للـ globals تُملأ في main، :133..:698)؛ معه **47** =
+      30 [assignment] (الـ16 + سلاسل cfg/provider في if/elif
+      بأنواع config مختلفة :851..:861، :1891..:1902) + 9 [arg-type]
+      (نفس السلاسل) + 6 [attr-defined] + 1 [union-attr] + 1 [index].
+    - سطر البوابة المرشّح كاملًا (+علم +exclude): **129** خطأ في 9
+      ملفات (47+79+3) — كلها مُصنّفة أعلاه، لا مفاجآت.
+  - **علة NF-25 (انحدار من TSK-612 — يُكتشف بالعلم)**:
+    `core/chat_dispatch.py:306,307` (`provider_pool`) و`:332`
+    (`approval_gate`) أسماء **غير معرّفة** في الوحدة — كانت globals
+    في server الأصلي (77ca23a:server.py:1827,1853) ولم تكن ضمن
+    خريطة الـ14 رمزًا المحقونة في deps (§TSK-612). pyflakes يؤكد.
+    الأثر: `NameError` وقت تنفيذ `_agent_send_fn` أو مصنع AgentLoop
+    ⇒ **مسار agent عبر dispatch مكسور منذ دمج 612**. لماذا لم يُرَ:
+    (1) التحقق العكسي سطرًا-بسطر لا يراه — التحويل لم يلمس هذه
+    الأسماء أصلًا فالفروق صفر رغم تغيّر سياق الوحدة؛ (2) لا اختبار
+    يقود مسار agent حتى نداء الإرسال. التسجيل: NEW_FINDINGS §NF-25
+    + ملاحظة تصويب على تحقق TSK-612.
+  - **علة NF-26 (قائمة مسبقًا — عصر TSK-404، أصلها 0d74dad)**:
+    `server.py:1180` يقطّع dict — `scan_folder_for_chain` يرجع
+    `dict[str, str]` (chain/bridge.py:666–681 والتوثيق
+    `{relative_path: content}`) بينما الكود يعامله كقائمة dicts
+    (`scanned_files[:15]` ثم `sf.get("rel_path")`) ⇒ `TypeError:
+    unhashable type 'slice'` وقت التشغيل يبتلعه `except
+    Exception` (:1188) ⇒ إرفاق مجلد كسياق يتدهور صامتًا (header
+    فقط بلا محتوى ملفات) — عكس قبول TSK-404/BUG-03 الموثّق.
+    التسجيل: NEW_FINDINGS §NF-26.
+  - **معالجة خطأ providers القائم (§0.8 — لا يُصلح)**: الخيار
+    المُجرَّب `--exclude 'providers/openai_shelby\.py'` → providers/
+    وحدها به = **Success في 10 ملفات** (يُستبعد الملف المعطوب وحده
+    ويبقى فحص بقية providers). البديل المرفوض: إخراج providers/
+    كلها من البوابة (خسارة تغطية 10 ملفات دون مبرر).
+- **Behavior-preservation pre-check (S69)**:
+  1. سطر check.sh + تعنوينات النوع + `# type: ignore` المعلَّق: صفر
+     أثر runtime بالبناء (تعليقات وتعنوينات فقط).
+  2. إصلاح NF-25: إضافة `provider_pool` و`approval_gate` لكائن deps
+     (server.py:1089) + بادئة `deps.` في المواضع الثلاثة — **استعادة
+     دلالة ما قبل 612 حرفيًا**: القيمتان تُربطان في main مرة واحدة
+     قبل الخدمة ولا يُعاد ربطهما بعدها (api_switch_model لا يعيد
+     تعيين pool — server.py:826–829 صراحة)؛ deps يُبنى عند كل نداء
+     dispatch ⇒ لقطة وقت النداء ≡ قراءة global وقت النداء بعد
+     الإقلاع. متسق مع ADR-002 (بقية الـ14 رمزًا لقطات مماثلة).
+  3. إصلاح NF-26: التكرار على `list(scanned_files.items())[:15]` —
+     يستعيد السلوك المقصود الموثّق (TSK-404)؛ الحالي مكسور صامتًا
+     (لا سلوك مشروع يعتمد على الكسر). يُغطى باختبار جديد.
+  4. إكمال Protocol `RegistryBackend` بـ`purge_terminal` — السطح
+     الفعلي المستخدم (server.py:428 منذ TSK-303) والتنفيذان
+     الوحيدان (ExecutionRegistry + alias) يملكانه؛ isinstance
+     الـruntime_checkable يبقى ناجحًا (test_backends:138).
+- **Architecture-Fitness pre-check (S69)**: تشديد بوابة جودة +
+  إصلاح عقد وحدة مستخرجة = مع اتجاه القوس (§R8/QF-02)؛ لا حالة
+  جديدة ولا اتجاه استيراد جديد؛ providers/ لا يُمس (استبعاد ملف
+  واحد من الفحص فقط). تغيير تصميم البوابة (علم + استبعاد + نطاق)
+  قرار بنيوي يلزمه **ADR-004 + قيد DECISION_LOG قبل الكود**.
 
 ## M9 — Exposure & Consent Surface (حزمة الإظهار + بقايا الأمان)
 
