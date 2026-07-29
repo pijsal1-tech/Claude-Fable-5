@@ -2095,9 +2095,49 @@
 
 ## M10 — Hygiene (P3)
 
-### TSK-623 — أرشفة improvements/ (ينتظر D-3) — P3, BLOCKED
-حذف/نقل من الشجرة = عملية destructive → تنتظر موافقة D-3. Acceptance:
+### TSK-623 — أرشفة improvements/ (D-3 وصل S83) — P3
+حذف/نقل من الشجرة = عملية destructive → كانت تنتظر موافقة D-3. Acceptance:
 grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أرشيف.
+- **Status**: ✅ DONE (S83) · **Priority**: P3 · **Dependencies**: قرار D-3 ✅ وصل S83
+  (توجيه المالك الشامل + توصية MASTER_REVIEW:811 "نقل إلى أرشيف خارج جذر
+  الفحص"؛ العملية الـ destructive معتمدة بهذا التوجيه).
+- **Evidence (S83) — جرد ما قبل النقل**:
+  - `du -sh improvements/` = **892K** · `find -type f | wc -l` = **40** ملفًا
+    · `git ls-files improvements/ | wc -l` = **40** (كلها متتبعة — لا ملفات
+    غير متتبعة تضيع).
+  - أكبر الملوثات: `improvements/شامل/جديد/server.py` (1670 سطرًا) +
+    `improvements/شامل/قديم/server.py` (1100 سطرًا) — نسخ server.py تاريخية
+    (QF-01، MASTER_REVIEW:551).
+  - **صفر مراجع حية**: grep عبر `*.py/*.sh/*.js/*.html/*.yaml/*.ini/*.cfg`
+    (باستثناء improvements/ نفسها و.git) = لا نتائج؛ لا ذكر في pytest.ini
+    ولا scripts/check.sh ولا core/ignore_rules.py.
+  - وجهة الأرشيف: `test---results/` — منطقة الأرشيف القائمة المستثناة
+    أصلًا من كل مسارات المسح عبر `IGNORED_DIRS` الموحّدة
+    (`core/ignore_rules.py`، TSK-202/BUG-04).
+  - صيغة الأرشيف: **tar.gz واحد** داخل `test---results/` — يحقق «grep/wc
+    نظيفة» حرفيًا (ملف ثنائي واحد لا يطابقه grep نصيًا ولا يلوث wc) مع
+    حفظ المحتوى كاملًا. `.gitignore` يستثني `*.tar.gz` ⇒ يلزم سطر استثناء
+    `!` ليبقى الأرشيف متتبعًا في المستودع (وإلا ضاع المحتوى عن remote).
+- **Behavior-preservation pre-check**: لا كود منتج يُمس — المجلد ورقة ميتة
+  (صفر imports إليها، ثابت أعلاه). سلوك التطبيق متطابق بالبناء. حارس
+  السلامة: `tar -tzf` يُعدّ 40 ملفًا قبل أي `git rm`؛ الحذف يقع فقط بعد
+  التحقق من سلامة الأرشيف.
+- **Architecture-Fitness pre-check**: يحقق QF-01 (إزالة التلوث من جذر
+  الفحص) دون توسيع IGNORED_DIRS ولا لمس أي وحدة كود؛ الوجهة منطقة أرشيف
+  قائمة لا مجلد جديد في الجذر؛ تعديل .gitignore سطر استثناء واحد موثَّق.
+- **Rollback**: `tar -xzf` يستعيد الشجرة كاملة، أو revert للكوميت.
+- **Close-out (S83)**: الأرشيف
+  `test---results/improvements_archive_2026-07-29.tar.gz` (176KB مضغوطًا،
+  40 ملفًا) أُنشئ وتُحُقّق منه **قبل** الحذف: `tar -tzf` = 40 ملفًا +
+  فكّ لـ /tmp و`diff -r` مقابل الأصل = **متطابق بايتًا**. ثم
+  `git rm -r improvements/` (40 حذفًا) + سطر استثناء `!` في .gitignore
+  ليبقى الأرشيف متتبعًا (لأن `*.tar.gz` متجاهَل عمومًا). Acceptance
+  محقّق: `ls improvements` غير موجود؛ `git ls-files | grep ^improvements/`
+  = 0؛ حجم الشجرة (بلا .git) = 16MB نظيفة من التلوث؛ المحتوى محفوظ.
+  بوابة ما بعد النقل: `check.sh` **ALL GREEN exit 0** — خط الانحدار
+  الجديد **1901 = 0F/1867P/34S** (+1 اختبار من TSK-617؛ test_search_perf
+  العابر مرّ هذه المرة). QF-01 وD-3 مغلقان؛ **M10 مغلقة كاملة**
+  (623–626 كلها ✅) ⇒ استحقاق IR-2.
 ### TSK-624 — retro-ADR لإعادة تصميم v25 — P3, ✅ DONE (S78)
 توثيق قرار v25 (TD-04) في ADR + Decision Log. Acceptance: ملف ADR يشرح
 النطاق والأثر والحرّاس المكسورة وكيف أُصلحت.
@@ -2350,7 +2390,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 620 | M9 | P2 | ✅ DONE (S75) | سرد الجلسة: timeline من الأطر الحية (استهلاك-فقط) عبر وحدة نقية session_narrative.js فوق قائمة RunHistory؛ server.py بلا لمس؛ 10 اختبارات node؛ خط الانحدار 1870 |
 | 621 | M9 | P2 | ✅ DONE (S76) | endpoint قراءة /api/permissions (blueprint meta) + لوحة قراءة-فقط بوحدة نقية permissions_panel.js؛ سطح REST 30→31 (توسيع عقد موثَّق)؛ 12 اختبارًا؛ خط الانحدار 1882 |
 | 622 | M9 | P2 | ✅ DONE (S83) | قرار D-4: re-vote مؤرَّخ أُلحق بـ RRR (§5) — G1–G5 كلها PASS بدليل حي؛ الحكم GO ضمن عقد localhost؛ TD-03 مغلق؛ M9 مغلقة كاملة |
-| 623 | M10 | P3 | BLOCKED(D-3) | destructive |
+| 623 | M10 | P3 | ✅ DONE (S83) | قرار D-3: أرشفة improvements/ (892KB، 40 ملفًا) إلى tar.gz متتبع داخل test---results/ بعد تحقّق diff -r متطابق؛ الشجرة نظيفة؛ check.sh ALL GREEN؛ خط الانحدار 1901؛ QF-01 مغلق؛ M10 مغلقة كاملة |
 | 624 | M10 | P3 | ✅ DONE (S78) | ADR-005 استرجاعي لإعادة تصميم v25 (النطاق/الأثر/الحرّاس الثلاثة وإصلاحاتها) + قيد retro في DECISION_LOG؛ TD-04 مغلق؛ خط الانحدار بلا تغيير (1900) |
 | 625 | M10 | P3 | ✅ DONE (S77) | _parse_args_body متسامح متعدد الأسطر (طي التكملة، مفاتيح شرعية حيّة من التواقيع)؛ ASF-06 مغلق؛ 18 اختبارًا؛ خط الانحدار 1900 |
 | 626 | M10 | P3 | ✅ DONE (S79) | فرع proposed_actions موثَّق test-only: سطر عقد موحَّد في الـ runners الأربعة + تعليق عند مواقع بناء RunRequest الخمسة (server.py + chat_dispatch.py)؛ RP-04 مغلق؛ خط الانحدار بلا تغيير (1900) |

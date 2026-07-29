@@ -841,3 +841,20 @@
   (parse:107، _zip_member_violations:753، fence_attached في agent_loop
   :230/:274 وknowledge :54/:204/:207، purge_terminal:351، facade:113،
   server.py wc -l = 2141).
+
+## [TSK-623] — 2026-07-29 — أرشفة improvements/ (قرار المالك D-3)
+### Changed
+- نُقل `improvements/` (892KB، 40 ملفًا — كلها كانت متتبعة) إلى أرشيف
+  مضغوط متتبع `test---results/improvements_archive_2026-07-29.tar.gz`
+  (176KB) داخل منطقة الأرشيف المستثناة أصلًا من كل مسارات المسح
+  (IGNORED_DIRS/TSK-202) — QF-01 مغلق: grep/wc نظيفة من نسخ server.py
+  التاريخية (1670+1100 سطرًا) وبقية التلوث.
+- `.gitignore`: سطر استثناء `!` واحد ليبقى الأرشيف متتبعًا رغم قاعدة
+  `*.tar.gz` العامة.
+### Verification
+- سلامة قبل الحذف: `tar -tzf` = 40 ملفًا + فكّ لـ /tmp + `diff -r` مقابل
+  الأصل = متطابق بايتًا؛ الحذف بعد التحقق فقط.
+- Acceptance: `improvements/` غير موجودة؛ `git ls-files` = صفر تحتها؛
+  صفر مراجع حية في الكود (ثابت في pre-checks).
+- بوابة ما بعد النقل: `check.sh` ALL GREEN exit 0 — خط الانحدار الجديد
+  **1901 = 0F/1867P/34S**. Rollback: `tar -xzf` أو revert.
