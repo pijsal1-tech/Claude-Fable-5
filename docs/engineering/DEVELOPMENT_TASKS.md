@@ -1691,7 +1691,7 @@
   - **خط انحدار جديد: 1860**.
 
 ### TSK-620 — سرد الجلسة (CP-8)
-- **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-610 (سجل runs).
+- **Status**: ✅ DONE (S75) · **Priority**: P2 · **Dependencies**: TSK-610 (سجل runs).
 - **Objective**: عرض timeline يجمع (طلب → خطة → موافقات → تنفيذ → نتائج)
   فوق RunHistory القائمة — محليًا، بلا cloud (Non-Goal §15.2).
 - **Background**: UXF-05 + CP-8 ADOPT (§R9).
@@ -1745,6 +1745,39 @@
     (status_chip/plan_card).
   - لا تبعيات جديدة؛ script tag واحد `?v=1` قبل app.js؛
     لا لمس لـ providers/ (§0.8).
+- **Close-out (S75)**:
+  - **التنفيذ**: وحدة نقية جديدة `static/js/session_narrative.js`
+    (UMD-lite): createState / noteRequest (محطة الطلب من الغراء) /
+    noteFrame (تصنيف استهلاك-فقط: plan / approval طلب+حكم /
+    execution بدمج المتتالية بعدّاد / result / rollback؛ غير
+    المعروف → false) / entries / renderTimelineHTML نقي (الأقدم
+    أولًا، تهريب HTML، sn-bad للرفض/الخطأ)؛ سقف MAX_ENTRIES=200
+    أقدم-يُطرد. `static/app.js`: التقاط في handleWSMessage بجوار
+    StatusChip.noteFrame (نفس العقد) + noteRequest في sendMessage
+    (يغطي فرعَي message/chain_message) + renderSessionNarrative
+    يحقن قسم `#session-narrative` قبل القائمة داخل
+    `#run-history-panel` عند الفتح — القائمة/التقرير بلا لمس.
+    `static/index.html`: script tag `?v=1` قبل app.js.
+    `static/style.css`: أصناف #session-narrative/.sn-* — tokens
+    فقط (إصلاح أثناء البوابات: var(--border) غير معرّف — كشفه
+    TestTokenParity — استُبدل بـ var(--surface-0) نمط المنزل).
+    لا endpoints ولا أطر WS جديدة؛ server.py بلا لمس.
+  - **الاختبارات**: `tests/unit/test_session_narrative.py` (10، نمط
+    node): **القبول حرفيًا** — run معتمد واحد → 5 محطات بترتيبها
+    (request→plan→approval→execution→result) في الحالة والـ HTML
+    المرسوم؛ تجاهل الأطر غير المعروفة؛ الرفض/الخطأ sn-bad؛
+    rollback؛ دمج التنفيذ المتتالي ×5 + كسر الدمج بعد نتيجة؛
+    سقف أقدم-يُطرد؛ حالة فارغة + تهريب HTML؛ wiring (app.js
+    يستهلك noteFrame/noteRequest/renderTimelineHTML + index.html
+    يحمّل الوحدة قبل app.js)؛ **السيناريو اليدوي موثَّق في
+    docstring** (بوابة Documentation — نفس سابقة test_plan_card).
+  - **البوابات**: node --check نظيف · lint_handler_state نظيف ·
+    mypy Success 81 ملفًا · contracts+parity 113 ✓ · goldens+ws_router
+    32 ✓ · الانحدار الكامل **1870 = 1F/1835P/34S** (1860+10؛
+    theme_tokens/TF-04/D-2 حصرًا — وفي تمريرة وسيطة كشف
+    TestTokenParity توكن --border غير المعرّف فأُصلح فورًا؛
+    search_perf مرّ في التمريرة النهائية).
+  - **خط انحدار جديد: 1870**.
 
 ### TSK-621 — Permissions UI قراءة (CP-5)
 - **Status**: TODO · **Priority**: P2
@@ -1800,7 +1833,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 617 | M9 | P2 | BLOCKED(D-1) | |
 | 618 | M9 | P2 | ✅ DONE (S73) | فصل القياس عن القرار أحيا فحص symlink الميت (NF-28) وضيّق الالتقاط إلى OSError موسوم؛ 9 اختبارات (أول تغطية لـ path_policy)؛ خط الانحدار 1850 |
 | 619 | M9 | P2 | ✅ DONE (S74) | بطاقة الخطة التفاعلية: checkbox لكل خطوة عبر وحدة نقية plan_card.js وexecutePlan يرسل المفعّل فقط؛ server.py بلا لمس؛ 10 اختبارات node؛ خط الانحدار 1860 |
-| 620 | M9 | P2 | TODO | بعد 610 — CP-8 |
+| 620 | M9 | P2 | ✅ DONE (S75) | سرد الجلسة: timeline من الأطر الحية (استهلاك-فقط) عبر وحدة نقية session_narrative.js فوق قائمة RunHistory؛ server.py بلا لمس؛ 10 اختبارات node؛ خط الانحدار 1870 |
 | 621 | M9 | P2 | TODO | CP-5 |
 | 622 | M9 | P2 | TODO | بعد M6 — TD-03 |
 | 623 | M10 | P3 | BLOCKED(D-3) | destructive |

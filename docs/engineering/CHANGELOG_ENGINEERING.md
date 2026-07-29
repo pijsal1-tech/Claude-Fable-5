@@ -666,3 +666,38 @@
   Regression junitxml: **1860 = 2F/1824P/34S** (81.7s؛ 1850+10=1860 ✓؛
   theme_tokens/TF-04/D-2 المعروف + test_search_perf flaky الموثق S73 —
   يمر معزولًا ×2) — **خط انحدار جديد: 1860**.
+
+## [TSK-620] — 2026-07-29 — سرد الجلسة (CP-8/UXF-05)
+
+### Added
+- `static/js/session_narrative.js` — وحدة نقية جديدة (UMD-lite):
+  timeline يجمع محطات الجلسة (طلب → خطة → موافقات → تنفيذ → نتائج →
+  استعادة) من أطر WS الحية الموجودة — التقاط استهلاك-فقط بنفس عقد
+  StatusChip.noteFrame حرفيًا (لا إطار يُعدَّل ولا مسار case يتغير)؛
+  دمج خطوات التنفيذ المتتالية بعدّاد؛ سقف MAX_ENTRIES=200 أقدم-يُطرد
+  (نفس مبدأ MAX_PENDING في run_metrics)؛ renderTimelineHTML نقي
+  بتهريب HTML. محلي بالكامل، بلا cloud (Non-Goal §15.2).
+- `tests/unit/test_session_narrative.py` — 10 اختبارات node: القبول
+  حرفيًا (run معتمد واحد → 5 محطات بترتيبها في الحالة والـ HTML)؛
+  تجاهل الأطر غير المعروفة؛ الرفض/الخطأ sn-bad؛ rollback؛ دمج
+  التنفيذ + كسره بعد نتيجة؛ السقف؛ حالة فارغة + تهريب HTML؛
+  wiring؛ سيناريو يدوي موثَّق في docstring (بوابة Documentation).
+
+### Changed
+- `static/app.js`: التقاط الأطر في handleWSMessage بجوار StatusChip؛
+  noteRequest في sendMessage (يغطي message/chain_message)؛
+  renderSessionNarrative يحقن `#session-narrative` قبل قائمة
+  RunHistory داخل اللوحة عند الفتح — القائمة/التقرير/الاستعادة بلا
+  أي تغيير.
+- `static/index.html`: تحميل `session_narrative.js?v=1` قبل app.js.
+- `static/style.css`: أصناف #session-narrative/.sn-* — tokens فقط؛
+  إصلاح أثناء البوابات: var(--border) غير معرّف (كشفه TestTokenParity)
+  → var(--surface-0) (نمط المنزل لفواصل اللوحات).
+- **server.py بلا لمس** — لا endpoints ولا أطر WS جديدة.
+
+### Verification
+- node --check نظيف · lint_handler_state نظيف · mypy Success 81
+  ملفًا · contracts+parity 113 · goldens+ws_router 32 · Regression
+  junitxml: **1870 = 1F/1835P/34S** (82.4s؛ 1860+10=1870 ✓؛
+  theme_tokens/TF-04/D-2 حصرًا؛ search_perf مرّ في التمريرة
+  النهائية) — **خط انحدار جديد: 1870**.

@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Session 74 — **TSK-619 ✅ DONE (بطاقة الخطة التفاعلية: checkbox لكل خطوة عبر وحدة نقية plan_card.js وexecutePlan يرسل المفعّل فقط — CP-1/UXF-01) — التالي: TSK-620 (سرد الجلسة — CP-8)**) |
+| last-updated | 2026-07-29 (Session 75 — **TSK-620 ✅ DONE (سرد الجلسة: timeline من الأطر الحية عبر وحدة نقية session_narrative.js فوق قائمة RunHistory — CP-8/UXF-05) — التالي: TSK-621 (Permissions UI قراءة — CP-5)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M9 جارية (4/8)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | **TSK-620** (M9 — P2 — سرد الجلسة — CP-8/UXF-05)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M9 جارية (5/8)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | **TSK-621** (M9 — P2 — Permissions UI قراءة — CP-5/UXF-04)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **17/26 TSK** (601..604،606..616،618،619 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 620..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **18/26 TSK** (601..604،606..616،618..620 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 621..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,12 +37,31 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M9 جارية 4/8**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M9 — TSK-620** (P2 — سرد الجلسة —
-  CP-8/UXF-05، تبعيتها TSK-610 ✅؛ TSK-617 محجوبة بقرار D-1)؛
+- Stage: EXECUTION (Stage 3 — جارية — **M9 جارية 5/8**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M9 — TSK-621** (P2 — Permissions UI قراءة —
+  CP-5/UXF-04؛ TSK-617 محجوبة بقرار D-1؛ TSK-622 تنتظر إغلاق M6)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-619 ✅ DONE (Session 74 — M9: 4/8)** —
+- Last completed step: **TSK-620 ✅ DONE (Session 75 — M9: 5/8)** —
+  سرد الجلسة (CP-8/UXF-05): وحدة نقية جديدة
+  `static/js/session_narrative.js` (UMD-lite) — timeline من أطر WS
+  الحية بالتقاط استهلاك-فقط (نفس عقد StatusChip.noteFrame)؛
+  محطات: طلب (noteRequest من sendMessage) / خطة / موافقات
+  (طلب+حكم) / تنفيذ (دمج المتتالية بعدّاد) / نتائج / استعادة؛
+  سقف 200 أقدم-يُطرد؛ القسم يُحقن فوق قائمة RunHistory داخل
+  اللوحة عند الفتح — القائمة/الاستعادة بلا لمس؛ **server.py بلا
+  لمس**. 10 اختبارات node (test_session_narrative.py): القبول
+  حرفيًا (run معتمد → 5 محطات بترتيبها) + تصنيف/دمج/سقف/تهريب
+  + wiring + سيناريو يدوي موثَّق. إصلاح أثناء البوابات: توكن
+  var(--border) غير معرّف (كشفه TestTokenParity) → var(--surface-0).
+  Gates: contracts+parity 113 · goldens+ws_router 32 · mypy 81
+  Success · lint نظيف · regression junitxml **1870 = 1F/1835P/34S**
+  (theme_tokens/TF-04/D-2 حصرًا؛ 1860+10=1870 ✓) — **خط انحدار
+  جديد: 1870**. Commits: 3e0abd8 (أدلة قبل الكود) + التنفيذ غير
+  الملتزم — كلاهما التقطه دمج المستخدم 4777a0a بعد reset منتصف
+  الجلسة · 1d82491 (إصلاح التوكن) · ba7f331 (Close-out+جدول+
+  CHANGELOG).
+  وقبلها: **TSK-619 ✅ DONE (Session 74 — M9: 4/8)** —
   بطاقة الخطة التفاعلية (CP-1/UXF-01): وحدة نقية جديدة
   `static/js/plan_card.js` (UMD-lite — أعلام تفعيل لكل خطوة، كلها
   مفعّلة افتراضيًا؛ enabledActions = subset بترتيبه الأصلي)؛
@@ -332,20 +351,21 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-620** (M9، P2 — CP-8/UXF-05 §R9، التبعية
-  TSK-610 ✅): سرد الجلسة — عرض timeline يجمع (طلب → خطة → موافقات →
-  تنفيذ → نتائج) فوق RunHistory القائمة — محليًا، بلا cloud (Non-Goal
-  §15.2). القبول: جلسة بها run واحد معتمد → السرد يعرض ≥ 4 محطات
-  بترتيبها؛ وحدة نقية مختبرة node. Gates: Testing · Documentation.
-  Rollback: revert. المرجع: §TSK-620 في DEVELOPMENT_TASKS.md.
-  الدورة القياسية: أدلة أولًا (سجل runs من TSK-610 — JSONL + REST
-  /api/metrics/runs بأرقام أسطر؛ RunHistory الحالية app.js/
-  run_history.js؛ من أين تُشتق المحطات الأربع: أطر WS/سجل runs —
-  بأدلة) + سجل حفظ السلوك (RunHistory القائمة بلا تغيير؛ السرد طبقة
-  عرض قراءة فوقها) + Fitness pre-check (وحدة نقية + DOM glue — نمط
-  plan_card/status_chip) في §TSK-620 — **commit قبل الكود**. بعد
-  الإغلاق: Close-out + جدول الحالة + CHANGELOG + PROGRESS + commit
-  محلي. خط الانحدار المرجعي الحالي: **1860 = 2F/1824P/34S**
+- Next action: **بدء TSK-621** (M9، P2 — CP-5/UXF-04 §R9):
+  Permissions UI قراءة — لوحة قراءة تعرض سياسة الأمان الفعالة
+  (allowlist، SAFE/DANGEROUS، force_approval) من config عبر REST
+  قراءة — glass box. القبول: endpoint قراءة + لوحة تعرض القيم
+  الحية؛ لا مسار كتابة. Gates: Security (قراءة فقط) · Testing.
+  Rollback: revert. المرجع: §TSK-621 في DEVELOPMENT_TASKS.md.
+  الدورة القياسية: أدلة أولًا (مصدر السياسة الفعالة: أين تعيش
+  allowlist/SAFE/DANGEROUS/force_approval في config/الكود بأرقام
+  أسطر؛ نمط blueprints القائم في routes/ لـ endpoint قراءة جديد؛
+  نمط اللوحات القائم — memory_panel/status_chip) + سجل حفظ السلوك
+  (قراءة فقط — لا مسار كتابة للسياسة؛ السياسة المطبقة نفسها لا
+  تُمس) + Fitness pre-check (وحدة نقية + DOM glue + blueprint —
+  أنماط المنزل) في §TSK-621 — **commit قبل الكود**. بعد الإغلاق:
+  Close-out + جدول الحالة + CHANGELOG + PROGRESS + commit محلي.
+  خط الانحدار المرجعي الحالي: **1870 = 1F/1835P/34S**
   (theme_tokens/TF-04 حصرًا + test_search_perf معروف flaky على
   عتاد مشترك — يعاد تشغيله معزولًا عند فشله).
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
@@ -914,6 +934,35 @@
   CHANGELOG (commit 686ac90) + تحديث PROGRESS (هذا القيد) + commit
   محلي · الموقع → **M9/TSK-620** (سرد الجلسة — CP-8/UXF-05،
   التبعية 610 ✅)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-29 — Session 75 — TSK-620 ✅ (M9: 5/8)**:
+  استرداد من origin 3de3e16 (دمج المستخدم شمل كل إغلاق 619) →
+  **أدلة TSK-620** بأرقام أسطر: مصدر المحطات = أطر WS الحية عبر
+  handleWSMessage (:192) بسابقة الاستهلاك-فقط القائمة
+  (StatusChip.noteFrame :195)؛ جرد الأطر الحاملة للمحطات (طلب
+  sendMessage :836 / خطة :220 / موافقات :430–:434+:795 / تنفيذ
+  :241/:325/:504 / نتائج :215/:245/:365/:583/:226 / استعادة :443)؛
+  سجل runs (TSK-610 — core/run_metrics.py + routes/meta.py:50)
+  مقاييس مجمّعة لا محطات ⇒ السرد من الأطر الحية محليًا؛ الموضع:
+  حقن قبل #run-history-list داخل اللوحة (index.html:464–472،
+  toggleRunHistory app.js:3445) — أدلة + pre-checks في §TSK-620
+  (commit 3e0abd8 قبل الكود) → **التنفيذ**: وحدة نقية
+  session_narrative.js (noteRequest/noteFrame تصنيفي/دمج التنفيذ
+  المتتالي بعدّاد/سقف 200 أقدم-يُطرد/renderTimelineHTML نقي بتهريب)
+  + غراء app.js (التقاط بجوار StatusChip + noteRequest في
+  sendMessage + حقن القسم عند فتح اللوحة) + script tag + CSS tokens
+  + **10 اختبارات node** (القبول حرفيًا: run معتمد → 5 محطات
+  بترتيبها؛ تصنيف/دمج/سقف/تهريب/wiring/سيناريو يدوي موثَّق) —
+  **reset منتصف الجلسة**؛ دمج المستخدم 4777a0a التقط الأدلة
+  والتنفيذ غير الملتزم · **البوابات كشفت خطأً فأُصلح**: TestTokenParity
+  — var(--border) غير معرّف في طبقة التوكنز → var(--surface-0)
+  (نمط المنزل؛ commit 1d82491) · بقية البوابات: node --check + lint
+  نظيفان · mypy **Success 81 ملفًا** · contracts+parity 113 ·
+  goldens+ws_router 32 · regression junitxml **1870 = 1F/1835P/34S
+  82.4s** (theme_tokens/TF-04 حصرًا؛ 1860+10=1870 ✓؛ search_perf مرّ
+  في التمريرة النهائية) → Close-out + جدول 620→DONE + CHANGELOG
+  (commit ba7f331) + تحديث PROGRESS (هذا القيد) + commit محلي ·
+  الموقع → **M9/TSK-621** (Permissions UI قراءة — CP-5/UXF-04)؛
+  TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
