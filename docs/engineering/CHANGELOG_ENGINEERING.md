@@ -730,3 +730,23 @@
   Success 81 ملفًا؛ العقود+parity 113 ✓؛ goldens+ws_router 32 ✓؛
   junitxml: **1882 = 1F/1847P/34S** (80.0s؛ 1870+12=1882 ✓؛
   theme_tokens/TF-04/D-2 حصرًا) — **خط انحدار جديد: 1882**.
+
+## [TSK-625] — 2026-07-29 — صلابة _parse_args_body (ASF-06)
+### Changed
+- `_parse_args_body` (chain/agent_tools.py): تفكيك متسامح مع القيم
+  متعددة الأسطر — سطر يبدأ بمفتاح شرعي يفتح وسيطًا؛ أي سطر آخر
+  (بلا `:` أو مفتاحه غير شرعي) يُطوى في قيمة المفتاح السابق (يشمل
+  reason) بدل البتر الصامت/الوسيط الزائف (إثبات ما-قبل بالتشغيل في
+  §TSK-625). لا مفتاح سابق ⇒ يُهمَل كما قبل. نفس التوقيع؛
+  parse_tool_calls (fence-aware) وexecute بلا لمس.
+### Added
+- `_known_arg_keys()`: اشتقاق المفاتيح الشرعية **حيًّا** من تواقيع
+  `AgentTools._handlers` (inspect + reason، cache) — لا قائمة يدوية.
+- `tests/unit/test_parse_args_body.py` (18): golden حفظ السلوك (6)
+  + قبول متعدد الأسطر (5) + عدائية (5 — تشمل بقاء إسقاط _approval
+  ASF-02) + اشتقاق حي (1) + e2e (2).
+### Verification
+- pyflakes + lint نظيفة؛ mypy Success 81 ملفًا؛ العقود+parity 113 ✓؛
+  goldens+ws_router 32 ✓؛ junitxml: **1900 = 1F/1865P/34S** (81.4s؛
+  1882+18=1900 ✓؛ theme_tokens/TF-04/D-2 حصرًا) —
+  **خط انحدار جديد: 1900**.

@@ -1901,7 +1901,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 ### TSK-624 — retro-ADR لإعادة تصميم v25 — P3, TODO
 توثيق قرار v25 (TD-04) في ADR + Decision Log. Acceptance: ملف ADR يشرح
 النطاق والأثر والحرّاس المكسورة وكيف أُصلحت.
-### TSK-625 — صلابة _parse_args_body — P3, TODO
+### TSK-625 — صلابة _parse_args_body — P3, ✅ DONE (S77)
 تفكيك متسامح مع قيم متعددة الأسطر (ASF-06) + اختبارات حالات عدائية.
 - **Evidence (S77)**:
   - **الموضع**: `_parse_args_body` (chain/agent_tools.py:818–835) —
@@ -1942,6 +1942,29 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 - **Architecture-Fitness pre-check (S77)**: تعديل موضعي في دالة
   التفكيك النقية وحدها (نفس الوحدة، نفس التوقيع tuple[dict, str])؛
   لا تبعيات جديدة؛ لا لمس لـ providers/ (§0.8).
+- **Close-out (S77)**:
+  - **التنفيذ**: `_parse_args_body` (chain/agent_tools.py) أعيدت
+    كتابتها متسامحة: سطر يبدأ بمفتاح **شرعي** يفتح وسيطًا؛ أي سطر
+    آخر (بلا `:` أو مفتاحه غير شرعي) **يُطوى** في قيمة المفتاح
+    السابق بسطر جديد (يشمل reason)؛ لا مفتاح سابق ⇒ يُهمَل كما
+    قبل. المفاتيح الشرعية تُشتق **حيًّا** من تواقيع
+    `AgentTools._handlers` عبر `_known_arg_keys()` (inspect +
+    reason، cache) — لا قائمة يدوية تتقادم. نفس التوقيع
+    tuple[dict, str]؛ parse_tool_calls وexecute بلا لمس.
+  - **الاختبارات**: `tests/unit/test_parse_args_body.py` (18):
+    golden حفظ السلوك (6 — الحالات السليمة الموثَّقة في برومبت
+    الـ agent حرفيًا كما قبل) + القبول متعدد الأسطر (5 — طي
+    التكملة/مفتاح-شبيه/قيمة فارغة/reason متعدد) + عدائية (5 —
+    يتيم/تزوير _approval يبقى مُسقَطًا/تكرار مفتاح/أسطر قمامة/
+    قيمة 50 سطرًا بلا فقد) + الاشتقاق الحي (1) + e2e (2 —
+    remember_fact متعدد الأسطر يصل كاملًا + fence-awareness
+    بلا تغيير).
+  - **البوابات (S77)**: pyflakes + lint_handler_state نظيفة؛ mypy
+    Success 81 ملفًا؛ العقود+parity 113 ✓؛ goldens+ws_router 32 ✓؛
+    regression كامل: **1900 = 1F/1865P/34S (~81s)** —
+    theme_tokens/TF-04/D-2 حصرًا (1882+18=1900 ✓).
+    **خط الانحدار الجديد: 1900**.
+  - **Rollback**: revert.
 ### TSK-626 — قرار proposed_actions — P3, TODO
 توثيق الفرع test-only أو توصيله بمستهلك (RP-04)؛ Acceptance: سطر عقد موثق
 في runners + تعليق في server.py.
@@ -1976,5 +1999,5 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 622 | M9 | P2 | TODO | بعد M6 — TD-03 |
 | 623 | M10 | P3 | BLOCKED(D-3) | destructive |
 | 624 | M10 | P3 | TODO | |
-| 625 | M10 | P3 | TODO | |
+| 625 | M10 | P3 | ✅ DONE (S77) | _parse_args_body متسامح متعدد الأسطر (طي التكملة، مفاتيح شرعية حيّة من التواقيع)؛ ASF-06 مغلق؛ 18 اختبارًا؛ خط الانحدار 1900 |
 | 626 | M10 | P3 | TODO | |

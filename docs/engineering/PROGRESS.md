@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Session 76 — **TSK-621 ✅ DONE (Permissions UI قراءة: endpoint /api/permissions + لوحة قراءة-فقط بوحدة نقية permissions_panel.js — CP-5/UXF-04) — التالي: TSK-625 (صلابة _parse_args_body — ASF-06)**) |
+| last-updated | 2026-07-29 (Session 77 — **TSK-625 ✅ DONE (صلابة _parse_args_body: تفكيك متسامح متعدد الأسطر + مفاتيح شرعية حيّة — ASF-06 مغلق) — التالي: TSK-624 (retro-ADR لإعادة تصميم v25)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M9 جارية (6/8 — المتبقي 622/617 محجوبان)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | **TSK-625** (M10 — P3 — صلابة _parse_args_body — ASF-06)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M10 جارية (1/4 — 623 محجوبة D-3)**؛ M9 (6/8 — 622/617 محجوبان)؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | **TSK-624** (M10 — P3 — retro-ADR لإعادة تصميم v25 — TD-04)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **19/26 TSK** (601..604،606..616،618..621 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 622..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **20/26 TSK** (601..604،606..616،618..621،625 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 622/623/624/626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,13 +37,23 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M9: 6/8 (المتبقي محجوب)**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M10 — TSK-625** (P3 — صلابة
-  _parse_args_body — ASF-06؛ اختير لأنه أول غير-محجوب مخفِّض
-  للمخاطر: M9 المتبقية 622 تنتظر M6/D-4 و617 تنتظر D-1؛
-  TSK-623 تنتظر D-3)؛ TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار
-  D-2 — الحاجب الوحيد لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-621 ✅ DONE (Session 76 — M9: 6/8)** —
+- Stage: EXECUTION (Stage 3 — جارية — **M10: 1/4**؛ M9: 6/8 (المتبقي محجوب)؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M10 — TSK-624** (P3 — retro-ADR
+  لإعادة تصميم v25 — TD-04؛ التالي غير-المحجوب: 622 تنتظر M6/D-4،
+  617 تنتظر D-1، 623 تنتظر D-3؛ يبقى بعدها 626)؛ TSK-605 تبقى
+  مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد لخضرة البوابة
+  الكاملة 0F)
+- Last completed step: **TSK-625 ✅ DONE (Session 77 — M10: 1/4)** —
+  صلابة _parse_args_body (ASF-06): تفكيك متسامح — سطر يبدأ بمفتاح
+  شرعي يفتح وسيطًا؛ أي سطر آخر يُطوى في قيمة المفتاح السابق (بدل
+  البتر الصامت/الوسيط الزائف المثبتين بالتشغيل في §TSK-625)؛
+  المفاتيح الشرعية تُشتق حيًّا من تواقيع _handlers
+  (_known_arg_keys — inspect + cache)؛ parse_tool_calls وexecute
+  بلا لمس. 18 اختبارًا (golden 6 + متعدد الأسطر 5 + عدائية 5 +
+  اشتقاق حي 1 + e2e 2). regression **1900 = 1F/1865P/34S**
+  (theme_tokens/TF-04/D-2 حصرًا؛ 1882+18=1900 ✓) — **خط انحدار
+  جديد: 1900**.
+- Previous step: **TSK-621 ✅ DONE (Session 76 — M9: 6/8)** —
   Permissions UI قراءة (CP-5/UXF-04): endpoint قراءة جديد
   `GET /api/permissions` في blueprint meta القائم (routes/meta.py —
   ADR-003؛ **server.py صفر تعديل**) يعيد السياسة الفعالة الحية:
@@ -367,23 +377,23 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-625** (M10، P3 — ASF-06): صلابة
-  _parse_args_body — تفكيك متسامح مع قيم متعددة الأسطر + اختبارات
-  حالات عدائية. المرجع: §TSK-625 في DEVELOPMENT_TASKS.md.
-  اختيار الأولوية: أول مهمة غير-محجوبة مخفِّضة للمخاطر — M9
-  المتبقية محجوبة (TSK-622 تنتظر إغلاق M6/D-4؛ TSK-617 تنتظر
-  D-1) وTSK-623 تنتظر D-3؛ يليها TSK-624 (retro-ADR) وTSK-626
-  (قرار proposed_actions) — كلاهما P3 غير-محجوب.
-  الدورة القياسية: أدلة أولًا (أين يعيش _parse_args_body بأرقام
-  أسطر؛ عقده الحالي — أي مدخلات يتلقى ومن أي مستدعين؛ سلوكه
-  الحالي مع القيم متعددة الأسطر/الحالات العدائية بدليل تشغيل؛
-  اختباراته القائمة إن وُجدت) + سجل حفظ السلوك (الحالات السليمة
-  القائمة تفكَّك كما قبل حرفيًا — golden للحالات القائمة قبل أي
-  تعديل) + Fitness pre-check في §TSK-625 — **commit قبل الكود**.
-  بعد الإغلاق: Close-out + جدول الحالة + CHANGELOG + PROGRESS +
-  commit محلي. خط الانحدار المرجعي الحالي: **1882 = 1F/1847P/34S**
-  (theme_tokens/TF-04 حصرًا + test_search_perf معروف flaky على
-  عتاد مشترك — يعاد تشغيله معزولًا عند فشله).
+- Next action: **بدء TSK-624** (M10، P3 — TD-04): retro-ADR
+  لإعادة تصميم v25 — توثيق قرار إعادة التصميم في ملف ADR + قيد
+  Decision Log. القبول: ملف ADR يشرح النطاق والأثر والحرّاس
+  المكسورة وكيف أُصلحت. المرجع: §TSK-624 في DEVELOPMENT_TASKS.md.
+  اختيار الأولوية: آخر غير-محجوب مع TSK-626 (622 تنتظر M6/D-4؛
+  617 تنتظر D-1؛ 623 تنتظر D-3)؛ 624 قبل 626 لأنه يوثّق دينًا
+  أقدم (TD-04) بمواد جاهزة في السجلات.
+  الدورة القياسية (مهمة توثيقية): أدلة أولًا (TD-04 في
+  MASTER_REVIEW/TECHNICAL_DEBT بأرقام أسطر؛ الحرّاس المكسورة —
+  TF-01/TF-03/RP-01 وإصلاحاتها الموثقة في TSK-604/618؛ نمط ADRs
+  القائمة docs/engineering/adr/ — ADR-001..004) + سجل حفظ السلوك
+  (توثيق فقط — صفر لمس كود) + Fitness pre-check في §TSK-624 —
+  **commit قبل الملف**. بعد الإغلاق: Close-out + جدول الحالة +
+  CHANGELOG + PROGRESS + commit محلي. خط الانحدار المرجعي
+  الحالي: **1900 = 1F/1865P/34S** (theme_tokens/TF-04 حصرًا +
+  test_search_perf معروف flaky على عتاد مشترك — يعاد تشغيله
+  معزولًا عند فشله).
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -950,6 +960,28 @@
   CHANGELOG (commit 686ac90) + تحديث PROGRESS (هذا القيد) + commit
   محلي · الموقع → **M9/TSK-620** (سرد الجلسة — CP-8/UXF-05،
   التبعية 610 ✅)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-29 — Session 77 — TSK-625 ✅ (M10: 1/4)**:
+  استرداد من origin b205868 (دمج المستخدم التقط أدلة e93bca9
+  والتنفيذ كاملًا من شجرة العمل — reset قطع الجلسة قبل regression)
+  → أعيد التحقق grep ثم أعيدت البوابات كاملة على الشجرة
+  المستعادة. **أدلة TSK-625** (commit e93bca9 قبل الكود): الموضع
+  agent_tools.py:818 والمستدعي :809 والمستهلك execute :219؛
+  مفاتيح الوسائط الشرعية من تواقيع tool_*؛ **إثبات ASF-06
+  بالتشغيل**: بتر صامت للقيم متعددة الأسطر + وسيط زائف من سطر
+  يشبه مفتاحًا (⇒ TypeError) + e2e نص مبتور → **التنفيذ**:
+  _parse_args_body متسامح (طي التكملة في قيمة المفتاح السابق؛
+  يشمل reason؛ يتيم يُهمَل كما قبل) + _known_arg_keys اشتقاق حي
+  من التواقيع (inspect + cache — لا قائمة يدوية)؛ parse_tool_calls
+  وexecute بلا لمس + 18 اختبارًا (test_parse_args_body.py: golden
+  6/متعدد 5/عدائية 5 — منها بقاء إسقاط _approval/اشتقاق 1/e2e 2)
+  · Gates: pyflakes + lint نظيفة · mypy Success 81 ·
+  contracts+parity 113 · goldens+ws_router 32 · regression
+  junitxml **1900 = 1F/1865P/34S 81.4s** (theme_tokens/TF-04/D-2
+  حصرًا؛ 1882+18=1900 ✓) — **خط انحدار جديد: 1900** → Close-out +
+  جدول 625→DONE + CHANGELOG (commit 1976b72) + تحديث PROGRESS
+  (هذا القيد) + commit محلي · **ASF-06 مغلق** · الموقع →
+  **M10/TSK-624** (retro-ADR v25 — TD-04؛ ثم 626؛ 622/617/623
+  تنتظر D-4/D-1/D-3)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
 - **2026-07-29 — Session 76 — TSK-621 ✅ (M9: 6/8)**:
   استرداد من origin f522eeb (دمج المستخدم شمل كل إغلاق 620) →
   **أدلة TSK-621** بأرقام أسطر (commit 82684f5 قبل الكود):
