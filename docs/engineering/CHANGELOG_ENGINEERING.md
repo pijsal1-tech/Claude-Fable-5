@@ -782,3 +782,24 @@
   contracts+parity 113 ✓ · goldens+ws_router 32 ✓ · junitxml:
   **1900 = 1F/1865P/34S** (82.0s؛ theme_tokens/TF-04/D-2 حصرًا) —
   خط الانحدار بلا تغيير. **RP-04 مغلق**.
+
+## [TSK-605] — 2026-07-29 — TF-04: tokenization كاملة لألوان v25 (قرار D-2) — أول خضرة كاملة للبوابة
+### Added
+- 37 توكنًا جديدًا (26 `--v25-*` + 11 `--tango-*`) بنفس القيم الحرفية في
+  ملفات اللوحات الأربعة (dark/light/high-contrast/monokai: 68→105 توكنًا؛
+  التكافؤ الرباعي الصارم محفوظ) + امتداد عقد التسمية في رأس tokens.css.
+- `scripts/_tokenize_v25.py` — سكربت الترحيل الآلي (يُحتفظ به للتدقيق).
+### Changed
+- `static/style.css` — 127 سطرًا مخالفًا (138 موضع لون خام): hex →
+  `var(--token)`؛ rgba() → `color-mix(in srgb, var(--token) N%, transparent)`
+  (مكافئ حسابيًا)؛ حذف 6 fallbacks ميتة `var(--accent, #7c6af7)`.
+- `static/index.html:95/96/99/100` — SVG stops: `stop-color="#hex"` →
+  `style="stop-color:var(--v25-purple|--v25-cyan-deep)"`.
+- سجلات: §TSK-605 (قرار D-2 + Evidence S83 + pre-checks + Close-out)،
+  DECISION_LOG (قيد وصول قرار المالك D-2)، جدول الحالة (605 ✅، M6 مغلقة 5/5).
+### Verification
+- ألوان خام خارج static/themes/: 131 سطرًا → **0** (نفس regex الحارس).
+- test_theme_tokens → 28 passed؛ snapshot الـ dark لم يُمَسّ (إضافات فقط).
+- **regression كامل: 1900 = 0 failed / 1866 passed / 34 skipped (79.9s)
+  — أول خضرة كاملة في تاريخ البرنامج**؛ `bash scripts/check.sh` →
+  **ALL GREEN (exit 0) لأول مرة** = معيار خروج M6 الأخير؛ pyflakes نظيف.

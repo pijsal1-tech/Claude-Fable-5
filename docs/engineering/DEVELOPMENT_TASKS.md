@@ -316,7 +316,7 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-605 — استعادة خضرة البوابة: TF-02 (نطاق) + TF-04 (baseline ألوان)
-- **Status**: IN-PROGRESS — جزء TF-02 (Session 40)؛ TF-04 BLOCKED (ينتظر D-2) · **Priority**: P1
+- **Status**: ✅ DONE (TF-02: S40 · TF-04: S83 — قرار D-2 = tokenization كاملة) · **Priority**: P1
 - **Objective**: استثناء `providers/` من مسح test_history_consumers (حارس
   core لا مزودات)؛ وتطبيق قرار D-2 لألوان v25 (التوصية: baseline-allowlist
   مؤرَّخ + تسجيل دين tokenization).
@@ -419,6 +419,30 @@
     بقايا v25؛ سجلات التاسك + DECISION_LOG (قيد قرار المالك D-2) تكفي.
   - المخاطرة الوحيدة: خطأ نقل قيمة → يلتقطه العرض لا الاختبارات؛
     التخفيف: تحويل آلي بجدول قيمة→توكن + مراجعة grep صفرية بعده.
+- **Close-out — جزء TF-04 ✅ (Session 83)**:
+  - **Implementation**: التحويل الآلي بسكربت التدقيق
+    `scripts/_tokenize_v25.py` (مُحتفَظ به للمراجعة؛ pyflakes نظيف):
+    (1) 37 توكنًا جديدًا (26 ‎--v25-*‎ + 11 ‎--tango-*‎) أُضيفت **بنفس
+    القيم الحرفية** إلى ملفات اللوحات الأربعة dark/light/high-contrast/
+    monokai (68 → **105** توكنًا لكل ثيم — التكافؤ الرباعي الصارم قائم)؛
+    (2) static/style.css: 6 fallbacks ميتة `var(--accent, #7c6af7)` →
+    `var(--accent)`؛ كل rgba() → `color-mix(in srgb, var(--token) N%,
+    transparent)` (مكافئ حسابيًا)؛ كل hex → `var(--token)` (الأطول أولًا
+    كي لا يبتلع ‎#fff‎ ‎#ffffff‎)؛ (3) static/index.html:95/96/99/100:
+    `stop-color="#hex"` → `style="stop-color:var(--v25-purple|
+    --v25-cyan-deep)"`؛ (4) عقد التسمية في رأس tokens.css امتد بسطرَي
+    ‎--v25-*‎/‎--tango-*‎ (تعليق بلا ألوان). snapshot الـ dark (23 قيمة)
+    لم يُمَسّ — إضافات فقط.
+  - **Verification (S83)**: مخالفو regex الحارس خارج themes/: 131 → **0**
+    (grep -rl مطابق للحارس)؛ test_theme_tokens → **28 passed** كاملًا؛
+    **regression كامل: 1900 = 0F/1866P/34S (79.9s) — أول خضرة كاملة
+    للبوابة في تاريخ البرنامج (EXIT=0)**؛ `bash scripts/check.sh` →
+    **ALL GREEN (exit 0) — لأول مرة** = معيار خروج M6 الأخير تحقق.
+  - **Metrics**: إخفاقات البوابة 1 → **0**؛ ألوان خام خارج themes/
+    138+4 → **0**؛ توكنز لكل ثيم 68 → 105؛ حجم baseline: لا ينطبق
+    (قرار D-2 = tokenization، لا baseline)؛ دين TF-04: **لا شيء يُسجَّل**.
+  - **M6 مغلقة 5/5**: 601 ✅ 602 ✅ 603 ✅ 604 ✅ 605 ✅ —
+    «check.sh أخضر كاملًا لأول مرة» (MASTER_ROADMAP:114) مُتحقَّق بدليل.
 
 ## M7 — Responsiveness & Guardrails (P2 الجذور التشغيلية)
 
@@ -2187,7 +2211,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 602 | M6 | P1 | ✅ DONE (S35–36) | 6 اختبارات جديدة؛ مواضع الحقن الخام 5→0؛ regression نظيف |
 | 603 | M6 | P1 | ✅ DONE (S37) | fail-closed بـ sentinel؛ 7 اختبارات جديدة؛ regression نظيف |
 | 604 | M6 | P1 | ✅ DONE (S38–39) | زرا وكيلان مخفيان + سطر الترخيص؛ إخفاقات البوابة 4→2 |
-| 605 | M6 | P1 | TF-02 ✅ (S40) · TF-04 BLOCKED(D-2) | إخفاقات البوابة 2→1؛ المتبقي ينتظر رد المالك |
+| 605 | M6 | P1 | ✅ DONE (TF-02 S40 · TF-04 S83) | tokenization كاملة (قرار D-2)؛ إخفاقات البوابة 1→0؛ **أول regression صفري-الإخفاق + check.sh ALL GREEN؛ M6 مغلقة 5/5** |
 | 606 | M7 | P2 | ✅ DONE (S43) | تخييط apply/direct + إصلاح BUG جانبي في معالج cancel_run؛ +2 اختبارات |
 | 607 | M7 | P2 | ✅ DONE (S45–46) | آخر جيب برومبت خارج الميزانية ضُم؛ +6 اختبارات |
 | 608 | M7 | P2 | ✅ DONE (S47–48) | reap_stale مفعّل + نبض حياة في المحوّل/الدفعة/الاستكمال؛ +17 اختبارًا |
