@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Session 78 — **TSK-624 ✅ DONE (retro-ADR لإعادة تصميم v25: ADR-005 + قيد Decision Log — TD-04 مغلق) — التالي: TSK-626 (قرار proposed_actions — RP-04)**) |
+| last-updated | 2026-07-29 (Session 79 — **TSK-626 ✅ DONE (فرع proposed_actions موثَّق test-only — RP-04 مغلق) — Stage 3: 22/26؛ كل المتبقي محجوب على قرارات المالك D-1/D-2/D-3/D-4**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M10 جارية (2/4 — 623 محجوبة D-3)**؛ M9 (6/8 — 622/617 محجوبان)؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | **TSK-626** (M10 — P3 — قرار proposed_actions — RP-04)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M10 جارية (3/4 — 623 محجوبة D-3)**؛ M9 (6/8 — 622/617 محجوبان)؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | **لا مهمة غير-محجوبة متبقية** — الأربع المتبقية تنتظر قرارات المالك: 605/TF-04←D-2، 617←D-1، 622←M6/D-4، 623←D-3؛ بعد إغلاق M10 كاملة ← IR-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **21/26 TSK** (601..604،606..616،618..621،624،625 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 622/623/626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **22/26 TSK** (601..604،606..616،618..621،624..626 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 622 تنتظر M6/D-4؛ 623 تنتظر D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,13 +37,25 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M10: 2/4**؛ M9: 6/8 (المتبقي محجوب)؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M10 — TSK-626** (P3 — قرار
-  proposed_actions — RP-04؛ **آخر مهمة غير-محجوبة**: 622 تنتظر
-  M6/D-4، 617 تنتظر D-1، 623 تنتظر D-3)؛ TSK-605 تبقى
-  مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد لخضرة البوابة
-  الكاملة 0F)
-- Last completed step: **TSK-624 ✅ DONE (Session 78 — M10: 2/4)** —
+- Stage: EXECUTION (Stage 3 — جارية — **M10: 3/4**؛ M9: 6/8 (المتبقي محجوب)؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — 22/26 — لا مهمة غير-محجوبة متبقية**:
+  كل المتبقي ينتظر قرارات المالك — 605/TF-04←**D-2** (الحاجب
+  الوحيد لخضرة البوابة الكاملة 0F)، 617←D-1، 622←M6/D-4،
+  623←D-3؛ بعد إغلاق M10 كاملة ← IR-2 (Innovation Review)
+- Last completed step: **TSK-626 ✅ DONE (Session 79 — M10: 3/4)** —
+  قرار proposed_actions (RP-04): توثيق الفرع **test-only**
+  (تعليقات فقط — صفر منطق): سطر عقد موحَّد فوق كتلة الموافقة في
+  الـ runners الأربعة (agent:103/chain:90/delegate:99/direct:76)
+  يثبت أن مواقع بناء RunRequest الإنتاجية الخمسة (server.py:1540 +
+  chat_dispatch.py:245/280/343/449) لا تمرر proposed_actions وأن
+  المستهلك الوحيد RunnerContractMixin — «لا يُحسب طبقة أمان
+  فعلية؛ يُصان كمجال توسعة (worker.py T-110)» + تعليق مقابل في
+  server.py:1533 + تعليق جامع في chat_dispatch.py:26. «التوصيل
+  بمستهلك» تغيير سلوكي منتج = قرار مالك لم يُتخذ ذاتيًا. Gates:
+  pyflakes دلتا صفر (stash-diff) · lint · mypy 81 · contracts+parity
+  113 · goldens 32 · regression **1900 = 1F/1865P/34S** بلا تغيير.
+  **RP-04 مغلق** (آخر بند RP المفتوح).
+- Previous step: **TSK-624 ✅ DONE (Session 78 — M10: 2/4)** —
   retro-ADR لإعادة تصميم v25 (TD-04): مقطع **ADR-005** مُلحق بـ
   ARCHITECTURE_DECISIONS.md (بنية بيتية؛ موسوم «retroactive
   record»؛ الدوافع الأصلية UNKNOWN) — النطاق بالأدلة من git
@@ -388,29 +400,22 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-626** (M10، P3 — RP-04): قرار
-  proposed_actions — توثيق الفرع test-only أو توصيله بمستهلك.
-  القبول: سطر عقد موثق في runners + تعليق في server.py.
-  المرجع: §TSK-626 في DEVELOPMENT_TASKS.md + RP-04 في
-  MASTER_REVIEW (§R7). اختيار الأولوية: **آخر مهمة غير-محجوبة**
-  (622 تنتظر M6/D-4؛ 617 تنتظر D-1؛ 623 تنتظر D-3؛ 605/TF-04
-  تنتظر D-2). الدورة القياسية: أدلة أولًا (موضع proposed_actions
-  في runners/server.py بأرقام أسطر + إثبات test-only بـ grep
-  للمستهلكين + نص RP-04 الأصلي) + Behavior-preservation pre-check
-  (المسار الظاهر توثيقي: سطر عقد + تعليق — إن ظهر خيار «توصيل
-  بمستهلك» فهو تغيير سلوكي ⇒ **قرار منتج يُرفع للمالك، لا يُتخذ
-  ذاتيًا**؛ التوصية الافتراضية: توثيق الفرع test-only) + Fitness
-  pre-check في §TSK-626 — **commit قبل التعديل**. بعد الإغلاق:
-  Close-out + جدول الحالة + CHANGELOG + PROGRESS + commit محلي.
-  خط الانحدار المرجعي الحالي: **1900 = 1F/1865P/34S**
-  (theme_tokens/TF-04 حصرًا + test_search_perf معروف flaky على
-  عتاد مشترك — يعاد تشغيله معزولًا عند فشله). بعد 626: كل المتبقي
-  محجوب على قرارات المالك (D-1/D-2/D-3/D-4) — ثم IR-2 بعد إغلاق
-  M10.
-  تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
-  لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
-  baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
-  TECHNICAL_DEBT.md. كذلك D-1→TSK-617، D-3→TSK-623، D-4→TSK-622
+- Next action: **انتظار قرارات المالك — لا مهمة غير-محجوبة متبقية**
+  (Stage 3: 22/26). خريطة الحجب الكاملة:
+  - **D-2** ← TSK-605/TF-04 (baseline ألوان v25 أم tokenization) —
+    **الحاجب الوحيد لأول خضرة كاملة للبوابة (0 failed)** ولإكمال
+    M6؛ التوصية المسجلة: baseline-allowlist مؤرَّخ الآن + دين
+    tokenization لاحق P3.
+  - **D-1** ← TSK-617؛ **D-4 (+إغلاق M6)** ← TSK-622؛
+    **D-3** ← TSK-623 (أرشفة improvements/ — destructive).
+  - بعد إغلاق M10 كاملة (تبقى 623 وحدها) ← **IR-2**
+    (Innovation Review) حسب الخارطة.
+  عند وصول أي قرار: الدورة القياسية كاملة (أدلة + pre-checks في
+  §TSK المعنية — commit قبل الكود؛ ثم Close-out + جدول + CHANGELOG
+  + PROGRESS + commit محلي). خط الانحدار المرجعي الحالي:
+  **1900 = 1F/1865P/34S** (theme_tokens/TF-04 حصرًا +
+  test_search_perf معروف flaky على عتاد مشترك — يعاد تشغيله
+  معزولًا عند فشله).
 - Current blocker: none
 
 ### Stage Checklists (Definition of Done — الدستور الجديد)
@@ -973,6 +978,30 @@
   CHANGELOG (commit 686ac90) + تحديث PROGRESS (هذا القيد) + commit
   محلي · الموقع → **M9/TSK-620** (سرد الجلسة — CP-8/UXF-05،
   التبعية 610 ✅)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-29 — Session 79 — TSK-626 ✅ (M10: 3/4)**:
+  استرداد بعد reset: origin تقدم إلى a74ca08 (دمج المستخدم التقط
+  أدلة 8893a8f **والتنفيذ كاملًا من شجرة العمل** — التعليقات الست
+  بالاستشهادات المصحَّحة؛ reset قطع الجلسة أثناء البوابات) →
+  **أدلة TSK-626** (commit 8893a8f قبل الكود): RP-04
+  (MASTER_REVIEW:476/:732)؛ الفرع المتناظر في الأربعة
+  (agent:103/chain:90/delegate:99/direct:76)؛ **صفر مستهلك
+  إنتاجي** — مواقع البناء الخمسة كلها بلا proposed_actions
+  (server.py + chat_dispatch بعد نقل M8/ADR-002 — تحديث لمواقع
+  RP-04 الأصلية)؛ المستهلك الاختباري الوحيد RunnerContractMixin
+  (3 عقود :142–177)؛ سابقة worker.py T-110 («مجال توسعة لاحق»)
+  → **القرار**: توثيق test-only (التوصيل بمستهلك = قرار منتج لم
+  يُتخذ ذاتيًا) → **التنفيذ (تعليقات فقط)**: سطر عقد موحَّد فوق
+  كتلة الموافقة في الأربعة + تعليق مقابل server.py:1533 + تعليق
+  جامع chat_dispatch.py:26؛ الاستشهادات بأرقام ما-بعد-التعليقات
+  · Gates (أعيدت كاملة على الشجرة المستعادة): pyflakes دلتا صفر
+  (stash-diff — القائم فقط بإزاحة أسطر) · lint نظيفة · mypy
+  Success 81 · contracts+parity 113 · goldens+ws_router 32 ·
+  regression junitxml **1900 = 1F/1865P/34S 82.0s** (بلا تغيير؛
+  theme_tokens/TF-04/D-2 حصرًا) → Close-out + جدول 626→DONE +
+  CHANGELOG (commit ce5e993) + تحديث PROGRESS (هذا القيد) +
+  commit محلي · **RP-04 مغلق** (آخر بند RP) · **Stage 3: 22/26 —
+  لا مهمة غير-محجوبة متبقية**: 605/TF-04←D-2 (حاجب أول 0F)،
+  617←D-1، 622←M6/D-4، 623←D-3؛ بعد M10 كاملة ← IR-2.
 - **2026-07-29 — Session 78 — TSK-624 ✅ (M10: 2/4)**:
   استرداد بعد reset: origin تقدم إلى 69bbf64 (دمج المستخدم التقط
   إغلاق S77: 1976b72 + 0716ec1 — تحقق grep: Session 77 في

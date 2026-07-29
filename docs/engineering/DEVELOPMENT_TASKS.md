@@ -2046,7 +2046,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
     theme_tokens/TF-04/D-2 حصرًا (1882+18=1900 ✓).
     **خط الانحدار الجديد: 1900**.
   - **Rollback**: revert.
-### TSK-626 — قرار proposed_actions — P3, TODO
+### TSK-626 — قرار proposed_actions — P3, ✅ DONE (S79)
 توثيق الفرع test-only أو توصيله بمستهلك (RP-04)؛ Acceptance: سطر عقد موثق
 في runners + تعليق في server.py.
 - **Evidence (S79)**:
@@ -2095,6 +2095,32 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
     القائم نفسه) ويشير إلى RP-04/TSK-626 + مواقع البناء الخمسة —
     قارئ أي runner يعرف الحالة دون بحث.
   - لا توثيق في echo_runner (fake اختباري — هو المستهلك المقصود).
+- **Close-out (S79)**:
+  - **Implementation** (تعليقات فقط — صفر منطق): سطر عقد موحَّد
+    «عقد (RP-04/TSK-626): هذا الفرع test-only حاليًا…» فوق كتلة
+    الموافقة في الأربعة — runners/agent.py:103، runners/chain.py:90،
+    runners/delegate.py:99، runners/direct.py:76 — يشير إلى مواقع
+    البناء الخمسة (server.py:1540 + chat_dispatch.py:245/280/343/449
+    — أرقام ما-بعد-التعليقات، مصحَّحة) والمستهلك الاختباري الوحيد
+    (RunnerContractMixin) و«لا يُحسب طبقة أمان فعلية؛ يُصان كمجال
+    توسعة (worker.py T-110)». + تعليق مقابل عند موقع RunRequest في
+    server.py:1533–1536 + تعليق جامع في chat_dispatch.py:26–31
+    (المواقع الإنتاجية الأربعة الأخرى بعد نقل M8/ADR-002).
+  - **Acceptance** ✅: «سطر عقد موثق في runners» (الأربعة) +
+    «تعليق في server.py» — نصّا القبول محقَّقان حرفيًا؛ الخيار
+    المنفَّذ = توثيق test-only (التوصيل بمستهلك = قرار منتج لم
+    يُتخذ ذاتيًا — مسجَّل في pre-check).
+  - **Gates**: pyflakes — دلتا الملفات الملموسة صفر مقابل HEAD
+    (تحقق stash-diff S79: نفس النتائج القائمة، إزاحة أرقام أسطر
+    فقط) · lint_handler_state نظيفة · mypy Success 81 ملفًا ·
+    contracts+parity 113 ✓ · goldens+ws_router 32 ✓ · regression
+    junitxml **1900 = 1F/1865P/34S** (82.0s — بلا تغيير؛
+    theme_tokens/TF-04/D-2 حصرًا).
+  - **Metrics**: RP-04 **مغلق** (آخر بند RP المفتوح)؛ M10 3/4؛
+    Stage 3 **22/26** — كل المتبقي محجوب على قرارات المالك.
+  - **Commits**: 8893a8f (أدلة قبل الكود؛ التنفيذ التقطه دمج
+    المستخدم a74ca08) → commit الإغلاق الحالي.
+- **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ---
 
@@ -2127,4 +2153,4 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 623 | M10 | P3 | BLOCKED(D-3) | destructive |
 | 624 | M10 | P3 | ✅ DONE (S78) | ADR-005 استرجاعي لإعادة تصميم v25 (النطاق/الأثر/الحرّاس الثلاثة وإصلاحاتها) + قيد retro في DECISION_LOG؛ TD-04 مغلق؛ خط الانحدار بلا تغيير (1900) |
 | 625 | M10 | P3 | ✅ DONE (S77) | _parse_args_body متسامح متعدد الأسطر (طي التكملة، مفاتيح شرعية حيّة من التواقيع)؛ ASF-06 مغلق؛ 18 اختبارًا؛ خط الانحدار 1900 |
-| 626 | M10 | P3 | TODO | |
+| 626 | M10 | P3 | ✅ DONE (S79) | فرع proposed_actions موثَّق test-only: سطر عقد موحَّد في الـ runners الأربعة + تعليق عند مواقع بناء RunRequest الخمسة (server.py + chat_dispatch.py)؛ RP-04 مغلق؛ خط الانحدار بلا تغيير (1900) |

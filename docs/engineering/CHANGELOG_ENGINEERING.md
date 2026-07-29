@@ -763,3 +763,22 @@
 - مهمة توثيقية صرفة (صفر لمس كود)؛ junitxml بعد التوثيق:
   **1900 = 1F/1865P/34S** (80.4s؛ theme_tokens/TF-04/D-2 حصرًا) —
   خط الانحدار بلا تغيير. **TD-04 مغلق**.
+
+## [TSK-626] — 2026-07-29 — قرار proposed_actions: توثيق الفرع test-only (RP-04)
+### Changed
+- **تعليقات فقط — صفر منطق**: سطر عقد موحَّد فوق كتلة الموافقة
+  المتناظرة في الـ runners الأربعة (agent.py:103/chain.py:90/
+  delegate.py:99/direct.py:76): الفرع test-only — مواقع بناء
+  RunRequest الإنتاجية الخمسة (server.py:1540 +
+  chat_dispatch.py:245/280/343/449) لا تمرر proposed_actions؛
+  المستهلك الوحيد RunnerContractMixin؛ لا يُحسب طبقة أمان فعلية؛
+  يُصان كمجال توسعة (worker.py T-110).
+- تعليق مقابل عند موقع RunRequest في server.py:1533 + تعليق جامع في
+  core/chat_dispatch.py:26 (المواقع الأربعة المنقولة في M8/ADR-002).
+- القرار المنفَّذ: **توثيق** (الخيار الأول في نص المهمة)؛ «التوصيل
+  بمستهلك» تغيير سلوكي منتج = قرار مالك لم يُتخذ ذاتيًا.
+### Verification
+- pyflakes دلتا صفر (stash-diff) · lint نظيفة · mypy Success 81 ·
+  contracts+parity 113 ✓ · goldens+ws_router 32 ✓ · junitxml:
+  **1900 = 1F/1865P/34S** (82.0s؛ theme_tokens/TF-04/D-2 حصرًا) —
+  خط الانحدار بلا تغيير. **RP-04 مغلق**.
