@@ -419,9 +419,11 @@ class TestConsumeOnlyAndWiring:
         # (ADR-001) — نفس ضمان "معالجة موحّدة للنوعين".
         assert '"rollback_run": _ws_rollback,' in src
         assert '"rollback_file": _ws_rollback,' in src
-        # endpoints الجديدة قراءة فقط (GET بلا methods=POST)
+        # endpoints الجديدة قراءة فقط (GET بلا methods=POST) —
+        # TSK-613 (ADR-003): انتقلت إلى routes/rollback.py، نفس الضمانة.
+        rb = (ROOT / "routes" / "rollback.py").read_text(encoding="utf-8")
         for ep in ('"/api/rollback/history"', '"/api/rollback/preview"'):
-            line = next(ln for ln in src.splitlines() if ep in ln)
+            line = next(ln for ln in rb.splitlines() if ep in ln)
             assert "methods" not in line
 
     def test_index_wiring_and_load_order(self):

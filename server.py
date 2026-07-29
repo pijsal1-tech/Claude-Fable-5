@@ -709,17 +709,6 @@ def index():
 # ════════════════════════════════════════════════════
 # API — Files
 # ════════════════════════════════════════════════════
-@app.route("/api/files")
-def api_files():
-    """قائمة ملفات المشروع"""
-    try:
-        scan = fm.scan_project(max_files=10000)
-        tree = fm.get_project_tree(max_depth=4)
-        return jsonify({"ok": True, "scan": scan, "tree": tree})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
 def _search_service():
     """TSK-501 (NF-20): خدمة البحث المشتركة فوق ProjectIndex.
 
@@ -740,332 +729,21 @@ def _search_service():
     return shared_search(index)
 
 
-@app.route("/api/search")
-def api_search():
-    """البحث الشامل في ملفات المشروع ومحتوياتها.
-
-    TSK-501 (NF-20): كان ينفّذ ``scan_project(max_files=10000)`` ثم يقرأ
-    محتوى كل ملف نصي تسلسليًا لكل ضغطة بحث. الآن يمر عبر
-    ``SearchService`` (context/search.py) فوق ProjectIndex — صفر مشيات
-    شجرية + كاش محتوى بمفتاح mtime — مع نفس عقد النتائج حرفيًا
-    (أشكال file/content، سقوف 25/20/35، بوابة len(q)>=2، فلاتر
-    scan_project القديمة والترتيب العالمي المفروز) — بوابة QA-T13.
-    """
-    from actions.file_manager import MAX_FILE_SIZE, WEB_EXTENSIONS
-    q = request.args.get("q", "").strip()
-    if not q:
-        return jsonify({"ok": True, "results": []})
-
-    try:
-        svc = _search_service()
-        text_exts = {'.py', '.js', '.ts', '.jsx', '.tsx', '.html', '.css', '.json', '.md', '.yaml', '.yml', '.txt', '.sh', '.c', '.cpp', '.h', '.cs', '.php', '.go', '.rs'}
-        results = svc.search_project(
-            q,
-            walk_exts=WEB_EXTENSIONS,
-            max_size=MAX_FILE_SIZE,
-            content_exts=text_exts,
-            name_limit=25,
-            content_gate=20,
-            total_limit=35,
-            max_files=10000,
-        )
-        return jsonify({"ok": True, "results": results})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/file/<path:filepath>")
-def api_read_file(filepath):
-    """قراءة محتوى ملف"""
-    try:
-        content = fm.read_file(filepath, with_line_numbers=False)
-        content_numbered = fm.read_file(filepath, with_line_numbers=True)
-        return jsonify({
-            "ok": True,
-            "path": filepath,
-            "content": content,
-            "content_numbered": content_numbered,
-            "lines": len(content.splitlines())
-        })
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 404
-
-
-@app.route("/api/folder/<path:folderpath>")
-def api_read_folder(folderpath):
-    """قراءة محتوى مجلد كامل — للـ drag and drop"""
-    try:
-        from chain.bridge import scan_folder_for_chain
-        full_path = fm._resolve(folderpath)
-        if not os.path.isdir(str(full_path)):
-            return jsonify({"ok": False, "error": "ليس مجلداً"}), 404
-        files = scan_folder_for_chain(str(full_path))
-        return jsonify({
-            "ok": True,
-            "path": folderpath,
-            "files": files,
-            "count": len(files),
-        })
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/file/<path:filepath>", methods=["POST"])
-def api_write_file(filepath):
-    """كتابة/تعديل ملف"""
-    data = request.get_json()
-    content = data.get("content", "")
-    try:
-        saved_path = fm.write_file(filepath, content)
-        return jsonify({"ok": True, "path": saved_path})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/file/<path:filepath>", methods=["DELETE"])
-def api_delete_file(filepath):
-    """حذف ملف (مع backup)"""
-    try:
-        full = fm._resolve(filepath)
-        if full.exists():
-            fm.create_backup(filepath)
-            full.unlink()
-            return jsonify({"ok": True})
-        return jsonify({"ok": False, "error": "ملف غير موجود"}), 404
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
 # ════════════════════════════════════════════════════
 # API — Terminal
 # ════════════════════════════════════════════════════
-@app.route("/api/run", methods=["POST"])
-def api_run():
-    """تنفيذ أمر في الطرفية — يدعم CMD و PowerShell + cd"""
-    data = request.get_json()
-    command = data.get("command", "").strip()
-    shell_type = data.get("shell", "cmd")  # cmd | powershell
-    if not command:
-        return jsonify({"ok": False, "error": "أمر فارغ", "cwd": cmd_runner.cwd}), 400
-
-    # ── معالجة cd بشكل خاص (لأن subprocess.run مش بتحفظ الـ cwd) ──
-    stripped = command.strip()
-    if stripped.lower() == "cd" or stripped.lower() == "cd.":
-        return jsonify({"ok": True, "success": True, "output": cmd_runner.cwd, "error": "", "code": 0, "cwd": cmd_runner.cwd})
-
-    if stripped.lower().startswith("cd ") or stripped.lower().startswith("cd\\"):
-        target = stripped[3:].strip().strip('"').strip("'")
-        try:
-            new_cwd = os.path.abspath(os.path.join(cmd_runner.cwd, target))
-            if os.path.isdir(new_cwd):
-                cmd_runner.cwd = new_cwd
-                return jsonify({"ok": True, "success": True, "output": "", "error": "", "code": 0, "cwd": cmd_runner.cwd})
-            else:
-                return jsonify({"ok": False, "success": False, "output": "", "error": f"المسار غير موجود: {new_cwd}", "code": 1, "cwd": cmd_runner.cwd})
-        except Exception as e:
-            return jsonify({"ok": False, "success": False, "output": "", "error": str(e), "code": 1, "cwd": cmd_runner.cwd})
-
-    # ── تحضير الأمر حسب نوع الشل ──
-    if shell_type == "powershell":
-        # PowerShell محتاج wrapper لأن subprocess بيستخدم cmd.exe افتراضياً
-        full_cmd = f'powershell -NoProfile -ExecutionPolicy Bypass -Command "{command}"'
-    else:
-        # CMD: subprocess.run(shell=True) بيستخدم cmd.exe مباشرة — مش محتاج تغليف
-        full_cmd = command
-
-    # TSK-502 (NF-16): راية force_command_approval تقلب التجاوز —
-    # مفعّلة ⇒ كل أمر REST يمر ببوابة الموافقة إلزاميًا.
-    result = cmd_runner.run(full_cmd, need_approval=False, timeout=30,
-                            force_approval=_force_command_approval())
-    result["cwd"] = cmd_runner.cwd
-    return jsonify({"ok": result["success"], **result})
-
-
-@app.route("/api/cwd")
-def api_cwd():
-    """الحصول على المسار الحالي"""
-    return jsonify({"cwd": cmd_runner.cwd})
-
-
 # ════════════════════════════════════════════════════
 # API — Info
 # ════════════════════════════════════════════════════
-@app.route("/api/capacity")
-def api_capacity():
-    """T-038 (R-403): سعة صادقة — أرقام الـ UI مشتقة من CapacityModel
-    (حالة pool + قواطع T-037 الحية)، مع أعلام estimated للتخمينات؛
-    لا ثوابت حدود حسابات صلبة — كل رقم قابل للتتبع لحالة الموديل."""
-    if capacity_model is None:
-        return jsonify({"ok": False,
-                        "error": "capacity model غير مهيأ بعد"}), 503
-    return jsonify({"ok": True,
-                    "capacity": capacity_model.report().to_dict()})
-
-
-@app.route("/api/metrics/runs")
-def api_metrics_runs():
-    """TSK-610 (PM-03 §R6): ملخّص مقاييس الـ runs — قراءة فقط.
-
-    عدّادات + p50/p95 للمدة (كليًا ولكل mode) من سجل JSONL
-    الملحق-فقط الذي يملؤه مشترك bus الرصد (RunMetricsRecorder)."""
-    if run_metrics_store is None:
-        return jsonify({"ok": False,
-                        "error": "مخزن المقاييس غير مهيأ بعد"}), 503
-    return jsonify({"ok": True, "summary": run_metrics_store.summary()})
-
-
 # ════════════════════════════════════════════════════
 # API — Rollback history (T-066, R-902) — قراءة فقط
 # ════════════════════════════════════════════════════
-@app.route("/api/rollback/history")
-def api_rollback_history():
-    """T-066 (R-902): تاريخ الـ runs المُطبَّقة من مخزن checkpoints نفسه
-    (T-054) — قراءة فقط؛ التنفيذ يبقى عبر أمرَي rollback_run/rollback_file
-    على الـ WS. كل مدخل يحمل ملفاته + أعلام صلاحية الاستعادة:
-    الـ runs المُقلَّمة بالـ retention تختفي تلقائيًا (المصدر هو السجل)."""
-    if chain_bridge is None:
-        return jsonify({"ok": False, "error": "chain bridge غير مهيأ بعد",
-                        "runs": []}), 503
-    mgr = chain_bridge.checkpoint_manager
-    return jsonify({"ok": True, "runs": mgr.run_summaries()})
-
-
-@app.route("/api/rollback/preview")
-def api_rollback_preview():
-    """T-066 (R-902): نص snapshot ما-قبل-الكتابة لملف داخل run — لعرض
-    diff تأكيد الاستعادة (الحالي على القرص → الـ snapshot) في لوحة T-065.
-    absent=true يعني الملف أنشأه الـ run (الاستعادة تحذفه)."""
-    run_id = request.args.get("run_id", "").strip()
-    path = request.args.get("path", "").strip()
-    if not run_id or not path:
-        return jsonify({"ok": False, "error": "run_id وpath مطلوبان"}), 400
-    if chain_bridge is None:
-        return jsonify({"ok": False, "error": "chain bridge غير مهيأ بعد"}), 503
-    mgr = chain_bridge.checkpoint_manager
-    entry = next((e for e in mgr.entries_for_run(run_id)
-                  if e.path == str(pathlib.Path(path).resolve())), None)
-    if entry is None:
-        return jsonify({"ok": False,
-                        "error": f"لا snapshot لهذا الملف في {run_id}"}), 404
-    text = mgr.snapshot_text(run_id, path)
-    return jsonify({"ok": True, "run_id": run_id, "path": path,
-                    "absent": entry.sha256 is None,
-                    "snapshot": text if text is not None else ""})
-
-
-@app.route("/api/info")
-def api_info():
-    """معلومات المشروع والمزود"""
-    scan = fm.scan_project()
-    return jsonify({
-        "ok": True,
-        "project": {
-            "root": str(fm.root),
-            "name": fm.root.name,
-            "total_files": scan["total_files"],
-            "total_size_kb": scan["total_size_kb"],
-        },
-        "provider": provider.get_info() if provider else {},
-        "history_length": len(chat_history),
-    })
-
-
-@app.route("/api/chat-history")
-def api_chat_history():
-    """الحصول على تاريخ المحادثة بالكامل"""
-    history_data = [{"role": msg.role, "content": msg.content} for msg in chat_history]
-    return jsonify({"ok": True, "history": history_data})
-
-
-@app.route("/api/clear", methods=["POST"])
-def api_clear():
-    """مسح المحادثة وبدء جلسة جديدة"""
-    global chat_history, _binding_banner
-    chat_history = []
-    _binding_banner = ""  # R-303: جلسة جديدة = زوال تنبيه الربط
-    # بدء جلسة جديدة
-    if session_mgr:
-        session_mgr.new_session(str(fm.root) if fm else "")
-    return jsonify({"ok": True})
-
-
 # ════════════════════════════════════════════════════
 # API — Sessions
 # ════════════════════════════════════════════════════
-@app.route("/api/sessions")
-def api_sessions():
-    """قائمة الجلسات المحفوظة"""
-    if not session_mgr:
-        return jsonify({"ok": False, "error": "Session manager not initialized"}), 500
-    sessions = session_mgr.list_sessions()
-    return jsonify({"ok": True, "sessions": sessions, "current": session_mgr.current_session_id})
-
-
-@app.route("/api/session/<session_id>")
-def api_load_session(session_id):
-    """تحميل جلسة محددة"""
-    global chat_history
-    if not session_mgr:
-        return jsonify({"ok": False, "error": "Session manager not initialized"}), 500
-
-    session = session_mgr.load_session(session_id)
-    if not session:
-        return jsonify({"ok": False, "error": "جلسة غير موجودة"}), 404
-
-    # استعادة الـ chat_history
-    chat_history = [
-        Message(role=m["role"], content=m["content"])
-        for m in session.get("messages", [])
-    ]
-    return jsonify({
-        "ok": True,
-        "session": session,
-        "history": [{"role": m["role"], "content": m["content"]} for m in session.get("messages", [])]
-    })
-
-
-@app.route("/api/session/new", methods=["POST"])
-def api_new_session():
-    """بدء جلسة جديدة"""
-    global chat_history, _binding_banner
-    if not session_mgr:
-        return jsonify({"ok": False, "error": "Session manager not initialized"}), 500
-
-    chat_history = []
-    _binding_banner = ""  # R-303: جلسة جديدة = زوال تنبيه الربط
-    session = session_mgr.new_session(str(fm.root) if fm else "")
-    return jsonify({"ok": True, "session": session})
-
-
-@app.route("/api/session/<session_id>", methods=["DELETE"])
-def api_delete_session(session_id):
-    """حذف جلسة"""
-    if not session_mgr:
-        return jsonify({"ok": False, "error": "Session manager not initialized"}), 500
-    deleted = session_mgr.delete_session(session_id)
-    return jsonify({"ok": deleted})
-
-
 # ════════════════════════════════════════════════════
 # API — Backups
 # ════════════════════════════════════════════════════
-@app.route("/api/backups")
-def api_backups():
-    """قائمة النسخ الاحتياطية الكاملة"""
-    backup_dir = fm.root / ".webdev_backups" / "full"
-    if not backup_dir.exists():
-        return jsonify({"ok": True, "backups": []})
-
-    backups = []
-    for f in sorted(backup_dir.glob("*.zip"), reverse=True):
-        backups.append({
-            "name": f.name,
-            "size_kb": round(f.stat().st_size / 1024, 1),
-            "created": f.stem.split("_", 1)[-1] if "_" in f.stem else "",
-        })
-    return jsonify({"ok": True, "backups": backups})
-
-
 def _zip_member_violations(zf, root) -> list:
     """TSK-105 (NF-15): فحص أعضاء ZIP قبل الاستعادة — Zip-Slip guard.
 
@@ -1098,31 +776,6 @@ def _zip_member_violations(zf, root) -> list:
         except ValueError:
             violations.append({"member": name, "reason": "escapes_root"})
     return violations
-
-
-@app.route("/api/restore/<backup_name>", methods=["POST"])
-def api_restore_backup(backup_name):
-    """استعادة نسخة احتياطية"""
-    import zipfile
-    backup_path = fm.root / ".webdev_backups" / "full" / backup_name
-    if not backup_path.exists():
-        return jsonify({"ok": False, "error": "النسخة غير موجودة"}), 404
-
-    try:
-        with zipfile.ZipFile(backup_path, 'r') as zf:
-            # TSK-105 (NF-15): Zip-Slip guard — فحص كل الأعضاء قبل أي فك.
-            # أي انتهاك ⇒ 400 ورفض كامل (لا فك جزئي).
-            violations = _zip_member_violations(zf, fm.root)
-            if violations:
-                return jsonify({
-                    "ok": False,
-                    "error": "أرشيف مرفوض: أعضاء خارج جذر المشروع أو غير آمنة",
-                    "violations": violations,
-                }), 400
-            zf.extractall(fm.root)
-        return jsonify({"ok": True, "message": f"تم استعادة: {backup_name}"})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # ════════════════════════════════════════════════════
@@ -1256,165 +909,34 @@ def _session_binding_policy() -> str:
         return "warn"
 
 
-@app.route("/api/switch-project", methods=["POST"])
-def api_switch_project():
-    """تغيير مسار المشروع"""
-    global fm, cmd_runner, chat_history, _binding_banner
-
-    # ── حماية: منع التبديل أثناء run نشط (R-101 → R-105) ──
-    _active_runs = execution_registry.list_active()
-    if _active_runs:
-        return jsonify({
-            "ok": False,
-            "error": "لا يمكن تغيير المشروع أثناء تشغيل run نشط",
-            "chain_run_id": _active_runs[0].run_id
-        }), 409
-
-    data = request.get_json()
-    new_path = data.get("path", "").strip()
-    if not new_path:
-        return jsonify({"ok": False, "error": "مسار فارغ"}), 400
-
-    abs_path = os.path.abspath(new_path)
-    if not os.path.isdir(abs_path):
-        # محاولة إنشاء المجلد
-        try:
-            os.makedirs(abs_path, exist_ok=True)
-        except Exception as e:
-            return jsonify({"ok": False, "error": f"فشل إنشاء المجلد: {e}"}), 400
-
-    # ── R-303 (T-031): فحص ربط الجلسة بالمشروع قبل التبديل ──
-    # الجلسة المرتبطة ببصمة مشروع مختلف تُعالَج حسب السياسة:
-    # warn (بانر سياق) / fork (جلسة جديدة مرتبطة) / block (409 رفض).
-    _bind_check = None
-    _bound_path = ""
-    if session_mgr and getattr(session_mgr, "current_session_id", None):
-        from sessions.store import check_project_binding, project_fingerprint
-        try:
-            _cur = session_mgr.load_session(session_mgr.current_session_id)
-            _bound_path = (_cur or {}).get("project_path", "") or ""
-            _bind_check = check_project_binding(
-                project_fingerprint(_bound_path), abs_path,
-                _session_binding_policy())
-        except ValueError:
-            # سياسة غير معروفة في config = خطأ تهيئة — نفشل بصوت عالٍ
-            raise
-        except Exception:
-            _bind_check = None  # جلسات قديمة/تالفة → تسامح (غير مرتبطة)
-    if _bind_check is not None and _bind_check.action == "block":
-        return jsonify({
-            "ok": False,
-            "error": "الجلسة الحالية مرتبطة بمشروع آخر — التبديل مرفوض (سياسة block)",
-            "binding": {"policy": "block", "bound_project_path": _bound_path},
-        }), 409
-
-    try:
-        # R-102 (T-008): the switch IS ctx.switch_project() — one atomic
-        # swap; every consumer resolves the new handle at its next call.
-        # Legacy globals are re-pointed at the ctx-owned objects (one-way
-        # aliases) until the remaining direct readers migrate.
-        if ctx is not None:
-            handle = ctx.switch_project(abs_path)
-            fm = handle.fm
-            cmd_runner = handle.cmd_runner
-        else:  # ctx-less fallback (tests / legacy boot)
-            fm = FileManager(abs_path)
-            cmd_runner = CommandRunner(cwd=abs_path, auto_approve=True)
-        scan = fm.scan_project()
-
-        # ── R-303 (T-031): تطبيق نتيجة فحص الربط بعد نجاح التبديل ──
-        _binding_info = None
-        if _bind_check is not None and _bind_check.action == "warn":
-            _binding_banner = (
-                f"⚠️ [تنبيه ربط الجلسة]: هذه الجلسة بدأت على المشروع "
-                f"{_bound_path} وتم التبديل إلى {abs_path} — "
-                f"التاريخ السابق قد يخص مشروعًا آخر."
-            )
-            _binding_info = {"policy": "warn", "banner": _binding_banner}
-        elif _bind_check is not None and _bind_check.action == "fork":
-            chat_history = []
-            _new_sess = session_mgr.new_session(abs_path)
-            _binding_banner = ""
-            _binding_info = {"policy": "fork",
-                             "new_session_id": _new_sess["id"]}
-
-        return jsonify({
-            "ok": True,
-            "binding": _binding_info,
-            "project": {
-                "root": str(fm.root),
-                "name": fm.root.name,
-                "total_files": scan["total_files"],
-                "total_size_kb": scan["total_size_kb"],
-            }
-        })
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/new-file", methods=["POST"])
-def api_new_file():
-    """إنشاء ملف جديد فارغ"""
-    data = request.get_json()
-    filepath = data.get("path", "").strip()
-    content = data.get("content", "")
-    if not filepath:
-        return jsonify({"ok": False, "error": "اسم الملف مطلوب"}), 400
-    try:
-        saved = fm.write_file(filepath, content, backup=False)
-        return jsonify({"ok": True, "path": saved})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/new-folder", methods=["POST"])
-def api_new_folder():
-    """إنشاء مجلد جديد"""
-    data = request.get_json()
-    folder_name = data.get("path", "").strip()
-    if not folder_name:
-        return jsonify({"ok": False, "error": "اسم المجلد مطلوب"}), 400
-    try:
-        full = fm._resolve(folder_name)
-        full.mkdir(parents=True, exist_ok=True)
-        return jsonify({"ok": True, "path": folder_name})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/run-file", methods=["POST"])
-def api_run_file():
-    """تشغيل ملف (Python / Node.js / etc)"""
-    data = request.get_json()
-    filepath = data.get("path", "").strip()
-    if not filepath:
-        return jsonify({"ok": False, "error": "مسار الملف مطلوب"}), 400
-
-    # تحديد الأمر حسب الامتداد
-    ext = os.path.splitext(filepath)[1].lower()
-    runners = {
-        ".py": "python",
-        ".js": "node",
-        ".ts": "npx ts-node",
-        ".sh": "bash",
-        ".bat": "cmd /c",
-        ".ps1": "powershell -File",
-    }
-
-    runner = runners.get(ext)
-    if not runner:
-        return jsonify({"ok": False, "error": f"لا يمكن تشغيل ملفات {ext}"}), 400
-
-    command = f"{runner} {filepath}"
-    # TSK-502 (NF-16): نفس راية إلزام الموافقة — راجع _force_command_approval.
-    result = cmd_runner.run(command, need_approval=False, timeout=30,
-                            force_approval=_force_command_approval())
-    return jsonify({"ok": result["success"], **result, "command": command})
-
-
 # ════════════════════════════════════════════════════
 # WebSocket — AI Streaming
 # ════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════
+# REST Blueprints — TSK-613 (ADR-003)
+# 25 route انتقلت إلى حزمة routes/ (أجسام حرفية)؛ تبقى هنا: index
+# (app-level) + api_models/api_switch_model (provider-routing — خارج
+# النطاق §0.8) والمساعدات المشتركة. كل blueprint يستلم كائن هذه
+# الوحدة (sys.modules[__name__]) ويقرأ الحالة (fm/session_mgr/…)
+# حيًّا وقت النداء — نفس دلالة globals الأصلية (late binding).
+# ════════════════════════════════════════════════════
+from routes import (  # noqa: E402  — بعد تعريف app (TSK-613)
+    files as _routes_files,
+    backups as _routes_backups,
+    run as _routes_run,
+    sessions as _routes_sessions,
+    meta as _routes_meta,
+    rollback as _routes_rollback,
+    project as _routes_project,
+)
+
+_SERVER_MODULE = sys.modules[__name__]
+for _routes_mod in (_routes_files, _routes_backups, _routes_run,
+                    _routes_sessions, _routes_meta, _routes_rollback,
+                    _routes_project):
+    _routes_mod.register(app, _SERVER_MODULE)
+
+
 def _build_session_context(ws):
     """T-048 (R-701): موقع التركيب — يبني SessionContext لاتصال WS جديد.
 

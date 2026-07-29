@@ -135,10 +135,16 @@ class TestApiRunEndToEnd:
 # ═══════════════ بنيوي: المواضع الثلاثة موصولة ═══════════════
 
 class TestStructural:
-    """كل مواضع need_approval=False في server.py تمرر الراية."""
+    """كل مواضع need_approval=False (server.py + routes/run.py) تمرر الراية.
+
+    TSK-613 (ADR-003): موضعا api_run/api_run_file انتقلا إلى
+    routes/run.py — نفس الضمانة على الملفين معًا (الراية تُقرأ
+    عبر _srv._force_command_approval() — نفس الدالة حرفيًا).
+    """
 
     def test_all_need_approval_false_sites_pass_flag(self):
-        src = (REPO / "server.py").read_text(encoding="utf-8")
+        src = (REPO / "server.py").read_text(encoding="utf-8") \
+            + (REPO / "routes" / "run.py").read_text(encoding="utf-8")
         lines = src.splitlines()
         # مواضع النداء الفعلية فقط (سطر فيه .run( أو تكملة وسائطه) —
         # ذكر need_approval=False في docstring/تعليق ليس موضع تنفيذ.
@@ -149,7 +155,8 @@ class TestStructural:
             f"عدد مواضع need_approval=False تغيّر: {len(sites)}"
         for i in sites:
             window = "\n".join(lines[i:i + 3])
-            assert "force_approval=_force_command_approval()" in window, \
+            assert "force_approval=_force_command_approval()" in window \
+                or "force_approval=_srv._force_command_approval()" in window, \
                 f"موضع L{i+1} لا يمرر راية force_command_approval:\n{window}"
 
     def test_readme_documents_deployment_limits(self):

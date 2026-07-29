@@ -267,7 +267,9 @@ class TestPerf5k:
 
 class TestStructural:
     def test_api_search_no_scan_project(self):
-        src = (REPO / "server.py").read_text(encoding="utf-8")
+        # TSK-613 (ADR-003): api_search انتقلت إلى routes/files.py —
+        # نفس الضمانة (NF-20) في الموقع الجديد.
+        src = (REPO / "routes" / "files.py").read_text(encoding="utf-8")
         start = src.index("def api_search()")
         end = src.index("def api_read_file", start)
         body = src[start:end]

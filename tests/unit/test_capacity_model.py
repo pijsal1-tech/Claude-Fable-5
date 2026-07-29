@@ -212,7 +212,7 @@ class TestMinAccountsGone:
         cmd = ["grep", "-rn", "--include=*.py",
                "-e", "MIN_ACCOUNTS",
                "chain/", "core/", "providers/", "context/",
-               "sessions/", "server.py"]
+               "sessions/", "routes/", "server.py"]  # TSK-613: +routes/
         proc = subprocess.run(cmd, cwd=REPO_ROOT,
                               capture_output=True, text=True)
         assert proc.returncode == 1, (
