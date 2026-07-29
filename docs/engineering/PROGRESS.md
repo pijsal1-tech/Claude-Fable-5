@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Sessions 61–63 — **TSK-612 ✅ DONE (QG-02 chat_dispatch + ADR-002) — التالي: TSK-613 (QG-03)**) |
+| last-updated | 2026-07-29 (Sessions 64–67 — **TSK-613 ✅ DONE (QG-03 REST blueprints + ADR-003) — التالي: TSK-614 (QG-04)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M8 جارية (2/4: 611،612 ✅)**؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | TSK-613 (التالية — M8، P2 — QG-03 تجميع REST blueprints)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M8 جارية (3/4: 611،612،613 ✅)**؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | TSK-614 (الأخيرة في M8 — P2 — QG-04 توسيع بوابة mypy)؛ بعدها IR-1؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **11/26 TSK** (601..604،606..612 ✅؛ 605/TF-04 تنتظر D-2؛ 613..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **12/26 TSK** (601..604،606..613 ✅؛ 605/TF-04 تنتظر D-2؛ 614..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,11 +37,33 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M8: 2/4 (611،612 ✅)**؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M8 — TSK-613** (التالية: P2 — QG-03 تجميع REST blueprints)؛
+- Stage: EXECUTION (Stage 3 — جارية — **M8: 3/4 (611،612،613 ✅)**؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M8 — TSK-614** (الأخيرة في M8: P2 — QG-04 توسيع بوابة mypy؛ بعدها **IR-1**)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-612 ✅ DONE (Sessions 61–63)** —
+- Last completed step: **TSK-613 ✅ DONE (Sessions 64–67)** —
+  QG-03 (§R8): تجميع REST blueprints — **ADR-003** (حقن كائن وحدة
+  server عبر `register(app, srv)`؛ قراءة `_srv.fm`… حيّة وقت
+  النداء — يحيّد خطر تجميد ازدواجية g5؛ ADR + DECISION_LOG
+  **قبل الكود**)؛ تحقق مسبق من شرط «استقرار g5»: مستقر
+  بصيغة «مقبول موثّق» (NF-03؛ التوحيد مؤجل FI-01) — لا حاجب.
+  حزمة `routes/` (8 ملفات، 633 سطرًا): 7 blueprints موضوعية
+  (files 8 · backups 2 · run 3 · sessions 6 · meta 3 · rollback 2 ·
+  project 1) — **25 دالة بأجسام حرفية** (نقل آلي tokenize —
+  السلاسل النصية مصونة؛ تحقق عكسي سطرًا-بسطر 25/25 = 0
+  فروق)؛ إعادة ربط globals → تعيين سمة (تكافؤ حرفي)؛ تبقى
+  index + api_models + api_switch_model (§0.8) والمساعدات. تكافؤ:
+  smoke 28/28 متطابق قبل/بعد + url_map **30 قاعدة bit-identical**
+  (القبول ✓)؛ **server.py 2596→2118 (−478؛ M8 إجمالي −927)**؛
+  +21 اختبارًا (test_rest_blueprints — تجميد القواعد + الحقن الحي
+  + لا دورة)؛ 4 فحوص بنيوية حُدّثت لنفس الضمانات في routes/
+  (force_approval/search_perf/rollback_ui/capacity_model — الأخير
+  تقوية)؛ gates: mypy نظيف **70 ملفًا** (يشمل routes/) · lint
+  clean · contracts+parity 113 · goldens 32 · عدة التأثير 89/89؛
+  regression junitxml **1812 = 1F/1777P/34S** (theme_tokens/TF-04
+  حصرًا؛ 1791+21=1812 ✓)؛ انحرافات موثّقة (25≠«27»؛ لا memory
+  REST — WS فقط).
+  وقبلها: **TSK-612 ✅ DONE (Sessions 61–63)** —
   QG-02 (§R8): استخراج مسار الإرسال — **ADR-002** (حقن التبعيات
   عبر deps=SimpleNamespace يُبنى في الغلاف **عند كل نداء** — late
   binding يحافظ على monkeypatching الاختبارات على فضاء server

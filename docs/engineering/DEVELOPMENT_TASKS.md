@@ -1051,7 +1051,7 @@
     log + تحديث الفحوص البنيوية).
 
 ### TSK-613 — QG-03: تجميع REST blueprints
-- **Status**: IN PROGRESS (S64–65) · **Priority**: P2 · **Dependencies**: TSK-612 ✅.
+- **Status**: ✅ DONE (S64–67) · **Priority**: P2 · **Dependencies**: TSK-612 ✅.
 - **Objective**: تجميع 27 route في Flask Blueprints موضوعية (rollback/memory/
   project/…) — بعد استقرار قرار g5.
 - **Background**: QG-03 (§R8). · **Acceptance**: كل endpoints تستجيب كما قبل
@@ -1127,6 +1127,47 @@
   metrics-runs) · `routes/rollback.py` (2: history/preview) ·
   `routes/project.py` (1: switch-project). تبقى في server.py: index +
   api_models + api_switch_model (§0.8) = 28 ✓.
+- **Close-out (S65–67)**:
+  - **التنفيذ**: حزمة `routes/` (8 ملفات، 633 سطرًا): `__init__.py` +
+    7 blueprints — كل وحدة تحمل `bp = Blueprint(...)` + `_srv = None` +
+    `register(app, srv)` (حقن كائن وحدة server — قراءة حيّة وقت
+    النداء، ADR-003). النقل آلي بـ tokenize (أسماء SRV → `_srv.X`
+    خارج السلاسل النصية — درس تلف TSK-612 مُطبَّق وقائيًا)؛ عبارات
+    `global` حُذفت وإعادة الربط صارت تعيين سمة (`_srv.chat_history
+    = []` — تكافؤ حرفي). server.py: حذف 25 دالة + كتلة تسجيل
+    `register(app, sys.modules[__name__])` قبل `_build_session_context`.
+  - **تحقق الحرفية آليًا**: مقارنة سطرًا-بسطر معكوسة التحويل
+    (`_srv.` تُنزع + global تُسقط من الأصل) لكل الدوال الـ25 —
+    **0 فروق**. إصلاح وحيد: حذف `import zipfile` وحدوي زائد في
+    backups.py (الجسم الحرفي يستورده محليًا) — pyflakes نظيف.
+  - **تكافؤ سلوكي**: smoke 28 حالة HTTP قبل/بعد (شجرة HEAD^ مقابل
+    الجديدة) — **متطابق 28/28**؛ url_map **30 قاعدة bit-identical**
+    (rule+methods) = معيار القبول «عدد routes ثابت» ✓.
+  - **اختبارات**: +21 (test_rest_blueprints.py — تجميد القواعد الـ30
+    حرفيًا + smoke لا-404/405 + الحقن الحي/إعادة الربط على فضاء
+    server + لا `import server` في routes/)؛ 4 فحوص بنيوية حُدّثت
+    لنفس الضمانات في الموقع الجديد: force_approval (server+routes/run
+    معًا، 3 مواضع)، search_perf (api_search في routes/files)،
+    rollback_ui (GET-only في routes/rollback)، capacity_model
+    (بوابة MIN_ACCOUNTS تشمل routes/ — تقوية).
+  - **Gates (S67 على الشجرة المدموجة f5e0fa3)**: lint clean ·
+    mypy **نظيف 70 ملفًا** (chain+core+context+sessions+**routes**) ·
+    contracts+parity **113/113** · goldens **32/32** · عدة التأثير
+    (blueprints+البنيوية الأربعة+switch+zip_slip) **89/89** ·
+    regression junitxml **1812 = 1F/1777P/34S** (theme_tokens/TF-04
+    حصرًا؛ 1791+21=1812 ✓؛ ملاحظة: test_search_perf::TestPerf5k
+    رسب مرة واحدة في عدة جزئية وينجح منفردًا وفي الكامل — flaky
+    توقيت معروف الطبيعة، ليس بنيويًا).
+  - **Metrics**: server.py **2596 → 2118 (−478)**؛ إجمالي M8 حتى
+    الآن: 3045 → 2118 (**−927**). routes/ = 633 سطرًا.
+  - **انحرافات موثَّقة**: (1) العدد 25 منقولة ≠ «27» النصية —
+    28 فعليًا منها index+models+switch-model تبقى (§0.8)؛ (2) لا
+    «memory» blueprint رغم ذكره في النص — memory REST غير موجود
+    (الذاكرة عبر WS فقط)؛ (3) أسماء endpoints تتغير داخليًا
+    (`files.api_files`) — صفر url_for في المستودع، سطح HTTP ثابت.
+  - **Commits**: 41908fe (أدلة+pre-checks) · a860d44 (ADR-003 +
+    DECISION_LOG قبل الكود) · 75b72f3 (الاستخراج) · ed59219
+    (الاختبارات) — دمج خارجي c534c4c + f5e0fa3.
 
 ### TSK-614 — QG-04: ضم server.py (والوحدات المستخرجة) لبوابة mypy
 - **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-611..613.
@@ -1241,7 +1282,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 610 | M7 | P2 | ✅ DONE (S55–57) | سجل JSONL لكل run منتهٍ + p50/p95 (nearest-rank) + REST قراءة /api/metrics/runs؛ +17 اختبارًا |
 | 611 | M8 | P2 | ✅ DONE (S58–60) | استخراج راوتر WS إلى core/ws_router.py (ADR-001)؛ الكتلة 506→13 سطرًا؛ +10 اختبارات |
 | 612 | M8 | P2 | ✅ DONE (S61–63) | استخراج مسار الإرسال إلى core/chat_dispatch.py (ADR-002)؛ server.py −449 سطرًا؛ mypy نظيف |
-| 613 | M8 | P2 | TODO | بعد 612 |
+| 613 | M8 | P2 | ✅ DONE (S64–67) | تجميع 25 REST route في routes/ (7 blueprints، ADR-003)؛ server.py −478 سطرًا؛ mypy نظيف 70 ملفًا |
 | 614 | M8 | P2 | TODO | بعد 611..613 — يغلق QF-02 |
 | 615 | M9 | P2 | TODO | |
 | 616 | M9 | P2 | TODO | |

@@ -458,3 +458,35 @@
 - Regression (junitxml): **1791 = 1 failed، 1756 passed، 34 skipped**
   (69.8s) — الإخفاق الوحيد theme_tokens (TF-04/D-2)؛ لا انحدار.
 - Metrics: الكتلة 486 → غلاف ~37؛ صفر تغيير في أي إطار.
+
+## TSK-613 — QG-03: تجميع REST routes في blueprints — Sessions 64–67
+
+### Added
+- حزمة `routes/` (8 ملفات، 633 سطرًا): 7 blueprints موضوعية —
+  files (8 routes)، backups (2)، run (3)، sessions (6)، meta (3)،
+  rollback (2)، project (1) — أجسام **حرفية** من server.py (تحقق
+  آلي 25/25 دالة، 0 فروق)؛ نمط `register(app, srv)` بحقن كائن وحدة
+  server وقراءة حيّة `_srv.fm`… وقت النداء (ADR-003 — يحيّد خطر
+  «تجميد ازدواجية g5»؛ إعادة ربط globals = تعيين سمة مكافئ حرفيًا).
+- ADR-003 + قيد DECISION_LOG (قبل الكود — الدستور :1038).
+- `tests/unit/test_rest_blueprints.py` (+21): تجميد url_map الثلاثين
+  حرفيًا + smoke لا-404/405 + الحقن الحي/إعادة الربط + لا دورة.
+
+### Changed
+- server.py: **2596 → 2118 (−478)** — حذف 25 دالة route + كتلة تسجيل
+  blueprints؛ تبقى index + api_models + api_switch_model (§0.8
+  provider-routing — لا تُلمس) والمساعدات المشتركة.
+- 4 فحوص بنيوية → نفس الضمانات في الموقع الجديد: force_approval
+  (server+routes/run، 3 مواضع)، search_perf (routes/files)،
+  rollback_ui (routes/rollback GET-only)، capacity_model (+routes/
+  في بوابة MIN_ACCOUNTS — تقوية).
+
+### Verification
+- تكافؤ سلوكي: smoke 28 حالة HTTP قبل/بعد متطابق 28/28؛ url_map
+  30 قاعدة bit-identical (معيار القبول «عدد routes ثابت» ✓).
+- Gates: mypy نظيف **70 ملفًا** (يشمل routes/) · lint clean ·
+  contracts+parity 113 · goldens 32 · عدة التأثير 89/89.
+- Regression (junitxml): **1812 = 1 failed، 1777 passed، 34 skipped**
+  (73.0s) — الإخفاق الوحيد theme_tokens (TF-04/D-2)؛ 1791+21=1812 ✓.
+- انحرافات موثَّقة: 25 منقولة ≠ «27» النصية (28 فعليًا − 3 باقية)؛
+  لا memory blueprint (لا memory REST — عبر WS فقط).
