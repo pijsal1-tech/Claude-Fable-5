@@ -8,6 +8,7 @@
 ═══════════════════════════════════════════════════════
 """
 from __future__ import annotations
+import inspect
 import logging
 import os
 import pathlib
@@ -815,23 +816,67 @@ def parse_tool_calls(ai_response: str) -> list[ToolCall]:
     return calls
 
 
+def _known_arg_keys() -> frozenset[str]:
+    """TSK-625 (ASF-06): مفاتيح الوسائط الشرعية — تُشتق **حيًّا** من
+    تواقيع أدوات AgentTools._handlers (لا قائمة يدوية تتقادم عند
+    إضافة أداة) + ``reason`` (يُفصل في التفكيك). تُحسب مرة وتُكاش."""
+    global _KNOWN_KEYS_CACHE
+    if _KNOWN_KEYS_CACHE is None:
+        keys: set[str] = {"reason"}
+        for handler in AgentTools._handlers.values():
+            keys.update(inspect.signature(handler).parameters)
+        keys.discard("self")
+        _KNOWN_KEYS_CACHE = frozenset(keys)
+    return _KNOWN_KEYS_CACHE
+
+
+_KNOWN_KEYS_CACHE: frozenset[str] | None = None
+
+
 def _parse_args_body(body: str) -> tuple[dict, str]:
+    """تفكيك جسم بلوك TOOL إلى وسائط — متسامح مع القيم متعددة الأسطر.
+
+    TSK-625 (ASF-06): السلوك القديم أهمل أي سطر بلا ``:`` (بتر صامت
+    للقيم متعددة الأسطر) وفسّر أي ``نص: …`` مفتاحًا (وسيط زائف ⇒
+    TypeError في execute). الآن: سطر يبدأ بمفتاح **شرعي** (من تواقيع
+    الأدوات حيًّا — _known_arg_keys) يفتح وسيطًا جديدًا؛ أي سطر آخر
+    (بلا ``:`` أو مفتاحه غير شرعي) يُطوى في قيمة المفتاح السابق بسطر
+    جديد. الحالات السليمة القديمة (مفاتيح شرعية، قيم سطر واحد،
+    أرقام ⇒ int، reason مفصول) تُفكَّك حرفيًا كما قبل (golden مثبَّت).
+    لا مفتاح سابق ⇒ يُهمَل كما قبل (لا اختراع وسيط).
+    """
+    known = _known_arg_keys()
     args: dict[str, int | str] = {}
     reason = ""
+    current: str | None = None   # آخر مفتاح مفتوح — هدف طي التكملة
+
+    def _fold(text: str) -> None:
+        nonlocal reason
+        if current is None:
+            return
+        if current == "reason":
+            reason = f"{reason}\n{text}" if reason else text
+        else:
+            prev = args.get(current, "")
+            args[current] = f"{prev}\n{text}" if prev != "" else text
+
     for line in body.split("\n"):
         line = line.strip()
-        if not line or ":" not in line:
+        if not line:
             continue
-        key, _, val = line.partition(":")
-        key = key.strip().lower()
+        key, sep, val = line.partition(":")
+        norm = key.strip().lower()
+        if not sep or norm not in known:
+            _fold(line)          # تكملة قيمة متعددة الأسطر
+            continue
         val = val.strip()
-        if key == "reason":
+        current = norm
+        if norm == "reason":
             reason = val
+        elif val.isdigit():
+            args[norm] = int(val)
         else:
-            if val.isdigit():
-                args[key] = int(val)
-            else:
-                args[key] = val
+            args[norm] = val
     return args, reason
 
 
