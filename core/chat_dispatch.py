@@ -23,6 +23,11 @@ import uuid
 from chain.agent_loop import AgentLoop
 from context.budget import CharsPerTokenEstimator
 from core.events import RoutingDecided
+# RP-04/TSK-626: كل مواقع بناء RunRequest في هذا الملف (chain/delegate/
+# agent/direct) لا تمرر proposed_actions عمدًا — فرع الموافقة المسبقة في
+# الـ runners test-only (تصونه عقود RunnerContractMixin) ولا يُحسب طبقة
+# أمان فعلية؛ توصيله بمستهلك إنتاجي = قرار منتج لاحق. (تعليق مقابل عند
+# موقع delegate في server.py.)
 from core.runner import RESULT_COMPLETED, RESULT_FAILED, RunRequest
 from core.strategy import RoutingTier
 from prompts.templates import build_prompt, fence_attached, get_system_prompt

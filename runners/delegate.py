@@ -96,6 +96,11 @@ class DelegateRunner:
                                     RunResult(status=RESULT_CANCELLED), started_at=_t0)
 
             # ── الموافقة عبر البوابة حصريًا (T-012/T-013) ──
+            # عقد (RP-04/TSK-626): هذا الفرع test-only حاليًا — كل مواقع
+            # بناء RunRequest الإنتاجية (server.py:1540 +
+            # core/chat_dispatch.py:245/280/343/449) لا تمرر
+            # proposed_actions؛ المستهلك الوحيد عقود RunnerContractMixin.
+            # لا يُحسب طبقة أمان فعلية؛ يُصان كمجال توسعة (worker.py T-110).
             if request.proposed_actions:
                 if request.approval_gate is None:
                     stream.emit(EVENT_APPROVAL_VERDICT, approved=False,

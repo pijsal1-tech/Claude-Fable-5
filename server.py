@@ -1530,6 +1530,10 @@ def _ws_delegate_message(ctx, sctx, msg):
     if delegate_msg_ticket is None:
         return
 
+    # RP-04/TSK-626: RunRequest هنا (وفي core/chat_dispatch.py:245/280/
+    # 343/449) لا يمرر proposed_actions عمدًا — فرع الموافقة المسبقة في
+    # الـ runners test-only (تصونه عقود RunnerContractMixin) ولا يُحسب
+    # طبقة أمان فعلية؛ توصيله بمستهلك إنتاجي = قرار منتج لاحق.
     threading.Thread(
         target=RUNNERS["delegate"](bridge=sctx.delegate_bridge).run,
         args=(
