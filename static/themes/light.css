@@ -94,4 +94,47 @@
     --icon-file: #8c8fa1;
     --icon-badge-fg: #ffffff;
     --icon-js-fg: #000000;
+
+    /* ── v25 redesign palette — TSK-605/TF-04 (S83): tokenized from
+       raw literals in style.css/index.html; same values in every theme
+       (behavior preservation — v25 sections were never theme-aware) ── */
+    --v25-bg-deep: #090910;
+    --v25-bg-panel: #0d0d14;
+    --v25-bg-raised: #11111a;
+    --v25-bg-input: #11111b;
+    --v25-bg-header: #161624;
+    --v25-bg-elevated: #181824;
+    --v25-slate-900: #0f172a;
+    --v25-slate-600: #475569;
+    --v25-slate-500: #64748b;
+    --v25-slate-400: #94a3b8;
+    --v25-slate-300: #cbd5e1;
+    --v25-slate-200: #e2e8f0;
+    --v25-slate-100: #f1f5f9;
+    --v25-slate-50: #f8fafc;
+    --v25-purple: #8b5cf6;
+    --v25-purple-light: #a78bfa;
+    --v25-purple-bright: #c084fc;
+    --v25-purple-vivid: #a855f7;
+    --v25-cyan: #38bdf8;
+    --v25-cyan-deep: #06b6d4;
+    --v25-green: #10b981;
+    --v25-green-light: #6ee7b7;
+    --v25-danger: #c0392b;
+    --v25-danger-hover: #e74c3c;
+    --v25-white: #ffffff;
+    --v25-black: #000000;
+
+    /* ── Tango palette — terminal notification gradients (14%/35%) ── */
+    --tango-green-dark: #4e9a06;
+    --tango-blue: #3465a4;
+    --tango-blue-light: #729fcf;
+    --tango-blue-dark: #204a87;
+    --tango-yellow: #edd400;
+    --tango-yellow-light: #fce94f;
+    --tango-orange-light: #fcaf3e;
+    --tango-orange-dark: #e2491f;
+    --tango-plum: #75507b;
+    --tango-plum-light: #ad7fa8;
+    --tango-plum-dark: #5c3566;
 }

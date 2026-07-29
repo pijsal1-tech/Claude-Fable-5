@@ -364,6 +364,61 @@
   - **المتبقي لإغلاق التاسك**: TF-04 — تطبيق قرار D-2 (التوصية:
     baseline-allowlist مؤرَّخ في test_theme_tokens + سطر دين tokenization
     في TECHNICAL_DEBT.md) — ثم القبول الكامل: pytest tests = 0 failed.
+- **قرار المالك D-2 وصل (Session 83)**: **tokenization كاملة** — يتجاوز
+  توصية الـ baseline-allowlist صراحةً («Complete the full v25 color
+  tokenization instead of creating a baseline allowlist»). تكييف القبول:
+  بند «سطر دين مؤرَّخ لـ TF-04 في TECHNICAL_DEBT.md» كان خاصًا بمسار
+  الـ baseline (الدين = tokenization مؤجَّلة)؛ مع مسار tokenization
+  الكامل **لا يوجد دين ليُسجَّل** — الملف TECHNICAL_DEBT.md غير موجود
+  في المستودع أصلًا (ls S78) ولن يُنشأ لدينٍ غير قائم. بند «حجم baseline
+  يُسجَّل رقمًا» يسقط بالمثل (لا baseline). مسجَّل في DECISION_LOG.
+- **Evidence (Session 83) — إحصاء المخالفات والقيود**:
+  - المخالفون (نفس regex الحارس `#hex|rgba?(|hsla?(`): **131 سطرًا** —
+    static/style.css **127** (138 موضع لونٍ خام، **72 قيمة فريدة**) +
+    static/index.html **4** (:95/:96/:99/:100 —
+    `stop-color="#8b5cf6"`/`"#06b6d4"` في تدرّجي SVG).
+  - لا ملفات أخرى مخالفة تحت static/ أو public/ (grep -rl مطابق للحارس).
+  - قيود الحارس (tests/unit/test_theme_tokens.py): tokens.css بنيوية
+    فقط بلا ألوان خام (:52)؛ تكافؤ التوكنز الصارم (ناقص **وزائد**) بين
+    dark.css و**كل** الثيمات الأربعة light/high-contrast/monokai
+    (:59، :203)؛ snapshot حرفي لـ 23 قيمة dark قائمة (:83 —
+    الإضافة مسموحة، تغيير القائم ممنوع)؛ style.css يجوز أن يعرّف
+    توكنز محلية (:73) لكن بلا ألوان خام؛ WCAG AA يفحص أزواج
+    text/bg الأساسية فقط (:225) — التوكنز الجديدة خارج أزواجه.
+  - كل ثيم من الأربعة يعرّف 68 توكنًا حاليًا (grep -c S83).
+  - 6 من مواضع `#7c6af7` كلها fallbacks ميتة `var(--accent, #7c6af7)`
+    (style.css:2965/2966/3022/3023/3039/3048) — `--accent` معرَّف دومًا
+    في tokens.css:57 فالـ fallback لا يُقرأ أبدًا؛ حذفه صفر سلوك.
+  - بوابة check.sh:102–106 تنص على صيغتي الاستهلاك المسموحتين:
+    `var(--token)` أو `color-mix(in srgb, var(--token) N%, transparent)`
+    — وcolor-mix مستعملة فعلًا في style.css (2966/3023/3048).
+- **Behavior-preservation pre-check — جزء TF-04 (Session 83)**:
+  - Current: 138 لونًا خامًا في style.css + 4 في index.html تُصيَّر
+    بقيمها الحرفية في **كل** الثيمات (أقسام v25 داكنة الشكل حتى تحت
+    الثيم الفاتح — هذا هو السلوك القائم).
+  - Expected: **تطابق بصري bit-identical في كل ثيم** — التوكنز الجديدة
+    تُعرَّف **بنفس القيم الحرفية في الملفات الأربعة** (لوحة v25 ليست
+    theme-aware اليوم؛ جعلها كذلك = قرار تصميم منتج خارج الاستقلالية —
+    لا يُتَّخذ هنا). الشفافيات تتحول إلى
+    `color-mix(in srgb, var(--x) N%, transparent)` وهي مكافئة حسابيًا
+    لـ `rgba(r,g,b,N/100)` في srgb (نفس القناة اللونية بألفا N%).
+    fallbacks `var(--accent, #7c6af7)` تُحذف (ميتة). SVG stops تتحول
+    من السمة `stop-color="#hex"` إلى `style="stop-color:var(--x)"` —
+    نفس الخاصية التقديمية بنفس القيمة عبر CSS بدل السمة.
+  - snapshot الـ dark (23 قيمة) لا يُمَسّ — إضافات فقط.
+- **Architecture-Fitness pre-check — جزء TF-04 (Session 83)**:
+  - مخطط التسمية (يمتد عقد tokens.css الرأسي): مجموعة `--v25-*`
+    (لوحة إعادة تصميم v25: slate scale/purples/cyans/greens/danger/
+    أسطح داكنة/white/black) + مجموعة `--tango-*` (11 لون GNOME Tango
+    لتدرّجات إشعارات الطرفية — تُستهلك بـ 14%/35% فقط). يُضاف السطران
+    لعقد التسمية في رأس tokens.css (تعليق بلا ألوان).
+  - موضع التعريف: ملفات اللوحات الأربعة (وليس tokens.css — بنيوية
+    فقط بأمر الحارس)، بنفس القيم، فيبقى التكافؤ الصارم قائمًا
+    (68 → 105 توكنًا لكل ثيم).
+  - لا ADR جديد: لا قرار معماري — تطبيق آلي لعقد T-060 القائم على
+    بقايا v25؛ سجلات التاسك + DECISION_LOG (قيد قرار المالك D-2) تكفي.
+  - المخاطرة الوحيدة: خطأ نقل قيمة → يلتقطه العرض لا الاختبارات؛
+    التخفيف: تحويل آلي بجدول قيمة→توكن + مراجعة grep صفرية بعده.
 
 ## M7 — Responsiveness & Guardrails (P2 الجذور التشغيلية)
 
