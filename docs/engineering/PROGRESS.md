@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Session 83 — **قرارات المالك وصلت: D-2 tokenization ✅ TSK-605 (أول 0F + M6 مغلقة) + D-1 ✅ TSK-617؛ Stage 3 = 24/26؛ التالي TSK-622 ثم 623 ثم IR-2 ومسح الديون**) |
-| stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M10 جارية (3/4 — 623 محجوبة D-3)**؛ M9 (6/8 — 622/617 محجوبان)؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | **لا مهمة غير-محجوبة متبقية** — الأربع المتبقية تنتظر قرارات المالك: 605/TF-04←D-2، 617←D-1، 622←M6/D-4، 623←D-3؛ بعد إغلاق M10 كاملة ← IR-2 |
+| last-updated | 2026-07-29 (Session 83 — **البرنامج مُقفل 🏁: Stage 3 = 26/26 — D-2←605 ✅، D-1←617 ✅، D-4←622 ✅ (RRR re-vote: GO)، D-3←623 ✅ (أرشفة)؛ M6–M10 كلها مغلقة؛ IR-2 مسجلة؛ مسح الديون = صفر**) |
+| stage | **EXECUTION (Stage 3 — مُقفلة 🏁 26/26)** — والبرنامج السابق v4.1 مُقفل (أرشيف أدناه) |
+| current-phase | Stage 3 EXECUTION مُقفلة — **M6 (5/5) + M7 (5/5) + M8 (4/4) + M9 (8/8) + M10 (4/4) كلها 🏁**؛ IR-1 ✅ + IR-2 ✅ (DECISION_LOG) |
+| current-task | **لا مهمة متبقية** — 26/26 ✅؛ صفر TODO/BLOCKED/دين غير موثَّق (مسح S83)؛ المتبقي حصريًا backlog اختياري موثَّق (FUTURE_IMPROVEMENTS + CP-4 مؤجل بقرار IR-1) — أي دفعة قادمة تبدأ بمراجعته مع المالك (قرار IR-2) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **22/26 TSK** (601..604،606..616،618..621،624..626 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 622 تنتظر M6/D-4؛ 623 تنتظر D-3) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
