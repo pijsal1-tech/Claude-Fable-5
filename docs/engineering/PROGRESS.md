@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Sessions 64–67 — **TSK-613 ✅ DONE (QG-03 REST blueprints + ADR-003) — التالي: TSK-614 (QG-04)**) |
+| last-updated | 2026-07-29 (Sessions 68–70 — **TSK-614 ✅ DONE (QG-04 بوابة mypy موسعة + ADR-004) ⇒ M8 مكتملة 4/4 ⇒ IR-1 مسجلة — التالي: M9/TSK-615**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M8 جارية (3/4: 611،612،613 ✅)**؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | TSK-614 (الأخيرة في M8 — P2 — QG-04 توسيع بوابة mypy)؛ بعدها IR-1؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M8 مكتملة (4/4) 🏁 + IR-1 مسجلة**؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | **TSK-615** (أولى M9 — P2 — ApprovalGate طلبات متزامنة)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **12/26 TSK** (601..604،606..613 ✅؛ 605/TF-04 تنتظر D-2؛ 614..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **13/26 TSK** (601..604،606..614 ✅؛ 605/TF-04 تنتظر D-2؛ 615..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,11 +37,34 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M8: 3/4 (611،612،613 ✅)**؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M8 — TSK-614** (الأخيرة في M8: P2 — QG-04 توسيع بوابة mypy؛ بعدها **IR-1**)؛
+- Stage: EXECUTION (Stage 3 — جارية — **M8 مكتملة 4/4 🏁 + IR-1 ✅**؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M9 — TSK-615** (أولى M9: P2 — ApprovalGate طلبات متزامنة)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-613 ✅ DONE (Sessions 64–67)** —
+- Last completed step: **TSK-614 ✅ DONE (Sessions 68–70) ⇒ M8 مكتملة 4/4 ⇒ IR-1 مسجلة في DECISION_LOG** —
+  QG-04 (§R8): توسيع بوابة mypy — **ADR-004** (قبل الكود):
+  `--check-untyped-defs` (الأدلة أثبتت أن الافتراضي لا يفحص
+  أجسام الدوال غير المُعنونة — النداء المدسوس يفلت والقبول
+  يسقط) + استبعاد `providers/openai_shelby.py` وحده (خطأ قائم
+  §0.8) + ضم routes/ + server.py ⇒ **Success — 81 ملفًا،
+  exit=0**؛ تصفير 129 خطأ لا-سلوكيًا (`_srv: Any` ×7؛ 16
+  sentinel ignore؛ RUNNERS/frame/cfg/provider تعنوينات)؛ الفحص
+  الموسع كشف علّتين حقيقيتين أُصلحتا: **NF-25** (انحدار 612:
+  provider_pool/approval_gate غير معرّفتين في chat_dispatch ⇒
+  NameError بمسار agent — حُقنا في deps) و**NF-26** (منذ
+  0d74dad: تقطيع dict بـ attach المجلد ⇒ تدهور صامت — أُصلح
+  بـ items())؛ إكمال Protocol RegistryBackend بـ purge_terminal؛
+  الاختبار السلبي الموثق نُفّذ بطريقتين (دائم في
+  test_mypy_gate_614.py + زرع فعلي في routes/meta.py → exit=1
+  ثم استعيد)؛ +10 اختبارات؛ gates: check.sh أخضر حتى color
+  lint (TF-04/D-2 حصرًا) · contracts+parity 113 · goldens 32 ·
+  متأثرة 104 · regression junitxml **1822 = 1F/1787P/34S**
+  (theme_tokens حصرًا؛ 1812+10=1822 ✓)؛ QF-02 مغلقة. **IR-1**:
+  السؤال المحوري — التفكيك كافٍ، لا worker/process (المنتج
+  local-first أحادي المستخدم؛ server.py 3045→2132 = −30%؛
+  الخيوط محكومة بـ ExecutionRegistry)؛ CP-4 يبقى مؤجلًا؛ CP-6
+  محسوم بـ RP-01 ✅ (TSK-601) — مسجلة في DECISION_LOG.
+  وقبلها: **TSK-613 ✅ DONE (Sessions 64–67)** —
   QG-03 (§R8): تجميع REST blueprints — **ADR-003** (حقن كائن وحدة
   server عبر `register(app, srv)`؛ قراءة `_srv.fm`… حيّة وقت
   النداء — يحيّد خطر تجميد ازدواجية g5؛ ADR + DECISION_LOG

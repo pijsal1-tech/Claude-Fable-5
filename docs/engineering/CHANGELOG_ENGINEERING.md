@@ -490,3 +490,35 @@
   (73.0s) — الإخفاق الوحيد theme_tokens (TF-04/D-2)؛ 1791+21=1812 ✓.
 - انحرافات موثَّقة: 25 منقولة ≠ «27» النصية (28 فعليًا − 3 باقية)؛
   لا memory blueprint (لا memory REST — عبر WS فقط).
+
+## TSK-614 — QG-04: توسيع بوابة mypy إلى routes/ + server.py — Sessions 69–70
+
+### Added
+- `tests/unit/test_mypy_gate_614.py` (10 اختبارات): بنية سطر البوابة؛
+  **الاختبار السلبي الموثق** (نداء مدسوس في def غير مُعنون = exit 1
+  بأعلام البوابة / يفلت بدونها)؛ NF-25 (حقن واستهلاك deps + فحص AST)؛
+  NF-26 وظيفيًا (attach يسلّم محتوى مسيَّجًا + سقف 15).
+- ADR-004 + قيد DECISION_LOG (قبل الكود): تصميم البوابة —
+  `--check-untyped-defs` (بدونه أجسام غير مُعنونة لا تُفحص والقبول
+  يسقط) + استبعاد `providers/openai_shelby.py` وحده (خطأ قائم §0.8).
+- `RegistryBackend.purge_terminal` في العقد (core/backends.py) —
+  السطح مستخدم فعليًا منذ TSK-303.
+
+### Changed
+- `scripts/check.sh`: سطر البوابة الجديد (علم + استبعاد + نطاق كامل).
+- تعنوينات لا-سلوكية: `_srv: Any` في 7 ملفات routes (يصفّر 79 خطأ)؛
+  16 sentinel `# type: ignore[assignment]` + `RUNNERS`/`frame`/`cfg`/
+  `provider_config`/`provider` في server.py (يصفّر 28).
+- **إصلاح NF-25** (انحدار TSK-612): `provider_pool`/`approval_gate`
+  حُقنا في deps واستُهلكا عبر `deps.` — مسار agent عبر dispatch كان
+  يرمي NameError.
+- **إصلاح NF-26** (قائم منذ 0d74dad): استهلاك dict الصحيح في attach
+  المجلد (`list(scanned_files.items())[:15]`) — كان يتدهور صامتًا.
+
+### Verification
+- mypy بسطر البوابة: **Success — 81 ملفًا، exit=0**؛ الاختبار السلبي
+  زُرع فعليًا في routes/meta.py → exit=1 ثم استُعيد.
+- check.sh: أخضر حتى color lint (TF-04/D-2 المعروف حصرًا).
+- contracts+parity 113 · goldens+ws_router 32 · متأثرة 104 · lint
+  نظيف · Regression junitxml: **1822 = 1F/1787P/34S** (69.7s؛
+  theme_tokens حصرًا؛ 1812+10=1822 ✓).

@@ -1176,7 +1176,7 @@
     (الاختبارات) — دمج خارجي c534c4c + f5e0fa3.
 
 ### TSK-614 — QG-04: ضم server.py (والوحدات المستخرجة) لبوابة mypy
-- **Status**: IN PROGRESS (S69) · **Priority**: P2 · **Dependencies**: TSK-611..613.
+- **Status**: ✅ DONE (S69–70) · **Priority**: P2 · **Dependencies**: TSK-611..613.
 - **Objective**: توسيع نطاق mypy في check.sh ليشمل الوحدات المستخرجة ثم
   server.py المتبقي — إغلاق QF-02 (عيوب كـ RP-01 تُلتقط ساكنًا).
 - **Background**: QG-04 + QF-02 (§R8)؛ RP-01 كدليل الكلفة.
@@ -1259,6 +1259,64 @@
   جديدة ولا اتجاه استيراد جديد؛ providers/ لا يُمس (استبعاد ملف
   واحد من الفحص فقط). تغيير تصميم البوابة (علم + استبعاد + نطاق)
   قرار بنيوي يلزمه **ADR-004 + قيد DECISION_LOG قبل الكود**.
+- **Close-out (S69–70)**:
+  - **ما نُفّذ** (ADR-004):
+    - **check.sh (سطر البوابة)**: `--check-untyped-defs` +
+      `--exclude 'providers/openai_shelby\.py'` + ضم `routes/
+      server.py` — تعليق موسّع يوثّق لماذا العلم إلزامي ولماذا
+      الاستبعاد مفرد (§0.8) ومتى يُرفع.
+    - **تصفير الأخطاء الـ129 (لا-سلوكيًا)**: `_srv: Any = None` +
+      استيراد typing في 7 ملفات routes (يصفّر 79)؛
+      `# type: ignore[assignment]` معلَّق على 16 sentinel global
+      في server.py (نمط `X: Type = None` تُملأ في main)؛
+      `RUNNERS: dict[str, Any]`؛ `frame: dict[str, Any]`؛
+      `cfg: Any` (api_switch_model) + `provider_config: Any`
+      (main)؛ `provider: Any = None` عند التعريف الوحدوي :137
+      (تعنوينه محليًا في main مستحيل — SyntaxError «annotated
+      name can't be global»، اكتُشف وأُصلح أثناء التنفيذ)؛
+      ignore مفرد لكاش `fm._api_search_index` الديناميكي المتعمد.
+    - **إصلاح NF-25** (استعادة دلالة ما قبل 612): حقن
+      `provider_pool` و`approval_gate` في deps (server.py:1097)
+      + `deps.` في chat_dispatch.py:306,307,332 — pyflakes نظيف.
+    - **إصلاح NF-26** (استعادة سلوك TSK-404 المقصود):
+      `for rel_p, content in list(scanned_files.items())[:15]` —
+      المحتوى يصل مسيَّجًا بدل التدهور الصامت.
+    - **إكمال Protocol RegistryBackend**: `purge_terminal(keep_last
+      =50) -> int` (core/backends.py) — السطح المستخدم منذ TSK-303.
+  - **الاختبار السلبي الموثق (القبول)**:
+    `tests/unit/test_mypy_gate_614.py::TestNegativePlantedCall` —
+    نداء `_tsk614_nonexistent_function()` داخل def غير مُعنون
+    (نمط دوال routes الفعلي): بأعلام البوابة **exit=1 +
+    [name-defined]**؛ بدون العلم **exit=0** (يوثّق لماذا العلم
+    شرط القبول). نُفّذ أيضًا يدويًا بزرع النداء في routes/meta.py
+    الحقيقي: البوابة الكاملة exit=1 على 81 ملفًا ثم استُعيد الملف.
+  - **اختبارات جديدة (10)**: بنية سطر البوابة (3) + السلبي (2) +
+    NF-25 حقن واستهلاك وAST-لا-أسماء-عارية (3) + NF-26 وظيفيًا:
+    attach يسلّم المحتوى مسيَّجًا + سقف 15 ملفًا (2).
+  - **Gates (S70، على الشجرة المدموجة 3c516b6)**:
+    - **mypy (سطر البوابة الجديد): Success — 81 ملفًا، exit=0**.
+    - check.sh كاملًا: كل الأقسام خضراء حتى color lint (TF-04/D-2
+      المعروف — 127 لونًا خامًا في style.css، خارج هذه المهمة).
+    - lint_handler_state نظيف · contracts+parity **113** ·
+      goldens+ws_router **32** · المتأثرة (614+blueprints+
+      force_approval+fencing+scan_start+instr609+backends+
+      except_narrowing) **104** — صفر إخفاقات.
+    - Regression junitxml: **1822 = 1 failed / 1787 passed / 34
+      skipped** (69.7s) — الإخفاق الوحيد theme_tokens (TF-04/D-2)؛
+      1812+10 = 1822 ✓ لا انحدار.
+  - **Metrics (القبول)**: نطاق mypy 73→**81 ملفًا مفحوصًا** (+routes/
+    +server.py −openai_shelby) وبعمق أكبر (أجسام غير مُعنونة تُفحص
+    أول مرة)؛ QF-02 مغلقة — عيوب كـ RP-01/NF-25/NF-26 تُلتقط
+    ساكنًا (وقد التقط الفحصُ علّتين فعليتين قبل أي مستخدم)؛
+    check.sh قابل للنجاح حتى بوابة الألوان أول مرة منذ دخول خطأ
+    providers القائم.
+  - **انحرافات موثّقة**: (1) القبول تطلّب علمًا لا مجرد توسيع قائمة
+    (الأدلة أثبتت أن التوسيع وحده بوابة شكلية)؛ (2) علّتان حقيقيتان
+    أُصلحتا ضمن المهمة (NF-25 انحدار 612، NF-26 قائمة منذ 0d74dad)
+    — كلاهما ضمن سطح المهمة (أخطاء كشفها الفحص الموسع نفسه).
+  - **Commits**: db46952 (أدلة+pre-checks+NF-25/26) · ea28700
+    (ADR-004 + DECISION_LOG قبل الكود) · 151f2e0 (التنفيذ
+    والاختبارات — دمج خارجي 3c516b6).
 
 ## M9 — Exposure & Consent Surface (حزمة الإظهار + بقايا الأمان)
 
@@ -1365,7 +1423,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 611 | M8 | P2 | ✅ DONE (S58–60) | استخراج راوتر WS إلى core/ws_router.py (ADR-001)؛ الكتلة 506→13 سطرًا؛ +10 اختبارات |
 | 612 | M8 | P2 | ✅ DONE (S61–63) | استخراج مسار الإرسال إلى core/chat_dispatch.py (ADR-002)؛ server.py −449 سطرًا؛ mypy نظيف |
 | 613 | M8 | P2 | ✅ DONE (S64–67) | تجميع 25 REST route في routes/ (7 blueprints، ADR-003)؛ server.py −478 سطرًا؛ mypy نظيف 70 ملفًا |
-| 614 | M8 | P2 | TODO | بعد 611..613 — يغلق QF-02 |
+| 614 | M8 | P2 | ✅ DONE (S69–70) | بوابة mypy موسعة (+routes/ +server.py، --check-untyped-defs، ADR-004)؛ 81 ملفًا Success؛ أغلقت QF-02 وكشفت NF-25/NF-26 وأصلحتهما |
 | 615 | M9 | P2 | TODO | |
 | 616 | M9 | P2 | TODO | |
 | 617 | M9 | P2 | BLOCKED(D-1) | |
