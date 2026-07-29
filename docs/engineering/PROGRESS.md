@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Session 77 — **TSK-625 ✅ DONE (صلابة _parse_args_body: تفكيك متسامح متعدد الأسطر + مفاتيح شرعية حيّة — ASF-06 مغلق) — التالي: TSK-624 (retro-ADR لإعادة تصميم v25)**) |
+| last-updated | 2026-07-29 (Session 78 — **TSK-624 ✅ DONE (retro-ADR لإعادة تصميم v25: ADR-005 + قيد Decision Log — TD-04 مغلق) — التالي: TSK-626 (قرار proposed_actions — RP-04)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M10 جارية (1/4 — 623 محجوبة D-3)**؛ M9 (6/8 — 622/617 محجوبان)؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | **TSK-624** (M10 — P3 — retro-ADR لإعادة تصميم v25 — TD-04)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M10 جارية (2/4 — 623 محجوبة D-3)**؛ M9 (6/8 — 622/617 محجوبان)؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | **TSK-626** (M10 — P3 — قرار proposed_actions — RP-04)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **20/26 TSK** (601..604،606..616،618..621،625 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 622/623/624/626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **21/26 TSK** (601..604،606..616،618..621،624،625 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 622/623/626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,13 +37,24 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M10: 1/4**؛ M9: 6/8 (المتبقي محجوب)؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M10 — TSK-624** (P3 — retro-ADR
-  لإعادة تصميم v25 — TD-04؛ التالي غير-المحجوب: 622 تنتظر M6/D-4،
-  617 تنتظر D-1، 623 تنتظر D-3؛ يبقى بعدها 626)؛ TSK-605 تبقى
+- Stage: EXECUTION (Stage 3 — جارية — **M10: 2/4**؛ M9: 6/8 (المتبقي محجوب)؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M10 — TSK-626** (P3 — قرار
+  proposed_actions — RP-04؛ **آخر مهمة غير-محجوبة**: 622 تنتظر
+  M6/D-4، 617 تنتظر D-1، 623 تنتظر D-3)؛ TSK-605 تبقى
   مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد لخضرة البوابة
   الكاملة 0F)
-- Last completed step: **TSK-625 ✅ DONE (Session 77 — M10: 1/4)** —
+- Last completed step: **TSK-624 ✅ DONE (Session 78 — M10: 2/4)** —
+  retro-ADR لإعادة تصميم v25 (TD-04): مقطع **ADR-005** مُلحق بـ
+  ARCHITECTURE_DECISIONS.md (بنية بيتية؛ موسوم «retroactive
+  record»؛ الدوافع الأصلية UNKNOWN) — النطاق بالأدلة من git
+  (0d74dad/2ed794f/8235147/454f7ac — 1877 insertions في static/)،
+  الأثر (كسر TF-01/TF-03/TF-04 + تعمية البوابة TF-05)، كيف أُصلحت
+  (TF-01/03 → TSK-604 ✅ زرا وكيلان + سطر الترخيص؛ TF-04 معلّق
+  D-2 موثَّقًا كحدّ صريح) + قيد استرجاعي موسوم retro في
+  DECISION_LOG.md. توثيق صرف — صفر لمس كود؛ regression بلا تغيير
+  **1900 = 1F/1865P/34S** (theme_tokens/TF-04/D-2 حصرًا).
+  **TD-04 مغلق** (آخر بند R10.3 المفتوح).
+- Previous step: **TSK-625 ✅ DONE (Session 77 — M10: 1/4)** —
   صلابة _parse_args_body (ASF-06): تفكيك متسامح — سطر يبدأ بمفتاح
   شرعي يفتح وسيطًا؛ أي سطر آخر يُطوى في قيمة المفتاح السابق (بدل
   البتر الصامت/الوسيط الزائف المثبتين بالتشغيل في §TSK-625)؛
@@ -377,23 +388,25 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-624** (M10، P3 — TD-04): retro-ADR
-  لإعادة تصميم v25 — توثيق قرار إعادة التصميم في ملف ADR + قيد
-  Decision Log. القبول: ملف ADR يشرح النطاق والأثر والحرّاس
-  المكسورة وكيف أُصلحت. المرجع: §TSK-624 في DEVELOPMENT_TASKS.md.
-  اختيار الأولوية: آخر غير-محجوب مع TSK-626 (622 تنتظر M6/D-4؛
-  617 تنتظر D-1؛ 623 تنتظر D-3)؛ 624 قبل 626 لأنه يوثّق دينًا
-  أقدم (TD-04) بمواد جاهزة في السجلات.
-  الدورة القياسية (مهمة توثيقية): أدلة أولًا (TD-04 في
-  MASTER_REVIEW/TECHNICAL_DEBT بأرقام أسطر؛ الحرّاس المكسورة —
-  TF-01/TF-03/RP-01 وإصلاحاتها الموثقة في TSK-604/618؛ نمط ADRs
-  القائمة docs/engineering/adr/ — ADR-001..004) + سجل حفظ السلوك
-  (توثيق فقط — صفر لمس كود) + Fitness pre-check في §TSK-624 —
-  **commit قبل الملف**. بعد الإغلاق: Close-out + جدول الحالة +
-  CHANGELOG + PROGRESS + commit محلي. خط الانحدار المرجعي
-  الحالي: **1900 = 1F/1865P/34S** (theme_tokens/TF-04 حصرًا +
-  test_search_perf معروف flaky على عتاد مشترك — يعاد تشغيله
-  معزولًا عند فشله).
+- Next action: **بدء TSK-626** (M10، P3 — RP-04): قرار
+  proposed_actions — توثيق الفرع test-only أو توصيله بمستهلك.
+  القبول: سطر عقد موثق في runners + تعليق في server.py.
+  المرجع: §TSK-626 في DEVELOPMENT_TASKS.md + RP-04 في
+  MASTER_REVIEW (§R7). اختيار الأولوية: **آخر مهمة غير-محجوبة**
+  (622 تنتظر M6/D-4؛ 617 تنتظر D-1؛ 623 تنتظر D-3؛ 605/TF-04
+  تنتظر D-2). الدورة القياسية: أدلة أولًا (موضع proposed_actions
+  في runners/server.py بأرقام أسطر + إثبات test-only بـ grep
+  للمستهلكين + نص RP-04 الأصلي) + Behavior-preservation pre-check
+  (المسار الظاهر توثيقي: سطر عقد + تعليق — إن ظهر خيار «توصيل
+  بمستهلك» فهو تغيير سلوكي ⇒ **قرار منتج يُرفع للمالك، لا يُتخذ
+  ذاتيًا**؛ التوصية الافتراضية: توثيق الفرع test-only) + Fitness
+  pre-check في §TSK-626 — **commit قبل التعديل**. بعد الإغلاق:
+  Close-out + جدول الحالة + CHANGELOG + PROGRESS + commit محلي.
+  خط الانحدار المرجعي الحالي: **1900 = 1F/1865P/34S**
+  (theme_tokens/TF-04 حصرًا + test_search_perf معروف flaky على
+  عتاد مشترك — يعاد تشغيله معزولًا عند فشله). بعد 626: كل المتبقي
+  محجوب على قرارات المالك (D-1/D-2/D-3/D-4) — ثم IR-2 بعد إغلاق
+  M10.
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -960,6 +973,31 @@
   CHANGELOG (commit 686ac90) + تحديث PROGRESS (هذا القيد) + commit
   محلي · الموقع → **M9/TSK-620** (سرد الجلسة — CP-8/UXF-05،
   التبعية 610 ✅)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-29 — Session 78 — TSK-624 ✅ (M10: 2/4)**:
+  استرداد بعد reset: origin تقدم إلى 69bbf64 (دمج المستخدم التقط
+  إغلاق S77: 1976b72 + 0716ec1 — تحقق grep: Session 77 في
+  PROGRESS، 625 DONE في الجدول، 26 عنوانًا) → **أدلة TSK-624**
+  (commit c3ebfc2 قبل الملف): TD-04 في MASTER_REVIEW:679/:730؛
+  نطاق v25 من git (0d74dad نواة 1877 insertions + 2ed794f +
+  8235147 + 454f7ac؛ الوسوم الحية ?v=25 وsprite «v25 Modern
+  Edition»)؛ الحرّاس الثلاثة المكسورة **TF-01/TF-03/TF-04**
+  (§R10.1:651–663 — لا RP-01: ذلك كسر مستقل) + TF-05 تعمية
+  البوابة؛ الإصلاحات TSK-604 ✅/TSK-605 (TF-04 معلّق D-2)؛
+  **تصحيح افتراض الخطة**: لا مجلد adr/ — النمط البيتي مقاطع داخل
+  ARCHITECTURE_DECISIONS.md → **التنفيذ**: مقطع **ADR-005**
+  (Context بنطاق git/الأثر/كيف أُصلحت/Alternatives rejected/
+  Trade-offs/Status «Accepted — retroactive record»؛ الدوافع
+  الأصلية UNKNOWN — لا اختراع رشيد) + قيد retro في DECISION_LOG
+  (تاريخ القيد = تاريخ التوثيق) — commit f23ed91 · Gates:
+  Documentation ✅ · Regression ✅ junitxml **1900 = 1F/1865P/34S
+  80.4s** (بلا تغيير — توثيق صرف؛ theme_tokens/TF-04/D-2 حصرًا)
+  → Close-out + جدول 624→DONE + CHANGELOG (commit a5ead62) —
+  reset ثانٍ قطع الجلسة قبل تحديث PROGRESS؛ دمج المستخدم
+  (c2120ca) التقط الثلاثة كاملة → استُكمل PROGRESS (هذا القيد) +
+  commit محلي · **TD-04 مغلق** (آخر بند R10.3) · الموقع →
+  **M10/TSK-626** (قرار proposed_actions — RP-04؛ آخر غير-محجوبة؛
+  622/617/623 تنتظر D-4/D-1/D-3)؛ TSK-605 تنتظر D-2 (الحاجب
+  الوحيد لأول 0F).
 - **2026-07-29 — Session 77 — TSK-625 ✅ (M10: 1/4)**:
   استرداد من origin b205868 (دمج المستخدم التقط أدلة e93bca9
   والتنفيذ كاملًا من شجرة العمل — reset قطع الجلسة قبل regression)
