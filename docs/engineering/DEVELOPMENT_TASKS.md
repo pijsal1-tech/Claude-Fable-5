@@ -1780,7 +1780,7 @@
   - **خط انحدار جديد: 1870**.
 
 ### TSK-621 — Permissions UI قراءة (CP-5)
-- **Status**: TODO · **Priority**: P2
+- **Status**: ✅ DONE (S76) · **Priority**: P2
 - **Objective**: لوحة قراءة تعرض سياسة الأمان الفعالة (allowlist،
   SAFE/DANGEROUS، force_approval) من config عبر REST قراءة — glass box.
 - **Background**: UXF-04 + CP-5 (§R9). · **Acceptance**: endpoint قراءة +
@@ -1846,6 +1846,45 @@
   - CSS tokens فقط (فواصل اللوحات = var(--surface-0) — درس TSK-620:
     --border غير معرّف)؛ script tag واحد `?v=1` قبل app.js؛
     لا تبعيات جديدة؛ لا لمس لـ providers/ (§0.8).
+- **Close-out (S76)**:
+  - **التنفيذ**: endpoint قراءة جديد `GET /api/permissions`
+    (routes/meta.py — blueprint meta القائم، ADR-003؛ server.py صفر
+    تعديل): يعيد القيم الحية — command_allowlist عبر
+    `command_policy_from(_srv._load_config())` (enforce/entries/
+    timeout/output_max_chars)، SAFE/APPROVAL tools، SAFE/DANGEROUS
+    commands، `_srv._force_command_approval()`، وحالة `approval_gate`
+    الحية (mode/auto_whitelist/timeout — null قبل الإقلاع، لا اختراع).
+    وحدة نقية جديدة `static/js/permissions_panel.js` (UMD-lite):
+    renderPanelHTML نقي يرسم الأقسام الأربعة من JSON — تهريب HTML،
+    UNKNOWN صريح عند الغياب، **صفر أدوات كتابة** (لا button/input).
+    الغراء في app.js فقط: `togglePermissionsPanel` (fetch GET + render)
+    + ربط زر وكيل في DOMContentLoaded. index.html: script tag `?v=1`
+    قبل app.js + زر Activity Bar 🔒 (يفوّض بـ .click() — نمط TF-03) +
+    زر وكيل مخفي + لوحة #permissions-panel (نمط memory-panel).
+    style.css: أصناف pp-* — tokens فقط (فواصل var(--surface-0)).
+  - **توسيع عقد مقصود**: سطح REST المجمّد 30→31 قاعدة
+    (tests/unit/test_rest_blueprints.py — FROZEN_RULES +
+    `/api/permissions GET` بتعليق مؤرَّخ) — القبول ينص حرفيًا على
+    «endpoint قراءة» (قرار المرحلة 2، ليس انحرافًا).
+  - **الاختبارات**: `tests/unit/test_permissions_panel.py` (12):
+    **القبول حرفيًا** — endpoint يعيد القيم الحية من config والكود
+    (مطابقة مع الثوابت الحقيقية لا نسخ)؛ **لا مسار كتابة** —
+    POST/PUT/DELETE ⇒ 405 + النداء لا يغيّر السياسة (نفس الكائنات
+    قبل/بعد)؛ حالة البوابة الحية تنعكس (monkeypatch)؛ null قبل
+    الإقلاع؛ وحدة node (5): الأقسام الأربعة بالقيم الواردة + تهريب
+    HTML + غياب صريح + legacy/فارغ + صفر أدوات كتابة في HTML؛
+    wiring (2): app.js يستهلك fetch+render بلا إرسال كتابة +
+    index.html يحمّل الوحدة قبل app.js. سيناريو يدوي موثَّق في
+    docstring (Accept الرسمي — نفس السابقة).
+  - **البوابات (S76)**: node --check نظيف؛ pyflakes نظيف؛
+    lint_handler_state نظيف؛ mypy Success 81 ملفًا؛ العقود+parity
+    113 ✓؛ goldens+ws_router 32 ✓؛ regression كامل:
+    **1882 = 1F/1847P/34S (~80s)** — الإخفاق الوحيد theme_tokens
+    (TF-04/D-2 المعروف). **خط الانحدار الجديد: 1882**.
+  - **Security gate (قراءة فقط)**: GET وحيد بلا آثار جانبية؛ لا
+    كشف أسرار (لا مفاتيح/tokens في الاستجابة — سياسة أوامر وأدوات
+    فقط)؛ localhost-فقط كسائر الخادم (حدود النشر في README قائمة).
+  - **Rollback**: revert (commits معزولة).
 
 ### TSK-622 — إعادة تصويت RELEASE_READINESS (ينتظر إغلاق M6)
 - **Status**: TODO · **Priority**: P2 · **Dependencies**: M6 كاملًا (601–605).
@@ -1894,7 +1933,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 618 | M9 | P2 | ✅ DONE (S73) | فصل القياس عن القرار أحيا فحص symlink الميت (NF-28) وضيّق الالتقاط إلى OSError موسوم؛ 9 اختبارات (أول تغطية لـ path_policy)؛ خط الانحدار 1850 |
 | 619 | M9 | P2 | ✅ DONE (S74) | بطاقة الخطة التفاعلية: checkbox لكل خطوة عبر وحدة نقية plan_card.js وexecutePlan يرسل المفعّل فقط؛ server.py بلا لمس؛ 10 اختبارات node؛ خط الانحدار 1860 |
 | 620 | M9 | P2 | ✅ DONE (S75) | سرد الجلسة: timeline من الأطر الحية (استهلاك-فقط) عبر وحدة نقية session_narrative.js فوق قائمة RunHistory؛ server.py بلا لمس؛ 10 اختبارات node؛ خط الانحدار 1870 |
-| 621 | M9 | P2 | TODO | CP-5 |
+| 621 | M9 | P2 | ✅ DONE (S76) | endpoint قراءة /api/permissions (blueprint meta) + لوحة قراءة-فقط بوحدة نقية permissions_panel.js؛ سطح REST 30→31 (توسيع عقد موثَّق)؛ 12 اختبارًا؛ خط الانحدار 1882 |
 | 622 | M9 | P2 | TODO | بعد M6 — TD-03 |
 | 623 | M10 | P3 | BLOCKED(D-3) | destructive |
 | 624 | M10 | P3 | TODO | |

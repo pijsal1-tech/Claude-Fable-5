@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Session 75 — **TSK-620 ✅ DONE (سرد الجلسة: timeline من الأطر الحية عبر وحدة نقية session_narrative.js فوق قائمة RunHistory — CP-8/UXF-05) — التالي: TSK-621 (Permissions UI قراءة — CP-5)**) |
+| last-updated | 2026-07-29 (Session 76 — **TSK-621 ✅ DONE (Permissions UI قراءة: endpoint /api/permissions + لوحة قراءة-فقط بوحدة نقية permissions_panel.js — CP-5/UXF-04) — التالي: TSK-625 (صلابة _parse_args_body — ASF-06)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M9 جارية (5/8)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | **TSK-621** (M9 — P2 — Permissions UI قراءة — CP-5/UXF-04)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M9 جارية (6/8 — المتبقي 622/617 محجوبان)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | **TSK-625** (M10 — P3 — صلابة _parse_args_body — ASF-06)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **18/26 TSK** (601..604،606..616،618..620 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 621..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **19/26 TSK** (601..604،606..616،618..621 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 622..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,12 +37,28 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M9 جارية 5/8**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M9 — TSK-621** (P2 — Permissions UI قراءة —
-  CP-5/UXF-04؛ TSK-617 محجوبة بقرار D-1؛ TSK-622 تنتظر إغلاق M6)؛
-  TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
-  لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-620 ✅ DONE (Session 75 — M9: 5/8)** —
+- Stage: EXECUTION (Stage 3 — جارية — **M9: 6/8 (المتبقي محجوب)**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M10 — TSK-625** (P3 — صلابة
+  _parse_args_body — ASF-06؛ اختير لأنه أول غير-محجوب مخفِّض
+  للمخاطر: M9 المتبقية 622 تنتظر M6/D-4 و617 تنتظر D-1؛
+  TSK-623 تنتظر D-3)؛ TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار
+  D-2 — الحاجب الوحيد لخضرة البوابة الكاملة 0F)
+- Last completed step: **TSK-621 ✅ DONE (Session 76 — M9: 6/8)** —
+  Permissions UI قراءة (CP-5/UXF-04): endpoint قراءة جديد
+  `GET /api/permissions` في blueprint meta القائم (routes/meta.py —
+  ADR-003؛ **server.py صفر تعديل**) يعيد السياسة الفعالة الحية:
+  command_allowlist عبر command_policy_from على config الحي +
+  SAFE/APPROVAL tools + SAFE/DANGEROUS commands +
+  force_command_approval + حالة ApprovalGate (null قبل الإقلاع —
+  لا اختراع). وحدة نقية `static/js/permissions_panel.js`
+  (renderPanelHTML — 4 أقسام، تهريب HTML، صفر أدوات كتابة) +
+  لوحة #permissions-panel + زر Activity Bar 🔒 + غراء fetch/render
+  في app.js. سطح REST المجمّد 30→31 (توسيع عقد موثَّق — القبول
+  ينص على «endpoint قراءة»). 12 اختبارًا (endpoint قيم حية +
+  405 للكتابة + لا تحوّل حالة + node 5 + wiring 2 + سيناريو يدوي
+  موثَّق). regression **1882 = 1F/1847P/34S** (theme_tokens/TF-04/D-2
+  حصرًا؛ 1870+12=1882 ✓) — **خط انحدار جديد: 1882**.
+- Previous step: **TSK-620 ✅ DONE (Session 75 — M9: 5/8)** —
   سرد الجلسة (CP-8/UXF-05): وحدة نقية جديدة
   `static/js/session_narrative.js` (UMD-lite) — timeline من أطر WS
   الحية بالتقاط استهلاك-فقط (نفس عقد StatusChip.noteFrame)؛
@@ -351,21 +367,21 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-621** (M9، P2 — CP-5/UXF-04 §R9):
-  Permissions UI قراءة — لوحة قراءة تعرض سياسة الأمان الفعالة
-  (allowlist، SAFE/DANGEROUS، force_approval) من config عبر REST
-  قراءة — glass box. القبول: endpoint قراءة + لوحة تعرض القيم
-  الحية؛ لا مسار كتابة. Gates: Security (قراءة فقط) · Testing.
-  Rollback: revert. المرجع: §TSK-621 في DEVELOPMENT_TASKS.md.
-  الدورة القياسية: أدلة أولًا (مصدر السياسة الفعالة: أين تعيش
-  allowlist/SAFE/DANGEROUS/force_approval في config/الكود بأرقام
-  أسطر؛ نمط blueprints القائم في routes/ لـ endpoint قراءة جديد؛
-  نمط اللوحات القائم — memory_panel/status_chip) + سجل حفظ السلوك
-  (قراءة فقط — لا مسار كتابة للسياسة؛ السياسة المطبقة نفسها لا
-  تُمس) + Fitness pre-check (وحدة نقية + DOM glue + blueprint —
-  أنماط المنزل) في §TSK-621 — **commit قبل الكود**. بعد الإغلاق:
-  Close-out + جدول الحالة + CHANGELOG + PROGRESS + commit محلي.
-  خط الانحدار المرجعي الحالي: **1870 = 1F/1835P/34S**
+- Next action: **بدء TSK-625** (M10، P3 — ASF-06): صلابة
+  _parse_args_body — تفكيك متسامح مع قيم متعددة الأسطر + اختبارات
+  حالات عدائية. المرجع: §TSK-625 في DEVELOPMENT_TASKS.md.
+  اختيار الأولوية: أول مهمة غير-محجوبة مخفِّضة للمخاطر — M9
+  المتبقية محجوبة (TSK-622 تنتظر إغلاق M6/D-4؛ TSK-617 تنتظر
+  D-1) وTSK-623 تنتظر D-3؛ يليها TSK-624 (retro-ADR) وTSK-626
+  (قرار proposed_actions) — كلاهما P3 غير-محجوب.
+  الدورة القياسية: أدلة أولًا (أين يعيش _parse_args_body بأرقام
+  أسطر؛ عقده الحالي — أي مدخلات يتلقى ومن أي مستدعين؛ سلوكه
+  الحالي مع القيم متعددة الأسطر/الحالات العدائية بدليل تشغيل؛
+  اختباراته القائمة إن وُجدت) + سجل حفظ السلوك (الحالات السليمة
+  القائمة تفكَّك كما قبل حرفيًا — golden للحالات القائمة قبل أي
+  تعديل) + Fitness pre-check في §TSK-625 — **commit قبل الكود**.
+  بعد الإغلاق: Close-out + جدول الحالة + CHANGELOG + PROGRESS +
+  commit محلي. خط الانحدار المرجعي الحالي: **1882 = 1F/1847P/34S**
   (theme_tokens/TF-04 حصرًا + test_search_perf معروف flaky على
   عتاد مشترك — يعاد تشغيله معزولًا عند فشله).
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
@@ -934,6 +950,35 @@
   CHANGELOG (commit 686ac90) + تحديث PROGRESS (هذا القيد) + commit
   محلي · الموقع → **M9/TSK-620** (سرد الجلسة — CP-8/UXF-05،
   التبعية 610 ✅)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-29 — Session 76 — TSK-621 ✅ (M9: 6/8)**:
+  استرداد من origin f522eeb (دمج المستخدم شمل كل إغلاق 620) →
+  **أدلة TSK-621** بأرقام أسطر (commit 82684f5 قبل الكود):
+  config.yaml:58 command_allowlist + المهلة/سقف المخرجات؛
+  chain/agent_tools.py:37/:39 SAFE/APPROVAL_TOOLS + :59 CommandPolicy
+  + :92 command_policy_from؛ actions/command_runner.py:29/:37
+  SAFE/DANGEROUS_COMMANDS؛ server.py:178 _force_command_approval +
+  :1937 ApprovalGate (mode/whitelist/timeout) + :694 global؛
+  core/approval.py:54 DEFAULT_AUTO_WHITELIST؛ نمط blueprint
+  (routes/meta.py) + نمط اللوحات (زر وكيل + memory-panel) →
+  **التنفيذ**: endpoint `GET /api/permissions` في blueprint meta
+  (server.py صفر تعديل) + وحدة نقية permissions_panel.js
+  (renderPanelHTML — 4 أقسام/تهريب/UNKNOWN صريح/صفر أدوات كتابة)
+  + لوحة + زر Activity Bar 🔒 + غراء fetch/render + CSS tokens
+  فقط (var(--surface-0)) + 12 اختبارًا (405 للكتابة + لا تحوّل
+  حالة + قيم حية مطابقة للثوابت) → أثناء البوابات: سطح REST
+  المجمّد كسر مقصودًا (30→31) — حُدِّث FROZEN_RULES بتعليق مؤرَّخ
+  (توسيع عقد ينص عليه القبول حرفيًا) → **ملاحظة أمانة**: reset
+  منتصف الجلسة؛ دمج المستخدم (a5f0b24) التقط كل التنفيذ من شجرة
+  العمل قبل commit محلي — أعيد التحقق grep ثم أعيدت البوابات
+  كاملة على الشجرة المستعادة · Gates: node --check + pyflakes +
+  lint نظيفة · mypy Success 81 · contracts+parity 113 ·
+  goldens+ws_router 32 · regression junitxml **1882 = 1F/1847P/34S
+  80.0s** (theme_tokens/TF-04/D-2 حصرًا؛ 1870+12=1882 ✓) — **خط
+  انحدار جديد: 1882** → Close-out + جدول 621→DONE + CHANGELOG
+  (commit 0185411) + تحديث PROGRESS (هذا القيد) + commit محلي ·
+  الموقع → **M10/TSK-625** (صلابة _parse_args_body — ASF-06؛
+  أول غير-محجوب: 622/617/623 تنتظر D-4/D-1/D-3)؛ TSK-605 تنتظر
+  D-2 (الحاجب الوحيد لأول 0F).
 - **2026-07-29 — Session 75 — TSK-620 ✅ (M9: 5/8)**:
   استرداد من origin 3de3e16 (دمج المستخدم شمل كل إغلاق 619) →
   **أدلة TSK-620** بأرقام أسطر: مصدر المحطات = أطر WS الحية عبر

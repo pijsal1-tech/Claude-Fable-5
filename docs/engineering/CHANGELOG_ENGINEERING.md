@@ -701,3 +701,32 @@
   junitxml: **1870 = 1F/1835P/34S** (82.4s؛ 1860+10=1870 ✓؛
   theme_tokens/TF-04/D-2 حصرًا؛ search_perf مرّ في التمريرة
   النهائية) — **خط انحدار جديد: 1870**.
+
+## [TSK-621] — 2026-07-29 — Permissions UI قراءة (CP-5/UXF-04 §R9)
+### Added
+- endpoint قراءة `GET /api/permissions` في blueprint meta القائم
+  (routes/meta.py — ADR-003؛ server.py صفر تعديل): السياسة الفعالة
+  الحية — command_allowlist (command_policy_from على config الحي:
+  enforce/entries/timeout/output_max_chars)، SAFE/APPROVAL tools،
+  SAFE/DANGEROUS commands، force_command_approval، وحالة ApprovalGate
+  (mode/auto_whitelist/timeout؛ null قبل الإقلاع — لا اختراع).
+- وحدة نقية `static/js/permissions_panel.js` (UMD-lite):
+  renderPanelHTML نقي — الأقسام الأربعة من JSON، تهريب HTML، غياب
+  صريح (UNKNOWN)، صفر أدوات كتابة في المخرجات.
+- لوحة `#permissions-panel` قراءة-فقط + زر Activity Bar 🔒 (تفويض
+  .click() لزر وكيل مخفي — نمط TF-03) في index.html؛ الغراء
+  togglePermissionsPanel (fetch GET + render فقط) في app.js؛
+  أصناف pp-* في style.css (tokens فقط — var(--surface-0)).
+- `tests/unit/test_permissions_panel.py` (12): القبول حرفيًا (قيم
+  حية مطابقة للثوابت الحقيقية) + لا مسار كتابة (405 + لا تحوّل
+  حالة) + بوابة حية/null + وحدة node (5) + wiring (2) + سيناريو
+  يدوي موثَّق (Accept).
+### Changed
+- سطح REST المجمّد 30→31 قاعدة (tests/unit/test_rest_blueprints.py —
+  FROZEN_RULES + `/api/permissions GET` بتعليق مؤرَّخ): **توسيع عقد
+  مقصود** — قبول TSK-621 ينص حرفيًا على «endpoint قراءة».
+### Verification
+- node --check نظيف؛ pyflakes نظيف؛ lint_handler_state نظيف؛ mypy
+  Success 81 ملفًا؛ العقود+parity 113 ✓؛ goldens+ws_router 32 ✓؛
+  junitxml: **1882 = 1F/1847P/34S** (80.0s؛ 1870+12=1882 ✓؛
+  theme_tokens/TF-04/D-2 حصرًا) — **خط انحدار جديد: 1882**.
