@@ -115,8 +115,10 @@ class TestServerSendsScanStartFirst:
     def test_chain_message_mode_also_sends_scan_start(self):
         """"كل الأوضاع": مسار chain_message يرسل الإطار قبل قراءة
         المجلد/الملفات (بنيويًا — الإرسال قبل folder_path/isdir)."""
+        # TSK-611: البلوك صار دالة _ws_chain_message (جدول dispatch —
+        # ADR-001)؛ نفس الفحص البنيوي على جسم الدالة.
         m = re.search(
-            r"elif msg_type == \"chain_message\":(.*?)elif msg_type ==",
+            r"def _ws_chain_message\(ctx, sctx, msg\):(.*?)\ndef ",
             SERVER_SRC, re.S)
         assert m, "بلوك chain_message غير موجود"
         block = m.group(1)

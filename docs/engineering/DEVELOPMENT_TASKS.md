@@ -812,7 +812,7 @@
 ## M8 — Decompose g1 (خطة R8: QG-01→04)
 
 ### TSK-611 — QG-01: استخراج راوتر WS
-- **Status**: TODO · **Priority**: P2
+- **Status**: IN PROGRESS (S58–59) · **Priority**: P2
 - **Objective**: نقل توجيه 16 نوع رسالة من `_handle_ws_message` (~469 سطرًا)
   إلى جدول dispatch في وحدة جديدة، مع بقاء المقابض نفسها مؤقتًا في server.py.
 - **Background**: QG-01 (§R8 خطة التفكيك — ترتيب المخاطرة الصريح).
@@ -823,6 +823,61 @@
 - **Behavior preservation**: بنية الإطارات bit-identical (goldens).
 - **Metrics**: server.py قبل/بعد (سطور).
 - **Rollback**: revert. · **Resume notes / Blocker**: —
+- **Evidence (S58–59، قبل أي تعديل كود)**:
+  - **الكتلة الفعلية**: `_handle_ws_message(ctx, sctx, msg)` —
+    server.py:2034..2539 = **506 سطرًا** (انحراف مواصفة #1: النص يقول
+    ~469). `msg_type = msg.get("type", "")` عند :2042.
+  - **خريطة الفروع — 23 فرعًا أعلى-مستوى / 25 نوع نصي** (انحراف
+    مواصفة #2: النص يقول 16): ping:2045 ·
+    agent_approval_response:2052 · cancel_agent:2063 ·
+    confirm_path_action:2070 (الأكبر مبكرًا —
+    pop_pending_path_request/switch/attach/dispatch) ·
+    chain_approval_response:2134 ·
+    `in ("rollback_run","rollback_file")`:2148 (تفرع داخلي
+    rollback_file:2163) · message:2177 · apply_action:2188 ·
+    `in ("apply_all_actions","execute_plan")`:2194 (‏_apply_batch
+    في thread) · chain_message:2215 (الأكبر — scan_start/قراءة
+    مجلد-ملف/_begin_run_ticket/start_chain) · chain_cancel:2294 ·
+    chain_status:2312 · resume_scan:2321 · resume_run:2331 (غلاف
+    heartbeat) · discard_run:2360 · list_runs:2377 ·
+    cancel_run:2381 · delegate_message:2392 (‏DelegateRunner في
+    thread + _budget_delegate_files) · delegate_approve:2459
+    (land+parse+_parsed_to_actions) · delegate_reject:2513 ·
+    memory_list:2524 · memory_edit:2529 · memory_delete:2536.
+  - **نمط مختلط**: أول ~7 أنواع `if...return` مبكرة (:2045–:2148)،
+    ثم سلسلة `if/elif` واحدة (:2177–:2536). **لا فرع else** —
+    نوع مجهول = سقوط صامت (no-op) — سلوك قائم يجب حفظه.
+  - **المستدعي الوحيد**: `ws_handler(ws)` :2540 → استدعاء عند :2554.
+  - **انحراف مواصفة #3 — تفسير «goldens routing»**:
+    `tests/goldens/routing/` (harness.py + routing_corpus.golden.json،
+    ‏30 سيناريو) يغطي توجيه **استراتيجية السلسلة**
+    (RequestRouter.route / SmartOrchestrator.select_strategy /
+    build_delegate) — **ليس** توجيه رسائل WS. لا golden مخصص
+    لتوجيه WS؛ السلوك مثبّت **غير مباشرة** عبر 9 ملفات اختبار
+    تستدعي `_handle_ws_message` (apply_batch_golden، apply_cancel،
+    delegate_approve_handler، memory_panel، rollback، scan_start،
+    session_context، rollback_ui، fixture الـ lint). القبول يُفسَّر:
+    goldens routing القائمة + الاختبارات التكاملية التسعة خضراء
+    + اختبار جدول dispatch جديد يغطي التوجيه المستخرج.
+  - **قيد lint قائم**: `scripts/lint_handler_state.py` (بوابة
+    T-048/R-701 المذكورة في docstring المقبض) يجب أن يبقى أخضر.
+- **Behavior-preservation pre-check**:
+  - بنية كل إطار WS bit-identical — الاستخراج يعيد توجيه الاستدعاء
+    فقط؛ أجسام المقابض تبقى حرفيًا في server.py.
+  - دلالة **أول-تطابق-يفوز** والترتيب الحالي (returns مبكرة ثم
+    سلسلة elif) يُحفظان حرفيًا — جدول dispatch يُقيَّم بنفس الترتيب
+    الفعلي (بحث قاموسي بمفتاح msg_type يكافئه لأن الأنواع فريدة —
+    تحقق: لا نوع يظهر في فرعين).
+  - نوع مجهول → no-op صامت (لا else يُضاف).
+  - الأنواع المركّبة (`rollback_run|rollback_file`،
+    `apply_all_actions|execute_plan`) تُسجَّل كمفتاحين لنفس المقبض.
+  - توقيع المقابض الموحّد `(ctx, sctx, msg)` — لا تغيير في العقد.
+- **Architecture-Fitness pre-check**: يقلّص g1 (server.py god-module)
+  دون مساس بالحدود القائمة؛ `core/ws_router.py` نقي (جدول + دالة
+  dispatch، بلا Flask/IO) يُختبر بمعزل؛ التسجيل في composition
+  root؛ **تغيير معماري ⇒ ADR-001 + قيد Decision Log قبل الكود**
+  (الدستور :1038 — ARCHITECTURE_DECISIONS.md وDECISION_LOG.md
+  يُنشآن الآن، أول ADR في M8 وفق الخارطة :127).
 
 ### TSK-612 — QG-02: استخراج مسارات الإرسال
 - **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-611, TSK-601.
@@ -953,7 +1008,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 608 | M7 | P2 | ✅ DONE (S47–48) | reap_stale مفعّل + نبض حياة في المحوّل/الدفعة/الاستكمال؛ +17 اختبارًا |
 | 609 | M7 | P2 | ✅ DONE (S49–54) | duration_ms على bus للمسارات 4/4 + توقيت المصادر + duration/token في plan/done؛ +11 اختبارًا |
 | 610 | M7 | P2 | ✅ DONE (S55–57) | سجل JSONL لكل run منتهٍ + p50/p95 (nearest-rank) + REST قراءة /api/metrics/runs؛ +17 اختبارًا |
-| 611 | M8 | P2 | TODO | ADR |
+| 611 | M8 | P2 | IN PROGRESS (S58–59) | ADR |
 | 612 | M8 | P2 | TODO | بعد 611+601 |
 | 613 | M8 | P2 | TODO | بعد 612 |
 | 614 | M8 | P2 | TODO | بعد 611..613 — يغلق QF-02 |

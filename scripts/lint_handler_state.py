@@ -26,7 +26,10 @@ import sys
 from pathlib import Path
 
 # دوال الـ handlers الخاضعة للقاعدة (أنماط prefix-match على اسم الدالة)
-HANDLER_NAMES = ("ws_handler", "_handle_ws_message", "_apply_single_action")
+# TSK-611 (ADR-001): "_ws_" يلتقط مقابض جدول dispatch المستخرجة —
+# نفس قاعدة T-048 تتبع المقابض أينما انتقلت.
+HANDLER_NAMES = ("ws_handler", "_handle_ws_message", "_apply_single_action",
+                 "_ws_")
 
 # أسماء حالة المحادثة الوحدوية المعروفة — ممنوعة داخل الـ handlers حتى
 # لو لم يلتقطها كشف الـ literals (تُربط في main() بقيم غير literal).

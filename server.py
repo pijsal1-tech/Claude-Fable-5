@@ -70,6 +70,7 @@ from runners.delegate import DelegateRunner
 from runners.direct import DirectRunner
 from core.approval import ApprovalGate
 from core.run_metrics import RunMetricsRecorder, RunMetricsStore  # TSK-610
+from core.ws_router import dispatch as ws_dispatch  # TSK-611 (ADR-001)
 from core.project_memory import (
     ProjectMemoryStore, CorruptMemoryError, is_stale as _memory_is_stale,
 )
@@ -2031,511 +2032,568 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
     ).start()
 
 
-def _handle_ws_message(ctx, sctx, msg):
-    """T-048 (R-701): معالجة رسالة WS واحدة — كل حالة المحادثة عبر sctx.
+def _ws_ping(ctx, sctx, msg):
+    # T-006 (R-102): ctx (composition root) is reachable in the WS
+    # handler; extra field is ignored by the frontend.
+    sctx.send({"type": "pong", "ctx": ctx is not None})
+    return
 
-    ``ctx`` خدمات العملية المشتركة (composition root)؛ ``sctx`` حالة
-    هذا الاتصال (تاريخ، مقبض مشروع، موافقات، موديل، إرسال). ممنوع
-    ``global`` وأي كتابة حالة محادثة وحدوية هنا — تفرضه بوابة
-    scripts/lint_handler_state.py في check.sh.
-    """
+
+# ── Agent: المستخدم وافق/رفض أمر terminal ──
+def _ws_agent_approval_response(ctx, sctx, msg):
+    if sctx.active_agent_loop:
+        approved = msg.get("approved", False)
+        approval_id = msg.get("approval_request_id", "")
+        payload_hash = msg.get("payload_hash", "")
+        sctx.active_agent_loop.approve_command(approved, approval_id, payload_hash)
+    return
+
+
+# ── Agent: إلغاء من المستخدم (T-041: كان يُلتقط داخل حلقة
+# الاستطلاع المحذوفة — الآن يصل مباشرة لأن الـ Agent يعمل في
+# thread عامل وحلقة WS الرئيسية حرة دائمًا) ──
+def _ws_cancel_agent(ctx, sctx, msg):
+    if sctx.active_agent_loop:
+        sctx.active_agent_loop.cancel()
+        print("    🛑 Agent cancelled by user")
+    return
+
+
+# ── معالجة قرار المسار: المستخدم اختار switch / attach / continue ──
+def _ws_confirm_path_action(ctx, sctx, msg):
+    req_id = msg.get("request_id", "")
+    action = msg.get("action", "continue")  # switch | attach | continue
+    req = pop_pending_path_request(req_id)
+    if not req:
+        sctx.send({"type": "confirm_path_failed",
+                   "request_id": req_id,
+                   "error": "طلب غير صالح أو انتهت صلاحيته."})
+        return
+    detected_path = req.get("path", "")
+    user_text = req.get("user_text", "")
+    mode = req.get("mode", "chat")
+    orig_msg = req.get("msg", {})
+
+    if action == "switch":
+        try:
+            sctx.switch_project(detected_path)
+            scan = sctx.fm.scan_project()
+            if sctx.session_mgr:
+                sctx.session_mgr.update_project_path(detected_path)
+            sctx.send({
+                "type": "project_switched",
+                "project": {
+                    "root": str(sctx.fm.root),
+                    "name": sctx.fm.root.name,
+                    "total_files": scan["total_files"],
+                    "total_size_kb": scan["total_size_kb"],
+                }
+            })
+        except Exception as e:
+            sctx.send({"type": "error", "text": f"فشل فتح المجلد: {e}"})
+            return
+    attached_context = []
+    if action == "attach":
+        # TSK-103 (BUG-03): لا إلحاق خام في user_text — كل ملف يدخل
+        # attached_context كعنصر مستقل ليُحزم تحت ContextBudget.
+        try:
+            from chain.bridge import scan_folder_for_chain
+            scanned_files = scan_folder_for_chain(detected_path)
+            header = (f"[📂 سياق المجلد المرفق: {detected_path} "
+                      f"({len(scanned_files)} ملفات)]")
+            attached_context.append((f"attach_folder:{detected_path}", header))
+            # TSK-404 (NF-18): كل محتوى ملف مرفق يدخل مسيّجًا
+            # بأغلفة حدود صريحة — بيانات لا أوامر (تعليمة system).
+            for sf in scanned_files[:15]:
+                rel_p = sf.get("rel_path", sf.get("path", ""))
+                content_preview = (sf.get("content") or "")[:2000]
+                attached_context.append((
+                    f"attach_file:{rel_p}",
+                    fence_attached(f"attach_file:{rel_p}",
+                                   f"--- {rel_p} ---\n{content_preview}"),
+                ))
+        except Exception as e:
+            print(f"⚠️ فشل إرفاق المجلد كسياق: {e}")
+
+    # استئناف تنفيذ الرسالة للـ AI بعد اتخاذ القرار
+    if user_text:
+        _dispatch_chat_message(ctx, sctx, user_text, mode, orig_msg,
+                               skip_path_detection=True,
+                               attached_context=attached_context or None)
+    return
+
+
+# ── Chain: رد المستخدم على إطار chain_approval_request (T-012) ──
+# السلسلة معلّقة في thread منفصل على gate.request — هذا يفكها.
+def _ws_chain_approval_response(ctx, sctx, msg):
+    if sctx.chain_bridge:
+        matched = sctx.chain_bridge.resolve_approval(
+            request_id=msg.get("request_id", ""),
+            approved=msg.get("approved", False),
+            payload_hash=msg.get("payload_hash", ""),
+        )
+        if not matched:
+            print(f"⚠️ Chain approval غير مطابق: {msg.get('request_id', '')}")
+    return
+
+
+# ── Rollback (T-054, R-106): استعادة ملفات run مُطبَّق ──
+# يتحقق hash الملف الحالي أولًا — تعديل خارجي ⇒ رفض بتقرير تعارض
+# (success/partial/refused في إطار rollback_result).
+def _ws_rollback(ctx, sctx, msg):
     msg_type = msg.get("type", "")
-
-
-    if msg_type == "ping":
-        # T-006 (R-102): ctx (composition root) is reachable in the WS
-        # handler; extra field is ignored by the frontend.
-        sctx.send({"type": "pong", "ctx": ctx is not None})
+    run_id = str(msg.get("run_id", "")).strip()
+    if not run_id:
+        sctx.send({"type": "rollback_result", "status": "refused",
+                   "run_id": "", "restored": [],
+                   "conflicts": [{"path": "", "reason": "missing_run_id"}]})
         return
-
-    # ── Agent: المستخدم وافق/رفض أمر terminal ──
-    if msg_type == "agent_approval_response":
-        if sctx.active_agent_loop:
-            approved = msg.get("approved", False)
-            approval_id = msg.get("approval_request_id", "")
-            payload_hash = msg.get("payload_hash", "")
-            sctx.active_agent_loop.approve_command(approved, approval_id, payload_hash)
+    bridge = sctx.chain_bridge
+    if bridge is None:
+        sctx.send({"type": "rollback_result", "status": "refused",
+                   "run_id": run_id, "restored": [],
+                   "conflicts": [{"path": "",
+                                  "reason": "no_chain_bridge"}]})
         return
-
-    # ── Agent: إلغاء من المستخدم (T-041: كان يُلتقط داخل حلقة
-    # الاستطلاع المحذوفة — الآن يصل مباشرة لأن الـ Agent يعمل في
-    # thread عامل وحلقة WS الرئيسية حرة دائمًا) ──
-    if msg_type == "cancel_agent":
-        if sctx.active_agent_loop:
-            sctx.active_agent_loop.cancel()
-            print("    🛑 Agent cancelled by user")
-        return
-
-    # ── معالجة قرار المسار: المستخدم اختار switch / attach / continue ──
-    if msg_type == "confirm_path_action":
-        req_id = msg.get("request_id", "")
-        action = msg.get("action", "continue")  # switch | attach | continue
-        req = pop_pending_path_request(req_id)
-        if not req:
-            sctx.send({"type": "confirm_path_failed",
-                       "request_id": req_id,
-                       "error": "طلب غير صالح أو انتهت صلاحيته."})
-            return
-        detected_path = req.get("path", "")
-        user_text = req.get("user_text", "")
-        mode = req.get("mode", "chat")
-        orig_msg = req.get("msg", {})
-
-        if action == "switch":
-            try:
-                sctx.switch_project(detected_path)
-                scan = sctx.fm.scan_project()
-                if sctx.session_mgr:
-                    sctx.session_mgr.update_project_path(detected_path)
-                sctx.send({
-                    "type": "project_switched",
-                    "project": {
-                        "root": str(sctx.fm.root),
-                        "name": sctx.fm.root.name,
-                        "total_files": scan["total_files"],
-                        "total_size_kb": scan["total_size_kb"],
-                    }
-                })
-            except Exception as e:
-                sctx.send({"type": "error", "text": f"فشل فتح المجلد: {e}"})
-                return
-        attached_context = []
-        if action == "attach":
-            # TSK-103 (BUG-03): لا إلحاق خام في user_text — كل ملف يدخل
-            # attached_context كعنصر مستقل ليُحزم تحت ContextBudget.
-            try:
-                from chain.bridge import scan_folder_for_chain
-                scanned_files = scan_folder_for_chain(detected_path)
-                header = (f"[📂 سياق المجلد المرفق: {detected_path} "
-                          f"({len(scanned_files)} ملفات)]")
-                attached_context.append((f"attach_folder:{detected_path}", header))
-                # TSK-404 (NF-18): كل محتوى ملف مرفق يدخل مسيّجًا
-                # بأغلفة حدود صريحة — بيانات لا أوامر (تعليمة system).
-                for sf in scanned_files[:15]:
-                    rel_p = sf.get("rel_path", sf.get("path", ""))
-                    content_preview = (sf.get("content") or "")[:2000]
-                    attached_context.append((
-                        f"attach_file:{rel_p}",
-                        fence_attached(f"attach_file:{rel_p}",
-                                       f"--- {rel_p} ---\n{content_preview}"),
-                    ))
-            except Exception as e:
-                print(f"⚠️ فشل إرفاق المجلد كسياق: {e}")
-
-        # استئناف تنفيذ الرسالة للـ AI بعد اتخاذ القرار
-        if user_text:
-            _dispatch_chat_message(ctx, sctx, user_text, mode, orig_msg,
-                                   skip_path_detection=True,
-                                   attached_context=attached_context or None)
-        return
-
-    # ── Chain: رد المستخدم على إطار chain_approval_request (T-012) ──
-    # السلسلة معلّقة في thread منفصل على gate.request — هذا يفكها.
-    if msg_type == "chain_approval_response":
-        if sctx.chain_bridge:
-            matched = sctx.chain_bridge.resolve_approval(
-                request_id=msg.get("request_id", ""),
-                approved=msg.get("approved", False),
-                payload_hash=msg.get("payload_hash", ""),
-            )
-            if not matched:
-                print(f"⚠️ Chain approval غير مطابق: {msg.get('request_id', '')}")
-        return
-
-    # ── Rollback (T-054, R-106): استعادة ملفات run مُطبَّق ──
-    # يتحقق hash الملف الحالي أولًا — تعديل خارجي ⇒ رفض بتقرير تعارض
-    # (success/partial/refused في إطار rollback_result).
-    if msg_type in ("rollback_run", "rollback_file"):
-        run_id = str(msg.get("run_id", "")).strip()
-        if not run_id:
-            sctx.send({"type": "rollback_result", "status": "refused",
-                       "run_id": "", "restored": [],
-                       "conflicts": [{"path": "", "reason": "missing_run_id"}]})
-            return
-        bridge = sctx.chain_bridge
-        if bridge is None:
+    mgr = bridge.checkpoint_manager
+    if msg_type == "rollback_file":
+        path = str(msg.get("path", "")).strip()
+        if not path:
             sctx.send({"type": "rollback_result", "status": "refused",
                        "run_id": run_id, "restored": [],
                        "conflicts": [{"path": "",
-                                      "reason": "no_chain_bridge"}]})
+                                      "reason": "missing_path"}]})
             return
-        mgr = bridge.checkpoint_manager
-        if msg_type == "rollback_file":
-            path = str(msg.get("path", "")).strip()
-            if not path:
-                sctx.send({"type": "rollback_result", "status": "refused",
-                           "run_id": run_id, "restored": [],
-                           "conflicts": [{"path": "",
-                                          "reason": "missing_path"}]})
-                return
-            report = mgr.restore_file(run_id, path)
-        else:
-            report = mgr.restore_run(run_id)
-        sctx.send({"type": "rollback_result", **report.to_dict()})
+        report = mgr.restore_file(run_id, path)
+    else:
+        report = mgr.restore_run(run_id)
+    sctx.send({"type": "rollback_result", **report.to_dict()})
+    return
+
+
+def _ws_message(ctx, sctx, msg):
+    user_text = msg.get("text", "").strip()
+    mode = msg.get("mode", "chat")
+
+    if not user_text:
+        sctx.send({"type": "error", "text": "رسالة فارغة"})
         return
 
-    if msg_type == "message":
-        user_text = msg.get("text", "").strip()
-        mode = msg.get("mode", "chat")
+    _dispatch_chat_message(ctx, sctx, user_text, mode, msg, skip_path_detection=False)
+    return
 
-        if not user_text:
-            sctx.send({"type": "error", "text": "رسالة فارغة"})
-            return
 
-        _dispatch_chat_message(ctx, sctx, user_text, mode, msg, skip_path_detection=False)
+def _ws_apply_action(ctx, sctx, msg):
+    # تطبيق إجراء محدد (مع باك-أب تلقائي)
+    action = msg.get("action", {})
+    result = _apply_single_action(action, sctx)
+    sctx.send({"type": "action_result", **result})
+
+
+def _ws_apply_batch(ctx, sctx, msg):
+    # TSK-201 (NF-23.1): كان هنا بلوكان متطابقان بايت-بايت
+    # (apply_all_actions / execute_plan) — دُمجا في _apply_batch
+    # الواحدة. السلوك مقفول بالـ golden:
+    # tests/goldens/apply_batch_frames.json
+    # TSK-606 (RF-01/RP-02/UXF-03): النداء صار على خيط عامل — كان
+    # متزامنًا على خيط حلقة استقبال WS فلا يُقرأ إطار cancel_run من
+    # نفس الاتصال أثناء الدفعة أبدًا. _apply_batch نفسها بلا تغيير
+    # (التذكرة + نقطة تفتيش الإلغاء موجودتان منذ TSK-304)؛ نمط
+    # الخيوط نفسه المستعمل لـ chain/agent/delegate.
+    threading.Thread(
+        target=_apply_batch,
+        args=(sctx, msg.get("actions", [])),
+        daemon=True,
+        name="runner-apply-batch",
+    ).start()
+
+# ═══════════════════════════════════════════
+#  M5: Chain System — WebSocket Handlers
+# ═══════════════════════════════════════════
+
+
+def _ws_chain_message(ctx, sctx, msg):
+    # تشغيل chain ذكي (بديل لـ message العادية للمهام المعقدة)
+    user_text = msg.get("text", "").strip()
+    if not user_text:
+        sctx.send({"type": "error", "text": "رسالة فارغة"})
         return
 
-    elif msg_type == "apply_action":
-        # تطبيق إجراء محدد (مع باك-أب تلقائي)
-        action = msg.get("action", {})
-        result = _apply_single_action(action, sctx)
-        sctx.send({"type": "action_result", **result})
+    # TSK-403 (NF-12 / A3): مؤشر فوري هنا أيضًا — قراءة المجلد/الملفات
+    # قبل أول إطار chain قد تستغرق ثواني ("كل الأوضاع" في Accept).
+    sctx.send({"type": "scan_start"})
 
-    elif msg_type in ("apply_all_actions", "execute_plan"):
-        # TSK-201 (NF-23.1): كان هنا بلوكان متطابقان بايت-بايت
-        # (apply_all_actions / execute_plan) — دُمجا في _apply_batch
-        # الواحدة. السلوك مقفول بالـ golden:
-        # tests/goldens/apply_batch_frames.json
-        # TSK-606 (RF-01/RP-02/UXF-03): النداء صار على خيط عامل — كان
-        # متزامنًا على خيط حلقة استقبال WS فلا يُقرأ إطار cancel_run من
-        # نفس الاتصال أثناء الدفعة أبدًا. _apply_batch نفسها بلا تغيير
-        # (التذكرة + نقطة تفتيش الإلغاء موجودتان منذ TSK-304)؛ نمط
-        # الخيوط نفسه المستعمل لـ chain/agent/delegate.
-        threading.Thread(
-            target=_apply_batch,
-            args=(sctx, msg.get("actions", [])),
-            daemon=True,
-            name="runner-apply-batch",
-        ).start()
+    force_strategy = msg.get("strategy", None)  # اختياري
 
-    # ═══════════════════════════════════════════
-    #  M5: Chain System — WebSocket Handlers
-    # ═══════════════════════════════════════════
+    # تحضير المحتوى
+    file_content = msg.get("file_content", None)
+    file_path = msg.get("file_path", "")
+    folder_path = msg.get("folder_path", "")  # مسار مجلد كامل
+    files = msg.get("files", None)  # {path: content}
 
-    elif msg_type == "chain_message":
-        # تشغيل chain ذكي (بديل لـ message العادية للمهام المعقدة)
-        user_text = msg.get("text", "").strip()
-        if not user_text:
-            sctx.send({"type": "error", "text": "رسالة فارغة"})
-            return
+    # ── قراءة مجلد كامل ──
+    if folder_path and os.path.isdir(folder_path):
+        from chain.bridge import scan_folder_for_chain, get_folder_summary
 
-        # TSK-403 (NF-12 / A3): مؤشر فوري هنا أيضًا — قراءة المجلد/الملفات
-        # قبل أول إطار chain قد تستغرق ثواني ("كل الأوضاع" في Accept).
-        sctx.send({"type": "scan_start"})
-
-        force_strategy = msg.get("strategy", None)  # اختياري
-
-        # تحضير المحتوى
-        file_content = msg.get("file_content", None)
-        file_path = msg.get("file_path", "")
-        folder_path = msg.get("folder_path", "")  # مسار مجلد كامل
-        files = msg.get("files", None)  # {path: content}
-
-        # ── قراءة مجلد كامل ──
-        if folder_path and os.path.isdir(folder_path):
-            from chain.bridge import scan_folder_for_chain, get_folder_summary
-
-            # ملخص أولاً
-            summary = get_folder_summary(folder_path)
-            sctx.send({
-                "type": "folder_scanned",
-                "folder": summary,
-                "text": f"📂 تم مسح المجلد: {summary.get('name', '')} "
-                        f"({summary.get('total_files', 0)} ملف، "
-                        f"{summary.get('total_size_kb', 0)}KB)",
-            })
-
-            # قراءة المحتوى
-            files = scan_folder_for_chain(folder_path)
-
-            if not files:
-                sctx.send({
-                    "type": "error",
-                    "text": "المجلد فاضي أو مفيش ملفات نصية قابلة للقراءة",
-                })
-                return
-
-        # ── قراءة ملف واحد ──
-        elif not file_content and file_path:
-            try:
-                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
-                    file_content = f.read(MAX_SMART_FILE_SIZE)
-            except Exception as e:
-                # NF-14 §10 (يحتاج log — أضيف): فشل قراءة ملف الـ chain كان
-                # صامتًا — الـ chain تكمل بلا محتوى لكن السبب يُسجّل.
-                print(f"  ⚠️ فشل قراءة ملف للـ chain {file_path}: {e}")
-
-        if not sctx.chain_bridge:
-            sctx.send({"type": "error", "text": "Chain system غير مفعّل"})
-            return
-
-        # T-015 (R-105): registry ticket — single-run policy (لكل مشروع — TSK-302)
-        chain_ticket = _begin_run_ticket(
-            "chain",
-            lambda m: sctx.send(m), sctx=sctx)
-        if chain_ticket is None:
-            return
-        _ws_send = sctx.send
-
-        run_id = sctx.chain_bridge.start_chain(
-            ws_send_fn=_ws_send,
-            user_request=user_text,
-            file_content=file_content,
-            file_path=file_path,
-            files=files,
-            force_strategy=force_strategy,
-            ticket=chain_ticket,
-        )
-
-        if not run_id:
-            # start_chain already sent error via _ws_send
-            chain_ticket.finish("failed")
-
-    elif msg_type == "chain_cancel":
-        # إلغاء chain نشط
-        reason = msg.get("reason", "User cancelled")
-        if sctx.chain_bridge:
-            ok = sctx.chain_bridge.cancel(reason)
-            if ok:
-                # T-015 (R-105): ارفع علم الإلغاء على التذاكر النشطة —
-                # التذكرة تُنهى بدقة في finally الخاص بالـ bridge
-                for _t in execution_registry.list_active():
-                    _t.cancel(reason)
-            sctx.send({
-                "type": "chain_cancel_result",
-                "ok": ok,
-                "text": "تم إلغاء السلسلة" if ok else "مفيش سلسلة نشطة",
-            })
-        else:
-            sctx.send({"type": "error", "text": "Chain system غير مفعّل"})
-
-    elif msg_type == "chain_status":
-        # حالة chain النشط
-        if sctx.chain_bridge:
-            status = sctx.chain_bridge.get_status()
-            sctx.send({"type": "chain_status", **status})
-        else:
-            sctx.send({"type": "chain_status", "active": False})
-
-    # ── T-044 (R-601): Crash Resume surface ──
-    elif msg_type == "resume_scan":
-        # مسح runs_dir عن runs منقطعة قابلة للاستكمال
-        if sctx.chain_bridge:
-            sctx.send({
-                "type": "resumable_runs",
-                "runs": sctx.chain_bridge.list_resumable(),
-            })
-        else:
-            sctx.send({"type": "resumable_runs", "runs": []})
-
-    elif msg_type == "resume_run":
-        # استكمال run منقطع — تحقق انجراف البصمات قبل أي تنفيذ
-        if not sctx.chain_bridge:
-            sctx.send({"type": "error",
-                                "text": "Chain system غير مفعّل"})
-            return
-        resume_id = msg.get("run_id", "").strip()
-        if not resume_id:
-            sctx.send({"type": "error", "text": "run_id مطلوب"})
-            return
-        resume_ticket = _begin_run_ticket(
-            "chain",
-            lambda m: sctx.send(m), sctx=sctx)
-        if resume_ticket is None:
-            return
-
-        # TSK-608 (RF-02): مسار الاستكمال يرسل عبر الجسر مباشرة (لا يمر
-        # بـ _RunnerWSAdapter) — غلاف نبض حياة حول الإرسال كي لا يُحصد
-        # run مستأنَف حي (نفس دلالة نبضة-لكل-حدث في المحوّل).
-        def _resume_send_with_heartbeat(m):
-            resume_ticket.heartbeat()
-            sctx.send(m)
-
-        ok = sctx.chain_bridge.resume_run(
-            resume_id, _resume_send_with_heartbeat, ticket=resume_ticket)
-        if not ok:
-            # الرفض/الخطأ أُرسل من الجسر — حرّر التذكرة
-            resume_ticket.finish("failed")
-
-    elif msg_type == "discard_run":
-        # حذف حالة run منقطع نهائيًا
-        if not sctx.chain_bridge:
-            sctx.send({"type": "error",
-                                "text": "Chain system غير مفعّل"})
-            return
-        discard_id = msg.get("run_id", "").strip()
-        ok = sctx.chain_bridge.discard_run(discard_id)
+        # ملخص أولاً
+        summary = get_folder_summary(folder_path)
         sctx.send({
-            "type": "discard_result",
-            "run_id": discard_id,
-            "ok": ok,
-            "text": ("🗑️ حُذفت حالة الـ run" if ok
-                     else "⚠️ لا يوجد run بهذا المعرّف"),
+            "type": "folder_scanned",
+            "folder": summary,
+            "text": f"📂 تم مسح المجلد: {summary.get('name', '')} "
+                    f"({summary.get('total_files', 0)} ملف، "
+                    f"{summary.get('total_size_kb', 0)}KB)",
         })
 
-    # ── T-016 (R-105): Registry control surface ──
-    elif msg_type == "list_runs":
-        # كل الـ runs التي يعرفها السجل (نشطة ومنتهية) — id/mode/state/started_at
-        sctx.send(_list_runs_frame())
+        # قراءة المحتوى
+        files = scan_folder_for_chain(folder_path)
 
-    elif msg_type == "cancel_run":
-        # إلغاء تعاوني لـ run محدد بمعرّفه — acknowledged / not_found
-        # TSK-606 (اكتشاف جانبي BUG): كان النداء يمرر ensure_ascii=False
-        # لكن توقيع sctx.send هو Callable[[dict], None] — TypeError عند
-        # أول cancel_run حقيقي عبر WS (الاختبارات كانت تنادي
-        # _cancel_run_frame مباشرة فلم تكشفه). أُزيل الوسيط الدخيل.
-        sctx.send(
-            _cancel_run_frame(msg.get("run_id", ""), msg.get("reason", "")),
-        )
-
-    # ── M6: Delegate System ──
-    elif msg_type == "delegate_message":
-        # تفويض مهمة معقدة
-        user_text = msg.get("text", "").strip()
-        if not user_text:
-            sctx.send({"type": "error", "text": "الرسالة فارغة"})
+        if not files:
+            sctx.send({
+                "type": "error",
+                "text": "المجلد فاضي أو مفيش ملفات نصية قابلة للقراءة",
+            })
             return
 
-        if not sctx.delegate_bridge:
-            sctx.delegate_bridge = DelegateBridge(sctx.active_provider(), ctx=ctx)
-
-        # جمع ملفات السياق
-        files_context = {}
+    # ── قراءة ملف واحد ──
+    elif not file_content and file_path:
         try:
-            scan = sctx.fm.scan_project()
-            for f in scan.get("files", [])[:10]:
-                try:
-                    content = sctx.fm.read_file(f["path"])
-                    files_context[f["path"]] = content
-                except Exception:
-                    # NF-14 §11 (ابتلاع مقصود): ملف سياق غير مقروء — التفويض
-                    # يكمل ببقية الملفات (إثراء اختياري).
-                    pass
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                file_content = f.read(MAX_SMART_FILE_SIZE)
         except Exception as e:
-            # NF-14 §12 (يحتاج log — أضيف): فشل scan المشروع كله كان صامتًا.
-            print(f"  ⚠️ فشل جمع سياق التفويض: {e}")
+            # NF-14 §10 (يحتاج log — أضيف): فشل قراءة ملف الـ chain كان
+            # صامتًا — الـ chain تكمل بلا محتوى لكن السبب يُسجّل.
+            print(f"  ⚠️ فشل قراءة ملف للـ chain {file_path}: {e}")
 
-        # TSK-607 (RP-03): سقف الميزانية على ملفات السياق — كانت تمر
-        # كاملة بلا سقف (آخر جيب خارج توحيد T-024/TSK-103). أي إسقاط
-        # موسوم داخل البريف + مرصود في اللوج.
-        files_context, _dropped_delegate = _budget_delegate_files(
-            files_context)
-        if _dropped_delegate:
-            print(f"  ⚖️ ContextBudget (delegate): أُسقط: {_dropped_delegate}")
+    if not sctx.chain_bridge:
+        sctx.send({"type": "error", "text": "Chain system غير مفعّل"})
+        return
 
-        project_context = ""
-        try:
-            project_context = sctx.fm.get_project_context()
-        except Exception:
-            # NF-14 §13 (ابتلاع مقصود): سياق المشروع إثراء اختياري للتفويض.
-            pass
+    # T-015 (R-105): registry ticket — single-run policy (لكل مشروع — TSK-302)
+    chain_ticket = _begin_run_ticket(
+        "chain",
+        lambda m: sctx.send(m), sctx=sctx)
+    if chain_ticket is None:
+        return
+    _ws_send = sctx.send
 
-        # T-041 (R-501): نفس مسار الإرسال الموحّد — DelegateRunner فوق
-        # الجسر (كان النداء المباشر هنا بلا تذكرة — الآن التفويض من هذا
-        # المدخل أيضًا تحت سياسة الـ run الواحد وقابل للإلغاء).
-        delegate_msg_ticket = _begin_run_ticket("delegate", sctx.send,
-                                                sctx=sctx)
-        if delegate_msg_ticket is None:
-            return
+    run_id = sctx.chain_bridge.start_chain(
+        ws_send_fn=_ws_send,
+        user_request=user_text,
+        file_content=file_content,
+        file_path=file_path,
+        files=files,
+        force_strategy=force_strategy,
+        ticket=chain_ticket,
+    )
 
-        threading.Thread(
-            target=RUNNERS["delegate"](bridge=sctx.delegate_bridge).run,
-            args=(
-                RunRequest(
-                    mode="delegate",
-                    message=user_text,
-                    context={
-                        "files": files_context,
-                        "project_context": project_context,
-                    },
-                ),
-                delegate_msg_ticket,
-                _RunnerWSAdapter(sctx.send),
+    if not run_id:
+        # start_chain already sent error via _ws_send
+        chain_ticket.finish("failed")
+
+
+def _ws_chain_cancel(ctx, sctx, msg):
+    # إلغاء chain نشط
+    reason = msg.get("reason", "User cancelled")
+    if sctx.chain_bridge:
+        ok = sctx.chain_bridge.cancel(reason)
+        if ok:
+            # T-015 (R-105): ارفع علم الإلغاء على التذاكر النشطة —
+            # التذكرة تُنهى بدقة في finally الخاص بالـ bridge
+            for _t in execution_registry.list_active():
+                _t.cancel(reason)
+        sctx.send({
+            "type": "chain_cancel_result",
+            "ok": ok,
+            "text": "تم إلغاء السلسلة" if ok else "مفيش سلسلة نشطة",
+        })
+    else:
+        sctx.send({"type": "error", "text": "Chain system غير مفعّل"})
+
+
+def _ws_chain_status(ctx, sctx, msg):
+    # حالة chain النشط
+    if sctx.chain_bridge:
+        status = sctx.chain_bridge.get_status()
+        sctx.send({"type": "chain_status", **status})
+    else:
+        sctx.send({"type": "chain_status", "active": False})
+
+
+# ── T-044 (R-601): Crash Resume surface ──
+def _ws_resume_scan(ctx, sctx, msg):
+    # مسح runs_dir عن runs منقطعة قابلة للاستكمال
+    if sctx.chain_bridge:
+        sctx.send({
+            "type": "resumable_runs",
+            "runs": sctx.chain_bridge.list_resumable(),
+        })
+    else:
+        sctx.send({"type": "resumable_runs", "runs": []})
+
+
+def _ws_resume_run(ctx, sctx, msg):
+    # استكمال run منقطع — تحقق انجراف البصمات قبل أي تنفيذ
+    if not sctx.chain_bridge:
+        sctx.send({"type": "error",
+                            "text": "Chain system غير مفعّل"})
+        return
+    resume_id = msg.get("run_id", "").strip()
+    if not resume_id:
+        sctx.send({"type": "error", "text": "run_id مطلوب"})
+        return
+    resume_ticket = _begin_run_ticket(
+        "chain",
+        lambda m: sctx.send(m), sctx=sctx)
+    if resume_ticket is None:
+        return
+
+    # TSK-608 (RF-02): مسار الاستكمال يرسل عبر الجسر مباشرة (لا يمر
+    # بـ _RunnerWSAdapter) — غلاف نبض حياة حول الإرسال كي لا يُحصد
+    # run مستأنَف حي (نفس دلالة نبضة-لكل-حدث في المحوّل).
+    def _resume_send_with_heartbeat(m):
+        resume_ticket.heartbeat()
+        sctx.send(m)
+
+    ok = sctx.chain_bridge.resume_run(
+        resume_id, _resume_send_with_heartbeat, ticket=resume_ticket)
+    if not ok:
+        # الرفض/الخطأ أُرسل من الجسر — حرّر التذكرة
+        resume_ticket.finish("failed")
+
+
+def _ws_discard_run(ctx, sctx, msg):
+    # حذف حالة run منقطع نهائيًا
+    if not sctx.chain_bridge:
+        sctx.send({"type": "error",
+                            "text": "Chain system غير مفعّل"})
+        return
+    discard_id = msg.get("run_id", "").strip()
+    ok = sctx.chain_bridge.discard_run(discard_id)
+    sctx.send({
+        "type": "discard_result",
+        "run_id": discard_id,
+        "ok": ok,
+        "text": ("🗑️ حُذفت حالة الـ run" if ok
+                 else "⚠️ لا يوجد run بهذا المعرّف"),
+    })
+
+
+# ── T-016 (R-105): Registry control surface ──
+def _ws_list_runs(ctx, sctx, msg):
+    # كل الـ runs التي يعرفها السجل (نشطة ومنتهية) — id/mode/state/started_at
+    sctx.send(_list_runs_frame())
+
+
+def _ws_cancel_run(ctx, sctx, msg):
+    # إلغاء تعاوني لـ run محدد بمعرّفه — acknowledged / not_found
+    # TSK-606 (اكتشاف جانبي BUG): كان النداء يمرر ensure_ascii=False
+    # لكن توقيع sctx.send هو Callable[[dict], None] — TypeError عند
+    # أول cancel_run حقيقي عبر WS (الاختبارات كانت تنادي
+    # _cancel_run_frame مباشرة فلم تكشفه). أُزيل الوسيط الدخيل.
+    sctx.send(
+        _cancel_run_frame(msg.get("run_id", ""), msg.get("reason", "")),
+    )
+
+
+# ── M6: Delegate System ──
+def _ws_delegate_message(ctx, sctx, msg):
+    # تفويض مهمة معقدة
+    user_text = msg.get("text", "").strip()
+    if not user_text:
+        sctx.send({"type": "error", "text": "الرسالة فارغة"})
+        return
+
+    if not sctx.delegate_bridge:
+        sctx.delegate_bridge = DelegateBridge(sctx.active_provider(), ctx=ctx)
+
+    # جمع ملفات السياق
+    files_context = {}
+    try:
+        scan = sctx.fm.scan_project()
+        for f in scan.get("files", [])[:10]:
+            try:
+                content = sctx.fm.read_file(f["path"])
+                files_context[f["path"]] = content
+            except Exception:
+                # NF-14 §11 (ابتلاع مقصود): ملف سياق غير مقروء — التفويض
+                # يكمل ببقية الملفات (إثراء اختياري).
+                pass
+    except Exception as e:
+        # NF-14 §12 (يحتاج log — أضيف): فشل scan المشروع كله كان صامتًا.
+        print(f"  ⚠️ فشل جمع سياق التفويض: {e}")
+
+    # TSK-607 (RP-03): سقف الميزانية على ملفات السياق — كانت تمر
+    # كاملة بلا سقف (آخر جيب خارج توحيد T-024/TSK-103). أي إسقاط
+    # موسوم داخل البريف + مرصود في اللوج.
+    files_context, _dropped_delegate = _budget_delegate_files(
+        files_context)
+    if _dropped_delegate:
+        print(f"  ⚖️ ContextBudget (delegate): أُسقط: {_dropped_delegate}")
+
+    project_context = ""
+    try:
+        project_context = sctx.fm.get_project_context()
+    except Exception:
+        # NF-14 §13 (ابتلاع مقصود): سياق المشروع إثراء اختياري للتفويض.
+        pass
+
+    # T-041 (R-501): نفس مسار الإرسال الموحّد — DelegateRunner فوق
+    # الجسر (كان النداء المباشر هنا بلا تذكرة — الآن التفويض من هذا
+    # المدخل أيضًا تحت سياسة الـ run الواحد وقابل للإلغاء).
+    delegate_msg_ticket = _begin_run_ticket("delegate", sctx.send,
+                                            sctx=sctx)
+    if delegate_msg_ticket is None:
+        return
+
+    threading.Thread(
+        target=RUNNERS["delegate"](bridge=sctx.delegate_bridge).run,
+        args=(
+            RunRequest(
+                mode="delegate",
+                message=user_text,
+                context={
+                    "files": files_context,
+                    "project_context": project_context,
+                },
             ),
-            daemon=True,
-            name=f"runner-delegate-{delegate_msg_ticket.run_id}",
-        ).start()
+            delegate_msg_ticket,
+            _RunnerWSAdapter(sctx.send),
+        ),
+        daemon=True,
+        name=f"runner-delegate-{delegate_msg_ticket.run_id}",
+    ).start()
 
-    elif msg_type == "delegate_approve":
-        # المستخدم وافق على التعديلات
-        if sctx.delegate_bridge and sctx.delegate_bridge.is_active:
-            def approval_handler(et, ed):
+
+def _ws_delegate_approve(ctx, sctx, msg):
+    # المستخدم وافق على التعديلات
+    if sctx.delegate_bridge and sctx.delegate_bridge.is_active:
+        def approval_handler(et, ed):
+            try:
+                sctx.send({"type": et, **ed})
+            except Exception:
+                # NF-14 §14 (ابتلاع مقصود): WS مقفول أثناء حدث اعتماد —
+                # نفس سياسة §3 (الإرسال لا يعطل الهبوط).
+                pass
+
+        landed = sctx.delegate_bridge.land(on_event=approval_handler)
+        if landed and sctx.delegate_bridge.current_run:
+            # أرسل الرد للمعالجة العادية
+            run = sctx.delegate_bridge.current_run
+            if run.result:
+                sctx.send({
+                    "type": "start",
+                })
+                sctx.send({
+                    "type": "chunk",
+                    "text": run.result.response,
+                })
+                # تحليل الأكشنز — TSK-601 (RP-01): كان النداء هنا لدالتين
+                # غير موجودتين في ResponseParser فيُبتلع
+                # AttributeError ⇒ actions=[] دائمًا. الآن: parse() الحقيقية
+                # + التحويل المشترك، وفشل التحويل يُظهَر للمستخدم (UXF-02).
                 try:
-                    sctx.send({"type": et, **ed})
-                except Exception:
-                    # NF-14 §14 (ابتلاع مقصود): WS مقفول أثناء حدث اعتماد —
-                    # نفس سياسة §3 (الإرسال لا يعطل الهبوط).
-                    pass
-
-            landed = sctx.delegate_bridge.land(on_event=approval_handler)
-            if landed and sctx.delegate_bridge.current_run:
-                # أرسل الرد للمعالجة العادية
-                run = sctx.delegate_bridge.current_run
-                if run.result:
+                    parsed = parser.parse(run.result.response)
+                    actions = _parsed_to_actions(parsed)
+                    options = _parsed_options(parsed)
                     sctx.send({
-                        "type": "start",
+                        "type": "done",
+                        "actions": actions,
+                        "options": options,
+                        "summary": f"✅ تم اعتماد التعديلات (delegation #{run.run_id})",
+                    })
+                except Exception as e:
+                    # TSK-601: الفشل لم يعد صامتًا (NF-14 §15 كان log فقط) —
+                    # إطار error يصل الواجهة قبل fallback الـ done الفارغ.
+                    print(f"  ⚠️ فشل تحليل رد التفويض بعد الاعتماد: {e}")
+                    sctx.send({
+                        "type": "error",
+                        "text": f"تعذّر تحويل رد التفويض إلى إجراءات: {e}",
                     })
                     sctx.send({
-                        "type": "chunk",
-                        "text": run.result.response,
+                        "type": "done",
+                        "actions": [],
+                        "options": [],
+                        "summary": f"✅ تم اعتماد التعديلات",
                     })
-                    # تحليل الأكشنز — TSK-601 (RP-01): كان النداء هنا لدالتين
-                    # غير موجودتين في ResponseParser فيُبتلع
-                    # AttributeError ⇒ actions=[] دائمًا. الآن: parse() الحقيقية
-                    # + التحويل المشترك، وفشل التحويل يُظهَر للمستخدم (UXF-02).
-                    try:
-                        parsed = parser.parse(run.result.response)
-                        actions = _parsed_to_actions(parsed)
-                        options = _parsed_options(parsed)
-                        sctx.send({
-                            "type": "done",
-                            "actions": actions,
-                            "options": options,
-                            "summary": f"✅ تم اعتماد التعديلات (delegation #{run.run_id})",
-                        })
-                    except Exception as e:
-                        # TSK-601: الفشل لم يعد صامتًا (NF-14 §15 كان log فقط) —
-                        # إطار error يصل الواجهة قبل fallback الـ done الفارغ.
-                        print(f"  ⚠️ فشل تحليل رد التفويض بعد الاعتماد: {e}")
-                        sctx.send({
-                            "type": "error",
-                            "text": f"تعذّر تحويل رد التفويض إلى إجراءات: {e}",
-                        })
-                        sctx.send({
-                            "type": "done",
-                            "actions": [],
-                            "options": [],
-                            "summary": f"✅ تم اعتماد التعديلات",
-                        })
-        else:
-            sctx.send({"type": "error", "text": "لا يوجد تفويض نشط"})
+    else:
+        sctx.send({"type": "error", "text": "لا يوجد تفويض نشط"})
 
-    elif msg_type == "delegate_reject":
-        # المستخدم رفض التعديلات
-        reason = msg.get("reason", "")
-        if sctx.delegate_bridge and sctx.delegate_bridge.is_active:
-            sctx.delegate_bridge.reject(reason, on_event=lambda et, ed: sctx.send(
-                {"type": et, **ed}
-            ))
-        else:
-            sctx.send({"type": "error", "text": "لا يوجد تفويض نشط"})
 
-    # ── Memory Panel (T-114, R-805) — إطارات إضافية عبر الوسطاء الوحدويين ──
-    elif msg_type == "memory_list":
-        _root = sctx.project.root if sctx.project else None
-        _index = sctx.project.index if sctx.project else None
-        sctx.send(_memory_list_frame(_root, _index))
+def _ws_delegate_reject(ctx, sctx, msg):
+    # المستخدم رفض التعديلات
+    reason = msg.get("reason", "")
+    if sctx.delegate_bridge and sctx.delegate_bridge.is_active:
+        sctx.delegate_bridge.reject(reason, on_event=lambda et, ed: sctx.send(
+            {"type": et, **ed}
+        ))
+    else:
+        sctx.send({"type": "error", "text": "لا يوجد تفويض نشط"})
 
-    elif msg_type == "memory_edit":
-        _root = sctx.project.root if sctx.project else None
-        _index = sctx.project.index if sctx.project else None
-        sctx.send(_memory_edit_frame(
-            _root, msg.get("entry_id", ""),
-            text=msg.get("text"), kind=msg.get("kind"), index=_index))
 
-    elif msg_type == "memory_delete":
-        _root = sctx.project.root if sctx.project else None
-        sctx.send(_memory_delete_frame(_root, msg.get("entry_id", "")))
+# ── Memory Panel (T-114, R-805) — إطارات إضافية عبر الوسطاء الوحدويين ──
+def _ws_memory_list(ctx, sctx, msg):
+    _root = sctx.project.root if sctx.project else None
+    _index = sctx.project.index if sctx.project else None
+    sctx.send(_memory_list_frame(_root, _index))
+
+
+def _ws_memory_edit(ctx, sctx, msg):
+    _root = sctx.project.root if sctx.project else None
+    _index = sctx.project.index if sctx.project else None
+    sctx.send(_memory_edit_frame(
+        _root, msg.get("entry_id", ""),
+        text=msg.get("text"), kind=msg.get("kind"), index=_index))
+
+
+def _ws_memory_delete(ctx, sctx, msg):
+    _root = sctx.project.root if sctx.project else None
+    sctx.send(_memory_delete_frame(_root, msg.get("entry_id", "")))
+
+
+# TSK-611 (ADR-001): جدول dispatch — التوجيه كبيانات؛ الأنواع المركّبة
+# مفتاحان لنفس المقبض. يُمرَّر إلى core.ws_router.dispatch.
+WS_HANDLERS = {
+    "ping": _ws_ping,
+    "agent_approval_response": _ws_agent_approval_response,
+    "cancel_agent": _ws_cancel_agent,
+    "confirm_path_action": _ws_confirm_path_action,
+    "chain_approval_response": _ws_chain_approval_response,
+    "rollback_run": _ws_rollback,
+    "rollback_file": _ws_rollback,
+    "message": _ws_message,
+    "apply_action": _ws_apply_action,
+    "apply_all_actions": _ws_apply_batch,
+    "execute_plan": _ws_apply_batch,
+    "chain_message": _ws_chain_message,
+    "chain_cancel": _ws_chain_cancel,
+    "chain_status": _ws_chain_status,
+    "resume_scan": _ws_resume_scan,
+    "resume_run": _ws_resume_run,
+    "discard_run": _ws_discard_run,
+    "list_runs": _ws_list_runs,
+    "cancel_run": _ws_cancel_run,
+    "delegate_message": _ws_delegate_message,
+    "delegate_approve": _ws_delegate_approve,
+    "delegate_reject": _ws_delegate_reject,
+    "memory_list": _ws_memory_list,
+    "memory_edit": _ws_memory_edit,
+    "memory_delete": _ws_memory_delete,
+}
+
+
+def _handle_ws_message(ctx, sctx, msg):
+    """T-048 (R-701): معالجة رسالة WS واحدة — كل حالة المحادثة عبر sctx.
+
+    TSK-611 (QG-01، ADR-001): التوجيه صار جدول dispatch (WS_HANDLERS
+    أعلاه + core/ws_router.py)؛ المقابض ``_ws_*`` أدناه/أعلاه تبقى
+    مؤقتًا في server.py (نقلها موضوع QG-02..04). نوع مجهول = no-op
+    صامت (سلوك السلسلة الأصلية محفوظ). ممنوع ``global`` وأي كتابة
+    حالة محادثة وحدوية في المقابض — تفرضه بوابة
+    scripts/lint_handler_state.py في check.sh.
+    """
+    ws_dispatch(WS_HANDLERS, ctx, sctx, msg)
+
 
 def ws_handler(ws):
     """WebSocket للتواصل الحي مع AI — T-048: الحالة في SessionContext."""

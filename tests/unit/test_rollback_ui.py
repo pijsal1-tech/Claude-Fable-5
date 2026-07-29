@@ -415,7 +415,10 @@ class TestConsumeOnlyAndWiring:
 
     def test_server_rollback_handler_unchanged_frames(self):
         src = (ROOT / "server.py").read_text(encoding="utf-8")
-        assert 'if msg_type in ("rollback_run", "rollback_file"):' in src
+        # TSK-611: النوعان يوجَّهان لنفس المقبض عبر جدول dispatch
+        # (ADR-001) — نفس ضمان "معالجة موحّدة للنوعين".
+        assert '"rollback_run": _ws_rollback,' in src
+        assert '"rollback_file": _ws_rollback,' in src
         # endpoints الجديدة قراءة فقط (GET بلا methods=POST)
         for ep in ('"/api/rollback/history"', '"/api/rollback/preview"'):
             line = next(ln for ln in src.splitlines() if ep in ln)
