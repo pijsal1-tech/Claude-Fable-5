@@ -1588,13 +1588,67 @@
     (1831+10؛ الفشل الوحيد theme_tokens — TF-04/D-2 معروف).
   - **خط انحدار جديد: 1841**.
 
-### TSK-617 — أمان الافتراضات البرمجية (ينتظر D-1)
-- **Status**: BLOCKED (قرار منتج D-1) · **Priority**: P2
+### TSK-617 — أمان الافتراضات البرمجية (قرار D-1: قلبهما)
+- **Status**: IN-PROGRESS (S83 — قرار D-1 وصل ضمن التوجيه الشامل:
+  «continue with the remaining owner-gated tasks…»؛ التوصية المسجَّلة
+  MASTER_REVIEW:810 «نعم — قلبهما، أمان زائد لا كسر» صارت نافذة) ·
+  **Priority**: P2
 - **Objective**: قلب `enforce` (ASF-04) و`force_command_approval` (NF-16)
   إلى افتراض آمن في الكود لا في config فقط.
 - **Acceptance**: حذف المفاتيح من config → السلوك الآمن؛ config الحالي بلا
   تغيير سلوكي.
 - **Gates**: Security · Regression · Documentation. · **Rollback**: revert.
+- **Evidence (Session 83) — خريطة المواضع**:
+  - NF-16: القارئ `server.py:178–195 _force_command_approval` —
+    الافتراضي `False` في `.get(..., False)` (:191) **وفي fallback
+    الـ except** (:193–195)؛ مواضع التمرير الثلاثة (يفرضها الاختبار
+    البنيوي test_force_approval.py:145–161): server.py:1802 +
+    routes/run.py:59/:96 — كلها `force_approval=_force_command_approval()`.
+    معامل `CommandRunner.run(force_approval=False)`
+    (actions/command_runner.py:57) **خارج نطاق القلب**: كل مواضع
+    `need_approval=False` الإنتاجية تمرر الراية صراحةً من القارئ
+    الموحّد (الحارس البنيوي يفرض ذلك) — قلبه يضاعف البوابة على مسارات
+    chain/agent المحكومة أصلًا بـ ApprovalGate (T-013).
+  - ASF-04: `chain/agent_tools.py:72` — `enforce: bool = False`
+    (افتراضي dataclass)؛ `command_policy_from` يعيد `CommandPolicy()`
+    (legacy) عند غياب/فساد قسم agent (:102/:105)؛
+    `AgentTools.__init__:176` — `command_policy or CommandPolicy()`.
+    موضع الإنشاء الإنتاجي الوحيد: server.py:2100 يمرر السياسة من
+    config (:2088) — الافتراضي البرمجي لا يُستهلك إنتاجيًا إلا عند
+    config فاسد/غائب.
+  - config.yaml الحالي: `force_command_approval: false` صريح (:25) +
+    قسم `agent.command_allowlist` موجود (⇒ enforce=True) — فبعد القلب
+    **صفر تغيير سلوكي على config الحالي** (بند القبول الثاني).
+  - حقن خطوة التحقق (chain/agent_loop.py:418–419) يتطلب enforce
+    **وallowlist غير فارغة** معًا ⇒ enforce=True بقائمة فارغة لا يحقن.
+- **Behavior-preservation pre-check (S83)**:
+  - Current: حذف `force_command_approval` من config ⇒ لا إلزام موافقة؛
+    حذف `agent.command_allowlist` ⇒ legacy (تنفيذ أي أمر بموافقة
+    ApprovalGate فقط)؛ config غير مقروء ⇒ لا إلزام.
+  - Expected (التغيير المقصود بقرار D-1 — يمس حالة «المفتاح غائب» فقط):
+    غياب المفتاح/فشل القراءة ⇒ `force_command_approval=True`؛ غياب/فساد
+    قسم allowlist ⇒ `enforce=True` بقائمة فارغة = **رفض كل أوامر
+    الـ agent برسالة مهيكلة** تسمّي `agent.command_allowlist` (نمط
+    fail-closed كسابقة TSK-603). **القيم الصريحة في config تُحترم كما
+    هي** (`false` صريح = تعطيل واعٍ) — config الحالي بلا تغيير.
+  - اختبارات تفترض الافتراضي القديم تُحدَّث معلنةً القلب (وليس كسرًا):
+    test_force_approval::test_flag_absent_defaults_false (:86–89)
+    وtest_default_api_run_not_gated (:126–133)؛
+    test_run_command::test_legacy_mode_no_enforcement (:120–126)
+    وtest_missing_section_means_legacy (:149–152)
+    وtest_garbage_types_tolerated (:154–157).
+    test_agent_feedback:202–211 (غياب الحقن بلا سياسة) يبقى أخضر
+    (قائمة فارغة ⇒ لا حقن — بدليل agent_loop.py:419).
+- **Architecture-Fitness pre-check (S83)**:
+  - القلب في **نقطتي المصدر** فقط (القارئ الموحّد + مصنع السياسة) لا
+    في المستهلكين — المستهلكون يبقون أغبياء؛ الحارس البنيوي القائم
+    يستمر يفرض التمرير.
+  - fallback الـ except في القارئ يُقلب إلى True (config غير مقروء =
+    أخطر الحالات — fail-closed)، مع إبقاء وسم NF-14 §2 محدثًا.
+  - التوثيق: تعليقا config.yaml (NF-16 + agent) + قسم «حدود النشر»
+    في README إن ذكر الافتراضي القديم؛ docstrings المواضع الثلاثة.
+  - لا ADR: تنفيذ قرار مالك مسجَّل (D-1) بلا بدائل معمارية — قيد
+    DECISION_LOG S83 (التوجيه الشامل) يغطيه، وسجل التاسك هذا هو الأثر.
 
 ### TSK-618 — تضييق except الابتلاعي في path_policy
 - **Status**: ✅ DONE (S73) · **Priority**: P2
