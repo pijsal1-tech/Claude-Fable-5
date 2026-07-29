@@ -1321,7 +1321,7 @@
 ## M9 — Exposure & Consent Surface (حزمة الإظهار + بقايا الأمان)
 
 ### TSK-615 — ApprovalGate: طلبات متزامنة
-- **Status**: IN PROGRESS (S71) · **Priority**: P2
+- **Status**: ✅ DONE (S71) · **Priority**: P2
 - **Objective**: خريطة طلبات معلقة بمفاتيح بدل `_pending_id` المفرد — طلبان
   متزامنان يُحلان مستقلين.
 - **Background**: ASF-05 (§R4، approval.py:170–175/238–247).
@@ -1384,6 +1384,39 @@
     الخريطة = عدد الخيوط المنتظرة آنيًا (محدود بخيوط runners).
   - إضافة قراءة `pending_request_ids()` (جمع) للاختبارات/الرصد —
     توسعة لا كسر.
+- **Close-out (S71)**:
+  - **التنفيذ (core/approval.py — ملف واحد، صفر تغيير في
+    المستهلكين)**: dataclass جديد `_PendingEntry(payload_hash,
+    event, result, reason)` — Event مستقل لكل طلب؛ الخانات
+    الخمس المفردة (`_pending_id/_hash/_event/_result/_reason`)
+    استُبدلت بـ `self._pending: dict[str, _PendingEntry]` ·
+    `_interactive`: تسجيل المدخل تحت القفل ثم try/finally —
+    الخيط المالك يزيل مدخله حصرًا (`pop(req.request_id)`) — لا
+    تصفير جماعي ولا تسرّب · `resolve`: مطابقة
+    `_pending.get(request_id)` + hash للمدخل نفسه ·
+    `pending_request_id()`: يرجع الأحدث (`next(reversed(dict))`)؛
+    مع ≤1 معلّق = السلوك القديم حرفيًا · جديد:
+    `pending_request_ids()` (الأقدم أولاً).
+  - **القبول محقق بالتجربة والاختبار**: طلبان متداخلان — اعتماد
+    r2 + رفض r1 مستقلين (سيناريو A الذي كان موافقة زائفة) ·
+    حلّ الأقدم أولاً (سيناريو B الذي كان مستحيلاً) · fail-closed:
+    مهلة لكل طلب على حدة + رفض hash متقاطع + رفض الرد المتأخر
+    بعد المهلة · التدقيق ينسب كل قرار لطلبه الصحيح (سيناريو C).
+  - **اختبارات جديدة**: tests/unit/test_approval_concurrent.py —
+    **9 اختبارات** (TestConcurrentResolution 3: حلّ مستقل /
+    لا-موافقة-زائفة-NF-27 / حلّ-الأقدم-ASF-05؛
+    TestFailClosedPreserved 3: مهلة لكل طلب + خريطة نظيفة /
+    رفض hash متقاطع / نسبة التدقيق؛
+    TestSingleRequestBehaviorUnchanged 3: pending_request_id القديم /
+    resolve بلا معلّق noop / رد متأخر مرفوض).
+  - **البوابات (S71)**: test_approval.py الـ**19 القائمة تمر بلا
+    تعديل** + 9 جديدة = 28 · pyflakes نظيف · lint_handler_state
+    نظيف · contracts+parity **113** · goldens+ws_router **32** · mypy
+    بوابة TSK-614 **Success 81 ملفًا** · regression عبر `--junitxml`:
+    **1831 = 1F/1796P/34S 79.9s** (theme_tokens/TF-04 حصرًا؛
+    1822+9 = 1831 ✓).
+  - **Commits**: a55267f (أدلة + pre-checks + NF-27 قبل الكود — دمج
+    خارجي b825afc) · f37be66 (التنفيذ + الاختبارات).
 
 ### TSK-616 — إظهار سقف snapshot (rollback جزئي)
 - **Status**: TODO · **Priority**: P2
@@ -1480,7 +1513,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 612 | M8 | P2 | ✅ DONE (S61–63) | استخراج مسار الإرسال إلى core/chat_dispatch.py (ADR-002)؛ server.py −449 سطرًا؛ mypy نظيف |
 | 613 | M8 | P2 | ✅ DONE (S64–67) | تجميع 25 REST route في routes/ (7 blueprints، ADR-003)؛ server.py −478 سطرًا؛ mypy نظيف 70 ملفًا |
 | 614 | M8 | P2 | ✅ DONE (S69–70) | بوابة mypy موسعة (+routes/ +server.py، --check-untyped-defs، ADR-004)؛ 81 ملفًا Success؛ أغلقت QF-02 وكشفت NF-25/NF-26 وأصلحتهما |
-| 615 | M9 | P2 | TODO | |
+| 615 | M9 | P2 | ✅ DONE (S71) | خريطة طلبات معلّقة بمفاتيح + Event لكل طلب؛ أصلحت ASF-05 (استنزاف) وNF-27 (موافقة زائفة)؛ 9 اختبارات تزامن جديدة |
 | 616 | M9 | P2 | TODO | |
 | 617 | M9 | P2 | BLOCKED(D-1) | |
 | 618 | M9 | P2 | TODO | |

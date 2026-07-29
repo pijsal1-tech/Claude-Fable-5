@@ -132,6 +132,18 @@ class Verdict:
         }
 
 
+@dataclass
+class _PendingEntry:
+    """مدخل طلب تفاعلي معلّق واحد (TSK-615/ASF-05/NF-27).
+
+    Event مستقل لكل طلب — يمنع الإيقاظ الجماعي/النتيجة المشتركة
+    اللذين سبّبا الموافقة الزائفة (NF-27) والاستنزاف (ASF-05)."""
+    payload_hash: str
+    event: threading.Event = field(default_factory=threading.Event)
+    result: bool = False
+    reason: str = ""
+
+
 # ═══════════════════════════════════════════════════════
 #   ApprovalGate
 # ═══════════════════════════════════════════════════════
@@ -167,12 +179,13 @@ class ApprovalGate:
         self._lock = threading.Lock()
         self._audit: list[dict] = []
 
-        # حالة الطلب التفاعلي المعلّق (طلب واحد في كل مرة — نفس نموذج AgentLoop)
-        self._pending_id: str | None = None
-        self._pending_hash: str | None = None
-        self._pending_event = threading.Event()
-        self._pending_result: bool = False
-        self._pending_reason: str = ""
+        # TSK-615 (ASF-05/NF-27): خريطة طلبات معلّقة بمفاتيح بدل الخانة
+        # المفردة القديمة (`_pending_id` + Event مشترك): الخانة المفردة
+        # جعلت طلبين متداخلين يتقاسمان النتيجة (موافقة زائفة — NF-27)
+        # أو يموتان معًا بمهلة (استنزاف — ASF-05). الآن: لكل طلب مدخل
+        # مستقل بـ Event خاص به؛ الخيط المالك يزيل مدخله في finally ⇒
+        # حجم الخريطة محدود بعدد الخيوط المنتظرة آنيًا.
+        self._pending: dict[str, _PendingEntry] = {}
 
     # ──── الواجهة الرئيسية ────
 
@@ -207,24 +220,37 @@ class ApprovalGate:
                 payload_hash: str = "") -> bool:
         """استجابة المستخدم (من WS handler لاحقًا).
 
-        يُقبل فقط إذا طابق request_id **و** payload_hash الطلبَ المعلّق —
+        يُقبل فقط إذا طابق request_id **و** payload_hash مدخلًا معلّقًا —
         نفس آلية AgentLoop.approve_command ضد الردود القديمة/المزوّرة.
+        TSK-615: المطابقة على الخريطة — طلبان متزامنان يُحلان مستقلين
+        (Event لكل مدخل — لا إيقاظ جماعي، لا نتيجة مشتركة).
         Returns True لو طابق وفكّ الانتظار؛ False للردود غير المطابقة.
         """
         with self._lock:
-            if (self._pending_id is not None
-                    and request_id == self._pending_id
-                    and payload_hash == self._pending_hash):
-                self._pending_result = approved
-                self._pending_reason = "user_approved" if approved else "user_denied"
-                self._pending_event.set()
+            entry = self._pending.get(request_id)
+            if entry is not None and payload_hash == entry.payload_hash:
+                entry.result = approved
+                entry.reason = "user_approved" if approved else "user_denied"
+                entry.event.set()
                 return True
         return False
 
     def pending_request_id(self) -> str | None:
-        """الطلب التفاعلي المعلّق حاليًا (أو None)."""
+        """الطلب التفاعلي المعلّق الأحدث تسجيلًا (أو None).
+
+        TSK-615: مع ≤ طلب واحد معلّق = السلوك القديم حرفيًا؛ مع أكثر
+        يُرجع الأحدث (dict يحفظ ترتيب الإدراج) — استخدم
+        :meth:`pending_request_ids` للجمع الكامل.
+        """
         with self._lock:
-            return self._pending_id
+            if not self._pending:
+                return None
+            return next(reversed(self._pending))
+
+    def pending_request_ids(self) -> list[str]:
+        """كل الطلبات التفاعلية المعلّقة (الأقدم أولاً) — TSK-615."""
+        with self._lock:
+            return list(self._pending)
 
     # ──── سجل التدقيق ────
 
@@ -239,29 +265,32 @@ class ApprovalGate:
                      channel: Callable[[dict], None] | None = None) -> Verdict:
         if channel is None:
             channel = self.on_request
+        # TSK-615: مدخل مستقل لكل طلب — Event خاص به ⇒ حلّ طلب لا يوقظ
+        # ولا يُفقِد طلبًا آخر؛ المهلة لكل طلب على حدة (fail-closed يبقى).
+        entry = _PendingEntry(payload_hash=req.payload_hash)
         with self._lock:
-            self._pending_id = req.request_id
-            self._pending_hash = req.payload_hash
-            self._pending_event.clear()
-            self._pending_result = False
-            self._pending_reason = ""
+            self._pending[req.request_id] = entry
 
-        # إشعار القناة (WS) — فشل الـ callback لا يعلّق البوابة
-        if channel is not None:
-            try:
-                channel(req.to_dict())
-            except Exception:
-                pass
+        try:
+            # إشعار القناة (WS) — فشل الـ callback لا يعلّق البوابة
+            if channel is not None:
+                try:
+                    channel(req.to_dict())
+                except Exception:
+                    pass
 
-        got_answer = self._pending_event.wait(timeout=self.timeout_seconds)
+            got_answer = entry.event.wait(timeout=self.timeout_seconds)
 
-        with self._lock:
-            self._pending_id = None
-            self._pending_hash = None
-            if not got_answer:
-                approved, reason = False, "timeout"
-            else:
-                approved, reason = self._pending_result, self._pending_reason
+            with self._lock:
+                if not got_answer:
+                    approved, reason = False, "timeout"
+                else:
+                    approved, reason = entry.result, entry.reason
+        finally:
+            # الخيط المالك يزيل مدخله حصرًا — لا تسرّب مداخل ولا مسّ
+            # لمداخل الطلبات الأخرى (عكس التصفير الجماعي القديم).
+            with self._lock:
+                self._pending.pop(req.request_id, None)
 
         return self._record(req, approved=approved, reason=reason)
 
