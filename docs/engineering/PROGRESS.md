@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Sessions 68–70 — **TSK-614 ✅ DONE (QG-04 بوابة mypy موسعة + ADR-004) ⇒ M8 مكتملة 4/4 ⇒ IR-1 مسجلة — التالي: M9/TSK-615**) |
+| last-updated | 2026-07-29 (Session 71 — **TSK-615 ✅ DONE (ApprovalGate طلبات متزامنة — أصلحت ASF-05 + NF-27) — التالي: TSK-616 (إظهار سقف snapshot)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M8 مكتملة (4/4) 🏁 + IR-1 مسجلة**؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | **TSK-615** (أولى M9 — P2 — ApprovalGate طلبات متزامنة)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M9 جارية (1/8)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | **TSK-616** (M9 — P2 — إظهار سقف snapshot / rollback جزئي — ASF-03)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **13/26 TSK** (601..604،606..614 ✅؛ 605/TF-04 تنتظر D-2؛ 615..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **14/26 TSK** (601..604،606..615 ✅؛ 605/TF-04 تنتظر D-2؛ 616..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,11 +37,28 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M8 مكتملة 4/4 🏁 + IR-1 ✅**؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M9 — TSK-615** (أولى M9: P2 — ApprovalGate طلبات متزامنة)؛
+- Stage: EXECUTION (Stage 3 — جارية — **M9 جارية 1/8**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M9 — TSK-616** (P2 — إظهار سقف snapshot — ASF-03)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-614 ✅ DONE (Sessions 68–70) ⇒ M8 مكتملة 4/4 ⇒ IR-1 مسجلة في DECISION_LOG** —
+- Last completed step: **TSK-615 ✅ DONE (Session 71 — أولى M9)** —
+  ApprovalGate طلبات متزامنة (ASF-05): الخانة المفردة
+  (`_pending_id` + Event مشترك) استُبدلت بخريطة
+  `request_id → _PendingEntry` (Event مستقل لكل طلب؛ الخيط
+  المالك يزيل مدخله في finally). أدلة S71 كشفت **NF-27**
+  (C5/S2): التجربة الحية أثبتت أن الكسر كان fail-OPEN لا
+  fail-closed كما وصف ASF-05 — اعتماد طلب كان يعتمد المتداخل
+  معه زورًا (Event مشترك + نتيجة مشتركة). الإصلاح: حلّ مستقل
+  لكل طلب + مهلة لكل طلب (fail-closed يبقى) + تدقيق ينسب كل
+  قرار لطلبه. التواقيع العامة بلا تغيير (صفر تعديل في
+  المستهلكين)؛ +قراءة `pending_request_ids()`. 9 اختبارات
+  تزامن جديدة + الـ19 القائمة تمر بلا تعديل. Gates: contracts+
+  parity 113 · goldens+ws_router 32 · mypy بوابة 81 ملفًا Success ·
+  lint نظيف · regression junitxml **1831 = 1F/1796P/34S**
+  (theme_tokens/TF-04 حصرًا؛ 1822+9=1831 ✓). Commits: a55267f
+  (أدلة+pre-checks+NF-27 قبل الكود) · f37be66 (التنفيذ+الاختبارات —
+  دمج خارجي 84b58d9) · 63e51ec (CHANGELOG).
+  وقبلها: **TSK-614 ✅ DONE (Sessions 68–70) ⇒ M8 مكتملة 4/4 ⇒ IR-1 مسجلة في DECISION_LOG** —
   QG-04 (§R8): توسيع بوابة mypy — **ADR-004** (قبل الكود):
   `--check-untyped-defs` (الأدلة أثبتت أن الافتراضي لا يفحص
   أجسام الدوال غير المُعنونة — النداء المدسوس يفلت والقبول
@@ -262,21 +279,21 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-615** (أولى M9 — Exposure & Consent Surface،
-  P2 — ASF-05 §R4): ApprovalGate طلبات متزامنة — استبدال `_pending_id`
-  المفرد بخريطة طلبات معلقة بمفاتيح؛ طلبان متداخلان يُحلان مستقلين
-  بلا موت بمهلة؛ **fail-closed يبقى** (مهلة لكل طلب). القبول: اختبار
-  طلبين متداخلين → كلاهما قابل للحل؛ المهلة لكل طلب على حدة.
-  Gates: Security · Testing · Regression · Rollback: revert.
-  المرجع: §TSK-615 في DEVELOPMENT_TASKS.md (~:1323) +
-  ASF-05 (MASTER_REVIEW §R4، approval.py:170–175/238–247).
-  الدورة القياسية: أدلة (قراءة core/approval.py كاملة — بنية
-  `_pending_id`/المهلة/نقاط الحل، ومستهلكيها في server/chat_dispatch/
-  agent_loop) + سجل حفظ السلوك + Fitness pre-check في §TSK-615 —
-  **commit قبل الكود**؛ إن اقتضى تغييرًا بنيويًا (تغيير عقد
-  ApprovalGate العام) فـ ADR + DECISION_LOG قبله؛ بعد الإغلاق:
-  Close-out + جدول الحالة + CHANGELOG + PROGRESS + commit محلي.
-  خط الانحدار المرجعي الحالي: **1822 = 1F/1787P/34S**
+- Next action: **بدء TSK-616** (M9، P2 — ASF-03 §R4): إظهار سقف
+  snapshot (rollback جزئي) — عند تجاوز `_CKPT_MAX_FILES`/سقف الحجم،
+  تحذير صريح في إطار الموافقة/النتيجة («التراجع سيكون جزئيًا») بدل
+  الصمت. القبول: اختبار بحد مصغّر → إطار يحمل علم partial_rollback؛
+  الواجهة تعرضه (toast/نص). Gates: Security · Testing ·
+  Documentation · Rollback: revert. المرجع: §TSK-616 في
+  DEVELOPMENT_TASKS.md + ASF-03 (MASTER_REVIEW §R4).
+  الدورة القياسية: أدلة أولًا (موضع `_CKPT_MAX_FILES` وسقف الحجم في
+  CheckpointManager، أين يُبنى إطار الموافقة/النتيجة، أي مسار يصمت
+  اليوم — بأرقام أسطر) + سجل حفظ السلوك + Fitness pre-check في
+  §TSK-616 — **commit قبل الكود**؛ ملاحظة: المهمة تلمس الواجهة
+  (عرض العلم) — التغيير عرضي لا يغيّر سلوك المنتج (إظهار حالة قائمة
+  فقط، ضمن نطاق المهمة المقررة). بعد الإغلاق: Close-out + جدول
+  الحالة + CHANGELOG + PROGRESS + commit محلي.
+  خط الانحدار المرجعي الحالي: **1831 = 1F/1796P/34S**
   (theme_tokens/TF-04 حصرًا).
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
@@ -720,6 +737,37 @@
   محلي — دمج المستخدم 7a33798 (شمل تعديلات PROGRESS غير الملتزمة) ·
   الموقع → **M9/TSK-615** (ApprovalGate طلبات متزامنة — ASF-05)؛
   TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-29 — Session 71 — TSK-615 ✅ (M9: 1/8)**:
+  استرداد من origin 7a33798 (دمج المستخدم شمل 1b05703 + 8450204 +
+  تعديلات PROGRESS غير الملتزمة) → إتمام PROGRESS (Next action→615 +
+  سجل 68–70، commit 2496147) → **أدلة TSK-615**: قراءة
+  core/approval.py كاملة (286 سطرًا) + **4 تجارب تزامن حية** على
+  البوابة القديمة كشفت **NF-27** (C5/S2): سيناريو A — اعتماد r2
+  يعتمد r1 المتداخل **زورًا** (`_pending_event` مشترك: `set()` يوقظ
+  الجميع وكلهم يقرأون النتيجة المشتركة) ⇒ الكسر fail-OPEN لا
+  fail-closed كما وصف ASF-05 [SUPERSEDES جزئيًا]؛ B — حلّ الأقدم
+  مستحيل (الاستنزاف الموثق)؛ C — تلويث تدقيق؛ D — الرد المتأخر
+  مرفوض (سليم) · جرد المستهلكين: نسخة واحدة مشتركة (server:1937)؛
+  resolve من bridge:289 وagent_loop:305/318؛ request من bridge:567 +
+  agent_loop:524 + runners ×4؛ pending_request_id اختبارات فقط ⇒
+  لا تغيير عقد، لا ADR · أدلة + pre-checks + NF-27 (commit a55267f —
+  دمج b825afc) → **التنفيذ**: `_PendingEntry` dataclass (hash/Event/
+  result/reason لكل طلب) + `self._pending: dict` بدل الخانات الخمس؛
+  `_interactive` يسجّل ويزيل مدخله في try/finally؛ `resolve` يطابق
+  المدخل؛ `pending_request_id()` يرجع الأحدث (مطابق مع ≤1)؛ جديد
+  `pending_request_ids()` · تحقق حي: A/B/C مُصلحة وD محفوظ ·
+  **9 اختبارات جديدة** (test_approval_concurrent.py: حلّ مستقل /
+  لا-موافقة-زائفة / حلّ-الأقدم / مهلة-لكل-طلب + خريطة نظيفة /
+  hash متقاطع مرفوض / نسبة التدقيق / سلوك الطلب الواحد ×3)
+  (commit f37be66 — دمج المستخدم 84b58d9) · إعادة CHANGELOG المفقود
+  من الدمج (commit 63e51ec) · كل البوابات على الشجرة المدموجة:
+  الـ19 القائمة بلا تعديل + 9 = 28 · contracts+parity 113 ·
+  goldens+ws_router 32 · mypy بوابة **Success 81 ملفًا** · lint
+  نظيف · regression junitxml **1831 = 1F/1796P/34S 79.8s**
+  (theme_tokens/TF-04 حصرًا؛ 1822+9=1831 ✓) → Close-out + جدول
+  الحالة 615→DONE (ضمن f37be66/84b58d9) + تحديث PROGRESS (هذا
+  القيد) + commit محلي · الموقع → **M9/TSK-616** (إظهار سقف
+  snapshot — ASF-03)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي

@@ -522,3 +522,29 @@
 - contracts+parity 113 · goldens+ws_router 32 · متأثرة 104 · lint
   نظيف · Regression junitxml: **1822 = 1F/1787P/34S** (69.7s؛
   theme_tokens حصرًا؛ 1812+10=1822 ✓).
+
+## TSK-615 — ApprovalGate: طلبات متزامنة (ASF-05/NF-27) — Session 71
+
+### Added
+- `core/approval.py`: `_PendingEntry` (dataclass — hash/Event/result/reason
+  لكل طلب) + `pending_request_ids()` (جمع المعلّقين، الأقدم أولًا).
+- `tests/unit/test_approval_concurrent.py`: 9 اختبارات تزامن (حلّ مستقل،
+  لا موافقة زائفة NF-27، حلّ الأقدم ASF-05، مهلة لكل طلب، رفض hash
+  متقاطع، نسبة تدقيق صحيحة، حفظ سلوك الطلب الواحد).
+
+### Changed
+- `core/approval.py`: الخانة المفردة (`_pending_id` + Event مشترك)
+  استُبدلت بخريطة `request_id → _PendingEntry`؛ `_interactive` يسجّل
+  مدخلًا مستقلًا ويزيله في finally (لا تصفير جماعي/تسرّب)؛ `resolve`
+  يطابق مدخل الخريطة (id + hash)؛ `pending_request_id()` يرجع الأحدث
+  (سلوك مطابق مع ≤1 معلّق). التواقيع العامة بلا تغيير — صفر تعديل في
+  bridge/agent_loop/runners/server.
+
+### Verification
+- تجربة حية قبل/بعد: سيناريو A (اعتماد r2 كان يعتمد r1 زورًا — NF-27
+  fail-OPEN) وB (حلّ الأول مستحيل — استنزاف ASF-05) وC (تلويث تدقيق)
+  كلها مُصلحة؛ D (رد متأخر مرفوض) محفوظ.
+- test_approval.py الـ19 القائمة تمر **بلا تعديل** · pyflakes نظيف ·
+  lint_handler_state نظيف · contracts+parity 113 · goldens+ws_router 32 ·
+  بوابة mypy: Success 81 ملفًا · Regression junitxml:
+  **1831 = 1F/1796P/34S** (79.9s؛ theme_tokens/TF-04 حصرًا؛ 1822+9=1831 ✓).
