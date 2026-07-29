@@ -26,6 +26,7 @@ land()/reject() حصريًا (كلاهما يُنهيها completed — المس
 from __future__ import annotations
 
 import threading
+import time
 from typing import TYPE_CHECKING, Callable
 
 from core.approval import ApprovalRequest
@@ -70,6 +71,8 @@ class DelegateRunner:
             events: EventSink) -> RunResult:
         stream = EventStream(ticket.run_id, events)
         stream.started(mode=request.mode)
+        # TSK-609 (PM-02): توقيت دورة التفويض كاملة (نفس نمط chain).
+        _t0 = time.monotonic()
         frames: list[dict] = []
         frames_lock = threading.Lock()
 
@@ -90,7 +93,7 @@ class DelegateRunner:
             # ── checkpoint إلغاء ──
             if ticket.is_cancelled:
                 return self._finish(stream, ticket,
-                                    RunResult(status=RESULT_CANCELLED))
+                                    RunResult(status=RESULT_CANCELLED), started_at=_t0)
 
             # ── الموافقة عبر البوابة حصريًا (T-012/T-013) ──
             if request.proposed_actions:
@@ -100,7 +103,7 @@ class DelegateRunner:
                     return self._finish(
                         stream, ticket,
                         RunResult(status=RESULT_FAILED,
-                                  error="أفعال مقترحة بلا بوابة موافقة — رُفضت"))
+                                  error="أفعال مقترحة بلا بوابة موافقة — رُفضت"), started_at=_t0)
                 req = ApprovalRequest(
                     actions=list(request.proposed_actions),
                     source=request.mode, run_id=ticket.run_id)
@@ -111,7 +114,7 @@ class DelegateRunner:
                     return self._finish(
                         stream, ticket,
                         RunResult(status=RESULT_FAILED,
-                                  error=f"الموافقة رُفضت: {verdict.reason}"))
+                                  error=f"الموافقة رُفضت: {verdict.reason}"), started_at=_t0)
                 for action in request.proposed_actions:
                     stream.emit(EVENT_ACTION_APPLIED, kind=action.kind,
                                 target=action.target)
@@ -119,7 +122,7 @@ class DelegateRunner:
             # ── checkpoint إلغاء ثانٍ قبل العمل ──
             if ticket.is_cancelled:
                 return self._finish(stream, ticket,
-                                    RunResult(status=RESULT_CANCELLED))
+                                    RunResult(status=RESULT_CANCELLED), started_at=_t0)
 
             # ── العمل: دورة التفويض الكاملة (الجسر يدير التذكرة) ──
             run = self._bridge.run_delegation(
@@ -148,21 +151,30 @@ class DelegateRunner:
                 error = "; ".join(e for e in errs if e) or "delegation failed"
             return self._finish(stream, ticket,
                                 RunResult(status=status, text=text,
-                                          error=error))
+                                          error=error), started_at=_t0)
 
         except Exception as exc:  # لا استثناءات للخارج (بند 4)
             return self._finish(
                 stream, ticket,
-                RunResult(status=RESULT_FAILED, error=str(exc)))
+                RunResult(status=RESULT_FAILED, error=str(exc)), started_at=_t0)
 
     @staticmethod
     def _finish(stream: EventStream, ticket: "RunTicket",
-                result: RunResult) -> RunResult:
+                result: RunResult,
+                started_at: "float | None" = None) -> RunResult:
         """التذكرة تُنهى بنفس status النتيجة، والحدث الأخير finished.
 
         الجسر يُنهي التذكرة في finally للحالات الحاسمة — النداء هنا
         لا-عملية آمنة لأن النتيجة مشتقة من حالته نفسها.
+
+        TSK-609 (PM-02): عند تمرير ``started_at`` يُضاف ``duration_ms``
+        لبيانات الحدث — مفتاح إضافي فقط (العقود تفحص reason حصرًا).
         """
-        stream.finished(reason=result.status)
+        if started_at is not None:
+            stream.finished(
+                reason=result.status,
+                duration_ms=int((time.monotonic() - started_at) * 1000))
+        else:
+            stream.finished(reason=result.status)
         ticket.finish(result.status)
         return result
