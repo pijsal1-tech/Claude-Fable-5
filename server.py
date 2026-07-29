@@ -69,6 +69,7 @@ from runners.chain import ChainRunner
 from runners.delegate import DelegateRunner
 from runners.direct import DirectRunner
 from core.approval import ApprovalGate
+from core.run_metrics import RunMetricsRecorder, RunMetricsStore  # TSK-610
 from core.project_memory import (
     ProjectMemoryStore, CorruptMemoryError, is_stale as _memory_is_stale,
 )
@@ -688,6 +689,11 @@ project_memory: ProjectMemoryStore = None
 # ── ApprovalGate (T-012, R-104) — نقطة الموافقة الوحيدة قبل أي كتابة ──
 approval_gate: ApprovalGate = None
 
+# ── Run Metrics (TSK-610, PM-03 §R6) — تجميع مقاييس الـ runs ──
+# service global (نفس نمط project_memory): مشترك على bus الرصد
+# يُلحق سطر JSONL لكل run منتهٍ؛ REST القراءة أدناه هو الوسيط الوحيد.
+run_metrics_store: RunMetricsStore = None
+
 
 # ════════════════════════════════════════════════════
 # Static Pages
@@ -891,6 +897,18 @@ def api_capacity():
                         "error": "capacity model غير مهيأ بعد"}), 503
     return jsonify({"ok": True,
                     "capacity": capacity_model.report().to_dict()})
+
+
+@app.route("/api/metrics/runs")
+def api_metrics_runs():
+    """TSK-610 (PM-03 §R6): ملخّص مقاييس الـ runs — قراءة فقط.
+
+    عدّادات + p50/p95 للمدة (كليًا ولكل mode) من سجل JSONL
+    الملحق-فقط الذي يملؤه مشترك bus الرصد (RunMetricsRecorder)."""
+    if run_metrics_store is None:
+        return jsonify({"ok": False,
+                        "error": "مخزن المقاييس غير مهيأ بعد"}), 503
+    return jsonify({"ok": True, "summary": run_metrics_store.summary()})
 
 
 # ════════════════════════════════════════════════════
@@ -2684,6 +2702,7 @@ def main():
     global capacity_model
     global agent_tools
     global project_memory
+    global run_metrics_store
 
     arg_parser = argparse.ArgumentParser(description="WebDev AI Editor — Web Server")
     arg_parser.add_argument("--project", "-p", type=str, default=".",
@@ -2923,6 +2942,12 @@ def main():
     # T-114: صار service global — إطارات لوحة الذاكرة تصل له عبر
     # الوسطاء الوحدويين (_memory_*_frame)؛ نفس الكائن محقون في AgentTools.
     project_memory = ProjectMemoryStore(str(_DIR / "projects"))
+    # TSK-610 (PM-03): مخزن مقاييس الـ runs + مشترك التجميع على
+    # bus الرصد — إضافة صرفة (الـ bus يعزل أعطال المشتركين؛ فشل
+    # الكتابة لا يمس الـ run — قرار موثّق في §TSK-610).
+    run_metrics_store = RunMetricsStore(str(_DIR / "metrics" / "runs.jsonl"))
+    event_bus.subscribe(RunMetricsRecorder(run_metrics_store))
+    print("  📈 Run Metrics: مفعّل — metrics/runs.jsonl")
     agent_tools = AgentTools(
         file_manager=fm,
         command_runner=cmd_runner,
