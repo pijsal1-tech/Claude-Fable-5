@@ -100,6 +100,33 @@ DEFAULT_BACKEND = "memory"
 #: نقطة توسعة T-109 الوحيدة (Redis Streams).
 KNOWN_BACKENDS: tuple[str, ...] = ("memory",)
 
+#: TSK-608 (RF-02): الافتراضي عند غياب مفتاح ``execution.stale_ttl_seconds``
+#: — 15 دقيقة صمتٍ بلا نبضة = run ميت. أطول بكثير من أي مهلة provider
+#: (ws_timeout: 90s) ومن مهلة الموافقة (120s) — فلا حصد زائف لخطوة بطيئة.
+DEFAULT_STALE_TTL_SECONDS = 900.0
+
+
+def resolve_stale_ttl(execution_cfg: Any) -> float | None:
+    """TSK-608: تحقق صارم لمفتاح ``execution.stale_ttl_seconds``.
+
+    - قسم ``execution:`` غائب أو ليس mapping فيه المفتاح → الافتراضي (900).
+    - المفتاح موجود بقيمة null صريحة → None (تعطيل الحصاد).
+    - رقم موجب → float. أي شيء آخر (نص/سالب/صفر) → ValueError صاخب
+      عند الإقلاع — نفس فلسفة :func:`resolve_backend_name`.
+    """
+    if not isinstance(execution_cfg, dict) \
+            or "stale_ttl_seconds" not in execution_cfg:
+        return DEFAULT_STALE_TTL_SECONDS
+    value = execution_cfg["stale_ttl_seconds"]
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) \
+            or value <= 0:
+        raise ValueError(
+            f"execution.stale_ttl_seconds: قيمة غير صالحة {value!r} — "
+            "المطلوب رقم موجب أو null (تعطيل)")
+    return float(value)
+
 
 @dataclass(frozen=True)
 class BackendPair:
@@ -123,17 +150,23 @@ def resolve_backend_name(value: Any) -> str:
     return value
 
 
-def backends_from_config(value: Any) -> BackendPair:
+def backends_from_config(value: Any,
+                         ttl_seconds: float | None = None) -> BackendPair:
     """بناء السجل والناقل من قيمة ``backend:`` — درزة الإقلاع الوحيدة.
 
     ``memory`` يبني الافتراضيين داخل-العملية بنفس معاملاتهما التاريخية
     (بلا وسائط = نفس ``ExecutionRegistry()`` و``EventBus()`` حرفيًّا).
     T-109 يضيف فرع ``redis`` هنا — المستهلكون لا يتغيرون.
+
+    TSK-608 (RF-02): ``ttl_seconds`` اختياري يمرَّر حرفيًّا لمُنشئ السجل
+    — الافتراضي None يبقي النداء بلا وسائط مطابقًا للتاريخي بايت-بايت
+    (يثبّته test_backends.py::test_config_built_pair_is_historical_defaults).
+    server.py يمرر ناتج :func:`resolve_stale_ttl` هنا عند الإقلاع.
     """
     name = resolve_backend_name(value)
     assert name == "memory"  # نقطة توسعة T-109 — الفحص أعلاه حصر الأسماء
     return BackendPair(
         name=name,
-        registry=InMemoryRegistryBackend(),
+        registry=InMemoryRegistryBackend(ttl_seconds=ttl_seconds),
         event_bus=InMemoryEventBusBackend(),
     )

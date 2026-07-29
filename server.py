@@ -219,13 +219,16 @@ def pop_pending_path_request(req_id: str) -> dict | None:
 # حرفيًّا؛ اسم مجهول = فشل إقلاع صاخب). ملاحظة نطاق: buses الاتصالات
 # (_json_sender/ws_handler) نقلٌ محلي داخل-العملية بطبيعته — تبقى
 # EventBus() مباشرة خارج الدرزة (T-109 يوزّع الرصد لا النقل).
-from core.backends import backends_from_config
+from core.backends import backends_from_config, resolve_stale_ttl
 # TSK-203 (NF-23.3): القراءة عبر القارئ الموحّد — قراءة متعذرة ⇒ {}
 # ⇒ الافتراضيان (نفس تسامح الإقلاع السابق حرفيًا).
 _cfg_root = _load_config()
 _backend_cfg = _cfg_root.get("backend")
 _dispatch_cfg = _cfg_root.get("dispatch")
-_backends = backends_from_config(_backend_cfg)
+# TSK-608 (RF-02): TTL الحصاد من config (execution.stale_ttl_seconds —
+# غائب = 900s، null = تعطيل، غير صالح = فشل إقلاع صاخب).
+_stale_ttl = resolve_stale_ttl(_cfg_root.get("execution"))
+_backends = backends_from_config(_backend_cfg, ttl_seconds=_stale_ttl)
 
 # T-110 (R-804): درزة الإرسال — ``dispatch:`` من config (غائب/in-proc =
 # السلوك التاريخي حرفيًّا؛ اسم مجهول = فشل إقلاع صاخب — نفس عقد
@@ -341,6 +344,13 @@ class _RunnerWSAdapter:
         self._send = send_fn
 
     def emit(self, event: RunEvent) -> None:
+        # TSK-608 (RF-02): كل حدث من الـ runner = نبضة حياة للتذكرة —
+        # بدونها تبقى _last_heartbeat = created_at فيحصد reap_stale الـ
+        # runs الحية الطويلة زورًا. lookup مجهول/منتهٍ → لا-عملية آمنة
+        # (heartbeat على تذكرة غير running يعيد False بلا أثر).
+        _hb_ticket = execution_registry.lookup(event.run_id)
+        if _hb_ticket is not None:
+            _hb_ticket.heartbeat()
         if event.type == EVENT_RUN_STARTED:
             # T-047: لا إطار واجهة (كما كان) — حدث رصدي على الـ bus العام
             event_bus.publish(RunStarted(run_id=event.run_id,
@@ -401,6 +411,13 @@ def _begin_run_ticket(kind, send_fn, sctx=None):
         except Exception:
             # NF-14 §4 (ابتلاع مقصود — قرار TSK-302): مقبض بلا هوية → الخانة العالمية.
             project_id = ""
+    # TSK-608 (RF-02): حصاد التذاكر اليتيمة (خيط مات بلا finish) قبل
+    # كل تسجيل — أرخص نقطة تغطي كل الأنواع (نفس نمط TSK-303 أدناه).
+    # قبل purge عمدًا: المحصود يصير terminal فيخضع لسقف الطَهْر فورًا.
+    # No-op حرفيًّا عند تعطيل TTL (execution.stale_ttl_seconds: null).
+    for _reaped in execution_registry.reap_stale():
+        print(f"  ⚰️ reap_stale: {_reaped.run_id} ({_reaped.kind}) — "
+              f"خانة المشروع {_reaped.project_id or 'global'!r} تحررت")
     # TSK-303 (NF-06): طَهْر التذاكر المنتهية القديمة عند كل تسجيل جديد
     # — يمنع تسرّب الذاكرة وتضخّم إطار runs_list (السقف: آخر 50 منتهية).
     execution_registry.purge_terminal()
@@ -2285,8 +2302,16 @@ def _handle_ws_message(ctx, sctx, msg):
             lambda m: sctx.send(m), sctx=sctx)
         if resume_ticket is None:
             return
+
+        # TSK-608 (RF-02): مسار الاستكمال يرسل عبر الجسر مباشرة (لا يمر
+        # بـ _RunnerWSAdapter) — غلاف نبض حياة حول الإرسال كي لا يُحصد
+        # run مستأنَف حي (نفس دلالة نبضة-لكل-حدث في المحوّل).
+        def _resume_send_with_heartbeat(m):
+            resume_ticket.heartbeat()
+            sctx.send(m)
+
         ok = sctx.chain_bridge.resume_run(
-            resume_id, sctx.send, ticket=resume_ticket)
+            resume_id, _resume_send_with_heartbeat, ticket=resume_ticket)
         if not ok:
             # الرفض/الخطأ أُرسل من الجسر — حرّر التذكرة
             resume_ticket.finish("failed")
@@ -2528,6 +2553,8 @@ def _apply_batch(sctx, actions: list) -> None:
         for i, action in enumerate(actions):
             # TSK-304 (NF-04): نقطة تفتيش الإلغاء بين كل action —
             # الإجراءات المتبقية لا تُطبّق بعد رفع العلم.
+            # TSK-608 (RF-02): نبضة لكل action — دفعة طويلة حية لا تُحصد.
+            apply_ticket.heartbeat()
             if apply_ticket.is_cancelled:
                 ticket_status = "cancelled"
                 sctx.send({
