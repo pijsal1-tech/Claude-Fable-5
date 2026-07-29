@@ -29,6 +29,7 @@ cancel_agent يصلان من المستوى الأعلى مباشرة إلى Age
 """
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Any, Callable
 
 from core.approval import ApprovalRequest
@@ -75,6 +76,8 @@ class AgentRunner:
             events: EventSink) -> RunResult:
         stream = EventStream(ticket.run_id, events)
         stream.started(mode=request.mode)
+        # TSK-609 (PM-02): توقيت الحلقة كاملة end-to-end (نفس نمط chain).
+        _t0 = time.monotonic()
 
         def _frame_sink(frame: dict) -> None:
             """إطارات AgentLoop تُبث كأحداث حرة بنفس أسمائها."""
@@ -94,7 +97,7 @@ class AgentRunner:
             # ── checkpoint إلغاء ──
             if ticket.is_cancelled:
                 return self._finish(stream, ticket,
-                                    RunResult(status=RESULT_CANCELLED))
+                                    RunResult(status=RESULT_CANCELLED), started_at=_t0)
 
             # ── الموافقة عبر البوابة حصريًا (T-012/T-013) ──
             if request.proposed_actions:
@@ -104,7 +107,7 @@ class AgentRunner:
                     return self._finish(
                         stream, ticket,
                         RunResult(status=RESULT_FAILED,
-                                  error="أفعال مقترحة بلا بوابة موافقة — رُفضت"))
+                                  error="أفعال مقترحة بلا بوابة موافقة — رُفضت"), started_at=_t0)
                 req = ApprovalRequest(
                     actions=list(request.proposed_actions),
                     source=request.mode, run_id=ticket.run_id)
@@ -115,7 +118,7 @@ class AgentRunner:
                     return self._finish(
                         stream, ticket,
                         RunResult(status=RESULT_FAILED,
-                                  error=f"الموافقة رُفضت: {verdict.reason}"))
+                                  error=f"الموافقة رُفضت: {verdict.reason}"), started_at=_t0)
                 for action in request.proposed_actions:
                     stream.emit(EVENT_ACTION_APPLIED, kind=action.kind,
                                 target=action.target)
@@ -123,7 +126,7 @@ class AgentRunner:
             # ── checkpoint إلغاء ثانٍ قبل العمل ──
             if ticket.is_cancelled:
                 return self._finish(stream, ticket,
-                                    RunResult(status=RESULT_CANCELLED))
+                                    RunResult(status=RESULT_CANCELLED), started_at=_t0)
 
             # ── العمل: الحلقة الكاملة (تُنهي التذكرة بنفسها) ──
             loop = self._loop_factory(_frame_sink)
@@ -149,21 +152,30 @@ class AgentRunner:
             # لكن loop.run يُنهيها cancelled — قراءتها هي مصدر الصدق.
             status = ticket.state if ticket.is_terminal else RESULT_COMPLETED
             return self._finish(stream, ticket,
-                                RunResult(status=status, text=text))
+                                RunResult(status=status, text=text), started_at=_t0)
 
         except Exception as exc:  # لا استثناءات للخارج (بند 4)
             return self._finish(
                 stream, ticket,
-                RunResult(status=RESULT_FAILED, error=str(exc)))
+                RunResult(status=RESULT_FAILED, error=str(exc)), started_at=_t0)
 
     @staticmethod
     def _finish(stream: EventStream, ticket: "RunTicket",
-                result: RunResult) -> RunResult:
+                result: RunResult,
+                started_at: "float | None" = None) -> RunResult:
         """التذكرة تُنهى بنفس status النتيجة، والحدث الأخير finished.
 
         لو AgentLoop أنهى التذكرة بالفعل فالنداء هنا لا-عملية —
         الحالتان متطابقتان لأن النتيجة مشتقة من التذكرة نفسها.
+
+        TSK-609 (PM-02): عند تمرير ``started_at`` يُضاف ``duration_ms``
+        لبيانات الحدث — مفتاح إضافي فقط (العقود تفحص reason حصرًا).
         """
-        stream.finished(reason=result.status)
+        if started_at is not None:
+            stream.finished(
+                reason=result.status,
+                duration_ms=int((time.monotonic() - started_at) * 1000))
+        else:
+            stream.finished(reason=result.status)
         ticket.finish(result.status)
         return result
