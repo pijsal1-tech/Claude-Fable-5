@@ -930,7 +930,7 @@
     القرارات) · 41cc87a (دمج خارجي — الكود + الاختبارات).
 
 ### TSK-612 — QG-02: استخراج مسارات الإرسال
-- **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-611, TSK-601.
+- **Status**: IN PROGRESS (S61) · **Priority**: P2 · **Dependencies**: TSK-611 ✅, TSK-601 ✅.
 - **Objective**: نقل `_dispatch_chat_message` (~477 سطرًا) إلى وحدة إرسال
   مستقلة تستهلك `_parsed_to_actions` الموحدة (من TSK-601).
 - **Background**: QG-02 (§R8). · **Files**: `server.py`، وحدة جديدة، goldens.
@@ -938,6 +938,73 @@
 - **Gates**: Architecture (ADR) · Testing · Regression.
 - **Behavior preservation**: bit-identical frames.
 - **Metrics**: سطور server.py. · **Rollback**: revert.
+- **Evidence (S61، قبل أي تعديل كود)**:
+  - **الكتلة الفعلية**: `_dispatch_chat_message(ctx, sctx, user_text,
+    mode, msg, skip_path_detection=False, attached_context=None)` —
+    server.py:1549..2034 = **486 سطرًا** (انحراف مواصفة: النص ~477).
+  - **البنية (4 مراحل)**: scan_start فوري :1559 → كشف المسارات
+    (:1561–1670 — quoted/Windows/كلمات + قراءة ملف مكتشف مسيّجة
+    fence_attached + مجلد مكتشف → store_pending_path_request +
+    path_confirmation_request) → جمع السياق :1671
+    (gather_message_context/T-019) → توجيه :1701
+    (`request_router.route` + RoutingDecided على bus + مستويات
+    RoutingTier: chain عبر `_chain_runner_for_dispatch`/RUNNERS،
+    delegate) → Agent :1815 (`agent_tools` + AgentLoop في thread)
+    → direct fallback :1948 (build_prompt + `_begin_run_ticket` +
+    RunRequest + RUNNERS["direct"] في thread).
+  - **المستدعيان (كلاهما بعد استخراج 611)**: `_ws_confirm_path_action`
+    :2120 (بـ skip_path_detection=True + attached_context) و
+    `_ws_message` :2182.
+  - **26 رمزًا خارجيًا** تستعملها الدالة — التصنيف:
+    - مستوردات نقية (تُستورد في الوحدة الجديدة مباشرة): AgentLoop،
+      CharsPerTokenEstimator، Message، RoutingTier، RunRequest،
+      RESULT_COMPLETED/RESULT_FAILED، RoutingDecided، build_prompt،
+      fence_attached، get_system_prompt، gather_message_context،
+      os/re/threading/time/uuid.
+    - **معرّفة في server.py** (الحاجز الحقيقي): RUNNERS :380،
+      `_RunnerWSAdapter` :336، `_begin_run_ticket` :389،
+      `_chain_runner_for_dispatch` :245، `_parsed_options` :1544،
+      `_parsed_to_actions` :1513، `_payload_history` :1466،
+      `parser` :133، `store_pending_path_request` :201،
+      MAX_SMART_FILE_SIZE، event_bus :270.
+    - **globals متغيّرة تُقرأ وقت النداء**: `request_router` :677
+      (تُربط في main() :2969) و`agent_tools` :683 (:3009) —
+      واجهات None-safe (`if request_router and ...`).
+  - **قيد الاختبارات الحرج (seam constraint)**: 4 ملفات اختبار
+    تستدعي `server._dispatch_chat_message` وتعتمد monkeypatch على
+    **فضاء أسماء server**: `setattr(server, "gather_message_context",…)`
+    (except_narrowing:67، prompt_fencing:82، scan_start:76) و
+    `setattr(server.os.path, "isdir",…)` (scan_start:92) و
+    `setattr(server, "execution_registry",…)` (instrumentation_609:225)
+    — **لو نُقل الجسم إلى وحدة تقرأ رموزها من فضائها الخاص انكسر
+    الـ monkeypatch بصمت** (يرقّع server بينما الوحدة تستعمل
+    مرجعها). فحص بنيوي إضافي: scan_start:104 regex على
+    `def _dispatch_chat_message` (يبقى صالحًا لو بقي غلاف بنفس
+    الاسم يُرقّع)؛ prompt_fencing:170 regex على استدعاء attach.
+  - **بوابة mypy القائمة**: scripts/check.sh:12 —
+    `mypy --ignore-missing-imports --follow-imports=silent
+    providers/ chain/ core/ context/ sessions/` — وحدة جديدة تحت
+    `core/` تدخل النطاق تلقائيًا (يحقق «mypy على الوحدة الجديدة
+    نظيف» بلا توسيع يدوي).
+- **Behavior-preservation pre-check**:
+  - bit-identical frames: كل sctx.send كما هو حرفيًا (scan_start،
+    path_confirmation_request، تحذير الملف غير المقروء، إطارات
+    الـ runners عبر `_RunnerWSAdapter` دون مساس).
+  - `server._dispatch_chat_message` يبقى موجودًا بنفس الاسم
+    والتوقيع (غلاف) — المستدعيان الداخليان والاختبارات الأربعة
+    وregex البنيوي scan_start:104 كلها تستمر دون تعديل.
+  - **التبعيات القابلة للترقيع تُحقن وقت النداء** (تمرير مراجع
+    server الحية عند كل استدعاء — late binding) كي يبقى
+    monkeypatch على فضاء server فعّالًا؛ `request_router`/
+    `agent_tools` تُقرآن وقت النداء (لا تُلتقطان عند الاستيراد —
+    تُربطان في main() بعد الاستيراد).
+  - NF-14: مواضع الابتلاع المقصود (قراءة ملف مذكور :1711،
+    قراءة الملف المكتشف) تبقى بتعليقاتها حرفيًا.
+- **Architecture-Fitness pre-check**: يقلّص g1؛ الوحدة الجديدة
+  `core/chat_dispatch.py` تدخل بوابة mypy تلقائيًا (نطاق core/
+  في check.sh:12)؛ الحقن عبر معاملات صريحة (لا استيراد server —
+  لا دورة)؛ **تغيير معماري ⇒ ADR-002 + قيد Decision Log قبل
+  الكود** (الدستور :1038).
 
 ### TSK-613 — QG-03: تجميع REST blueprints
 - **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-612.
@@ -1059,7 +1126,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 609 | M7 | P2 | ✅ DONE (S49–54) | duration_ms على bus للمسارات 4/4 + توقيت المصادر + duration/token في plan/done؛ +11 اختبارًا |
 | 610 | M7 | P2 | ✅ DONE (S55–57) | سجل JSONL لكل run منتهٍ + p50/p95 (nearest-rank) + REST قراءة /api/metrics/runs؛ +17 اختبارًا |
 | 611 | M8 | P2 | ✅ DONE (S58–60) | استخراج راوتر WS إلى core/ws_router.py (ADR-001)؛ الكتلة 506→13 سطرًا؛ +10 اختبارات |
-| 612 | M8 | P2 | TODO | بعد 611+601 |
+| 612 | M8 | P2 | IN PROGRESS (S61) | بعد 611+601 |
 | 613 | M8 | P2 | TODO | بعد 612 |
 | 614 | M8 | P2 | TODO | بعد 611..613 — يغلق QF-02 |
 | 615 | M9 | P2 | TODO | |

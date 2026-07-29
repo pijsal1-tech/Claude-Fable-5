@@ -60,3 +60,57 @@
 
 ### Status
 **Accepted** (S59) — يُنفَّذ في TSK-611.
+
+---
+
+## ADR-002: استخراج `_dispatch_chat_message` إلى `core/chat_dispatch.py` بحقن التبعيات وقت النداء
+
+- **Task**: TSK-612 (M8 — QG-02 §R8) · **Date**: 2026-07-29 (S61)
+
+### Context
+بعد QG-01 (ADR-001) بقيت أكبر كتلة في server.py هي
+`_dispatch_chat_message` (:1549..2034 — **486 سطرًا**): كشف مسارات +
+جمع سياق + توجيه (router/chain/delegate) + Agent + direct fallback.
+تستعمل 26 رمزًا خارجيًا: مستوردات نقية، و11 رمزًا معرّفًا في server.py
+(RUNNERS، `_begin_run_ticket`، parser، event_bus…)، وglobals متغيّرة
+تُربط في main() (`request_router`، `agent_tools`).
+**قيد حرج**: 4 ملفات اختبار ترقّع رموزًا على فضاء أسماء server
+(`monkeypatch.setattr(server, "gather_message_context", …)` إلخ) —
+نقل ساذج يقرأ الرموز من فضاء الوحدة الجديدة يكسر الترقيع بصمت.
+
+### Decision
+1. وحدة جديدة `core/chat_dispatch.py` تحوي جسم الدالة كـ
+   `dispatch_chat_message(deps, ctx, sctx, user_text, mode, msg,
+   skip_path_detection=False, attached_context=None)` حيث `deps`
+   كائن بسيط (SimpleNamespace/dataclass) يحمل **مراجع server الحية**.
+2. `server._dispatch_chat_message` يبقى بنفس الاسم والتوقيع كغلاف
+   يبني `deps` **وقت كل نداء** من رموز فضاء server (late binding):
+   `deps.gather_message_context = gather_message_context` إلخ —
+   فيبقى monkeypatch على server فعّالًا حرفيًا، وتبقى globals
+   المتغيّرة (`request_router`/`agent_tools`) مقروءة وقت النداء.
+3. الوحدة لا تستورد server (لا دورة)؛ المستوردات النقية
+   (build_prompt، RoutingTier، AgentLoop…) تُستورد فيها مباشرة —
+   **عدا** `gather_message_context` و`os` (يُرقّعان في الاختبارات
+   على server) فيمرّان عبر deps.
+4. الوحدة تحت `core/` فتدخل بوابة mypy القائمة (check.sh:12)
+   تلقائيًا — يحقق شرط القبول.
+
+### Alternatives rejected
+1. **نقل حرفي مع `import server` داخل الوحدة**: دورة استيراد +
+   يبقي الاقتران بالوحدة الضخمة — عكس هدف QG-02.
+2. **تحديث الاختبارات الأربعة لترقيع الوحدة الجديدة**: يعدّل
+   اختبارات مثبّتة للسلوك أثناء تغيير بنيوي (خلط إشارات) ويكسر
+   نمط «الاختبارات تثبت server كواجهة» المعتمد في 611.
+3. **تمرير كل رمز كمعامل منفصل (14+ معاملًا)**: توقيع هش؛ كائن
+   deps واحد أوضح ويتوسع في QG-03/04.
+
+### Trade-offs
+- (+) server.py يفقد ~470 سطرًا صافيًا (أكبر كتلة متبقية)؛ المنطق
+  يدخل نطاق mypy؛ الاختبارات القائمة تعمل دون تعديل.
+- (−) مستوى غير مباشرة (deps) — يُخفَّف بأسماء حقول مطابقة لأسماء
+  رموز server حرفيًا.
+- (−) الغلاف يبقى في server.py (~30 سطرًا) — مقبول؛ يُزال عند
+  QG-03/04 حين تنتقل الرموز المشتركة نفسها.
+
+### Status
+**Accepted** (S61) — يُنفَّذ في TSK-612.
