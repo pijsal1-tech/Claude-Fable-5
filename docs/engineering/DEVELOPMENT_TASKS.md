@@ -2042,11 +2042,56 @@
   - **Rollback**: revert (commits معزولة).
 
 ### TSK-622 — إعادة تصويت RELEASE_READINESS (ينتظر إغلاق M6)
-- **Status**: TODO · **Priority**: P2 · **Dependencies**: M6 كاملًا (601–605).
+- **Status**: ✅ DONE (S83) · **Priority**: P2 · **Dependencies**: M6 كاملًا (601–605) ✅ (S83).
 - **Objective**: إعادة تقييم G1–G5 على الكود الحالي (TD-03) بمدخلات ما بعد
   التنفيذ + RP-01/TF-03 المصلحة؛ تحديث RRR بقسم re-vote مؤرَّخ (append).
 - **Acceptance**: قسم جديد في RRR بحكم لكل بوابة بدليل حي؛ لا حذف للنص القديم.
 - **Gates**: Documentation. · **Rollback**: revert.
+- **Evidence (S83) — خريطة رافعات البوابات، كل استشهاد مُتحقق حيًّا**:
+  - **G1** (كان CONDITIONAL FAIL على BUG-01): parser أصبح mode-aware —
+    `actions/response_parser.py:107` `def parse(self, response, mode=None)`
+    (TSK-201→101→102، QA-T05)؛ RP-01 (اعتماد التفويض المكسور) أُصلح TSK-601؛
+    TF-03 أُصلح TSK-604.
+  - **G2** (كان CONDITIONAL FAIL على NF-15/NF-18): Zip-Slip —
+    `server.py:753` `_zip_member_violations` (TSK-105، MASTER_REVIEW:304
+    VERIFIED-FIXED)؛ التسييج — `fence_attached` يُستدعى الآن في مسار الحلقة
+    والمعرفة أيضًا: `chain/agent_loop.py:230/:274`،
+    `chain/knowledge.py:54/:204/:207` (TSK-404 + TSK-602/ASF-01)؛ البوابة
+    البنيوية ASF-02 → TSK-603 (`chain/agent_tools.py:535` صحيح بالبناء)؛
+    D-1/TSK-617: `server.py:195` غياب المفتاح ⇒ True و`agent_tools.py:68/:100`
+    غياب القسم ⇒ enforce=True (fail-closed code-defaults).
+  - **G3** (كان CONDITIONAL FAIL على BUG-03/NF-06/07/01/04): ميزانية موحّدة —
+    `context/facade.py:113` `gather_message_context` (TSK-103) + TSK-607 ضم
+    جيب delegate الأخير (RP-03)؛ NF-06 — `core/execution.py:351`
+    `purge_terminal` + نداء `server.py:434` (MASTER_REVIEW:367)؛ NF-07 —
+    `select_history` بسياسة مسماة `server.py:46/:1004` (MASTER_REVIEW:368)؛
+    NF-01 — داخل القفل (MASTER_REVIEW:362 VERIFIED-FIXED)؛ NF-04 — الإلغاء
+    FIXED (TSK-304) والحجب حُلّ بالتخييط TSK-606 ✅ (S43، RF-01).
+  - **G4** (كان FAIL non-blocking على g1/NF-23/BUG-04/NF-14): server.py الآن
+    2141 سطرًا (كان 2613) بعد M8 (TSK-611–613: راوتر WS + dispatch +
+    blueprints routes/ 8 ملفات) + TSK-614 mypy Success 81 ملفًا؛ NF-23.1–.4
+    VERIFIED-FIXED (MASTER_REVIEW:506–509)؛ BUG-04 مُغلق
+    (`core/ignore_rules.py`، MASTER_REVIEW:194)؛ NF-14 جزئي منضبط بنمط
+    "ابتلاع مقصود §N" الموثّق + TSK-618 ضيّق path_policy.
+  - **G5** (كان PASS): تعزّز — خط الانحدار 1900 اختبارًا =
+    0F/1866P/34S (S83، أول 0-failed) + `check.sh` ALL GREEN exit 0 أول مرة
+    (M6 مغلقة 5/5).
+- **Behavior-preservation pre-check**: المهمة توثيقية بحتة — لا يُلمس أي ملف
+  كود؛ التعديل الوحيد إلحاق قسم في RRR (append-only) وسجلّات الإغلاق. صفر
+  تأثير سلوكي بالبناء.
+- **Architecture-Fitness pre-check**: لا بنية كود متأثرة؛ يحترم قاعدة RRR
+  "Status fields live ONLY in PROGRESS.md" — القسم الجديد حُكم/دليل لا حالة
+  مهام؛ §0.8 (providers/ مستثنى) يبقى ساريًا في إعادة التقييم.
+- **Close-out (S83)**: قسم §5 "Re-vote — Session 83" أُلحق بـ RRR
+  (112→197 سطرًا؛ append فقط — §1–§4 محفوظة حرفيًا). الأحكام: G1 ✅ PASS
+  (BUG-01 mode-aware + RP-01/TF-03 مصلحة)، G2 ✅ PASS (NF-15/NF-18 على
+  المسارين + ASF-01/02 + D-1 fail-closed؛ متبقٍّ موثَّق: localhost-only)،
+  G3 ✅ PASS (BUG-03/NF-06/07/01/04 كلها مرفوعة حيًّا)، G4 ✅ PASS
+  (server.py 2141 بعد M8 + mypy 81 ملفًا)، G5 ✅ PASS معزَّز
+  (1900 = 0F/1866P/34S + check.sh ALL GREEN). الحكم الإجمالي:
+  **GO ضمن عقد localhost أحادي-المستخدم الموثَّق** (كان NO-GO). Gates:
+  Documentation — لا كود مُس؛ لا اختبار مطلوب. TD-03 وD-4 مغلقان.
+  **M9 مغلقة كاملة** (615–622 كلها ✅).
 
 ## M10 — Hygiene (P3)
 
@@ -2304,7 +2349,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 619 | M9 | P2 | ✅ DONE (S74) | بطاقة الخطة التفاعلية: checkbox لكل خطوة عبر وحدة نقية plan_card.js وexecutePlan يرسل المفعّل فقط؛ server.py بلا لمس؛ 10 اختبارات node؛ خط الانحدار 1860 |
 | 620 | M9 | P2 | ✅ DONE (S75) | سرد الجلسة: timeline من الأطر الحية (استهلاك-فقط) عبر وحدة نقية session_narrative.js فوق قائمة RunHistory؛ server.py بلا لمس؛ 10 اختبارات node؛ خط الانحدار 1870 |
 | 621 | M9 | P2 | ✅ DONE (S76) | endpoint قراءة /api/permissions (blueprint meta) + لوحة قراءة-فقط بوحدة نقية permissions_panel.js؛ سطح REST 30→31 (توسيع عقد موثَّق)؛ 12 اختبارًا؛ خط الانحدار 1882 |
-| 622 | M9 | P2 | TODO | بعد M6 — TD-03 |
+| 622 | M9 | P2 | ✅ DONE (S83) | قرار D-4: re-vote مؤرَّخ أُلحق بـ RRR (§5) — G1–G5 كلها PASS بدليل حي؛ الحكم GO ضمن عقد localhost؛ TD-03 مغلق؛ M9 مغلقة كاملة |
 | 623 | M10 | P3 | BLOCKED(D-3) | destructive |
 | 624 | M10 | P3 | ✅ DONE (S78) | ADR-005 استرجاعي لإعادة تصميم v25 (النطاق/الأثر/الحرّاس الثلاثة وإصلاحاتها) + قيد retro في DECISION_LOG؛ TD-04 مغلق؛ خط الانحدار بلا تغيير (1900) |
 | 625 | M10 | P3 | ✅ DONE (S77) | _parse_args_body متسامح متعدد الأسطر (طي التكملة، مفاتيح شرعية حيّة من التواقيع)؛ ASF-06 مغلق؛ 18 اختبارًا؛ خط الانحدار 1900 |

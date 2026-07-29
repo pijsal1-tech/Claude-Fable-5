@@ -823,3 +823,21 @@
   الفشل الوحيد test_search_perf العابر الموثَّق (معزولًا 18 passed)؛
   القبول مُثبَت تنفيذيًا (حذف المفاتيح ⇒ آمن؛ config الحالي ⇒ صفر تغيير)؛
   pyflakes delta صفر (stash-diff)؛ mypy Success 81 ملفًا.
+
+## [TSK-622] — 2026-07-29 — إعادة تصويت RELEASE_READINESS (قرار المالك D-4)
+### Added
+- قسم §5 "Re-vote — Session 83" في RELEASE_READINESS_REPORT.md
+  (append فقط، 112→197 سطرًا): إعادة تقييم G1–G5 على الكود الحالي
+  بدليل حي لكل بوابة — كلها ✅ PASS؛ الحكم الإجمالي انقلب من NO-GO إلى
+  **GO ضمن عقد localhost أحادي-المستخدم الموثَّق**؛ الشروط المرفقة:
+  نموذج التهديد 127.0.0.1 يبقى عقد المنتج (والافتراضات البرمجية الآن
+  fail-closed بقرار D-1).
+### Changed
+- DEVELOPMENT_TASKS: §TSK-622 (Evidence/pre-checks/Close-out) + صف الجدول
+  ✅؛ **M9 مغلقة كاملة** (615–622).
+### Verification
+- Documentation gate: لا كود مُس؛ grep يؤكد بقاء النص الأصلي §1–§4 حرفيًا؛
+  كل استشهاد file:line في القسم الجديد تُحقق منه حيًّا قبل الكتابة
+  (parse:107، _zip_member_violations:753، fence_attached في agent_loop
+  :230/:274 وknowledge :54/:204/:207، purge_terminal:351، facade:113،
+  server.py wc -l = 2141).

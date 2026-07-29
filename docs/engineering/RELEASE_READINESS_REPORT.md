@@ -110,3 +110,88 @@ Order rationale: TSK-201 (merge apply paths into `_apply_batch`) is a
 dependency of TSK-101 (mode-aware parser + drop actions from chat done-frame),
 which is a dependency of TSK-102 (bash fallback CMD: tag). First QA gate after
 that trio: QA-T05.
+
+---
+
+## 5. Re-vote — Session 83 (2026-07-29) — TSK-622 / Owner decision D-4
+
+> Post-execution re-assessment of G1–G5 on the CURRENT codebase
+> (Stage 3: 24/26 TSK done; M1–M8 closed, M6 closed 5/5 in S83).
+> Original §1–§4 preserved verbatim above — this section appends only.
+> Scope unchanged: SECTION 0.8 still excludes providers/ from assessment.
+
+### G1 — Core Correctness: ✅ PASS
+- BUG-01 lifted: parser is mode-aware — `actions/response_parser.py:107`
+  `parse(self, response, mode=None)`; chat mode disables the speculative
+  fallback; chat done-frame carries `actions: []` (MASTER_REVIEW R-migration
+  :203, VERIFIED). NF-13 closed with it (TSK-102, CMD: tag).
+- Beyond the original blockers: RP-01 (delegate approval dead-end, found
+  post-planning) fixed by TSK-601; TF-03 (broken panels) fixed by TSK-604.
+- Live proof: QA-T05 + full regression **0 failed** (S83).
+
+### G2 — Security: ✅ PASS (localhost threat model, unchanged)
+- NF-15 lifted: `server.py:753` `_zip_member_violations` validates members
+  before extraction (TSK-105; MASTER_REVIEW:304 VERIFIED-FIXED; QA-T07).
+- NF-18 lifted on BOTH paths: `fence_attached` used in templates (TSK-404)
+  AND now in the agent loop + knowledge path — `chain/agent_loop.py:230/:274`,
+  `chain/knowledge.py:54/:204/:207` (TSK-602 closed ASF-01).
+- Structural approval gate: TSK-603 moved enforcement into the tool layer
+  (ASF-02 closed; `chain/agent_tools.py:535` correct-by-construction note).
+- NF-16/ASF-04 resolved by owner decision D-1 (TSK-617, S83): code-defaults
+  are now fail-closed — missing `force_command_approval` ⇒ True
+  (`server.py:195`), missing/garbage allowlist section ⇒
+  `enforce=True, allowlist={}` (`chain/agent_tools.py:68/:100`).
+- Residual (documented, accepted): REST/WS without auth for 127.0.0.1-only
+  posture — unchanged product contract (config.yaml + README deployment
+  limits).
+
+### G3 — Stability / Resource Safety: ✅ PASS
+- BUG-03 lifted: both injection paths unified under ContextBudget via
+  `context/facade.py:113` `gather_message_context` (TSK-103); the last
+  pocket (delegate context, RP-03) closed by TSK-607.
+- NF-06 lifted: `core/execution.py:351` `purge_terminal(keep_last=50)` +
+  call site `server.py:434` (MASTER_REVIEW:367 VERIFIED-FIXED).
+- NF-07 lifted: `select_history(..., _history_payload_policy(cfg))` —
+  named policy gate (`server.py:46/:1004`; MASTER_REVIEW:368).
+- NF-01 lifted: pending cleanup inside the lock (TSK-301;
+  MASTER_REVIEW:362 VERIFIED-FIXED).
+- NF-04 fully lifted: cancel fixed by TSK-304; the remaining WS-loop
+  blocking (RF-01) resolved by threading `_apply_batch` + direct runner
+  (TSK-606, S43).
+- Live proof: QA-T06/T10 + regression 0F.
+
+### G4 — Maintainability: ✅ PASS (was FAIL non-blocking)
+- g1 god-module decomposed by M8: server.py now **2,141 lines** (was 2,613)
+  with WS router (TSK-611), dispatch extraction (TSK-612), REST blueprints
+  in `routes/` — 8 modules (TSK-613); mypy gate covers server.py + extracted
+  units: **Success, 81 files** (TSK-614).
+- NF-23.1–.4 all VERIFIED-FIXED (MASTER_REVIEW:506–509); BUG-04 closed via
+  unified `core/ignore_rules.py` (MASTER_REVIEW:194); NF-14 remains partial
+  by design — every intentional swallow tagged "NF-14 §N" in place, and
+  TSK-618 narrowed path_policy's except.
+- Note: G4's original "what lifts" (M2 + TSK-305) landed AND the
+  longer-term decomposition (FI-02 equivalent) landed too — exceeding the
+  original lifting condition.
+
+### G5 — QA Coverage & Traceability: ✅ PASS (strengthened)
+- Regression suite grew to **1,900 tests = 0 failed / 1,866 passed /
+  34 skipped** (S83 — first-ever 0-failed run); `scripts/check.sh`
+  ALL GREEN exit 0 for the first time (M6 closed 5/5).
+- Traceability maintained through Stage 3: every TSK carries Evidence /
+  pre-checks / Close-out blocks with file:line anchors; CHANGELOG and
+  status table current.
+
+### Re-vote Verdict
+
+| Question | Original (§2) | Re-vote (S83) |
+|---|---|---|
+| Public / production release of current codebase | NO-GO | **GO** — within the documented localhost-single-user contract; no blocking gate remains |
+| Continue as local single-user dev tool | Acceptable at risk | **Fully supported** — fail-closed defaults now protect misconfiguration |
+| MODE B (execute roadmap) | GO | **Near-complete** — 24/26 TSK; remaining: TSK-622 (this document) + TSK-623 (hygiene archive, non-code) |
+
+**Conditions attached to GO**: the localhost-only threat model in §1/G2
+remains the product contract; any exposure beyond 127.0.0.1 requires the
+documented config hardening (force_command_approval + allowlist — now also
+the code-default per D-1). No open blocking findings; no undocumented
+technical debt at time of vote (TECHNICAL_DEBT.md intentionally absent —
+no debt exists to record, per D-2 close-out of TSK-605).
