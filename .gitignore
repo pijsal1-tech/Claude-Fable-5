@@ -36,3 +36,5 @@ coverage.json
 htmlcov/
 # exception: TSK-623/D-3 archive of improvements/ (content preserved, tracked)
 !test---results/improvements_archive_2026-07-29.tar.gz
+# TSK-623/D-3: improvements/ archived; prevent accidental re-tracking if the folder reappears
+improvements/
