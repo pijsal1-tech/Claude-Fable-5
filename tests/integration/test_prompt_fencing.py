@@ -174,6 +174,10 @@ class TestFolderAttachPathFenced:
         assert 'fence_attached(f"attach_file:' in block
 
     def test_detected_file_site_uses_fence_structurally(self):
-        assert 'fence_attached(\n                    f"detected_file:' \
-            in SERVER_SRC or \
-            re.search(r'fence_attached\(\s*f"detected_file:', SERVER_SRC)
+        # TSK-612 (ADR-002): موضع تسييج الملف المكتشف انتقل إلى
+        # core/chat_dispatch.py — نفس الضمان البنيوي في موقعه الجديد.
+        dispatch_src = (pathlib.Path(server.__file__).parent
+                        / "core" / "chat_dispatch.py").read_text(
+                            encoding="utf-8")
+        assert re.search(r'fence_attached\(\s*f"detected_file:',
+                         dispatch_src)

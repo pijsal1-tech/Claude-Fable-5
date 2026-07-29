@@ -122,8 +122,13 @@ class TestCallSitesWired:
     """grep-assert: كل نداءات _begin_run_ticket في server.py تمرر sctx."""
 
     def test_all_call_sites_pass_sctx(self):
-        src = (pathlib := __import__("pathlib")).Path(
-            server.__file__).read_text(encoding="utf-8")
+        # TSK-612 (ADR-002): 4 مواضع نداء انتقلت إلى core/chat_dispatch.py
+        # (تصل _begin_run_ticket عبر deps) — نفس الضمان على الملفين.
+        pathlib = __import__("pathlib")
+        server_path = pathlib.Path(server.__file__)
+        src = server_path.read_text(encoding="utf-8") + "\n" + (
+            server_path.parent / "core" / "chat_dispatch.py"
+        ).read_text(encoding="utf-8")
         calls = [ln for ln in src.splitlines()
                  if "_begin_run_ticket(" in ln
                  and "def _begin_run_ticket" not in ln]

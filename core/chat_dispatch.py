@@ -162,7 +162,7 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
     except Exception as e:
         # NF-14 §7 (يحتاج log — أضيف): فشل جمع السياق كاملًا كان صامتًا —
         # الرسالة تمضي بلا سياق مشروع (fallback مقصود) لكن السبب يُسجّل.
-        print(f"  ⚠️ deps.gather_message_context فشل — مواصلة بلا سياق: {e}")
+        print(f"  ⚠️ gather_message_context فشل — مواصلة بلا سياق: {e}")
         mentioned_files = []
         user_text_with_files = user_text
         project_context = ""

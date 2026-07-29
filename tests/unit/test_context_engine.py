@@ -212,9 +212,14 @@ def test_mention_source_satisfies_protocol():
 def test_inline_block_deleted_from_server():
     """معيار قبول T-019: كتلة السياق المضمّنة محذوفة من server.py
     والمعالج يستدعي نداء الـ engine الواحد."""
-    src = (pathlib.Path(__file__).resolve().parents[2]
-           / "server.py").read_text(encoding="utf-8")
-    code_lines = [ln for ln in src.splitlines()
+    root = pathlib.Path(__file__).resolve().parents[2]
+    src = (root / "server.py").read_text(encoding="utf-8")
+    # TSK-612 (ADR-002): موضع النداء انتقل إلى core/chat_dispatch.py —
+    # نفس الضمانات على الموقعين (النداء في الوحدة، الحقن في server).
+    dispatch_src = (root / "core" / "chat_dispatch.py").read_text(
+        encoding="utf-8")
+    combined = src + "\n" + dispatch_src
+    code_lines = [ln for ln in combined.splitlines()
                   if not ln.lstrip().startswith("#")]
     code = "\n".join(code_lines)
     # لا أثر لمنطق الجمع القديم في كودٍ فعلي (التعليقات التوثيقية مسموحة)
@@ -222,8 +227,8 @@ def test_inline_block_deleted_from_server():
     assert "MAX_MENTIONED = 100" not in code
     assert "stems_to_search" not in code
     assert "target_files_content" not in code
-    # المعالج يستدعي الـ facade
-    assert "from context.facade import gather_message_context" in code
+    # المعالج يستدعي الـ facade (الحقن الحي من فضاء server — ADR-002)
+    assert "from context.facade import gather_message_context" in src
     # T-048 (R-701): المقبض أصبح خاصًّا بالاتصال — sctx.fm
     # T-049 (R-702): النداء يمرر الفهرس — index=sctx.project.index
     assert "gather_message_context(sctx.fm.root, user_text," in code

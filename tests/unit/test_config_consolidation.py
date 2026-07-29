@@ -33,8 +33,11 @@ class TestGrepAsserts:
     def test_single_constant_definition(self):
         """تعريف واحد فقط لـ MAX_SMART_FILE_SIZE في server.py."""
         code = _code_lines(_server_src())
+        # TSK-612 (ADR-002): تمرير kwarg «MAX_SMART_FILE_SIZE=…» في باني
+        # deps ليس تعريفًا — النمط يقيّد المطابقة بتعريف أعلى-مستوى
+        # (بلا إزاحة)، وهو نفس الضمان الأصلي (تعريف وحدوي واحد).
         defs = [ln for ln in code
-                if re.match(r"\s*MAX_SMART_FILE_SIZE\s*=", ln)]
+                if re.match(r"MAX_SMART_FILE_SIZE\s*=", ln)]
         assert len(defs) == 1, f"وجد {len(defs)} تعريفًا: {defs}"
 
     def test_at_most_one_yaml_safe_load(self):
