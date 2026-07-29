@@ -184,6 +184,11 @@ class AgentTools:
         # T-112 (R-805): ProjectMemoryStore — بلا مخزن الأداة تعتذر
         # بوضوح (لا صمت ولا كسر: نفس مبدأ «بلا بوابة ⇒ رفض آمن»).
         self._memory_store = memory_store
+        # TSK-616 (ASF-03): علم «تغطية snapshot جزئية» لآخر أمر —
+        # يُضبط في tool_run_command عند اقتطاع أي من المسحين
+        # (قبلي/بعدي) بسقف العدد أو الحجم؛ AgentLoop يقرأه ليحمله
+        # إطار النتيجة (partial_rollback) — إظهار لا رفع سقف.
+        self.last_partial_rollback: bool = False
 
     # حدود مسح الملفات قبل/بعد الأمر (T-059) — مشاريع أكبر من
     # السقف تفقد التغطية للزائد فقط (لا فشل) — موثّق في docstring.
@@ -501,9 +506,12 @@ class AgentTools:
         ticket0 = self.run_ticket
         ckpt_run_id = ticket0.run_id if ticket0 is not None else ""
         pre_sigs: dict[str, tuple[int, int]] | None = None
+        # TSK-616 (ASF-03): تتبّع اقتطاع المسح — كان يُفقد صامتًا.
+        self.last_partial_rollback = False
+        pre_truncated = False
         if self._checkpoint is not None and ckpt_run_id:
             try:
-                pre_sigs = self._workspace_signatures()
+                pre_sigs, pre_truncated = self._workspace_signatures()
                 if pre_sigs:
                     self._checkpoint.snapshot(ckpt_run_id,
                                               sorted(pre_sigs))
@@ -554,7 +562,7 @@ class AgentTools:
         # ── T-059: seal ما-بعد-الأمر للملفات التي غيّرها الأمر ──
         if pre_sigs is not None and self._checkpoint is not None:
             try:
-                changed = self._changed_paths(pre_sigs)
+                changed, post_truncated = self._changed_paths(pre_sigs)
                 if changed:
                     # ملفات أنشأها الأمر (غائبة قبله): سجل الغياب صراحةً —
                     # snapshot عادي الآن سيلتقط حالة ما-بعد خطأً؛
@@ -571,24 +579,48 @@ class AgentTools:
                     report += (f"\n🧷 [checkpoint]: الأمر غيّر "
                                f"{len(changed)} ملف — قابلة للاستعادة "
                                f"(run: {ckpt_run_id})")
+                # TSK-616 (ASF-03): أي اقتطاع (قبلي أو بعدي) = تغطية
+                # snapshot جزئية — تحذير صريح بدل الصمت (المستخدم
+                # وافق على الأمر، لا على فقدان قابلية التراجع).
+                # يظهر خارج `if changed` عمدًا: تغييرات فوق السقف
+                # غير مرئية للمقارنة أصلًا (قد يكون changed فارغًا زورًا).
+                if pre_truncated or post_truncated:
+                    self.last_partial_rollback = True
+                    _LOG.warning(
+                        "run_command snapshot coverage PARTIAL "
+                        "(scan caps hit: files>%d or size>%dKB) — "
+                        "rollback for run %s will be partial",
+                        self._CKPT_MAX_FILES,
+                        self._CKPT_MAX_FILE_BYTES // 1024, ckpt_run_id)
+                    report += (
+                        "\n⚠️ [checkpoint]: تغطية snapshot جزئية — "
+                        f"المشروع تجاوز سقف المسح "
+                        f"({self._CKPT_MAX_FILES} ملف / "
+                        f"{self._CKPT_MAX_FILE_BYTES // 1024}KB للملف) "
+                        "⇒ التراجع عن آثار هذا الأمر سيكون جزئيًا")
             except Exception:
                 _LOG.exception("post-command seal failed")
         return report
 
-    def _workspace_signatures(self) -> dict[str, tuple[int, int]]:
-        """مسح محدود لملفات المشروع: مسار ← (size, mtime_ns).
+    def _workspace_signatures(
+            self) -> tuple[dict[str, tuple[int, int]], bool]:
+        """مسح محدود لملفات المشروع: (مسار ← (size, mtime_ns)، اقتطاع؟).
 
         حدود: تخطي مجلدات الضجيج، سقف عدد وحجم — مشروع أكبر من
-        السقف يفقد تغطية الزائد فقط (الخطر المتبقي موثّق، لا فشل).
+        السقف يفقد تغطية الزائد فقط (لا فشل). TSK-616 (ASF-03):
+        الاقتطاع لم يعد صامتًا — العنصر الثاني True عند بلوغ سقف
+        العدد أو تخطي ملف لتجاوزه سقف الحجم (الحقيقة تُشتق حيث
+        تحدث، لا تُستنتج لاحقًا).
         """
         sigs: dict[str, tuple[int, int]] = {}
+        truncated = False
         root = self.project_root
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames
                            if d not in self._CKPT_SKIP_DIRS]
             for name in filenames:
                 if len(sigs) >= self._CKPT_MAX_FILES:
-                    return sigs
+                    return sigs, True
                 full = os.path.join(dirpath, name)
                 if is_secret_file(pathlib.Path(full)):
                     continue
@@ -597,16 +629,18 @@ class AgentTools:
                 except OSError:
                     continue
                 if st.st_size > self._CKPT_MAX_FILE_BYTES:
+                    truncated = True  # ملف خارج التغطية — لم يعد صامتًا
                     continue
                 sigs[full] = (st.st_size, st.st_mtime_ns)
-        return sigs
+        return sigs, truncated
 
-    def _changed_paths(self, pre: dict[str, tuple[int, int]]) -> list[str]:
-        """مقارنة بعدية: مُعدّل + جديد + محذوف (كلها طفرات تُختم)."""
-        post = self._workspace_signatures()
+    def _changed_paths(
+            self, pre: dict[str, tuple[int, int]]) -> tuple[list[str], bool]:
+        """مقارنة بعدية: (مُعدّل + جديد + محذوف، اقتطاع المسح البعدي؟)."""
+        post, truncated = self._workspace_signatures()
         changed = [p for p, sig in post.items() if pre.get(p) != sig]
         changed.extend(p for p in pre if p not in post)  # محذوف
-        return sorted(changed)
+        return sorted(changed), truncated
 
     def _format_command_result(self, command: str, entry_name: str,
                                result: dict, max_chars: int) -> str:
