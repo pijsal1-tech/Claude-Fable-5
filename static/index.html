@@ -71,6 +71,10 @@
     <!-- بطاقة الخطة التفاعلية — TSK-619 (CP-1): منطق نقي (مستقل) قبل
          app.js لأن showPlanCard/executePlan يستهلكان PlanCard. -->
     <script src="/static/js/plan_card.js?v=1"></script>
+
+    <!-- سرد الجلسة — TSK-620 (CP-8): منطق نقي (مستقل) قبل app.js لأن
+         handleWSMessage/sendMessage يستهلكان SessionNarrative. -->
+    <script src="/static/js/session_narrative.js?v=1"></script>
 </head>
 
 <body>

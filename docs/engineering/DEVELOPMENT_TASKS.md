@@ -1698,6 +1698,53 @@
 - **Acceptance**: جلسة بها run واحد معتمد → السرد يعرض ≥ 4 محطات بترتيبها؛
   وحدة نقية مختبرة node.
 - **Gates**: Testing · Documentation. · **Rollback**: revert.
+- **Evidence (S75)**:
+  - **مصدر المحطات = أطر WS الحية عبر المعالج الوحيد**:
+    `handleWSMessage` (app.js:192) — **سابقة الاستهلاك-فقط قائمة**:
+    `StatusChip.noteFrame(statusChipState, data)` (:195) يلتقط من
+    الإطارات دون تغيير مسار أيٍّ منها. الأطر الحاملة للمحطات:
+    «طلب» — `sendMessage` (:836، يرسل message/chain_message)؛
+    «خطة» — case "plan" (:220)؛ «موافقات» — chain_approval_request
+    (:430) / chain_approval_verdict (:434، يحمل approved/reason) +
+    respondAgentApproval (:795، agent_approval_response)؛
+    «تنفيذ» — task_progress (:241) / chain_step (:325) /
+    agent_step (:504)؛ «نتائج» — all_actions_done (:245) /
+    done (:215) / chain_finished (:365) / agent_done (:583) /
+    error (:226) + «استعادة» rollback_result (:443).
+  - **سجل runs (التبعية TSK-610)**: core/run_metrics.py — JSONL
+    ملحق-فقط `{ts, run_id, mode, status, duration_ms, ...}` + REST
+    قراءة `/api/metrics/runs` (routes/meta.py:50) — **مقاييس مجمّعة
+    بلا تفصيل محطات لكل جلسة** ⇒ السرد يُشتق من الأطر الحية
+    في الذاكرة (محلي، لا cloud — Non-Goal §15.2)؛ سجل runs يبقى
+    مصدر p50/p95 لا السرد.
+  - **موضع العرض «فوق RunHistory القائمة»**: لوحة
+    `#run-history-panel` (index.html:464–472: head/report/list)؛
+    الغراء القائم: toggleRunHistory (app.js:3445 — fetch
+    /api/rollback/history ثم renderRunHistory :3463)؛ الوحدة
+    النقية run_history.js تبني/ترسم القائمة. قسم سرد جديد يُحقن
+    قبل القائمة داخل نفس اللوحة.
+  - **أنماط قائمة**: UMD-lite (status_chip.js — createState +
+    noteFrame + render نقي) + اختبار node
+    (test_plan_card/test_stream_render — run_node + wiring +
+    سيناريو يدوي موثَّق كـ Accept). node v22.23.1.
+- **Behavior-preservation pre-check (S75 — قبل التعديل)**:
+  1. الالتقاط استهلاك-فقط في handleWSMessage (نفس عقد StatusChip
+     :193–195 حرفيًا): لا إطار يُعدَّل ولا مسار case يتغير.
+  2. RunHistory القائمة (بيانات/أزرار/استعادة) بلا أي تغيير —
+     السرد قسم عرض جديد داخل اللوحة لا يلمس list/report.
+  3. لا endpoints جديدة ولا أطر WS جديدة ولا server.py؛
+     sendMessage يضيف نداء التقاط واحدًا لا يغيّر الإرسال.
+  4. سقف مدخلات في الذاكرة (أقدم-يُطرد) — جلسة طويلة لا تراكم
+     ذاكرة بلا حد (نفس مبدأ MAX_PENDING في run_metrics).
+  5. التحقق: regression كامل (خط 1860) + wiring tests.
+- **Architecture-Fitness pre-check (S75)**:
+  - وحدة نقية جديدة `static/js/session_narrative.js` (حالة +
+    noteFrame تصنيفي + entries + renderTimelineHTML نقي) —
+    قابلة للاختبار في node؛ الـ DOM glue (نداء الالتقاط + حقن
+    القسم عند فتح اللوحة) في app.js فقط — نفس نمط المنزل
+    (status_chip/plan_card).
+  - لا تبعيات جديدة؛ script tag واحد `?v=1` قبل app.js؛
+    لا لمس لـ providers/ (§0.8).
 
 ### TSK-621 — Permissions UI قراءة (CP-5)
 - **Status**: TODO · **Priority**: P2

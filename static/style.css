@@ -2569,6 +2569,34 @@ html, body {
 #run-history-close:hover { color: var(--red); }
 #run-history-list { overflow-y: auto; padding: 8px; }
 #run-history-report { padding: 0 8px; }
+
+/* TSK-620 (CP-8): سرد الجلسة — timeline فوق قائمة الـ runs (tokens فقط) */
+#session-narrative {
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+#session-narrative .sn-empty {
+    color: var(--text-muted);
+    font-size: 11px;
+    text-align: center;
+    padding: 6px 0;
+}
+
+#session-narrative .sn-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+#session-narrative .sn-item .sn-icon { flex-shrink: 0; }
+#session-narrative .sn-result { color: var(--success); }
+#session-narrative .sn-item.sn-bad { color: var(--error); }
 .rh-empty {
     padding: 24px 16px;
     text-align: center;

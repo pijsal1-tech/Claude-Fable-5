@@ -193,6 +193,10 @@ function handleWSMessage(data) {
     // T-066 (R-906): شريحة الحالة تلتقط routing/budget من الإطارات
     // الموجودة — استهلاك فقط، ولا تغيّر مسار أي إطار.
     if (StatusChip.noteFrame(statusChipState, data)) scheduleStatusChipRender();
+    // TSK-620 (CP-8): سرد الجلسة يلتقط محطاته من الإطارات الموجودة —
+    // استهلاك فقط (نفس عقد StatusChip)، ولا يغيّر مسار أي إطار.
+    SessionNarrative.noteFrame(
+        sessionNarrativeState, data, Math.floor(Date.now() / 1000));
     // TSK-403 (NF-12 / A3): أي إطار تالٍ لـ scan_start يعني أن العمل
     // الفعلي بدأ (start/chunk/error/…) — أزل مؤشر "جاري التفكير…".
     if (data.type !== "scan_start") removeScanIndicator();
@@ -837,6 +841,11 @@ function sendMessage() {
     const input = document.getElementById("chat-input");
     let text = input.value.trim();
     if (!text || state.streaming || !state.connected) return;
+
+    // TSK-620 (CP-8): محطة «طلب» في سرد الجلسة — التقاط فقط،
+    // لا يغيّر مسار الإرسال (يغطي فرعَي message وchain_message).
+    SessionNarrative.noteRequest(
+        sessionNarrativeState, text, Math.floor(Date.now() / 1000));
 
     // Reset progress arrays
     exploredItems = [];
@@ -3442,6 +3451,21 @@ function sendPathAction(reqId, action, btnEl) {
 let runHistoryEntries = [];
 let pendingRollback = null; // { entry, fileIdx } بانتظار تأكيد الـ diff
 
+// TSK-620 (CP-8): حالة سرد الجلسة — تُملأ من الأطر الحية (استهلاك
+// فقط في handleWSMessage) وتُعرض فوق قائمة RunHistory عند فتح اللوحة.
+const sessionNarrativeState = SessionNarrative.createState();
+
+function renderSessionNarrative(panel) {
+    let sn = panel.querySelector("#session-narrative");
+    if (!sn) {
+        sn = document.createElement("div");
+        sn.id = "session-narrative";
+        const listEl = panel.querySelector("#run-history-list");
+        panel.insertBefore(sn, listEl); // قبل القائمة — القائمة بلا لمس
+    }
+    sn.innerHTML = SessionNarrative.renderTimelineHTML(sessionNarrativeState);
+}
+
 async function toggleRunHistory() {
     const panel = document.getElementById("run-history-panel");
     if (!panel.classList.contains("hidden")) {
@@ -3456,6 +3480,7 @@ async function toggleRunHistory() {
     } catch (e) {
         runHistoryEntries = [];
     }
+    renderSessionNarrative(panel); // TSK-620: السرد فوق القائمة
     renderRunHistory();
     panel.classList.remove("hidden");
 }
