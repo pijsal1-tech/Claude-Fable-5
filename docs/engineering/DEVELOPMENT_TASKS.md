@@ -1898,9 +1898,90 @@
 ### TSK-623 — أرشفة improvements/ (ينتظر D-3) — P3, BLOCKED
 حذف/نقل من الشجرة = عملية destructive → تنتظر موافقة D-3. Acceptance:
 grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أرشيف.
-### TSK-624 — retro-ADR لإعادة تصميم v25 — P3, TODO
+### TSK-624 — retro-ADR لإعادة تصميم v25 — P3, ✅ DONE (S78)
 توثيق قرار v25 (TD-04) في ADR + Decision Log. Acceptance: ملف ADR يشرح
 النطاق والأثر والحرّاس المكسورة وكيف أُصلحت.
+- **Evidence (S78)**:
+  - **الدين**: TD-04 — MASTER_REVIEW.md:679 («لا توثيق لإعادة تصميم v25
+    في أي وثيقة هندسية: التغيير لمس index.html/style.css/sprite وكسر
+    3 بوابات حارسة بلا سجل قرار أو تحديث للاختبارات») + :730 (خريطة
+    TD-04 → P3 → TSK-624).
+  - **نطاق v25 من git** (تحقق S78):
+    - `0d74dad` (2026-07-27) — نواة إعادة التصميم: index.html
+      +638/−…، style.css +819، sprite.svg 441 سطرًا معاد كتابته،
+      app.js +420 (إجمالي static/: 1877 insertions / 441 deletions).
+    - `2ed794f` (2026-07-28) — index.html +4 (متابعة v25).
+    - `8235147` (2026-07-28) — index.html +4، app.js +18 (ws_backoff
+      wiring ضمن نفس الموجة).
+    - `454f7ac` — تحديث sprite.svg لاحق ضمن نفس الخط.
+    - الوسوم الحية الآن: `?v=25` في index.html:32 (style.css) و:555
+      (app.js)؛ sprite.svg:3 «v25 Modern Edition».
+  - **الحرّاس المكسورة الثلاثة** (MASTER_REVIEW §R10.1:651 — «ثلاثة
+    من أربعة كسرها إعادة تصميم الواجهة v25»؛ TF-02 ليس منها —
+    تسرّب نطاق providers مستقل):
+    1. **TF-01** (:657) — sprite.svg v25 أسقط عبارة «رخصة المشروع»
+       المثبّتة في test_file_icons.py:143.
+    2. **TF-03** (:659) — v25 حذفت عنصرَي `run-history-btn`/
+       `memory-panel-btn` من index.html بينما app.js يربطهما في
+       DOMContentLoaded ⇒ TypeError يقطع المعالج ⇒ 3 لوحات معطلة
+       (عيب C3/S2 حي، لا انجراف اختبار).
+    3. **TF-04** (:660) — مئات الألوان الخام في style.css (976–3633+)
+       وindex.html:83–84 متجاوزةً بوابة color-tokens.
+    - أثر جانبي: **TF-05** (:663) — بوابة check.sh حمراء دائمًا
+      فذابت دلالة الانحدار.
+  - **الإصلاحات الموثقة**:
+    - TF-01 + TF-03 → **TSK-604 ✅ (S38–39)** — زرا وكيلان مخفيان
+      (نمط تفويض `.click()` الموجود في v25 نفسها؛ التعليق الحي
+      index.html:472) + إعادة سطر الترخيص للـ sprite؛ إخفاقات
+      البوابة 4→2 (سجل §TSK-604 الكامل بأدلته).
+    - TF-02 → **TSK-605 جزء أول ✅ (S40)** — استثناء providers/
+      من مسح الحارس (تسرّب نطاق، ليس كسر v25).
+    - TF-04 → **TSK-605 BLOCKED على قرار المالك D-2**
+      (tokenization كاملة أم baseline مؤرَّخ — MASTER_REVIEW:810)؛
+      هو الفشل الوحيد المتبقي في خط الانحدار 1900 = 1F.
+  - **نمط ADR البيتي**: لا مجلد `docs/engineering/adr/` — الـ ADRs
+    مقاطع داخل `ARCHITECTURE_DECISIONS.md` (ADR-001:9، ADR-002:66،
+    ADR-003:120، ADR-004:178) ببنية Context / Decision /
+    Alternatives rejected / Trade-offs / Status. سجل القرارات =
+    جدول `DECISION_LOG.md` بصيغة
+    `Date, What changed, Why, Evidence, Task`.
+- **Behavior-preservation pre-check (S78)**: مهمة توثيقية صرفة —
+  الملفات الملموسة حصرًا `ARCHITECTURE_DECISIONS.md` +
+  `DECISION_LOG.md` + سجلات المهمة/التقدم/التغييرات؛ **صفر لمس
+  كود/اختبارات/أصول**؛ خط الانحدار متوقَّع بلا تغيير (1900 =
+  1F/1865P/34S — الفشل الوحيد theme_tokens/TF-04 المعروف).
+- **Architecture-Fitness pre-check (S78)**:
+  - «ملف ADR» في القبول يُلبّى بمقطع **ADR-005** داخل
+    `ARCHITECTURE_DECISIONS.md` — هو ملف الـ ADRs البيتي الوحيد؛
+    إنشاء ملف/مجلد منفصل يكسر النمط القائم (ADR-001..004 كلها
+    مقاطع) بلا مقابل.
+  - الـ ADR **استرجاعي (retroactive)**: القرار وقع خارج حوكمة
+    البرنامج (0d74dad قبل بدء Stage 1) — يوثَّق الواقع والدروس، لا
+    يُخترع رشيد لم يُسجَّل: دوافع v25 غير المسجلة تُعلَّم **UNKNOWN**.
+  - قيد Decision Log يُؤرَّخ بتاريخ التوثيق مع وسم retro واضح +
+    إسناد TSK-624 — لا تزوير تاريخ القرار الأصلي.
+- **Close-out (S78)**:
+  - **Implementation**: مقطع **ADR-005** مُلحق بـ
+    `ARCHITECTURE_DECISIONS.md` (بنية Context/Decision-كيف-أُصلحت/
+    Alternatives rejected/Trade-offs/Status البيتية؛ موسوم صراحةً
+    «retroactive record»؛ الدوافع الأصلية معلَّمة UNKNOWN) + قيد
+    استرجاعي موسوم retro في جدول `DECISION_LOG.md` (14 سطرًا الآن).
+    صفر لمس كود/اختبارات/أصول.
+  - **Acceptance** ✅: ملف الـ ADRs يشرح **النطاق** (جدول commits
+    الأربعة بالأدلة من git)، **الأثر** (TF-01/TF-03/TF-04 + TF-05
+    تعمية البوابة)، **الحرّاس المكسورة وكيف أُصلحت** (جدول:
+    TF-01/03 → TSK-604 ✅؛ TF-04 → معلّق D-2 موثَّقًا كحدّ صريح)؛
+    + قيد Decision Log — نصّا القبول محقَّقان حرفيًا.
+  - **Gates**: Documentation ✅ (ADR-005 + Decision Log + هذا
+    السجل + CHANGELOG) · Regression ✅ — خط الانحدار **بلا تغيير**:
+    `{'tests': '1900', 'failures': '1', 'errors': '0',
+    'skipped': '34', 'time': '80.377'}` — الفشل الوحيد
+    theme_tokens/TF-04 المعروف (docs-only كما في pre-check).
+  - **Metrics**: TD-04 **مغلق** (آخر بند R10.3 المفتوح)؛
+    ADRs: 4 → **5**؛ قيود Decision Log: 5 → **6**.
+  - **Commits**: c3ebfc2 (أدلة قبل الملف) → f23ed91 (ADR-005 +
+    Decision Log).
+- **Resume notes / Checkpoint / Blocker / Next action**: —
 ### TSK-625 — صلابة _parse_args_body — P3, ✅ DONE (S77)
 تفكيك متسامح مع قيم متعددة الأسطر (ASF-06) + اختبارات حالات عدائية.
 - **Evidence (S77)**:
@@ -1998,6 +2079,6 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 621 | M9 | P2 | ✅ DONE (S76) | endpoint قراءة /api/permissions (blueprint meta) + لوحة قراءة-فقط بوحدة نقية permissions_panel.js؛ سطح REST 30→31 (توسيع عقد موثَّق)؛ 12 اختبارًا؛ خط الانحدار 1882 |
 | 622 | M9 | P2 | TODO | بعد M6 — TD-03 |
 | 623 | M10 | P3 | BLOCKED(D-3) | destructive |
-| 624 | M10 | P3 | TODO | |
+| 624 | M10 | P3 | ✅ DONE (S78) | ADR-005 استرجاعي لإعادة تصميم v25 (النطاق/الأثر/الحرّاس الثلاثة وإصلاحاتها) + قيد retro في DECISION_LOG؛ TD-04 مغلق؛ خط الانحدار بلا تغيير (1900) |
 | 625 | M10 | P3 | ✅ DONE (S77) | _parse_args_body متسامح متعدد الأسطر (طي التكملة، مفاتيح شرعية حيّة من التواقيع)؛ ASF-06 مغلق؛ 18 اختبارًا؛ خط الانحدار 1900 |
 | 626 | M10 | P3 | TODO | |
