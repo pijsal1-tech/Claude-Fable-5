@@ -529,7 +529,7 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-608 — تفعيل reap_stale إنتاجيًا
-- **Status**: IN-PROGRESS (S47) · **Priority**: P2
+- **Status**: ✅ DONE (S47–48) · **Priority**: P2
 - **Objective**: استدعاء دوري (أو عند كل run جديد) لـ
   `ExecutionRegistry.reap_stale` كي لا تبقى خانة مشروع محجوزة بعد موت خيط.
 - **Background**: RF-02 (§R5) — الآلية موجودة ومختبرة بلا مستدعٍ (execution.py:322).
@@ -572,6 +572,39 @@
     إطارات أثناء انتظار قرار المستخدم → صمت > TTL يحصدها ويحرر الخانة؛
     land/reject اللاحقان يعملان بلا كسر (finish no-op). سلوك مقصود
     (الهدف نفسه: لا خانة محجوزة للأبد) وقابل للتعطيل عبر null.
+- **Close-out (S47–48)**:
+  - **التنفيذ** (5 لمسات — merged @ e111f8e):
+    1. `core/backends.py`: `resolve_stale_ttl(execution_cfg)` (تحقق صارم:
+       غائب → 900s افتراضي `DEFAULT_STALE_TTL_SECONDS`؛ null → تعطيل؛
+       غير صالح → ValueError صاخب) + وسيط `ttl_seconds` اختياري في
+       `backends_from_config` (الافتراضي None = التاريخي بايت-بايت —
+       اختبار الثبات القائم test_backends.py:203 يمر بلا تعديل).
+    2. `server.py` إقلاع: `_stale_ttl = resolve_stale_ttl(_cfg_root.get("execution"))`
+       → `backends_from_config(_backend_cfg, ttl_seconds=_stale_ttl)`.
+    3. `server.py::_begin_run_ticket`: نداء `reap_stale()` قبل
+       `purge_terminal()` (المحصود يصير terminal فيخضع للسقف فورًا) +
+       سطر log لكل تذكرة محصودة. no-op حرفيًا عند التعطيل.
+    4. **نبض الحياة** (سد المخاطرة المرصودة — صفر مستدعين سابقين):
+       `_RunnerWSAdapter.emit` ينبض تذكرة `event.run_id` عند كل حدث
+       (يغطي chain/agent/direct/delegate)؛ `_apply_batch` ينبض لكل
+       action؛ مسار resume يغلّف الإرسال بـ `_resume_send_with_heartbeat`.
+    5. `config.yaml`: قسم `execution.stale_ttl_seconds: 900` موثّق كاملًا.
+  - **الاختبارات**: `tests/integration/test_reap_stale_wiring.py` جديد —
+    **17 اختبارًا** (درزة resolve_stale_ttl 7 + معيار القبول الحرفي 3:
+    يتيمة تُقبل بديلتها بعد TTL / حية تنبض لا تُحصد / تعطيل null =
+    السلوك القديم + نبض المحوّل والدفعة 3 + تمرير المصنع + TTL الخادم
+    الحي مفعّل).
+  - **Quality Gates**: Testing ✅ (17/17 جديدة + عدة التأثير 108/108:
+    backends/execution/purge/slot/ws_run_control/ticket_cancellation/
+    apply_cancel/apply_batch_golden/concurrent_guard/dispatch_parity) ·
+    Architecture ✅ (lint_handler_state clean؛ التمرير عبر درزة
+    backends_from_config كما ينص عقدها لا بناء مباشر) · Regression ✅
+    (S47 وS48 على merged: **1F/1718P/34S** — الوحيد theme_tokens/TF-04
+    المحجوب بـ D-2) · Performance ✅ (reap+purge: 0.0066ms لكل تسجيل؛
+    نبضة المحوّل: 0.0008ms لكل حدث — لا أثر).
+  - **Metrics**: زمن تحرير خانة المشروع بعد انهيار خيط:
+    **∞ (busy للأبد) → ≤ TTL (900s افتراضيًا)** ✅.
+- **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-609 — Instrumentation: توقيت المسارات + التوكنز
 - **Status**: TODO · **Priority**: P2
@@ -741,7 +774,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 605 | M6 | P1 | TF-02 ✅ (S40) · TF-04 BLOCKED(D-2) | إخفاقات البوابة 2→1؛ المتبقي ينتظر رد المالك |
 | 606 | M7 | P2 | ✅ DONE (S43) | تخييط apply/direct + إصلاح BUG جانبي في معالج cancel_run؛ +2 اختبارات |
 | 607 | M7 | P2 | ✅ DONE (S45–46) | آخر جيب برومبت خارج الميزانية ضُم؛ +6 اختبارات |
-| 608 | M7 | P2 | TODO | |
+| 608 | M7 | P2 | ✅ DONE (S47–48) | reap_stale مفعّل + نبض حياة في المحوّل/الدفعة/الاستكمال؛ +17 اختبارًا |
 | 609 | M7 | P2 | TODO | |
 | 610 | M7 | P2 | TODO | بعد 609 |
 | 611 | M8 | P2 | TODO | ADR |

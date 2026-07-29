@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-28 (Sessions 45–46 — **TSK-607 ✅ DONE — التالي: TSK-608 (M7)**) |
+| last-updated | 2026-07-29 (Sessions 47–48 — **TSK-608 ✅ DONE — التالي: TSK-609 (M7)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — M7 (2/5: 606،607 ✅)؛ M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) |
-| current-task | TSK-608 (التالية — P2، بلا تبعيات)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — M7 (3/5: 606،607،608 ✅)؛ M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) |
+| current-task | TSK-609 (التالية — P2، بلا تبعيات)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **6/26 TSK** (601..604،606،607 ✅؛ 605/TF-04 تنتظر D-2؛ 608..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **7/26 TSK** (601..604،606..608 ✅؛ 605/TF-04 تنتظر D-2؛ 609..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,11 +37,21 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — M7: 2/5؛ M6: 4/5 + 605/TF-02 ✅)
-- Phase/Task: **Stage 3 — M7 — TSK-608** (التالية: P2، بلا تبعيات)؛
+- Stage: EXECUTION (Stage 3 — جارية — M7: 3/5؛ M6: 4/5 + 605/TF-02 ✅)
+- Phase/Task: **Stage 3 — M7 — TSK-609** (التالية: P2، بلا تبعيات)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-607 ✅ DONE (Sessions 45–46)** — ضم آخر
+- Last completed step: **TSK-608 ✅ DONE (Sessions 47–48)** — تفعيل
+  `ExecutionRegistry.reap_stale` إنتاجيًا (RF-02 §R5): درزة
+  `resolve_stale_ttl` (غائب = 900s، null = تعطيل، غير صالح =
+  فشل إقلاع صاخب) + تمرير TTL عبر backends_from_config؛ نداء
+  reap_stale قبل purge_terminal في _begin_run_ticket (نمط TSK-303)؛
+  وسد مخاطرة الحصد الزائف: نبض حياة في _RunnerWSAdapter.emit
+  (كل المسارات) + _apply_batch (لكل action) + غلاف resume؛
+  +17 اختبارًا (test_reap_stale_wiring.py)؛ عدة التأثير 108/108؛
+  Performance: 0.0066ms/تسجيل؛ regression (S47+S48):
+  **1F/1718P/34S** — المتبقي الوحيد theme_tokens (TF-04/D-2).
+  وقبلها: **TSK-607 ✅ DONE (Sessions 45–46)** — ضم آخر
   جيب برومبت خارج الميزانية: معالج delegate_message كان يمرر
   أول 10 ملفات كاملة بلا سقف للبريف — الآن دالة نقية
   `_budget_delegate_files` (BudgetItem/high تحت
@@ -142,16 +152,17 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-608** (M7، P2، بلا تبعيات): تفعيل
-  `ExecutionRegistry.reap_stale` إنتاجيًا — الآلية موجودة ومختبرة بلا
-  مستدعٍ (execution.py:322؛ RF-02 §R5). نقطة تشغيل واحدة في server.py
-  (دوريًا أو عند كل run جديد — الأرجح داخل `_begin_run_ticket` قبل
-  register: أرخص نقطة وتغطي كل الأنواع). القبول: محاكاة تذكرة يتيمة
-  (بلا finish) → run جديد لنفس المشروع يُقبل بعد TTL؛ لا reap لتذاكر
-  حية. الملفات: server.py + اختبار تكامل. Gates: Testing · Regression.
-  حفظ السلوك: المسارات السليمة (finally) بلا تغيير. قبل التعديل: سجل
-  حفظ السلوك + Fitness pre-check في §TSK-608؛ بعد الإغلاق: جدول
-  الحالة + CHANGELOG + commit محلي.
+- Next action: **بدء TSK-609** (M7، P2، بلا تبعيات): Instrumentation —
+  التقاط duration للمسار المباشر وحلقة الوكيل وبناء السياق (لكل مصدر
+  من مصادر ContextBuilder السبعة) + تقدير توكنز محلي للمخرج، يُبث في
+  الإطارات الختامية كما يفعل chain (PM-01/02/04 §R6). الملفات:
+  runners/direct.py، chain/agent_loop.py، context/ (نقطة توقيت)،
+  server.py (تمرير)، اختبار. القبول: إطار finished/done يحمل
+  duration_ms (وtoken_estimate حيث ينطبق) للمسارات الثلاثة؛ goldens
+  القائمة تُحدَّث بحقل إضافي فقط (لا كسر بنية). Gates: Performance ·
+  Testing · Regression. حفظ السلوك: حقول إضافية فقط — الواجهة تتجاهل
+  المجهول. قبل التعديل: سجل حفظ السلوك + Fitness pre-check في
+  §TSK-609؛ بعد الإغلاق: جدول الحالة + CHANGELOG + commit محلي.
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -371,6 +382,31 @@
   توثيقي (انقطاع S45 أسقط عنوان §TSK-608 سهوًا — أُعيد) + Close-out
   + جدول الحالة 607→DONE + CHANGELOG + تحديث PROGRESS + commit
   محلي · الموقع → M7/TSK-608؛ TSK-605 تنتظر D-2.
+- 2026-07-29 (Sessions 47–48): استرداد بعد sandbox reset مرتين (S47
+  من 0b413cc ثم edd11a5، S48 من e111f8e — تنفيذ S47 كله وصل origin
+  بدمج المستخدم: backends + server + config + الاختبارات +
+  pre-checks §TSK-608) · **TSK-608 كاملة**: أدلة (السجل يُبنى بلا
+  وسائط عبر backends_from_config → _ttl=None → reap no-op؛ **صفر
+  مستدعين إنتاجيين لـ heartbeat** — مخاطرة حصد زائف للـ runs الحية
+  الطويلة) · pre-checks (حفظ السلوك: reap لا يُصدر إطارات/goldens
+  سليمة، heartbeat وfinish على المنتهية no-op آمن، الاختبارات القائمة
+  تحقن سجلًا بلا TTL؛ Fitness: نقطة واحدة بجوار purge_terminal نمط
+  TSK-303، TTL عبر الدرزة لا بناء مباشر، تحقق صاخب نمط
+  resolve_backend_name) · تنفيذ: `resolve_stale_ttl` +
+  `DEFAULT_STALE_TTL_SECONDS=900` + وسيط ttl_seconds في
+  backends_from_config (الافتراضي None = التاريخي بايت-بايت) + ربط
+  الإقلاع + reap_stale قبل purge_terminal في _begin_run_ticket + نبض
+  حياة في _RunnerWSAdapter.emit و_apply_batch (لكل action) وغلاف
+  resume + قسم execution في config.yaml · +17 اختبارًا
+  (test_reap_stale_wiring.py — القبول الحرفي: يتيمة → بديلتها تُقبل
+  بعد TTL؛ حية تنبض لا تُحصد؛ null = القديم حرفيًا) · قيد موثّق:
+  delegate waiting_approval الصامت > TTL يُحصد (land/reject آمنان) ·
+  Gates: 17/17 + عدة التأثير 108/108 + lint_handler_state clean +
+  Performance reap+purge 0.0066ms/نبضة 0.0008ms · regression (S47
+  وS48 على merged) **1F/1718P/34S** (theme_tokens/TF-04 حصرًا) ·
+  S48: إعادة تحقق بعد reset + Close-out + جدول الحالة 608→DONE +
+  CHANGELOG + تحديث PROGRESS + commit محلي · الموقع → M7/TSK-609؛
+  TSK-605 تنتظر D-2.
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي

@@ -252,3 +252,44 @@
   (~72s) — المتبقي الوحيد test_theme_tokens (TF-04 — محجوب بـ D-2).
 - Metrics: حجم برومبت delegate الأقصى: **غير مسقوف → ≤ budget_tokens
   المركزي**.
+
+---
+
+## TSK-608 — تفعيل reap_stale إنتاجيًا — Sessions 47–48
+
+### Fixed
+- **RF-02 (§R5)**: `ExecutionRegistry.reap_stale` كانت موجودة ومختبرة
+  **بلا أي مستدعٍ إنتاجي** (execution.py:322) — خيط runner يموت دون
+  `finish()` كان يحجز خانة مشروعه للأبد (busy دائم حتى إعادة تشغيل
+  الخادم). كذلك `ticket.heartbeat()` كان بلا مستدعٍ إنتاجي —
+  `_last_heartbeat` تبقى = `created_at` فأي TTL ساذج كان سيحصد
+  الـ runs الحية الطويلة زورًا.
+
+### Changed
+- `core/backends.py`: `resolve_stale_ttl` (تحقق صارم — غائب = 900s،
+  null = تعطيل، غير صالح = فشل إقلاع صاخب) + وسيط `ttl_seconds`
+  اختياري في `backends_from_config` (الافتراضي None = التاريخي
+  بايت-بايت — اختبار الثبات القائم يمر بلا تعديل).
+- `server.py`: الإقلاع يمرر `resolve_stale_ttl(cfg.execution)` للدرزة؛
+  `_begin_run_ticket` يستدعي `reap_stale()` قبل `purge_terminal()`
+  (نفس نمط TSK-303 — أرخص نقطة تغطي كل الأنواع) + log لكل محصودة؛
+  **نبض الحياة**: `_RunnerWSAdapter.emit` ينبض تذكرة كل حدث
+  (chain/agent/direct/delegate)، `_apply_batch` ينبض لكل action،
+  ومسار resume يغلّف إرساله بنبضة.
+- `config.yaml`: قسم `execution.stale_ttl_seconds: 900` موثّق.
+
+### Verification
+- `tests/integration/test_reap_stale_wiring.py` جديد → **17 passed**
+  (معيار القبول الحرفي: يتيمة → بديلتها تُقبل بعد TTL؛ حية تنبض لا
+  تُحصد؛ null = السلوك القديم حرفيًا).
+- عدة التأثير 108/108 (backends/execution/purge/slot/ws_run_control/
+  ticket_cancellation/apply_cancel/apply_batch_golden/concurrent_guard/
+  dispatch_parity) — goldens بلا تغيير.
+- بوابة العمارة: lint_handler_state → clean.
+- Performance: reap+purge 0.0066ms/تسجيل؛ نبضة المحوّل 0.0008ms/حدث.
+- Regression كامل (S47 وS48 على merged): `1 failed, 1718 passed,
+  34 skipped` (~72s) — المتبقي الوحيد test_theme_tokens (TF-04 —
+  محجوب بـ D-2).
+- Metrics: زمن تحرير خانة المشروع بعد انهيار خيط: **∞ → ≤ TTL (900s)**.
+- قيد موثّق: delegate في `waiting_approval` الصامت > TTL يُحصد وتتحرر
+  الخانة؛ land/reject اللاحقان آمنان (finish no-op على المحصودة).
