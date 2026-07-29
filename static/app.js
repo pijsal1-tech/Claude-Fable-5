@@ -3657,6 +3657,30 @@ function handleMemoryDeleteResult(frame) {
     toast("🗑 حُذفت المدخلة — لن تظهر في أي سياق تالٍ", "success");
 }
 
+// ── TSK-621 (CP-5/UXF-04): لوحة الصلاحيات — قراءة فقط (glass box) ──
+// المنطق النقي في permissions_panel.js؛ هنا fetch + toggle فقط —
+// لا أي مسار كتابة للسياسة.
+async function togglePermissionsPanel() {
+    const panel = document.getElementById("permissions-panel");
+    if (!panel.classList.contains("hidden")) {
+        panel.classList.add("hidden");
+        return;
+    }
+    panel.classList.remove("hidden");
+    const listEl = document.getElementById("permissions-panel-list");
+    listEl.innerHTML =
+        '<div class="pp-none">⏳ جارٍ تحميل السياسة...</div>';
+    try {
+        const resp = await fetch("/api/permissions");
+        const data = await resp.json();
+        listEl.innerHTML = PermissionsPanel.renderPanelHTML(
+            data.ok ? data.permissions : null);
+    } catch (e) {
+        listEl.innerHTML =
+            '<div class="pp-none">⚠️ تعذّر تحميل السياسة</div>';
+    }
+}
+
 // ═══════════════════════════════════════════
 // T-066 (R-906): شريحة حالة التوجيه/السعة — DOM glue فوق StatusChip.
 // عرض قراءة فقط من إطارات موجودة + /api/capacity — صفر endpoints جديدة.
@@ -3710,6 +3734,7 @@ async function refreshCapacity() {
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("run-history-btn").onclick = toggleRunHistory;
     document.getElementById("memory-panel-btn").onclick = toggleMemoryPanel;
+    document.getElementById("permissions-panel-btn").onclick = togglePermissionsPanel;
     document.getElementById("status-chip-label").onclick = toggleStatusChip;
     refreshCapacity();
     setInterval(refreshCapacity, CAPACITY_POLL_MS);

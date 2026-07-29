@@ -57,3 +57,49 @@ def api_metrics_runs():
         return jsonify({"ok": False,
                         "error": "مخزن المقاييس غير مهيأ بعد"}), 503
     return jsonify({"ok": True, "summary": _srv.run_metrics_store.summary()})
+
+
+@bp.route("/api/permissions")
+def api_permissions():
+    """TSK-621 (CP-5/UXF-04 §R9): سياسة الأمان الفعالة — قراءة فقط.
+
+    glass box: يعرض القيم الحية كما تُطبَّق فعلًا (لا نسخ ثابتة):
+    allowlist أوامر الـ agent (command_policy_from على config الحي)،
+    SAFE/APPROVAL tools، SAFE/DANGEROUS commands، راية
+    force_command_approval، وحالة ApprovalGate (mode/whitelist/timeout).
+    **لا مسار كتابة** — GET بلا آثار جانبية؛ السياسة المطبَّقة لا تُمس.
+    """
+    from chain.agent_tools import (SAFE_TOOLS, APPROVAL_TOOLS,
+                                   command_policy_from)
+    from actions.command_runner import SAFE_COMMANDS, DANGEROUS_COMMANDS
+
+    policy = command_policy_from(_srv._load_config())
+    gate = _srv.approval_gate
+    gate_info = None
+    if gate is not None:
+        gate_info = {
+            "mode": gate.mode,
+            "auto_whitelist": sorted(gate.auto_whitelist),
+            "timeout_seconds": gate.timeout_seconds,
+        }
+    return jsonify({
+        "ok": True,
+        "permissions": {
+            "command_allowlist": {
+                "enforce": policy.enforce,
+                "entries": dict(policy.allowlist),
+                "timeout_seconds": policy.timeout_seconds,
+                "output_max_chars": policy.output_max_chars,
+            },
+            "agent_tools": {
+                "safe": sorted(SAFE_TOOLS),
+                "approval": sorted(APPROVAL_TOOLS),
+            },
+            "terminal_commands": {
+                "safe": sorted(SAFE_COMMANDS),
+                "dangerous": sorted(DANGEROUS_COMMANDS),
+            },
+            "force_command_approval": _srv._force_command_approval(),
+            "approval_gate": gate_info,
+        },
+    })

@@ -2,8 +2,10 @@
 """TSK-613 (ADR-003) — تجميد سطح REST بعد التجميع في blueprints.
 
 الضمانات المثبَّتة:
-1. url_map ثابت: 30 قاعدة (28 route + /static + /ws) بنفس المسارات
+1. url_map ثابت: 31 قاعدة (29 route + /static + /ws) بنفس المسارات
    وmethods حرفيًا — معيار القبول «عدد routes ثابت».
+   (TSK-621: +/api/permissions GET — توسيع عقد مقصود وموثّق:
+   القبول ينص حرفيًا على «endpoint قراءة» — قرار المرحلة 2.)
 2. smoke: كل endpoint يستجيب (لا 404/405) على app غير مهيأ.
 3. الحقن الحي (_srv): monkeypatch على فضاء server ينعكس في الـ
    blueprint فورًا (نفس دلالة globals الأصلية — late binding).
@@ -36,6 +38,7 @@ FROZEN_RULES = [
     ("/api/info", ("GET",)),
     ("/api/metrics/runs", ("GET",)),
     ("/api/models", ("GET",)),
+    ("/api/permissions", ("GET",)),  # TSK-621 — قراءة فقط
     ("/api/new-file", ("POST",)),
     ("/api/new-folder", ("POST",)),
     ("/api/restore/<backup_name>", ("POST",)),
@@ -64,7 +67,7 @@ def _current_rules():
 
 class TestRouteSurfaceFrozen:
     def test_rule_count_constant(self):
-        assert len(_current_rules()) == 30
+        assert len(_current_rules()) == 31
 
     def test_rules_bit_identical(self):
         assert _current_rules() == sorted(FROZEN_RULES)

@@ -1786,6 +1786,66 @@
 - **Background**: UXF-04 + CP-5 (§R9). · **Acceptance**: endpoint قراءة +
   لوحة تعرض القيم الحية؛ لا مسار كتابة.
 - **Gates**: Security (قراءة فقط) · Testing. · **Rollback**: revert.
+- **Evidence (S76)** — مصادر السياسة الفعالة بأرقام أسطر:
+  - **allowlist أوامر الـ agent**: config.yaml:58 `command_allowlist:`
+    {test/lint/typecheck/build} + `command_timeout_seconds: 60` +
+    `command_output_max_chars: 8000`؛ التوثيق :33–56 (القائمة طبقة
+    إضافية فوق ApprovalGate؛ حذف القسم = وضع legacy).
+    القارئ: `command_policy_from(cfg)` (chain/agent_tools.py:92) →
+    `CommandPolicy` dataclass (:59 — enforce/allowlist/timeout/
+    output_max_chars؛ قسم غائب/غير dict ⇒ enforce=False legacy).
+  - **أدوات الـ agent**: chain/agent_tools.py:37 `SAFE_TOOLS`
+    {read_file, list_dir, search_code, get_file_info,
+    get_project_tree, remember_fact}؛ :39 `APPROVAL_TOOLS`
+    {run_command}.
+  - **أوامر الطرفية**: actions/command_runner.py:29 `SAFE_COMMANDS`
+    (ls/cat/echo/pwd/node/python/git status…)؛ :37
+    `DANGEROUS_COMMANDS` {rm, rmdir, del, format, drop, delete,
+    truncate, sudo, chmod, chown}.
+  - **راية force_approval**: server.py:178 `_force_command_approval()`
+    — تقرأ `force_command_approval` من config.yaml (افتراضي False،
+    تطبيع bool تسامحي، ابتلاع NF-14 §2 موثَّق)؛ الاستهلاك :1798
+    (apply-actions run_command).
+  - **بوابة الموافقة**: server.py:1937 `ApprovalGate(mode="auto" if
+    _auto_execute else "interactive", auto_whitelist={"write","edit",
+    "command"} if _auto_execute else None, timeout_seconds=120.0)` —
+    global `approval_gate` (:694، None قبل الإقلاع)؛ core/approval.py:54
+    `DEFAULT_AUTO_WHITELIST = frozenset({"read","format"})`؛ :151
+    ApprovalGate (VALID_MODES auto|interactive|deny).
+  - **نمط endpoint القراءة (ADR-003)**: routes/meta.py — `bp =
+    Blueprint("meta")` + `_srv: Any = None` + `register(app, srv)`
+    حقن كائن الوحدة (late binding)؛ endpoints قراءة قائمة: /api/info،
+    /api/capacity (:40 — نمط 503 قبل التهيئة)، /api/metrics/runs (:50)؛
+    التسجيل في server.py:928–943 (حلقة `_routes_mod.register`).
+  - **نمط اختبار endpoint**: tests/unit/test_run_metrics.py:188–204
+    (`server.app.test_client()` + monkeypatch على global).
+  - **نمط اللوحات**: index.html:464–465 زران وكيلان مخفيان
+    (#run-history-btn/#memory-panel-btn) + Activity Bar يفوّض بـ
+    .click() (:219–236)؛ لوحات #run-history-panel (:468 —
+    head/report/list) و#memory-panel (:479)؛ الغراء: toggleMemoryPanel
+    (app.js:3571 — toggle hidden + جلب + placeholder ⏳) وربط الأزرار
+    في DOMContentLoaded (:3711–3712). وحدات UMD-lite نقية + node tests
+    (test_plan_card/test_session_narrative). node v22.23.1.
+- **Behavior-preservation pre-check (S76 — قبل التعديل)**:
+  1. **قراءة فقط**: endpoint جديد GET بلا أي مسار كتابة — لا يعدّل
+     config ولا globals؛ يقرأ `_load_config()` المُكاش +
+     `command_policy_from` + الثوابت المستوردة + حالة `approval_gate`
+     الحية. السياسة المطبَّقة نفسها (الحرّاس/البوابة/القوائم) لا تُمس.
+  2. **لا لمس لأي endpoint أو WS frame قائم**؛ server.py لا يُعدَّل
+     إلا إن لزم سطر تسجيل blueprint (لا — endpoint يُضاف في
+     routes/meta.py المسجَّل أصلًا ⇒ صفر تعديل على server.py).
+  3. اللوحة عرض-فقط (لا أزرار تعديل)؛ زر وكيل + قسم لوحة جديدان في
+     index.html لا يغيّران أي عنصر قائم.
+  4. التحقق: regression كامل (خط 1870) + بوابات العقود/goldens.
+- **Architecture-Fitness pre-check (S76)**:
+  - endpoint في routes/meta.py القائم (blueprint ADR-003 — لا blueprint
+    جديد لطلب قراءة واحد؛ meta هو موضع «معلومات الخادم» الطبيعي).
+  - وحدة نقية جديدة `static/js/permissions_panel.js` (renderHTML نقي
+    من JSON السياسة — قابلة للاختبار node)؛ DOM glue (fetch + toggle)
+    في app.js فقط — نفس نمط المنزل (memory_panel/run_history).
+  - CSS tokens فقط (فواصل اللوحات = var(--surface-0) — درس TSK-620:
+    --border غير معرّف)؛ script tag واحد `?v=1` قبل app.js؛
+    لا تبعيات جديدة؛ لا لمس لـ providers/ (§0.8).
 
 ### TSK-622 — إعادة تصويت RELEASE_READINESS (ينتظر إغلاق M6)
 - **Status**: TODO · **Priority**: P2 · **Dependencies**: M6 كاملًا (601–605).

@@ -3694,3 +3694,106 @@ html, body {
 
 
 
+/* ── TSK-621 (CP-5/UXF-04): لوحة الصلاحيات — قراءة فقط ── */
+#permissions-panel {
+    position: fixed;
+    top: 56px;
+    left: 16px;
+    width: min(520px, 90vw);
+    max-height: min(640px, 80vh);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border: 1px solid var(--surface-1);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg);
+    z-index: 150;
+    overflow: hidden;
+}
+
+#permissions-panel.hidden { display: none; }
+
+#permissions-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--bg-mantle);
+    border-bottom: 1px solid var(--surface-1);
+    font-weight: 600;
+    color: var(--text);
+}
+
+#permissions-panel-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#permissions-panel-list {
+    overflow-y: auto;
+    padding: 8px 14px 14px;
+}
+
+.pp-section {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--surface-0);
+}
+
+.pp-section:last-child { border-bottom: none; }
+
+.pp-title {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.pp-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 12.5px;
+}
+
+.pp-key {
+    flex: 0 0 130px;
+    color: var(--text-muted);
+}
+
+.pp-val {
+    color: var(--text);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.pp-cmd {
+    color: var(--accent);
+    background: var(--surface-0);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 12px;
+    direction: ltr;
+}
+
+.pp-chip {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--surface-0);
+    font-size: 11.5px;
+    direction: ltr;
+}
+
+.pp-chip.pp-safe { color: var(--success); }
+.pp-chip.pp-danger { color: var(--error); }
+
+.pp-none {
+    color: var(--text-muted);
+    font-size: 12.5px;
+    padding: 4px 0;
+}
