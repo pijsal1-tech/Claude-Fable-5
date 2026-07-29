@@ -336,3 +336,47 @@
   — المتبقي الوحيد test_theme_tokens (TF-04 — محجوب بـ D-2)؛
   1718 + 11 = 1729 ✓.
 - Metrics: تغطية قياس المدة: **1/4 مسارات → 4/4**.
+
+## TSK-610 — Metrics aggregation: سجل runs بمقاييسه — Sessions 55–57
+
+### Fixed
+- **PM-03 (§R6)**: القياسات لحظية «تُبث وتُنسى» (MASTER_REVIEW.md:433)
+  — بعد TSK-609 كل مسار يبث `duration_ms` على bus الرصد لكن لا مشترك
+  يجمعها. الآن: سجل JSONL دائم لكل run منتهٍ + ملخّص p50/p95 —
+  أساس تاريخي لرصد تدهور الأداء بين الإصدارات.
+
+### Added
+- `core/run_metrics.py` (وحدة نقية جديدة — تُختبر بلا Flask):
+  - `RunMetricsStore`: JSONL ملحق-فقط (نمط ProjectMemoryStore)؛
+    قارئ يتخطى الأسطر الممزّقة؛ `percentile` nearest-rank (بلا
+    تبعيات جديدة)؛ `summary()` — count + status_counts + p50/p95
+    كليًا ولكل mode (سقف قراءة 5000 سطرًا).
+  - `RunMetricsRecorder`: مشترك قابل للنداء على bus الرصد — يقرن
+    RunStarted↔RunFinished بمفتاح run_id (OrderedDict بسقف 256،
+    أقدم-يُطرد)؛ finished يتيم → حقول فارغة (لا اختراع)؛ فشل
+    الكتابة يُبتلع مع log (NF-14 — الـ run لا يتأثر أبدًا).
+- `server.py`: global `run_metrics_store` + REST قراءة
+  `/api/metrics/runs` (503 قبل التهيئة) + البناء والاشتراك في
+  main() (composition root فقط) — الملف `metrics/runs.jsonl`
+  (قرار موثّق: ملف واحد على مستوى التطبيق + حقل project_id —
+  RunFinished لا يحمل هوية مشروع).
+
+### Deviation (موثّق في §TSK-610)
+- «حجم سياق» في نص الهدف: لا ناشر لـ `context_chars`/`project_id`
+  على RunStarted اليوم (الـ runners تبث mode فقط) — يُسجَّلان None
+  ويُلتقطان تلقائيًا متى نُشرا (خارج نطاق «إضافة صرفة» هنا).
+
+### Verification
+- `tests/unit/test_run_metrics.py` جديد → **17 passed** — يشمل
+  معيار القبول الحرفي («3 runs → 3 أسطر صالحة») وp50/p95 بقيم
+  معلومة يدويًا (nearest-rank على [100,200,300,400,1000]:
+  p50=300/p95=1000) + e2e مصغّر بـ DirectRunner حقيقي (تقاطع
+  609↔610: المدة الحقيقية تصل السجل).
+- contracts + dispatch_parity: 113 passed؛ goldens + اختبارات
+  609: 50 passed؛ lint_handler_state → clean.
+- Performance: `store.append` ≈ 0.039ms/سجل (متوسط 1000)؛
+  `summary()` على 1001 سجل ≈ 11.4ms (REST قراءة عند الطلب فقط).
+- Regression كامل (S57): `1 failed, 1746 passed, 34 skipped` (~69s)
+  — المتبقي الوحيد test_theme_tokens (TF-04 — محجوب بـ D-2)؛
+  1729 + 17 = 1746 ✓.
+- Metrics: سجل runs التاريخي: **لا شيء → JSONL لكل run + p50/p95**.

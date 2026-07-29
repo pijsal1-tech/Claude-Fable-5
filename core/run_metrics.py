@@ -47,8 +47,9 @@ class RunMetricsStore:
     """مخزن JSONL ملحق-فقط لمقاييس الـ runs + ملخّص p50/p95.
 
     سطر واحد لكل run منتهٍ:
-    ``{"ts", "run_id", "mode", "status", "duration_ms", "context_chars"}``
-    — الحقول المجهولة وقت التسجيل تكون ``""``/``None`` (لا اختراع).
+    ``{"ts", "run_id", "mode", "status", "duration_ms", "project_id",
+    "context_chars"}`` — الحقول المجهولة وقت التسجيل ``""``/``None``
+    (لا اختراع).
     """
 
     def __init__(self, path: str | pathlib.Path) -> None:
@@ -145,6 +146,9 @@ class RunMetricsRecorder:
             with self._lock:
                 self._pending[event.run_id] = {
                     "mode": event.mode,
+                    # القيمتان None حاليًا — لا ناشر لهما بعد (انحراف
+                    # موثّق §TSK-610: تُسجَّلان عند نشرهما، لا اختراع).
+                    "project_id": event.payload.get("project_id"),
                     "context_chars": event.payload.get("context_chars"),
                 }
                 while len(self._pending) > self._max_pending:
@@ -160,6 +164,7 @@ class RunMetricsRecorder:
             "mode": started.get("mode", ""),
             "status": event.status,
             "duration_ms": event.payload.get("duration_ms"),
+            "project_id": started.get("project_id"),
             "context_chars": started.get("context_chars"),
         }
         try:

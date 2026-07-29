@@ -699,7 +699,7 @@
       (متوسط 50، مشروع مؤقت صغير) — لا تدهور.
 
 ### TSK-610 — Metrics aggregation (سجل runs بمقاييسه)
-- **Status**: IN-PROGRESS (S55) · **Priority**: P2
+- **Status**: ✅ DONE (S55–57) · **Priority**: P2
 - **Evidence (S55)**:
   - PM-03 مؤكد (MASTER_REVIEW.md:433): القياسات لحظية «تُبث وتُنسى» —
     `RunFinished` يُنشر على bus الرصد (server.py:362 من
@@ -750,6 +750,64 @@
 - **Behavior preservation**: إضافة صرفة.
 - **Metrics**: أساس تاريخي للأداء: لا شيء → JSONL لكل run.
 - **Rollback**: revert. · **Resume notes / Blocker**: —
+- **Close-out (S55–57)**:
+  - **ما نُفّذ**:
+    - `core/run_metrics.py` (جديد): `RunMetricsStore` — JSONL
+      ملحق-فقط (نمط ProjectMemoryStore: mkdir للأب، قفل كتابة،
+      flush)؛ `read_records` يتخطى الأسطر الممزّقة (ذيل مقطوع
+      بانهيار لا يعطّل الملخّص) وملف غائب = []؛ `percentile`
+      nearest-rank ⌈p/100·N⌉ (بلا تبعيات جديدة)؛ `summary()` —
+      count + status_counts + p50/p95 كليًا ولكل mode (سقف قراءة
+      MAX_TAIL_LINES=5000). `RunMetricsRecorder` — مشترك قابل
+      للنداء على bus الرصد: يقرن RunStarted (mode/project_id/
+      context_chars) بـ RunFinished (status/duration_ms) بمفتاح
+      run_id عبر OrderedDict `_pending` بسقف MAX_PENDING=256
+      (أقدم-يُطرد — انهيارات لا تراكم ذاكرة)؛ finished يتيم →
+      سطر بحقول فارغة (لا اختراع)؛ فشل الكتابة يُبتلع مع log
+      (NF-14 — دفاع مزدوج فوق عزل الـ bus).
+    - `server.py`: import + global `run_metrics_store` + مسار REST
+      قراءة `@app.route("/api/metrics/runs")` (503 قبل التهيئة)
+      + البناء والاشتراك في main() بعد project_memory (composition
+      root فقط) — الملف `_DIR / "metrics" / "runs.jsonl"`.
+  - **انحراف موثّق (حجم السياق/هوية المشروع)**: نص الهدف يذكر
+    «حجم سياق»؛ `RunStarted` على bus الرصد يُنشر من
+    `_RunnerWSAdapter.emit` (server.py:357) بحمولة الـ runner
+    (`stream.started(mode=...)` فقط) — **لا ناشر لـ
+    `context_chars`/`project_id` اليوم**. المسجّل يقرأهما من
+    payload عند وجودهما ويسجّل None حاليًا (لا اختراع — UNKNOWN)؛
+    نشرهما إضافة مستقبلية آمنة (العقود تفحص بالمفتاح؛ اختبار
+    المساواة الحرفية test_runner_contracts.py:192 على EventStream
+    خام لا يمر بمسار النشر) لكنها خارج نطاق «إضافة صرفة» هنا —
+    تُلتقط تلقائيًا متى نُشرت دون تعديل المسجّل.
+  - **الاختبارات**: `tests/unit/test_run_metrics.py` (+17):
+    المخزن (3: أسطر صالحة/ملف غائب/ذيل ممزّق)؛ percentile (4:
+    فارغ/مفرد/1..10 معلوم/غير مرتب)؛ المسجّل (5: **معيار القبول
+    الحرفي «3 runs → 3 أسطر صالحة»** عبر EventBus حقيقي، يتيم،
+    تجاهل StepProgress، سقف الطرد، ابتلاع فشل الكتابة)؛ الملخّص
+    (2: p50=300/p95=1000 على [100,200,300,400,1000] + by_mode،
+    duration=None يُعد ولا يُجمع)؛ REST (2: 503 + ملخّص عبر
+    test_client)؛ e2e مصغّر (1: DirectRunner حقيقي عبر
+    `_RunnerWSAdapter` → سطر بمدة TSK-609 الحقيقية — تقاطع
+    609↔610).
+  - **Gates**:
+    - Testing: ‏17/17 اختبارًا جديدًا ناجحة (يشمل معيار القبول
+      الحرفي وp50/p95 بقيم معلومة يدويًا).
+    - Regression: `pytest tests` → **1 failed، 1746 passed،
+      34 skipped** — الإخفاق الوحيد هو المعروف (theme_tokens —
+      TF-04/D-2)؛ ‏1729 + 17 = 1746 ✓ (لا انحدار).
+    - Architecture: `lint_handler_state.py` → “handler state
+      clean”؛ contracts + dispatch_parity (113) + goldens +
+      اختبارات 609 (50) كلها خضراء؛ الربط في composition root
+      فقط والوحدة نقية (تُختبر بلا Flask).
+    - Performance: `store.append` ≈ **0.039ms/سجل** (متوسط 1000)
+      — لا يُذكر أمام مدد runs بالثواني؛ `summary()` على 1001
+      سجل ≈ 11.4ms (مسار REST قراءة عند الطلب فقط، بسقف 5000
+      سطرًا).
+    - Documentation: docstring وحدة كامل (المشكلة/الحل/القرارات)
+      + سجل REST في boot print.
+  - **Commits**: 108eca9 (الوحدة) · afa600c (ربط server) ·
+    a495921 (دمج خارجي شمل الاختبارات) · 4c027be (حقل project_id
+    تنفيذًا لقرار §TSK-610).
 
 ## M8 — Decompose g1 (خطة R8: QG-01→04)
 
@@ -894,7 +952,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 607 | M7 | P2 | ✅ DONE (S45–46) | آخر جيب برومبت خارج الميزانية ضُم؛ +6 اختبارات |
 | 608 | M7 | P2 | ✅ DONE (S47–48) | reap_stale مفعّل + نبض حياة في المحوّل/الدفعة/الاستكمال؛ +17 اختبارًا |
 | 609 | M7 | P2 | ✅ DONE (S49–54) | duration_ms على bus للمسارات 4/4 + توقيت المصادر + duration/token في plan/done؛ +11 اختبارًا |
-| 610 | M7 | P2 | TODO | بعد 609 |
+| 610 | M7 | P2 | ✅ DONE (S55–57) | سجل JSONL لكل run منتهٍ + p50/p95 (nearest-rank) + REST قراءة /api/metrics/runs؛ +17 اختبارًا |
 | 611 | M8 | P2 | TODO | ADR |
 | 612 | M8 | P2 | TODO | بعد 611+601 |
 | 613 | M8 | P2 | TODO | بعد 612 |
