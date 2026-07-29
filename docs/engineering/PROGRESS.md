@@ -37,11 +37,33 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M8: 1/4 (611 ✅)**؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M8 — TSK-612** (التالية: P2 — QG-02 استخراج مسارات الإرسال)؛
+- Stage: EXECUTION (Stage 3 — جارية — **M8: 2/4 (611،612 ✅)**؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M8 — TSK-613** (التالية: P2 — QG-03 تجميع REST blueprints)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-611 ✅ DONE (Sessions 58–60)** —
+- Last completed step: **TSK-612 ✅ DONE (Sessions 61–63)** —
+  QG-02 (§R8): استخراج مسار الإرسال — **ADR-002** (حقن التبعيات
+  عبر deps=SimpleNamespace يُبنى في الغلاف **عند كل نداء** — late
+  binding يحافظ على monkeypatching الاختبارات على فضاء server
+  ويقرأ globals المتغيّرة وقت النداء؛ ADR + قيد DECISION_LOG
+  **قبل الكود** وفق الدستور :1038)؛ `core/chat_dispatch.py` جديدة
+  (513 سطرًا) — جسم `_dispatch_chat_message` **حرفيًا** (كان
+  server.py:1549..2034 = 486 سطرًا؛ النص قال ~477 — انحراف موثّق)
+  كدالة `dispatch_chat_message(deps, ctx, sctx, ...)`؛ 14 رمز
+  server عبر deps؛ الاستيرادات النقية مباشرة في الوحدة؛ لا
+  استيراد server (لا دورة)؛ الغلاف يحتفظ بالاسم/التوقيع ويرسل
+  scan_start (TSK-403) ثم يبني deps ويفوّض؛ **server.py 3045 →
+  2596 (−449)**؛ خطر الإعادة الآلية تحقق (تلف سلسلة نصية واحدة
+  — أُصلح وثبت بمقارنة آلية سطرًا-بسطر مقابل الأصل: 0 فروق
+  متبقية)؛ 4 فحوص بنيوية حُدّثت بنفس الضمانات في الموقع الجديد
+  (prompt_fencing/context_engine/config_consolidation/run_slot)؛
+  gates: mypy نظيف (62 ملفًا core+chain+context+sessions؛ خطأ
+  providers قائم مسبقًا خارج النطاق §0.8 — أُثبت عبر git diff)
+  · goldens 32 · contracts+parity 113 · مثبّتات الإرسال 76 · lint
+  clean؛ regression عبر junitxml **1791 = 1F/1756P/34S**
+  (theme_tokens/TF-04 حصرًا)؛ الوحدة تدخل بوابة mypy تلقائيًا
+  (check.sh:12 يغطي core/).
+  وقبلها: **TSK-611 ✅ DONE (Sessions 58–60)** —
   QG-01 (§R8): استخراج راوتر WS — **ADR-001** (أول ADR؛
   ARCHITECTURE_DECISIONS.md + DECISION_LOG.md أُنشئا **قبل الكود**
   وفق الدستور :1038)؛ `core/ws_router.py` جديدة (dispatch نقية —
@@ -195,18 +217,20 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-612** (M8، P2 — QG-02 §R8، تبعيات 611 ✅
-  + 601 ✅): استخراج مسارات الإرسال — نقل `_dispatch_chat_message`
-  (~477 سطرًا وفق النص — تُقاس فعليًا في الأدلة) إلى وحدة إرسال
-  مستقلة تستهلك `_parsed_to_actions` الموحدة (من TSK-601).
-  القبول: goldens dispatch parity خضراء؛ mypy على الوحدة الجديدة
-  نظيف. Gates: Architecture (ADR) · Testing · Regression. حفظ
-  السلوك: bit-identical frames. Metrics: سطور server.py.
-  ملاحظة: تغيير معماري ⇒ **ADR-002 + قيد DECISION_LOG قبل الكود**
-  (الدستور :1038)؛ IR-1 بعد اكتمال M8 (611 ✅، تبقى 612..614).
-  قبل التعديل: أدلة (قياس الكتلة الفعلية + خريطة التبعيات) + سجل
-  حفظ السلوك + Fitness pre-check في §TSK-612؛ بعد الإغلاق: جدول
-  الحالة + CHANGELOG + commit محلي.
+- Next action: **بدء TSK-613** (M8، P2 — QG-03 §R8، تبعية 612 ✅):
+  تجميع 27 route في Flask Blueprints موضوعية (rollback/memory/
+  project/…) — بعد استقرار قرار g5. القبول: كل endpoints تستجيب
+  كما قبل (اختبار smoke REST)، عدد routes ثابت. Gates:
+  Architecture · Testing · Regression. ملاحظة: تغيير معماري ⇒
+  **ADR-003 + قيد DECISION_LOG قبل الكود** (الدستور :1038)؛
+  تحقق أولًا من حالة «g5» المذكورة في نص المهمة (ابحث في
+  ARCHITECTURE_REVIEW/MASTER_ROADMAP/DEVELOPMENT_TASKS) — إن لم
+  تُحسم وثّق الحاجب أو نفّذ الجزء المستقر. قبل التعديل: أدلة
+  (جرد الـ routes الفعلي بأرقام الأسطر — العدد 27 يُقاس فعليًا،
+  توقّع انحرافًا — + تصنيفها موضوعيًا + ما تلمسه من globals) +
+  سجل حفظ السلوك + Fitness pre-check في §TSK-613؛ بعد الإغلاق:
+  جدول الحالة + CHANGELOG + commit محلي. IR-1 بعد اكتمال M8
+  (611،612 ✅، تبقى 613..614).
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -527,6 +551,40 @@
   الحالة 611→DONE + CHANGELOG (commit 8a90d97) + هذا التحديث ·
   الموقع → M8/TSK-612 (QG-02 — تحتاج ADR-002 قبل الكود)؛ TSK-605
   تنتظر D-2.
+- **2026-07-29 — Sessions 61–64 — TSK-612 ✅ (M8: 2/4)**:
+  S61: استرداد من origin 77ca23a (دمج إغلاق 611) → أدلة TSK-612
+  قبل أي تعديل — الكتلة الفعلية server.py:1549..2034 = **486 سطرًا**
+  (≠~477 — انحراف موثّق)، خريطة تبعيات: **14 رمز server** (RUNNERS،
+  MAX_SMART_FILE_SIZE، parser، event_bus، request_router،
+  agent_tools، gather_message_context، store_pending_path_request،
+  _RunnerWSAdapter، _begin_run_ticket، _chain_runner_for_dispatch،
+  _parsed_options، _parsed_to_actions، _payload_history) + استيرادات
+  نقية؛ سجل حفظ السلوك + Fitness pre-check → commit 49178dd →
+  **ADR-002 + قيد DECISION_LOG قبل الكود** (حقن deps=SimpleNamespace
+  يُبنى في الغلاف عند كل نداء — البدائل المرفوضة: استيراد server
+  دوريًا / تحديث الاختبارات / 14+ معامل) commit fcc34ce → التنفيذ:
+  `core/chat_dispatch.py` بجسم حرفي (rewrite آلي symbol→deps.symbol)
+  + غلاف `_dispatch_chat_message` (scan_start ثم deps ثم تفويض) —
+  دمج المستخدم 4dbc9ff · S62: reset → استئناف → اكتشاف تلف سلسلة
+  نصية واحدة من الإعادة الآلية (سطر log :165) — أُصلحت + مقارنة
+  آلية سطرًا-بسطر مقابل جسم الأصل (0 فروق) + 4 فحوص بنيوية حُدّثت
+  بنفس الضمانات في الموقع الجديد (prompt_fencing:176 /
+  context_engine / config_consolidation regex أعلى-مستوى /
+  run_slot كلا الملفين) — دمج المستخدم 133e0d5 · S63: reset →
+  استئناف → كل البوابات على الشجرة المدموجة: mypy نظيف 62 ملفًا
+  (core+chain+context+sessions؛ خطأ providers/openai_shelby:166
+  قائم مسبقًا خارج النطاق §0.8 — أُثبت بـ git diff 77ca23a..HEAD
+  بلا ملفات providers) · contracts+parity 113 · goldens 32 ·
+  مثبّتات الإرسال 76 · lint clean · regression عبر
+  `--junitxml` (إصلاح منهجية العدّ الهشّة): **1791 = 1F/1756P/34S
+  69.8s** (theme_tokens/TF-04 حصرًا) · **server.py 3045→2596
+  (−449)** · chat_dispatch.py 513 → Close-out + جدول الحالة
+  612→DONE + CHANGELOG (commit a29d122) — تحديث PROGRESS انقطع
+  منتصفه · S64: reset → استئناف من origin **142cf32** (دمج
+  المستخدم شمل a29d122 + رأس PROGRESS الجزئي) → إتمام تحديث
+  PROGRESS (Current Position + Last completed + Next action +
+  هذا السجل) + commit محلي · الموقع → M8/TSK-613 (QG-03 — تحتاج
+  ADR-003 قبل الكود + تحقق من حالة «g5»)؛ TSK-605 تنتظر D-2.
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
