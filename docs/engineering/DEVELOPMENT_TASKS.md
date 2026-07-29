@@ -2179,6 +2179,8 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
     - TF-04 → **TSK-605 BLOCKED على قرار المالك D-2**
       (tokenization كاملة أم baseline مؤرَّخ — MASTER_REVIEW:810)؛
       هو الفشل الوحيد المتبقي في خط الانحدار 1900 = 1F.
+      *[تحديث S83: D-2 وصل (tokenization كاملة) — TSK-605 ✅ وأول 0F؛
+      البيان أعلاه تاريخي بلحظة كتابة ADR-005 في S78.]*
   - **نمط ADR البيتي**: لا مجلد `docs/engineering/adr/` — الـ ADRs
     مقاطع داخل `ARCHITECTURE_DECISIONS.md` (ADR-001:9، ADR-002:66،
     ADR-003:120، ADR-004:178) ببنية Context / Decision /
