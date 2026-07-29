@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Sessions 49–54 — **TSK-609 ✅ DONE — التالي: TSK-610 (M7)**) |
+| last-updated | 2026-07-29 (Sessions 55–58 — **TSK-610 ✅ DONE — M7 مكتملة 5/5 — التالي: TSK-611 (M8)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — M7 (4/5: 606..609 ✅)؛ M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) |
-| current-task | TSK-610 (التالية — P2، تبعيتها 609 ✅ مكتملة)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M7 مكتملة (5/5: 606..610 ✅)**؛ M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) |
+| current-task | TSK-611 (التالية — M8، P2 — QG-01 راوتر WS)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **8/26 TSK** (601..604،606..609 ✅؛ 605/TF-04 تنتظر D-2؛ 610..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **9/26 TSK** (601..604،606..610 ✅؛ 605/TF-04 تنتظر D-2؛ 611..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,11 +37,27 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — M7: 4/5؛ M6: 4/5 + 605/TF-02 ✅)
-- Phase/Task: **Stage 3 — M7 — TSK-610** (التالية: P2، تبعيتها 609 ✅)؛
+- Stage: EXECUTION (Stage 3 — جارية — **M7 مكتملة 5/5**؛ M6: 4/5 + 605/TF-02 ✅)
+- Phase/Task: **Stage 3 — M8 — TSK-611** (التالية: P2 — QG-01 استخراج راوتر WS)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-609 ✅ DONE (Sessions 49–54)** —
+- Last completed step: **TSK-610 ✅ DONE (Sessions 55–57)** —
+  Metrics aggregation (PM-03 §R6): `core/run_metrics.py` جديدة —
+  `RunMetricsStore` (JSONL ملحق-فقط نمط ProjectMemoryStore؛ قارئ
+  يتخطى الأسطر الممزّقة؛ p50/p95 nearest-rank بلا تبعيات؛ ملخّص
+  كليًا ولكل mode) + `RunMetricsRecorder` (مشترك bus الرصد يقرن
+  RunStarted↔RunFinished بـ run_id، سقف pending 256 أقدم-يُطرد،
+  فشل الكتابة يُبتلع مع log/NF-14)؛ ربط server.py: global +
+  REST قراءة `/api/metrics/runs` (503 قبل التهيئة) + اشتراك في
+  main() — الملف `metrics/runs.jsonl` (قرار موثّق: ملف تطبيقي
+  واحد + حقل project_id)؛ انحراف موثّق: context_chars/project_id
+  بلا ناشر اليوم — يُسجّلان None ويُلتقطان تلقائيًا متى نُشرا؛
+  +17 اختبارًا (test_run_metrics.py — معيار القبول الحرفي
+  «3 runs → 3 أسطر صالحة» + e2e بـ DirectRunner حقيقي)؛ gates:
+  contracts+parity 113 · goldens+609 50 · lint clean · Performance
+  append 0.039ms/سجل؛ regression **1F/1746P/34S** (theme_tokens/TF-04
+  حصرًا — 1729+17=1746 ✓). **🏁 M7 Observability مُقفلة (5/5)**.
+  وقبلها: **TSK-609 ✅ DONE (Sessions 49–54)** —
   Instrumentation (PM-01/02/04 §R6): `duration_ms` في حدث
   `run_finished` للمسارات direct/agent/delegate (نفس نمط chain —
   تغطية القياس 1/4 → 4/4)؛ توقيت collect لكل مصدر سياق في
@@ -165,18 +181,17 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-610** (M7، P2 — تبعيتها TSK-609 ✅ مكتملة):
-  Metrics aggregation (PM-03 §R6) — إلحاق سطر JSONL لكل run منتهٍ
-  (mode، duration، حجم سياق، نتيجة) في ملف بيانات المشروع + قارئ
-  بسيط (p50/p95) يُعرض في status-chip أو REST قراءة. الملفات: وحدة
-  جديدة `core/run_metrics.py`، `server.py`، اختبار وحدة. القبول:
-  ‏3 runs → 3 أسطر صالحة؛ p50/p95 محسوبة صحيحًا في الاختبار.
-  Gates: Performance · Testing · Documentation. حفظ السلوك: إضافة
-  صرفة. مدخل جاهز من TSK-609: `duration_ms` متاح في بيانات حدث
-  `run_finished` على bus الرصد لكل المسارات (RunFinished يُنشر في
-  event_bus من _RunnerWSAdapter) — نقطة التقاط طبيعية للسطر.
-  قبل التعديل: سجل حفظ السلوك + Fitness pre-check في §TSK-610؛
-  بعد الإغلاق: جدول الحالة + CHANGELOG + commit محلي.
+- Next action: **بدء TSK-611** (M8، P2 — QG-01 §R8): استخراج راوتر
+  WS — نقل توجيه 16 نوع رسالة من `_handle_ws_message` (~469 سطرًا)
+  إلى جدول dispatch في وحدة جديدة `core/ws_router.py`، مع بقاء
+  المقابض نفسها مؤقتًا في server.py. القبول: goldens routing كاملة
+  خضراء؛ الكتلة تهبط ≥ 300 سطر؛ صفر تغيير في أي إطار.
+  Gates: Architecture (ADR) · Testing · Regression. حفظ السلوك: بنية
+  الإطارات bit-identical (goldens). ملاحظة: أول مهام M8 — تحتاج
+  **ADR** مسجّلًا قبل التفكيك (نمط الدستور للقرارات المعمارية)؛
+  IR-1 (Innovation Review) مجدولة بعد اكتمال M8.
+  قبل التعديل: أدلة + سجل حفظ السلوك + Fitness pre-check في
+  §TSK-611؛ بعد الإغلاق: جدول الحالة + CHANGELOG + commit محلي.
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -445,6 +460,34 @@
   S54: إعادة تحقق بعد reset على origin 8098976 (كل عمل 609 وصل
   بدمج المستخدم) + Close-out + جدول الحالة 609→DONE + CHANGELOG +
   تحديث PROGRESS + commit محلي · الموقع → M7/TSK-610؛ TSK-605
+  تنتظر D-2.
+- 2026-07-29 (Sessions 55–58): **TSK-610 كاملة** عبر 4 جلسات بثلاث
+  resets (استرداد كل مرة: re-clone → فحص origin HEAD → grep-تحقق؛
+  دمج المستخدم التقط تباعًا: 9afece7 pre-checks §TSK-610، a495921
+  الوحدة+ربط server+الاختبارات، a6e4075 project_id+Close-out+
+  CHANGELOG) · أدلة + pre-checks + قرار موثّق (ملف تطبيقي واحد
+  metrics/runs.jsonl — RunFinished لا يحمل هوية مشروع) في §TSK-610
+  (S55) · تنفيذ (S56 — إعادة Write المنقطعة ثم البناء):
+  `core/run_metrics.py` (RunMetricsStore: JSONL ملحق-فقط + قارئ
+  يتخطى الممزّق + percentile nearest-rank + summary كليًا/لكل mode؛
+  RunMetricsRecorder: اقتران RunStarted↔RunFinished بسقف pending
+  256، فشل الكتابة يُبتلع مع log/NF-14) + ربط server.py (global +
+  REST ‏/api/metrics/runs بـ 503 قبل التهيئة + اشتراك في main) +
+  ‏17 اختبارًا (test_run_metrics.py — معيار القبول الحرفي «3 runs
+  → 3 أسطر صالحة» + p50/p95 بقيم معلومة + e2e بـ DirectRunner
+  حقيقي عبر _RunnerWSAdapter — تقاطع 609↔610) · S57: تشغيل
+  الاختبارات 17/17 + gates (contracts+parity 113، goldens+609 50،
+  lint clean، Performance append 0.039ms/سجل وsummary 11.4ms/1001)
+  + regression **1F/1746P/34S** (theme_tokens/TF-04 حصرًا؛
+  1729+17=1746 ✓) + حقل project_id تنفيذًا للقرار + **انحراف
+  موثّق**: context_chars/project_id بلا ناشر اليوم (الـ runners
+  تبث mode فقط) — يُسجَّلان None ويُلتقطان تلقائيًا متى نُشرا +
+  Close-out + جدول الحالة 610→DONE + CHANGELOG · S58: إعادة تحقق
+  بعد reset على origin a6e4075 (كل عمل 610 وصل بدمج المستخدم؛
+  الناقص الوحيد تحديث PROGRESS — تحرير S57 انقطع قبل commit) +
+  تحديث PROGRESS (header/position/Next action → TSK-611 + هذا
+  السجل) + commit محلي · **🏁 M7 Observability مُقفلة (5/5)** ·
+  الموقع → M8/TSK-611 (QG-01 راوتر WS — تحتاج ADR)؛ TSK-605
   تنتظر D-2.
 
 ---
