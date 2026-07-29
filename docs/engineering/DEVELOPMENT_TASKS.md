@@ -1518,12 +1518,78 @@
 - **Gates**: Security · Regression · Documentation. · **Rollback**: revert.
 
 ### TSK-618 — تضييق except الابتلاعي في path_policy
-- **Status**: TODO · **Priority**: P2
+- **Status**: ✅ DONE (S73) · **Priority**: P2
 - **Objective**: استبدال `except Exception: pass` (path_policy.py:107–108)
   بمعالجة OSError موسومة (سجل تحذير) — الفحص لا يُتخطى بصمت.
 - **Background**: ASF-07 (§R4). · **Acceptance**: اختبار symlink خطأ FS →
   تحذير مسجل والاحتواء النهائي يعمل؛ عدّاد NF-14 لا يرتفع.
 - **Gates**: Security · Testing. · **Rollback**: revert.
+- **Evidence (S73)**:
+  - **الموضع**: `chain/path_policy.py:98–109` — حلقة فحص symlink تصعد
+    من `raw_path` (غير المحلول) نحو الجذر؛ `try:` (:102) يضم
+    `curr.is_symlink()` (:103) **و`raise PermissionError`** (:104–106)
+    معًا؛ `except Exception: pass` (:107–108).
+  - **NF-28 (تجربة حية S73 — أشد من توصيف ASF-07)**: لأن `raise
+    PermissionError` داخل الـ try نفسه، **الرفض ذاته يُبتلع**
+    (PermissionError ⊂ OSError ⊂ Exception) ⇒ فحص symlink **ميت
+    بالكامل** لا «يُتخطى عند خطأ FS» فقط: تجربة A (symlink داخل الجذر
+    لملف داخل الجذر → **يمر**) وB (ملف عبر مجلد symlink → **يمر**).
+    الخطوط الصلبة تصمد: C (symlink يشير خارج الجذر → يُرفض بالاحتواء
+    على المسار المحلول :89–95) وD (symlink يخفي ملف سر داخلي → يُرفض
+    بفحص الأسرار على المحلول :109–113). [SUPERSEDES جزئيًا توصيف
+    ASF-07 «تخطٍّ صامت عند خطأ FS» — الواقع أسوأ: الفحص لا يرفض شيئًا
+    أبدًا] — مسجل NF-28 في NEW_FINDINGS.md.
+  - **المستهلكون**: كل النداءات تمرر `allow_symlinks=False`
+    (action_applier:200، agent_tools:678، context_builder:475/486/502،
+    file_manager:267، safe_reader:210) — لا نداء بـ True في الشيفرة
+    الحية. لا استخدام مشروع لـ symlinks داخل workspace في الاختبارات
+    (grep: test_restore_zip_slip فقط — وهو يرفضها في طبقة أخرى).
+  - **الملف بلا logging حاليًا** (imports: os/pathlib/typing فقط) —
+    يحتاج logger جديد. `PermissionError ⊂ OSError` (تحقق runtime) ⇒
+    التقاط OSError وحده مع بقاء raise خارجه يتطلب فصل الفحص عن الرفض.
+- **Behavior-preservation pre-check (S73 — قبل التعديل)**:
+  1. المسار الشائع (لا symlinks): سلوك مطابق حرفيًا — لا فرق.
+  2. **تغيير سلوك مقصود ضمن نص المهمة**: فحص symlink الميت يعود
+     للعمل (symlink داخلي يُرفض الآن) — هذا استعادة السلوك الموثق
+     المقصود (نص الرفض موجود في الشيفرة منذ البداية؛ المهمة P2 أمنية
+     مقررة في Stage 2) وليس قرار منتج جديدًا.
+  3. خطأ FS حقيقي أثناء is_symlink: كان صمتًا مطلقًا → يصبح تحذير
+     log + متابعة (القبول حرفيًا: «تحذير مسجل والاحتواء النهائي
+     يعمل») — لا رفع استثناء جديد في هذا الفرع ⇒ لا كسر مستهلكين.
+  4. عدّاد NF-14 (نمط الابتلاع المقصود الموسوم في server.py) لا
+     يرتفع — المعالجة هنا موسومة بسجل لا `pass` صامت.
+  5. التحقق: regression كامل (خط 1841) — أي اختبار قائم يعتمد على
+     مرور symlink داخلي سيُكشف (grep المسبق: لا شيء).
+- **Architecture-Fitness pre-check (S73)**:
+  - التغيير محصور في chain/path_policy.py + اختبارات جديدة — لا
+    وحدات ولا تبعيات جديدة (logging قياسي).
+  - النمط: فصل «القياس» (is_symlink داخل try ضيق يلتقط OSError
+    وحده) عن «القرار» (raise خارج الـ try) — نفس مبدأ TSK-616
+    (الحقيقة تُشتق حيث تحدث ولا تُبتلع في الطريق).
+- **Close-out (S73)**:
+  - **التنفيذ**: `chain/path_policy.py` — logger جديد
+    `chain.path_policy`؛ حلقة الفحص: `is_link = curr.is_symlink()`
+    داخل try ضيق يلتقط **OSError وحده** مع `_LOG.warning` موسوم
+    (المقطع + المسار المطلوب + الخطأ + تذكير بأن الاحتواء/الأسرار
+    النهائيين ما زالا يطبقان)؛ `raise PermissionError` انتقل خارج
+    الـ try ⇒ الرفض لم يعد يُبتلع (إصلاح NF-28) وخطأ FS لم يعد
+    صامتًا (إصلاح ASF-07). تحقق حي قبل/بعد: A/B (symlink داخلي /
+    مجلد symlink) كانا يمران → يُرفضان؛ المسار العادي وallow_symlinks
+    =True بلا تغيير؛ C/D (الخطوط الصلبة) محفوظة.
+  - **الاختبارات**: `tests/unit/test_path_policy_symlink.py` (9، أول
+    تغطية مباشرة لـ path_policy): إحياء الرفض (ملف/مجلد)؛
+    allow_symlinks=True يمر؛ المسار العادي بلا تغيير؛ **خطأ FS
+    محقون (monkeypatch is_symlink→OSError) → تحذير مسجل (caplog)
+    والاحتواء النهائي يعمل** (القبول حرفيًا)؛ سلبي بلا ضجيج؛ الخطان
+    الصلبان محفوظان؛ حارس بنيوي regex ضد عودة `except
+    Exception: pass` للملف (عدّاد NF-14 لا يرتفع).
+  - **البوابات**: pyflakes نظيف · lint_handler_state نظيف · mypy
+    Success 81 ملفًا · contracts+parity 113 ✓ · goldens+ws_router 32 ✓ ·
+    الانحدار الكامل **1850 = 1F/1815P/34S** (1841+9؛ theme_tokens/TF-04
+    حصرًا — فشل test_search_perf في التمريرة الأولى ثبت أنه flaky:
+    يمر معزولًا ×2 وفي إعادة التمريرة الكاملة — حد زمني 1s على
+    عتاد مشترك؛ لا علاقة للتغيير بمساره).
+  - **خط انحدار جديد: 1850**.
 
 ### TSK-619 — بطاقة الخطة التفاعلية (CP-1)
 - **Status**: TODO · **Priority**: P2

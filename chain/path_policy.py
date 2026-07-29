@@ -7,9 +7,12 @@
   prevention, and secrets denylist checks.
 ═══════════════════════════════════════════════════════
 """
+import logging
 import os
 import pathlib
 from typing import Set
+
+_LOG = logging.getLogger("chain.path_policy")
 
 SECRETS_DENYLIST_NAMES: Set[str] = {
     "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",
@@ -95,17 +98,28 @@ def resolve_workspace_path(
             )
             
     # Symlink traversal check
+    # TSK-618 (ASF-07/NF-28): فصل القياس عن القرار — النسخة السابقة
+    # وضعت raise PermissionError داخل try يلتقط Exception واسعًا
+    # (PermissionError ⊂ OSError ⊂ Exception) فكان الرفض نفسه يُبتلع
+    # والفحص ميتًا بالكامل. الآن: is_symlink وحده داخل try ضيق
+    # يلتقط OSError موسومًا بتحذير (لا تخطٍّ صامت)؛ الرفض خارجه.
     if not allow_symlinks:
         curr = raw_path
         # Traverse upwards checking if any part of the requested path is a symlink
         while curr != root_path and len(curr.parts) > len(root_path.parts):
             try:
-                if curr.is_symlink():
-                    raise PermissionError(
-                        f"Access denied: Symlinks are not allowed: '{requested_path}'"
-                    )
-            except Exception:
-                pass
+                is_link = curr.is_symlink()
+            except OSError as e:
+                _LOG.warning(
+                    "symlink check failed for %r (segment of %r): %s — "
+                    "segment skipped; final containment and secrets "
+                    "checks still apply",
+                    str(curr), requested_path, e)
+                is_link = False
+            if is_link:
+                raise PermissionError(
+                    f"Access denied: Symlinks are not allowed: '{requested_path}'"
+                )
             curr = curr.parent
             
     # Secrets denylist check
