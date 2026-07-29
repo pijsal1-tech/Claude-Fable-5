@@ -66,11 +66,16 @@ class MessageContext:
     """ما كانت الكتلة المضمّنة تنتجه — بنفس الدلالات حرفيًا.
 
     TSK-103: ``dropped_attached`` (افتراضي []) = مفاتيح العناصر المرفقة
-    التي أسقطتها الميزانية — للرصد (لا تدهور صامت)."""
+    التي أسقطتها الميزانية — للرصد (لا تدهور صامت).
+
+    TSK-609 (PM-04 §R6): ``source_timings_ms`` (افتراضي {}) = زمن collect
+    لكل مصدر سياق بالميلي ثانية (kind → ms) — حقل رصد إضافي بحت؛
+    goldens T-017 تقارن مفاتيح الـ golden فقط فلا تتأثر."""
     mentioned_files: list[str]
     user_text_with_files: str
     project_context: str
     dropped_attached: list[str] = field(default_factory=list)
+    source_timings_ms: dict[str, int] = field(default_factory=dict)
 
 
 def _default_engine(index: Any = None,
@@ -176,4 +181,5 @@ def gather_message_context(project_root: str | pathlib.Path, user_text: str,
         user_text_with_files=user_text_with_files,
         project_context=structure,
         dropped_attached=dropped_attached,
+        source_timings_ms=dict(bundle.source_timings_ms),
     )

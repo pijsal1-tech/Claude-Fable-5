@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import time
 from dataclasses import dataclass
 from typing import Callable, Protocol, runtime_checkable
 
@@ -125,9 +126,18 @@ class ContextEngine:
         scan = self._scan_factory(request.project_root)
         bundle = ContextBundle()
         for source in self._sources:
+            # TSK-609 (PM-04): توقيت collect لكل مصدر — نفس نمط chain
+            # (monotonic → int ms). رصد إضافي بحت: المصدر الفاشل يسجَّل
+            # زمنه أيضًا والاستثناء يُبتلع كما كان (نفس تسامح legacy).
+            _t0 = time.monotonic()
             try:
                 bundle.extend(source.collect(request, scan))
             except Exception:
                 # مصدر معطوب لا يُسقط الجمع كله — نفس تسامح legacy
                 pass
+            kind = getattr(source, "kind", source.__class__.__name__)
+            elapsed = int((time.monotonic() - _t0) * 1000)
+            # مصدران بنفس kind (نظريًا): تجميع بالمجموع — لا فقدان رصد.
+            bundle.source_timings_ms[kind] = (
+                bundle.source_timings_ms.get(kind, 0) + elapsed)
         return bundle

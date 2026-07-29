@@ -42,6 +42,7 @@ from providers.alle_ai import AlleAIProvider, AlleAIConfig
 from providers.openai_shelby import OpenAIShelbyProvider, OpenAIShelbyConfig
 from providers.base import Message
 from sessions.memory import WindowPolicy, select_history
+from context.budget import CharsPerTokenEstimator  # TSK-609 (PM-01)
 from context.facade import gather_message_context
 from chain.bridge import ChainBridge
 from chain.delegate import DelegateBridge
@@ -1852,11 +1853,16 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
             _agent_sink = _RunnerWSAdapter(_agent_ws_send)
 
             def _run_agent():
+                # TSK-609 (PM-01/02 §R6): توقيت دورة الوكيل كاملة +
+                # تقدير توكنز المخرج — حقول إضافية فقط على plan/done
+                # (الواجهة تتجاهل المجهول)، نفس نمط chain (executor.py).
+                _t0 = time.monotonic()
                 try:
                     result = _agent_runner.run(
                         _agent_req, agent_ticket, _agent_sink)
                 finally:
                     sctx.active_agent_loop = None
+                _duration_ms = int((time.monotonic() - _t0) * 1000)
 
                 if result.status == RESULT_FAILED:
                     print(f"  ❌ Agent Loop error: {result.error}")
@@ -1885,17 +1891,24 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
 
                 options = _parsed_options(parsed)
 
+                # TSK-609 (PM-01): تقدير محلي (chars÷4) — نفس مقدّر
+                # الميزانية المركزي، لا ثوابت جديدة.
+                _tok = CharsPerTokenEstimator().estimate(full_response)
                 if actions:
                     _agent_ws_send({
                         "type": "plan",
                         "actions": actions,
                         "options": options,
                         "summary": parsed.summary(),
+                        "duration_ms": _duration_ms,
+                        "token_estimate": _tok,
                     })
                 else:
                     _agent_ws_send({
                         "type": "done",
                         "options": options,
+                        "duration_ms": _duration_ms,
+                        "token_estimate": _tok,
                     })
 
             sctx.backup_done_for_batch = False
@@ -1944,9 +1957,13 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
     # (إطار start + فحص busy للتذكرة) بقي متزامنًا حفاظًا على ترتيب
     # الإطارات؛ نفس نمط agent (_run_agent أعلاه) حرفيًا.
     def _run_direct():
+        # TSK-609 (PM-01/02 §R6): توقيت المسار المباشر + تقدير توكنز
+        # المخرج — حقول إضافية فقط على plan/done، نفس نمط chain.
+        _t0 = time.monotonic()
         _direct_result = RUNNERS["direct"](
             stream_fn=lambda p, h, s: sctx.active_provider().stream(p, h, s)
         ).run(_direct_req, direct_ticket, _RunnerWSAdapter(sctx.send))
+        _duration_ms = int((time.monotonic() - _t0) * 1000)
 
         full_response = _direct_result.text
         if _direct_result.status != RESULT_COMPLETED:
@@ -1966,12 +1983,16 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
 
         sctx.backup_done_for_batch = False
 
+        # TSK-609 (PM-01): تقدير محلي (chars÷4) — نفس مقدّر الميزانية.
+        _tok = CharsPerTokenEstimator().estimate(full_response)
         if mode in ("plan", "build", "edit") and actions:
             sctx.send({
                 "type": "plan",
                 "actions": actions,
                 "options": options,
                 "summary": parsed.summary(),
+                "duration_ms": _duration_ms,
+                "token_estimate": _tok,
             })
         else:
             sctx.send({
@@ -1981,6 +2002,8 @@ def _dispatch_chat_message(ctx, sctx, user_text: str, mode: str, msg: dict, skip
                 "actions": [] if mode == "chat" else actions,
                 "options": options,
                 "summary": parsed.summary(),
+                "duration_ms": _duration_ms,
+                "token_estimate": _tok,
             })
 
     threading.Thread(

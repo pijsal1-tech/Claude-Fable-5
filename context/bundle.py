@@ -84,6 +84,10 @@ class ContextBundle:
         self._entries: list[BundleEntry] = []
         self._seen_keys: set[tuple[str, str]] = set()
         self._hash_owner: dict[str, str] = {}   # content_hash → مسار حامل الجسد
+        # TSK-609 (PM-04 §R6): توقيت collect لكل مصدر بالميلي ثانية —
+        # يملؤه ContextEngine.gather؛ حقل رصد إضافي بحت (لا يؤثر على
+        # الهوية/المحتوى/الترتيب — عقود T-018/T-021 محفوظة بالبناء).
+        self.source_timings_ms: dict[str, int] = {}
 
     def add(self, item: ContextItem) -> bool:
         """إضافة عنصر. False لو مكرر الهوية (لم يُضف).
