@@ -114,3 +114,63 @@
 
 ### Status
 **Accepted** (S61) — يُنفَّذ في TSK-612.
+
+---
+
+## ADR-003 — تجميع REST routes في Flask Blueprints بحقن كائن الوحدة (TSK-613)
+
+### Context
+QG-03 (§R8): server.py يحوي 28 مزيّن `@app.route` (:704..1385، ~640
+سطرًا) — آخر كتلة g1 الكبرى بعد QG-01/02. المهمة مشروطة بـ«استقرار
+قرار g5»: NF-03 (الازدواجية REST-globals/WS-SessionContext) مسجل
+«مفتوح — مقبول موثَّق» والتوحيد مؤجل FI-01 (FUTURE_IMPROVEMENTS:16) —
+أي أن الوضع الراهن للـ globals هو القرار المستقر. خطر «تجميد
+الازدواجية في الواجهات» (MASTER_REVIEW:543) يُحيَّد بألا تُمرَّر
+globals كقيم وقت التسجيل بل تُقرأ حيًّا من نقطة واحدة.
+
+### Decision
+1. حزمة `routes/` جديدة: 7 وحدات موضوعية (files، backups، run،
+   sessions، meta، rollback، project) تنقل **25 route بأجسام حرفية**.
+2. نمط الوصول للحالة: كل وحدة تحمل `_srv = None` ودالة
+   `register(app, srv)` — server.py يستدعيها بـ `register(app,
+   sys.modules[__name__])` فتقرأ الأجسام `_srv.fm`/`_srv.session_mgr`…
+   **وقت كل نداء** (late binding — نفس مبدأ ADR-002): monkeypatch
+   الاختبارات على فضاء server يبقى فعّالًا، وglobals المتغيّرة
+   (switch-project يستبدل fm/cmd_runner) تُقرأ طازجة.
+3. إعادة ربط globals (api_clear/load_session/new_session/
+   switch_project) عبر تعيين سمة: `_srv.chat_history = []` —
+   التكافؤ الحرفي لعبارة `global` (كلاهما يعيد ربط اسم على كائن
+   الوحدة).
+4. تبقى في server.py: `index` (app-level)، `api_models` +
+   `api_switch_model` (provider-routing — خارج النطاق §0.8)،
+   والمساعدات المشتركة (`_search_service`، `_zip_member_violations`،
+   `_session_binding_policy`، `_force_command_approval`) تستدعى عبر
+   `_srv.<name>` — تُرقَّع اليوم على server في الاختبارات.
+5. routes/ لا تستورد server (لا دورة)؛ المستوردات النقية
+   (jsonify/request/Message/FileManager/CommandRunner/os/pathlib)
+   تُستورد مباشرة في كل وحدة.
+6. أسماء endpoints تتغير تلقائيًا (`files.api_files`…) — مثبت
+   بالأدلة: صفر استخدام لـ `url_for`/`view_functions` في المستودع؛
+   سطح HTTP (rule+methods) هو العقد ويبقى بلا تغيير (30 قاعدة).
+
+### Alternatives rejected
+1. **تمرير globals كوسائط عند التسجيل**: يجمّد قيم لحظة الإقلاع —
+   يكسر switch-project (يعيد ربط fm) وهو بالضبط خطر MASTER_REVIEW:543.
+2. **انتظار FI-01 (توحيد الحالة) قبل التجميع**: FI-01 تحسين مستقبلي
+   بلا موعد؛ الحقن الحي يجعل الترتيب غير مقيِّد — نقطة `_srv` الواحدة
+   تُستبدل لاحقًا بمحلّ جلسة دون مسّ الأجسام.
+3. **Blueprint واحد كبير**: يحقق النقل لا التنظيم الموضوعي المطلوب
+   نصًّا (rollback/memory/project/…).
+4. **نقل api_models/api_switch_model معهما**: provider-routing
+   خارج النطاق §0.8 — لا تُلمسان.
+
+### Trade-offs
+- (+) server.py يفقد ~640 سطرًا؛ كل مجال REST قابل للقراءة/الاختبار
+  منفردًا؛ يمهد TSK-614 (mypy) وFI-01.
+- (−) مستوى غير مباشرة `_srv` — مخفَّف بأسماء مطابقة حرفيًا لرموز
+  server.
+- (−) 3 اختبارات بنيوية تُحدَّث لنفس الضمانة في الموقع الجديد
+  (سابقة TSK-611/612).
+
+### Status
+**Accepted** (S65) — يُنفَّذ في TSK-613.

@@ -1051,12 +1051,82 @@
     log + تحديث الفحوص البنيوية).
 
 ### TSK-613 — QG-03: تجميع REST blueprints
-- **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-612.
+- **Status**: IN PROGRESS (S64–65) · **Priority**: P2 · **Dependencies**: TSK-612 ✅.
 - **Objective**: تجميع 27 route في Flask Blueprints موضوعية (rollback/memory/
   project/…) — بعد استقرار قرار g5.
 - **Background**: QG-03 (§R8). · **Acceptance**: كل endpoints تستجيب كما قبل
   (اختبار smoke REST)، عدد routes ثابت.
 - **Gates**: Architecture · Testing · Regression. · **Rollback**: revert.
+- **حالة قرار g5 (تحقق مسبق — شرط نص المهمة)**: القرار **مستقر بصيغة
+  «مقبول موثَّق»** — NF-03 (تثبيت g5) مسجل «مفتوح — مقبول موثَّق»
+  (MASTER_REVIEW.md:364)؛ الازدواجية REST-globals/WS-SessionContext قرار
+  واعٍ موثَّق في core/session_context.py:14–27 (NEW_FINDINGS.md §NF-03)؛
+  التوحيد مؤجل كتحسين مستقبلي **FI-01** (FUTURE_IMPROVEMENTS.md:16–26،
+  شرطه المسبق TSK-302). سبب تأجيل QG-03 الأصلي (MASTER_REVIEW.md:543:
+  «الاقتطاع قبله يجمّد الازدواجية في الواجهات») **يُحيَّد** بنمط الحقن
+  الحي (ADR-002): كل blueprint يستلم كائن وحدة server نفسه (`srv`)
+  كنقطة وصول وحيدة للحالة — قراءة `srv.fm` وقت النداء؛ FI-01 لاحقًا
+  يستبدل هذه النقطة الواحدة بمحلّ جلسة دون مسّ الأجسام. ⇒ لا حاجب؛
+  التنفيذ يمضي (قرار هندسي ضمن الاستقلالية — لا تغيير سلوك منتج).
+- **Evidence (S64–65 — قبل أي تعديل)**:
+  - الجرد الفعلي: **28 مزيّن `@app.route`** في server.py:704..1385
+    (≠27 في النص — انحراف موثَّق؛ ربما 27 = بلا `index`). url_map =
+    **30 قاعدة** (28 + `/static/<path:filename>` + `/ws`). لا
+    `@app.before_request`؛ `@app.after_request` واحد :102 (مستوى app —
+    يسري على blueprints تلقائيًا).
+  - خريطة globals لكل route (AST): fm×15، session_mgr×7، cmd_runner×4،
+    ctx×4، chat_history×3، chain_bridge×2 (rollback)، provider×2،
+    _binding_banner×2، execution_registry×2، capacity_model،
+    run_metrics_store، provider_pool، request_router، account_budget.
+  - **4 routes تعيد ربط globals** (عبارة `global`): api_clear:983،
+    api_load_session:1007، api_new_session:1030، api_switch_project:1264
+    — النقل يتطلب `srv.chat_history = []` (تعيين سمة على كائن الوحدة =
+    دلالة `global` الحرفية نفسها).
+  - **قيد النطاق §0.8**: `api_models`:1131 + `api_switch_model`:1169
+    provider-routing خارج النطاق — **تبقيان في server.py دون لمس**
+    (انحراف موثَّق عن «تجميع الكل»). كذلك `index`:704 (app-level،
+    3 أسطر) تبقى.
+  - مساعدات مشتركة تبقى في server.py (تستدعى عبر srv):
+    `_search_service`:723، `_zip_member_violations`:1069،
+    `_session_binding_policy`:1241، `_force_command_approval`:177 —
+    test_config_consolidation.py:109 يرقّع `server._session_binding_policy`.
+  - **لا اقتران باسم endpoint**: صفر نتائج `url_for`/`view_functions`
+    في server.py/static/templates/tests ⇒ إعادة تسمية endpoints بواسطة
+    Blueprint (`files.api_files`) محايدة لسطح HTTP.
+  - اختبارات بنيوية ستتأثر (سابقة «نفس الضمانة في الموقع الجديد»):
+    (1) test_force_approval.py:141 — 3 مواضع `need_approval=False` في
+    server.py؛ موضعا api_run:879/api_run_file:1411 ينتقلان؛ (2)
+    test_search_perf.py:270 — يقرأ `def api_search()` من server.py؛
+    (3) test_capacity_model.py:215 — بوابة grep تُوسَّع بـ `routes/`
+    (تقوية). اختبارات E2E عبر test_client (switch_handlers،
+    restore_zip_slip، session_binding، rollback_ui، run_metrics،
+    capacity_model) سلوكية — لا تعديل.
+  - **Baseline smoke (S65)**: 28 حالة HTTP مسجلة على app غير مهيأ
+    (globals=None): أبرزها `/`=200، chat-history=200، clear=200،
+    models=200، capacity/metrics/rollback-history=503،
+    rollback-preview=400، switch-model/switch-project/new-file/
+    new-folder/run-file=400، والباقي 500 (حتمي). url_map الكامل
+    (30 قاعدة، مسار+methods) مجمّد كمرجع تكافؤ.
+- **Behavior-preservation pre-check**: نقل ميكانيكي بأجسام حرفية؛
+  الحالة عبر `srv.<name>` وقت النداء (تحافظ على monkeypatch الاختبارات
+  على فضاء server وقراءة globals المتغيّرة — نمط ADR-002)؛ إعادة الربط
+  عبر تعيين سمة على كائن الوحدة (تكافؤ حرفي لـ `global`)؛ المسارات/
+  methods/الأجسام/رموز الحالة كلها بلا تغيير؛ **العدد الكلي للقواعد
+  ثابت = 30** (معيار القبول)؛ smoke قبل/بعد متطابق.
+- **Architecture-Fitness pre-check**: يفكك g1 (server.py يفقد ~640
+  سطر routes)؛ لا دورة استيراد (server يستورد routes/ ويمرر نفسه —
+  routes/ لا تستورد server)؛ لا حالة جديدة في routes/ (النقطة الوحيدة
+  `_srv` تُعيَّن مرة عند التسجيل)؛ لا يجمّد g5 (نقطة وصول واحدة قابلة
+  للاستبدال بـ FI-01)؛ خارج bلوك mypy الحالي (check.sh يغطيه TSK-614)
+  — يُفحص يدويًا هنا.
+- **التقسيم الموضوعي (25 route تنتقل)**: `routes/files.py` (8:
+  files/read/folder/write/delete/new-file/new-folder/search) ·
+  `routes/backups.py` (2: backups/restore) · `routes/run.py` (3:
+  run/cwd/run-file) · `routes/sessions.py` (6: sessions/load/new/
+  delete/chat-history/clear) · `routes/meta.py` (3: info/capacity/
+  metrics-runs) · `routes/rollback.py` (2: history/preview) ·
+  `routes/project.py` (1: switch-project). تبقى في server.py: index +
+  api_models + api_switch_model (§0.8) = 28 ✓.
 
 ### TSK-614 — QG-04: ضم server.py (والوحدات المستخرجة) لبوابة mypy
 - **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-611..613.
