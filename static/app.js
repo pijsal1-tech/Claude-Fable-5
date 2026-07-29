@@ -3121,6 +3121,9 @@ function renderAttachments() {
 // ═══════════════════════════════════════════
 function showPlanCard(actions, summary) {
     state.planActions = actions;
+    // TSK-619 (CP-1): حالة تفاعلية نقية — كل الخطوات تبدأ مفعّلة
+    // (الافتراضي بلا لمس = تنفيذ كامل كما اليوم).
+    state.planCardState = PlanCard.createState(actions);
     const container = document.getElementById("chat-messages");
 
     const card = document.createElement("div");
@@ -3129,7 +3132,7 @@ function showPlanCard(actions, summary) {
     let actionsList = actions.map((a, i) => {
         const icon = a.action === "create_file" ? "📄" : a.action === "edit_file" ? "✏️" : "⚡";
         const label = a.path || a.command || "";
-        return `<div class="task-item pending"><span class="task-icon">⬜</span> ${icon} ${escapeHtml(label)}</div>`;
+        return `<div class="task-item pending"><label class="plan-step-label"><input type="checkbox" class="plan-step-toggle" data-step="${i}" checked> ${icon} ${escapeHtml(label)}</label></div>`;
     }).join("");
 
     card.innerHTML = `
@@ -3147,17 +3150,36 @@ function showPlanCard(actions, summary) {
 
     container.appendChild(card);
     container.scrollTop = container.scrollHeight;
+
+    // TSK-619: ربط الـ checkboxes بالحالة النقية (DOM glue فقط —
+    // المنطق في PlanCard). change فقط؛ لا لمس = الأعلام كلها true.
+    card.querySelectorAll(".plan-step-toggle").forEach((cb) => {
+        cb.addEventListener("change", () => {
+            const idx = parseInt(cb.getAttribute("data-step"), 10);
+            PlanCard.setEnabled(state.planCardState, idx, cb.checked);
+            cb.closest(".task-item").classList.toggle("plan-step-disabled", !cb.checked);
+        });
+    });
 }
 
 function executePlan(btn) {
     if (!state.planActions.length) return;
+    // TSK-619: أرسل المفعّل فقط — كل-الخطوات-مفعلة (الافتراضي) تعيد
+    // نفس القائمة بنفس الترتيب = السلوك القديم حرفيًا.
+    const enabled = state.planCardState
+        ? PlanCard.enabledActions(state.planCardState)
+        : state.planActions;
+    if (!enabled.length) {
+        toast("لا خطوات مفعّلة — فعّل خطوة واحدة على الأقل أو ألغِ الخطة", "warning");
+        return;
+    }
     const planCard = btn.closest(".plan-card");
     const controls = planCard.querySelector(".plan-controls");
     controls.innerHTML = '<span style="color:var(--accent);font-size:12px">⏳ جاري التنفيذ...</span>';
 
     state.ws.send(JSON.stringify({
         type: "execute_plan",
-        actions: state.planActions,
+        actions: enabled,
     }));
 }
 

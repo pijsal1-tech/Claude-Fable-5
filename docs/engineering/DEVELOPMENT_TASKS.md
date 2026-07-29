@@ -1603,6 +1603,62 @@
 - **Gates**: Testing · Regression (كل-الخطوات-مفعلة = السلوك القديم حرفيًا).
 - **Behavior preservation**: الافتراضي (لا لمس) = تنفيذ كامل كما اليوم.
 - **Rollback**: revert. · **Resume notes / Blocker**: —
+- **Evidence (S74)**:
+  - **showPlanCard** `static/app.js:3122–3150`: يضبط
+    `state.planActions = actions` (:3123)؛ يبني `.plan-card` وصفوف
+    `<div class="task-item pending"><span class="task-icon">⬜</span>
+    ${icon} ${escapeHtml(label)}</div>` (:3129–3133؛ icon حسب
+    a.action: create_file 📄 / edit_file ✏️ / غيره ⚡؛ label =
+    a.path || a.command)؛ `.plan-controls` بأربعة أزرار onclick:
+    executePlan(this) / revisePlan() / reviewPlan() / cancelPlan(this)
+    (:3140–3145). يُستدعى من محوّل WS الوحيد case "plan" (:222).
+  - **executePlan** `:3152–3162`: حارس `if (!state.planActions.length)
+    return;` (:3153) → استبدال controls بمؤشر تنفيذ →
+    `state.ws.send(JSON.stringify({type: "execute_plan",
+    actions: state.planActions}))` (:3158–3161). **شكل الـ payload
+    الحالي**: `{type, actions}` — قائمة actions كما وصلت من إطار plan.
+  - **cancelPlan** `:3176–3182`: يصفّر `state.planActions = []`؛
+    `state.planActions` مُهيأ `[]` عند `:18`.
+  - **الخادم لا يتغير**: `server.py:1651` — `"execute_plan":
+    _ws_apply_batch`؛ `_apply_batch` (:1712) يمر على القائمة المرسلة
+    كما هي (أُطره golden-locked في apply_batch_frames.json) — subset
+    من نفس البنية شفاف تمامًا له.
+  - **CSS قائم — لا ألوان خام جديدة مطلوبة**: `.plan-card` (:1558)،
+    `.plan-header` (:1566)، `.plan-content` (:1576)، `.plan-controls`
+    (+أزرارها :1582–1638)، `.task-item` وحالاتها (:1676–1700) —
+    كلها في style.css بالفعل؛ checkbox عنصر HTML أصلي.
+  - **نمط اختبار node قائم كسابقة**: `tests/unit/test_diff_panel.py`
+    (run_node subprocess + `pytestmark skipif(node is None)` +
+    ROOT=parents[2]، cwd=ROOT) و`tests/unit/test_stream_render.py`
+    (فحوص wiring نصية: app.js يستهلك الوحدة + index.html يحمّلها قبل
+    app.js :182–194؛ **سيناريو يدوي موثَّق في docstring كـ Accept
+    رسمي** :205–209 — سابقة لبند «سيناريو يدوي موثق» هنا).
+    node v22.23.1 متوفر.
+  - **نمط UMD-lite قائم**: `static/js/status_chip.js` — `(function
+    (global) { "use strict"; ... createState() ... })` منطق نقي،
+    الـ DOM glue في app.js فقط؛ 8 وحدات في index.html (:45–69)
+    كلها `?v=1` قبل app.js.
+- **Behavior-preservation pre-check (S74 — قبل التعديل)**:
+  1. **الافتراضي (لا لمس) = السلوك القديم حرفيًا**: كل الخطوات تبدأ
+     مفعّلة؛ `enabledActions(state)` على حالة كاملة التفعيل تعيد
+     نفس القائمة بنفس الترتيب ⇒ payload التنفيذ مطابق بايتًا لِما
+     يُرسل اليوم (`{type:"execute_plan", actions:[...كلها...]}`).
+  2. **server.py لا يُمس**: subset من نفس بنية العناصر — _apply_batch
+     يمر على ما وصله؛ الأُطر الذهبية لا تتأثر.
+  3. أزرار revisePlan/reviewPlan/cancelPlan ومساراتها بلا تغيير؛
+     cancelPlan يظل يصفّر planActions.
+  4. توقيع showPlanCard(actions, summary) ونقطة الاستدعاء (:222)
+     بلا تغيير؛ لا endpoints ولا أطر WS جديدة.
+  5. التحقق: اختبار node «كل-الخطوات-مفعلة → payload مطابق للقائمة
+     الكاملة» (بند Gates حرفيًا) + الانحدار الكامل (خط 1850).
+- **Architecture-Fitness pre-check (S74)**:
+  - وحدة نقية جديدة `static/js/plan_card.js` (منطق الحالة:
+    actions + أعلام enabled؛ toggle؛ enabledActions ⇒ subset) —
+    قابلة للاختبار في node بلا متصفح؛ الـ DOM glue (رسم checkboxes
+    وربط الأحداث وقراءة subset عند الإرسال) في app.js فقط —
+    نفس نمط المنزل الثابت (status_chip/diff_panel/stream_render).
+  - لا تبعيات جديدة؛ script tag واحد `?v=1` قبل app.js في
+    index.html؛ لا لمس لـ providers/ (§0.8) ولا server.py.
 
 ### TSK-620 — سرد الجلسة (CP-8)
 - **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-610 (سجل runs).
