@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Sessions 58–60 — **TSK-611 ✅ DONE (QG-01 راوتر WS + ADR-001) — التالي: TSK-612 (QG-02)**) |
+| last-updated | 2026-07-29 (Sessions 61–63 — **TSK-612 ✅ DONE (QG-02 chat_dispatch + ADR-002) — التالي: TSK-613 (QG-03)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M8 جارية (1/4: 611 ✅)**؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | TSK-612 (التالية — M8، P2 — QG-02 استخراج مسارات الإرسال)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M8 جارية (2/4: 611،612 ✅)**؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | TSK-613 (التالية — M8، P2 — QG-03 تجميع REST blueprints)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **10/26 TSK** (601..604،606..611 ✅؛ 605/TF-04 تنتظر D-2؛ 612..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **11/26 TSK** (601..604،606..612 ✅؛ 605/TF-04 تنتظر D-2؛ 613..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 

@@ -426,3 +426,35 @@
 - Metrics: كتلة التوجيه **506 → 13** (−493)؛ server.py إجمالًا
   2987 → 3045 (+58 توقيعات/جدول — ينخفض في QG-02..04)؛ صفر تغيير
   في أي إطار.
+
+## TSK-612 — QG-02: استخراج مسار الإرسال إلى chat_dispatch — Sessions 61–63
+
+### Added
+- `docs/engineering/ARCHITECTURE_DECISIONS.md` → **ADR-002**: استخراج
+  `_dispatch_chat_message` بحقن التبعيات وقت النداء (deps يُبنى في
+  الغلاف من فضاء server عند كل استدعاء — يحفظ monkeypatch الاختبارات
+  الأربعة على server وقراءة request_router/agent_tools المربوطين في
+  main())؛ + قيد DECISION_LOG — كلاهما **قبل الكود** (الدستور :1038).
+- `core/chat_dispatch.py` (513 سطرًا): جسم الدالة حرفيًا (تحقق آلي
+  سطرًا-بسطر — الفرق الوحيد إدراج `deps.` خارج النصوص) كـ
+  `dispatch_chat_message(deps, ctx, sctx, …)`؛ لا استيراد server.
+
+### Changed
+- `server.py`: `_dispatch_chat_message` صار غلافًا (نفس الاسم/التوقيع)
+  يرسل scan_start الفوري ثم يبني deps وقت النداء —
+  **3045 → 2596 سطرًا (−449 صافيًا)**.
+- 4 فحوص بنيوية حُدّثت لنفس الضمانات في الموقع الجديد:
+  prompt_fencing (تسييج detected_file)، context_engine (النداء
+  الموحّد على الملفين)، config_consolidation (تعريف أعلى-مستوى
+  فقط)، run_slot_per_project (مواضع _begin_run_ticket على الملفين).
+
+### Verification
+- mypy على الوحدة الجديدة **نظيف** (ونطاق core/+chain/+context/+
+  sessions/ كاملًا 62 ملفًا — خطأ providers/openai_shelby.py:166
+  قائم مسبقًا وخارج النطاق §0.8، الملف لم يُمس).
+- goldens (chain+apply_batch+routing+ws_router): 32؛ contracts+
+  dispatch_parity: 113؛ الملفات السبعة المثبّتة للمسار: 76؛
+  lint_handler_state → clean.
+- Regression (junitxml): **1791 = 1 failed، 1756 passed، 34 skipped**
+  (69.8s) — الإخفاق الوحيد theme_tokens (TF-04/D-2)؛ لا انحدار.
+- Metrics: الكتلة 486 → غلاف ~37؛ صفر تغيير في أي إطار.

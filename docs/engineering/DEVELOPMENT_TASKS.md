@@ -930,7 +930,7 @@
     القرارات) · 41cc87a (دمج خارجي — الكود + الاختبارات).
 
 ### TSK-612 — QG-02: استخراج مسارات الإرسال
-- **Status**: IN PROGRESS (S61) · **Priority**: P2 · **Dependencies**: TSK-611 ✅, TSK-601 ✅.
+- **Status**: ✅ DONE (S61–63) · **Priority**: P2 · **Dependencies**: TSK-611 ✅, TSK-601 ✅.
 - **Objective**: نقل `_dispatch_chat_message` (~477 سطرًا) إلى وحدة إرسال
   مستقلة تستهلك `_parsed_to_actions` الموحدة (من TSK-601).
 - **Background**: QG-02 (§R8). · **Files**: `server.py`، وحدة جديدة، goldens.
@@ -1005,6 +1005,50 @@
   في check.sh:12)؛ الحقن عبر معاملات صريحة (لا استيراد server —
   لا دورة)؛ **تغيير معماري ⇒ ADR-002 + قيد Decision Log قبل
   الكود** (الدستور :1038).
+- **Close-out (S61–63)**:
+  - **ما نُفّذ** (ADR-002):
+    - `core/chat_dispatch.py` (جديدة، 513 سطرًا): جسم
+      `_dispatch_chat_message` حرفيًا (475 سطر جسم — تحقق آلي
+      سطرًا-بسطر مقابل الأصل: الفرق الوحيد إدراج `deps.`
+      خارج النصوص؛ تلوّث وحيد لنص log أُصلح وتحقّق الفحص
+      الآلي من صفر مشاكل متبقية) كـ `dispatch_chat_message(deps,
+      ctx, sctx, …)`؛ المستوردات النقية مباشرة؛ 14 رمز server
+      عبر deps.
+    - `server.py`: `_dispatch_chat_message` صار غلافًا (نفس الاسم
+      والتوقيع) يرسل scan_start الفوري (TSK-403) ثم يبني
+      `deps = SimpleNamespace(…)` **وقت كل نداء** من فضاء server
+      (late binding — monkeypatch الاختبارات وglobals المتغيّرة
+      محفوظة)؛ import :75 + SimpleNamespace :18.
+    - 4 فحوص بنيوية كانت تثبّت نص server القديم حُدّثت لنفس
+      الضمانات في الموقع الجديد: prompt_fencing:176 (موضع
+      تسييج detected_file → الوحدة)، context_engine (النداء
+      الموحّد + غياب المنطق القديم على الملفين معًا)،
+      config_consolidation (تعريف MAX_SMART_FILE_SIZE أعلى-مستوى
+      فقط — kwarg الحقن ليس تعريفًا)، run_slot_per_project
+      (مواضع `_begin_run_ticket` على الملفين — 4 انتقلت، كلها
+      تمرر sctx=sctx).
+  - **Gates**:
+    - Architecture: **ADR-002** + قيد DECISION_LOG قبل الكود ✓؛
+      lint_handler_state → clean؛ لا دورة استيراد (الوحدة لا
+      تستورد server).
+    - Testing: **mypy على الوحدة الجديدة نظيف** (وعلى نطاق
+      core/+chain/+context/+sessions/ كاملًا: 62 ملفًا — ملاحظة:
+      بوابة check.sh الكاملة تُظهر خطأ واحدًا قائمًا مسبقًا في
+      providers/openai_shelby.py:166 — خارج النطاق §0.8، الملف لم
+      يُمس — diff 77ca23a..HEAD يخلو من providers/)؛ goldens
+      dispatch parity + كل goldens: 32؛ الملفات السبعة المثبّتة
+      لمسار الإرسال: 76؛ contracts+parity: 113.
+    - Regression: junitxml — **1791 اختبارًا = 1 failed، 1756
+      passed، 34 skipped** (69.8s) — الإخفاق الوحيد هو المعروف
+      (theme_tokens — TF-04/D-2)؛ لا انحدار (لا اختبارات جديدة —
+      نقل سلوك-محفوظ؛ التثبيت القائم يغطي المسار).
+  - **Metrics (القبول)**: server.py **3045 → 2596 سطرًا (−449
+      صافيًا)**؛ الكتلة 486 → غلاف ~37 سطرًا؛ المنطق دخل بوابة
+      mypy (كان خارجها في server.py)؛ صفر تغيير في أي إطار.
+  - **انحراف موثّق**: الكتلة الفعلية 486 سطرًا (النص ~477).
+  - **Commits**: 49178dd (الأدلة) · fcc34ce (ADR-002) · 4dbc9ff
+    (دمج خارجي — الاستخراج) · 133e0d5 (دمج خارجي — إصلاح نص
+    log + تحديث الفحوص البنيوية).
 
 ### TSK-613 — QG-03: تجميع REST blueprints
 - **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-612.
@@ -1126,7 +1170,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 609 | M7 | P2 | ✅ DONE (S49–54) | duration_ms على bus للمسارات 4/4 + توقيت المصادر + duration/token في plan/done؛ +11 اختبارًا |
 | 610 | M7 | P2 | ✅ DONE (S55–57) | سجل JSONL لكل run منتهٍ + p50/p95 (nearest-rank) + REST قراءة /api/metrics/runs؛ +17 اختبارًا |
 | 611 | M8 | P2 | ✅ DONE (S58–60) | استخراج راوتر WS إلى core/ws_router.py (ADR-001)؛ الكتلة 506→13 سطرًا؛ +10 اختبارات |
-| 612 | M8 | P2 | IN PROGRESS (S61) | بعد 611+601 |
+| 612 | M8 | P2 | ✅ DONE (S61–63) | استخراج مسار الإرسال إلى core/chat_dispatch.py (ADR-002)؛ server.py −449 سطرًا؛ mypy نظيف |
 | 613 | M8 | P2 | TODO | بعد 612 |
 | 614 | M8 | P2 | TODO | بعد 611..613 — يغلق QF-02 |
 | 615 | M9 | P2 | TODO | |
