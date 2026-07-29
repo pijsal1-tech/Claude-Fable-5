@@ -67,6 +67,10 @@
     <!-- WS backoff+jitter وحماية onmessage — TSK-402 (NF-11): منطق نقي
          (مستقل) قبل app.js لأن initWebSocket يستهلك WSBackoff. -->
     <script src="/static/js/ws_backoff.js?v=1"></script>
+
+    <!-- بطاقة الخطة التفاعلية — TSK-619 (CP-1): منطق نقي (مستقل) قبل
+         app.js لأن showPlanCard/executePlan يستهلكان PlanCard. -->
+    <script src="/static/js/plan_card.js?v=1"></script>
 </head>
 
 <body>

@@ -1592,7 +1592,7 @@
   - **خط انحدار جديد: 1850**.
 
 ### TSK-619 — بطاقة الخطة التفاعلية (CP-1)
-- **Status**: TODO · **Priority**: P2
+- **Status**: ✅ DONE (S74) · **Priority**: P2
 - **Objective**: ترقية `showPlanCard` إلى artifact تفاعلي: تعطيل/تفعيل خطوة
   (checkbox) قبل «نفّذ» — executePlan يرسل المفعّل فقط.
 - **Background**: UXF-01 + CP-1 ADOPT (§R9، app.js:3099–3128).
@@ -1659,6 +1659,36 @@
     نفس نمط المنزل الثابت (status_chip/diff_panel/stream_render).
   - لا تبعيات جديدة؛ script tag واحد `?v=1` قبل app.js في
     index.html؛ لا لمس لـ providers/ (§0.8) ولا server.py.
+- **Close-out (S74)**:
+  - **التنفيذ**: وحدة نقية جديدة `static/js/plan_card.js` (UMD-lite،
+    نمط status_chip): createState (كل الخطوات مفعّلة افتراضيًا) /
+    toggle / setEnabled / isEnabled / enabledActions (subset بترتيبه
+    الأصلي) / enabledCount. `static/app.js`: showPlanCard يرسم
+    checkbox لكل خطوة (`plan-step-toggle` مع data-step، checked
+    افتراضيًا) ويربط change بالحالة النقية (DOM glue فقط)؛
+    executePlan يرسل `PlanCard.enabledActions(...)` بدل القائمة
+    الكاملة، مع منع الإرسال + toast تحذيري عند صفر مفعّل؛
+    cancelPlan يصفّر planCardState. `static/index.html`: script tag
+    `plan_card.js?v=1` قبل app.js. `static/style.css`:
+    .plan-step-label/.plan-step-toggle/.plan-step-disabled —
+    tokens فقط (var(--accent)/var(--text-muted)) — TF-04.
+    **server.py بلا لمس** (subset شفاف لـ _apply_batch).
+  - **الاختبارات**: `tests/unit/test_plan_card.py` (10، نمط node):
+    **القبول حرفيًا** — تعطيل خطوة → enabledActions بدونها وبقية
+    الترتيب محفوظ؛ **بوابة حفظ السلوك حرفيًا** — كل-الخطوات-مفعلة
+    → مطابق بايتًا (JSON.stringify) للقائمة الأصلية؛ toggle/حدود
+    النطاق/صفر مفعّل/مدخلات فارغة وnull؛ wiring (app.js يستهلك
+    createState/setEnabled/enabledActions + index.html يحمّل الوحدة
+    قبل app.js)؛ **السيناريو اليدوي موثَّق في docstring** (خطوات
+    DevTools → WS Messages → التحقق من actions المرسلة) — نفس سابقة
+    test_stream_render كـ Accept رسمي.
+  - **البوابات**: node --check نظيف · pyflakes نظيف (تحذيرات
+    agent_loop الأربعة سابقة الوجود) · lint_handler_state نظيف ·
+    mypy Success 81 ملفًا · contracts+parity 113 ✓ · goldens+ws_router
+    32 ✓ · الانحدار الكامل **1860 = 2F/1824P/34S** (1850+10؛
+    theme_tokens/TF-04/D-2 المعروف + test_search_perf flaky —
+    يمر معزولًا ×2، سبق توثيقه S73؛ لا علاقة للتغيير بمساره).
+  - **خط انحدار جديد: 1860**.
 
 ### TSK-620 — سرد الجلسة (CP-8)
 - **Status**: TODO · **Priority**: P2 · **Dependencies**: TSK-610 (سجل runs).
@@ -1722,7 +1752,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 616 | M9 | P2 | ✅ DONE (S72) | علم partial_rollback يُشتق عند المسح ويصل الإطار والواجهة (⚠️ toast + نص على الكارت)؛ 10 اختبارات جديدة؛ خط الانحدار 1841 |
 | 617 | M9 | P2 | BLOCKED(D-1) | |
 | 618 | M9 | P2 | ✅ DONE (S73) | فصل القياس عن القرار أحيا فحص symlink الميت (NF-28) وضيّق الالتقاط إلى OSError موسوم؛ 9 اختبارات (أول تغطية لـ path_policy)؛ خط الانحدار 1850 |
-| 619 | M9 | P2 | TODO | CP-1 |
+| 619 | M9 | P2 | ✅ DONE (S74) | بطاقة الخطة التفاعلية: checkbox لكل خطوة عبر وحدة نقية plan_card.js وexecutePlan يرسل المفعّل فقط؛ server.py بلا لمس؛ 10 اختبارات node؛ خط الانحدار 1860 |
 | 620 | M9 | P2 | TODO | بعد 610 — CP-8 |
 | 621 | M9 | P2 | TODO | CP-5 |
 | 622 | M9 | P2 | TODO | بعد M6 — TD-03 |

@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Session 73 — **TSK-618 ✅ DONE (إحياء فحص symlink الميت + تضييق except إلى OSError موسوم — ASF-07/NF-28) — التالي: TSK-619 (بطاقة الخطة التفاعلية — CP-1)**) |
+| last-updated | 2026-07-29 (Session 74 — **TSK-619 ✅ DONE (بطاقة الخطة التفاعلية: checkbox لكل خطوة عبر وحدة نقية plan_card.js وexecutePlan يرسل المفعّل فقط — CP-1/UXF-01) — التالي: TSK-620 (سرد الجلسة — CP-8)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — **M9 جارية (3/8)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
-| current-task | **TSK-619** (M9 — P2 — بطاقة الخطة التفاعلية — CP-1/UXF-01)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — **M9 جارية (4/8)**؛ M8 مكتملة (4/4) 🏁 + IR-1؛ M7 مكتملة (5/5)؛ M6 (4/5؛ TF-04 محجوب بـ D-2) |
+| current-task | **TSK-620** (M9 — P2 — سرد الجلسة — CP-8/UXF-05)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **16/26 TSK** (601..604،606..616،618 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 619..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **17/26 TSK** (601..604،606..616،618،619 ✅؛ 605/TF-04 تنتظر D-2؛ 617 محجوبة D-1؛ 620..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,12 +37,30 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — **M9 جارية 3/8**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
-- Phase/Task: **Stage 3 — M9 — TSK-619** (P2 — بطاقة الخطة التفاعلية —
-  CP-1/UXF-01؛ TSK-617 محجوبة بقرار D-1)؛
+- Stage: EXECUTION (Stage 3 — جارية — **M9 جارية 4/8**؛ M8 مكتملة 4/4 🏁 + IR-1 ✅؛ M7 مكتملة 5/5؛ M6: 4/5)
+- Phase/Task: **Stage 3 — M9 — TSK-620** (P2 — سرد الجلسة —
+  CP-8/UXF-05، تبعيتها TSK-610 ✅؛ TSK-617 محجوبة بقرار D-1)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-618 ✅ DONE (Session 73 — M9: 3/8)** —
+- Last completed step: **TSK-619 ✅ DONE (Session 74 — M9: 4/8)** —
+  بطاقة الخطة التفاعلية (CP-1/UXF-01): وحدة نقية جديدة
+  `static/js/plan_card.js` (UMD-lite — أعلام تفعيل لكل خطوة، كلها
+  مفعّلة افتراضيًا؛ enabledActions = subset بترتيبه الأصلي)؛
+  showPlanCard يرسم checkbox لكل خطوة ويربطها بالحالة النقية؛
+  executePlan يرسل المفعّل فقط (منع الإرسال + toast عند صفر مفعّل)؛
+  cancelPlan يصفّر الحالة؛ index.html يحمّل الوحدة قبل app.js؛
+  style.css tokens فقط. **server.py بلا لمس** (subset شفاف لـ
+  _apply_batch golden-locked). 10 اختبارات node جديدة
+  (test_plan_card.py): القبول حرفيًا (تعطيل خطوة → payload بدونها) +
+  بوابة حفظ السلوك حرفيًا (كل-الخطوات-مفعلة = مطابق بايتًا) + wiring
+  + سيناريو يدوي موثَّق في docstring. Gates: contracts+parity 113 ·
+  goldens+ws_router 32 · mypy 81 Success · lint نظيف · regression
+  junitxml **1860 = 2F/1824P/34S** (theme_tokens/TF-04/D-2 المعروف +
+  search_perf flaky يمر معزولًا ×2؛ 1850+10=1860 ✓) — **خط انحدار
+  جديد: 1860**. Commits: 33fe114 (أدلة قبل الكود — دمجه المستخدم
+  5f59764) · 309ecdb (التنفيذ+الاختبارات) · 686ac90 (Close-out+
+  جدول+CHANGELOG).
+  وقبلها: **TSK-618 ✅ DONE (Session 73 — M9: 3/8)** —
   تضييق except الابتلاعي في path_policy (ASF-07): أدلة S73
   كشفت **NF-28** (C4/S2) — `raise PermissionError` كان داخل نفس
   الـ try الذي يبتلع Exception ⇒ فحص symlink **ميت بالكامل**
@@ -314,24 +332,21 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-619** (M9، P2 — CP-1/UXF-01 §R9): بطاقة
-  الخطة التفاعلية — ترقية `showPlanCard` (app.js:3099–3128 وقت
-  الفرز) إلى artifact تفاعلي: تعطيل/تفعيل خطوة (checkbox) قبل
-  «نفّذ» — executePlan يرسل المفعّل فقط. Files: static/app.js +
-  وحدة نقية جديدة `static/js/plan_card.js` + اختبار node لها؛
-  server.py لا يتغير (actions المرسلة subset). القبول: اختبار وحدة —
-  تعطيل خطوة → payload التنفيذ بدونها؛ سيناريو يدوي موثق. Gates:
-  Testing · Regression (كل-الخطوات-مفعلة = السلوك القديم حرفيًا).
-  Rollback: revert. المرجع: §TSK-619 في DEVELOPMENT_TASKS.md.
-  الدورة القياسية: أدلة أولًا (showPlanCard/executePlan الحاليان
-  بأرقام أسطر فعلية، شكل payload التنفيذ الحالي، هل يوجد اختبار
-  node قائم كنمط — بأدلة) + سجل حفظ السلوك (الافتراضي بلا لمس =
-  تنفيذ كامل حرفيًا) + Fitness pre-check في §TSK-619 — **commit
-  قبل الكود**. ملاحظة: المهمة UX مقررة في Stage 2 (CP-1 ADOPT) —
-  التفاعل الجديد opt-in لا يغيّر المسار الافتراضي. بعد الإغلاق:
-  Close-out + جدول الحالة + CHANGELOG + PROGRESS + commit محلي.
-  خط الانحدار المرجعي الحالي: **1850 = 1F/1815P/34S**
-  (theme_tokens/TF-04 حصرًا؛ test_search_perf معروف flaky على
+- Next action: **بدء TSK-620** (M9، P2 — CP-8/UXF-05 §R9، التبعية
+  TSK-610 ✅): سرد الجلسة — عرض timeline يجمع (طلب → خطة → موافقات →
+  تنفيذ → نتائج) فوق RunHistory القائمة — محليًا، بلا cloud (Non-Goal
+  §15.2). القبول: جلسة بها run واحد معتمد → السرد يعرض ≥ 4 محطات
+  بترتيبها؛ وحدة نقية مختبرة node. Gates: Testing · Documentation.
+  Rollback: revert. المرجع: §TSK-620 في DEVELOPMENT_TASKS.md.
+  الدورة القياسية: أدلة أولًا (سجل runs من TSK-610 — JSONL + REST
+  /api/metrics/runs بأرقام أسطر؛ RunHistory الحالية app.js/
+  run_history.js؛ من أين تُشتق المحطات الأربع: أطر WS/سجل runs —
+  بأدلة) + سجل حفظ السلوك (RunHistory القائمة بلا تغيير؛ السرد طبقة
+  عرض قراءة فوقها) + Fitness pre-check (وحدة نقية + DOM glue — نمط
+  plan_card/status_chip) في §TSK-620 — **commit قبل الكود**. بعد
+  الإغلاق: Close-out + جدول الحالة + CHANGELOG + PROGRESS + commit
+  محلي. خط الانحدار المرجعي الحالي: **1860 = 2F/1824P/34S**
+  (theme_tokens/TF-04 حصرًا + test_search_perf معروف flaky على
   عتاد مشترك — يعاد تشغيله معزولًا عند فشله).
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
@@ -869,6 +884,36 @@
   CHANGELOG (commit 4893403) + تحديث PROGRESS (هذا القيد) + commit
   محلي · الموقع → **M9/TSK-619** (بطاقة الخطة التفاعلية — CP-1/
   UXF-01)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-29 — Session 74 — TSK-619 ✅ (M9: 4/8)**:
+  استرداد من origin 4b79beb → **أدلة TSK-619** بأرقام أسطر فعلية:
+  showPlanCard :3122–3150 (state.planActions + task-item rows +
+  4 أزرار onclick)؛ executePlan :3152–3162 (payload
+  `{type:"execute_plan", actions: state.planActions}`)؛ cancelPlan
+  :3176 يصفّر؛ نداء WS :222؛ الخادم `"execute_plan": _ws_apply_batch`
+  server.py:1651 (golden-locked — subset شفاف)؛ CSS البطاقة قائم
+  style.css:1558–1700؛ سوابق النمط: UMD-lite (status_chip) + اختبار
+  node (test_diff_panel/test_stream_render — wiring + سيناريو يدوي
+  موثق كـ Accept) — أدلة + pre-checks في §TSK-619 (commit 33fe114
+  قبل الكود؛ إصلاح عرضي: عنوان §TSK-620 سقط أثناء التحرير وأعيد
+  فورًا قبل الالتزام) → **reset منتصف الجلسة**؛ دمج المستخدم 5f59764
+  التقط 33fe114 + تعديلات app.js وplan_card.js غير الملتزمة؛ الفجوات
+  المتبقية أُعيدت: planCardState في state init + تصفير cancelPlan +
+  script tag في index.html + CSS tokens + الاختبارات → **التنفيذ**:
+  وحدة نقية `static/js/plan_card.js` (createState كلها مفعّلة /
+  toggle / setEnabled / isEnabled / enabledActions subset بترتيبه /
+  enabledCount)؛ app.js: checkboxes مربوطة بالحالة النقية (DOM glue
+  فقط) + executePlan يرسل المفعّل فقط مع منع الإرسال عند صفر؛
+  **server.py بلا لمس** · **10 اختبارات node** (test_plan_card.py):
+  القبول حرفيًا (تعطيل → payload بدونها) + حفظ السلوك حرفيًا
+  (كل-مفعّل = مطابق بايتًا JSON.stringify) + حدود النطاق + wiring +
+  سيناريو يدوي موثَّق (commit 309ecdb) · كل البوابات: node --check +
+  pyflakes + lint نظيفة · mypy **Success 81 ملفًا** · contracts+parity
+  113 · goldens+ws_router 32 · regression junitxml **1860 =
+  2F/1824P/34S 81.7s** (theme_tokens/TF-04/D-2 + search_perf flaky
+  يمر معزولًا ×2؛ 1850+10=1860 ✓) → Close-out + جدول 619→DONE +
+  CHANGELOG (commit 686ac90) + تحديث PROGRESS (هذا القيد) + commit
+  محلي · الموقع → **M9/TSK-620** (سرد الجلسة — CP-8/UXF-05،
+  التبعية 610 ✅)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي

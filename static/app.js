@@ -16,6 +16,7 @@ const state = {
     pendingActions: [], // from last AI response
     currentSessionId: null,
     planActions: [],    // actions from pending plan
+    planCardState: null, // TSK-619: PlanCard.createState — أعلام تفعيل الخطوات
     attachments: [],    // [{name, content}]
     editorOriginal: "", // original content for dirty tracking
     // Multi-terminal
@@ -3197,6 +3198,7 @@ function reviewPlan() {
 
 function cancelPlan(btn) {
     state.planActions = [];
+    state.planCardState = null; // TSK-619: تصفير حالة البطاقة التفاعلية
     const planCard = btn.closest(".plan-card");
     planCard.querySelector(".plan-controls").innerHTML =
         '<span style="color:var(--error);font-size:12px">❌ تم إلغاء الخطة</span>';

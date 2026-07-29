@@ -633,3 +633,36 @@
   1841+9=1850 ✓؛ فشل test_search_perf بالتمريرة الأولى ثبت أنه flaky —
   يمر معزولًا ×2 وفي الإعادة الكاملة؛ حد 1s على عتاد مشترك) —
   **خط انحدار جديد: 1850**.
+
+## [TSK-619] — 2026-07-29 — بطاقة الخطة التفاعلية (CP-1/UXF-01)
+
+### Added
+- `static/js/plan_card.js` — وحدة نقية جديدة (UMD-lite، نمط
+  status_chip): حالة أعلام تفعيل لكل خطوة (كلها مفعّلة افتراضيًا)؛
+  createState / toggle / setEnabled / isEnabled / enabledActions
+  (subset بترتيبه الأصلي) / enabledCount. رأس الوحدة يوثق ضمان حفظ
+  السلوك: كل-الخطوات-مفعلة = payload التنفيذ القديم حرفيًا.
+- `tests/unit/test_plan_card.py` — 10 اختبارات node: تعطيل خطوة →
+  payload بدونها (القبول حرفيًا)؛ كل-الخطوات-مفعلة → مطابق بايتًا
+  للقائمة الأصلية (بوابة حفظ السلوك)؛ منطق الأعلام + حدود النطاق +
+  صفر مفعّل + مدخلات فارغة؛ wiring (app.js/index.html)؛ سيناريو
+  يدوي موثَّق في docstring (DevTools → WS Messages) كـ Accept رسمي.
+
+### Changed
+- `static/app.js`: showPlanCard يرسم checkbox لكل خطوة
+  (plan-step-toggle، checked افتراضيًا) ويربط change بحالة PlanCard
+  النقية (DOM glue فقط)؛ executePlan يرسل
+  `PlanCard.enabledActions(...)` بدل القائمة الكاملة مع منع الإرسال
+  + toast عند صفر مفعّل؛ cancelPlan يصفّر planCardState.
+- `static/index.html`: تحميل `plan_card.js?v=1` قبل app.js.
+- `static/style.css`: .plan-step-label / .plan-step-toggle /
+  .plan-step-disabled — tokens فقط (TF-04).
+- **server.py بلا لمس**: actions المرسلة subset من نفس البنية —
+  شفاف لـ `_apply_batch` (أُطره golden-locked).
+
+### Verification
+- node --check نظيف · pyflakes نظيف · lint_handler_state نظيف ·
+  mypy Success 81 ملفًا · contracts+parity 113 · goldens+ws_router 32 ·
+  Regression junitxml: **1860 = 2F/1824P/34S** (81.7s؛ 1850+10=1860 ✓؛
+  theme_tokens/TF-04/D-2 المعروف + test_search_perf flaky الموثق S73 —
+  يمر معزولًا ×2) — **خط انحدار جديد: 1860**.
