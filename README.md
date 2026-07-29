@@ -419,7 +419,7 @@ providers:
 auto_execute: false          # طلب إذن قبل الأوامر
 backup_before_edit: true     # نسخة احتياطية قبل التعديل
 max_context_files: 15        # أقصى ملفات في السياق
-force_command_approval: false  # إلزام الموافقة على كل أمر (راجع «حدود النشر»)
+force_command_approval: false  # إلزام الموافقة على كل أمر — غياب المفتاح = true (راجع «حدود النشر»)
 ```
 
 ---
@@ -453,8 +453,11 @@ localhost** — ليست خدمة ويب للنشر العام. الحدود ا�
    `need_approval=False` — حارس `DANGEROUS_COMMANDS` الساكن
    (rm/del/format/sudo/…) هو الخط الوحيد عندها. مقبول على
    localhost؛ **غير كافٍ لأي سيناريو آخر**.
-4. **الحل: راية `force_command_approval`** في `config.yaml`:
-   - `false` (الافتراضي) — السلوك التاريخي كما هو (توافق كامل).
+4. **الحل: راية `force_command_approval`** في `config.yaml`
+   (TSK-617 — قرار D-1: **غياب المفتاح أو تعذّر قراءة config =
+   `true`** — الافتراض البرمجي آمن؛ القيمة الصريحة تُحترم):
+   - `false` (صريح في config المشحون — تعطيل واعٍ لـ localhost) —
+     السلوك التاريخي كما هو (توافق كامل).
    - `true` — **كل أمر** من أي مسار (REST/apply) يمر ببوابة
      الموافقة التفاعلية إلزاميًا — حتى الأوامر المصنّفة آمنة
      وحتى مع `auto_approve`. فعّلها دائمًا عند أي ربط خارج

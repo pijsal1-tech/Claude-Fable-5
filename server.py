@@ -178,9 +178,13 @@ _read_config = _load_config
 def _force_command_approval() -> bool:
     """TSK-502 (NF-16): راية إلزام الموافقة على كل أمر.
 
-    تُقرأ من config.yaml (مفتاح ``force_command_approval``، الافتراضي
-    False = توافق سلوكي كامل مع ما قبل TSK-502). مفعّلة ⇒ كل مواضع
-    التنفيذ ذات ``need_approval=False`` (REST /api/run، /api/run-file،
+    تُقرأ من config.yaml (مفتاح ``force_command_approval``). TSK-617
+    (قرار المالك D-1 — ASF-04/NF-16): الافتراضي البرمجي **True**
+    (fail-closed) — غياب المفتاح أو تعذّر قراءة config ⇒ إلزام
+    الموافقة؛ القيمة الصريحة في config تُحترم كما هي (`false`
+    صريح = تعطيل واعٍ — config.yaml المشحون يضبطه كذلك للتوافق
+    على localhost). مفعّلة ⇒ كل مواضع التنفيذ ذات
+    ``need_approval=False`` (REST /api/run، /api/run-file،
     وapply-actions) تمر ببوابة الموافقة إلزاميًا — حارس
     DANGEROUS_COMMANDS الساكن لم يعد الخط الوحيد. تُقرأ عند كل طلب
     (القارئ مُكاش — لا كلفة)؛ القيمة تُطبّع بـ bool تسامحيًا.
@@ -188,11 +192,12 @@ def _force_command_approval() -> bool:
     خارج localhost.
     """
     try:
-        return bool(_load_config().get("force_command_approval", False))
+        return bool(_load_config().get("force_command_approval", True))
     except Exception:
         # NF-14 §2 (ابتلاع مقصود — fallback موثّق): config غير مقروء →
-        # الافتراضي المتوافق سلوكيًا (لا إلزام).
-        return False
+        # TSK-617: الافتراضي الآمن (إلزام الموافقة) — أخطر الحالات
+        # تأخذ أشد القيود (fail-closed).
+        return True
 
 # ── نظام المسارات المعلقة: منع التبديل التلقائي ──
 # بدلاً من تغيير المجلد فوراً، نحفظ الطلب هنا وننتظر قرار المستخدم.

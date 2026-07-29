@@ -61,8 +61,11 @@ class CommandPolicy:
     """سياسة تنفيذ run_command — القائمة ملكية المشروع لا الـ agent.
 
     R-504: الـ allowlist تأتي من config.yaml حصريًا؛ الـ agent لا يختار
-    أوامره الحرة أبدًا. ``enforce=False`` (قسم config غائب / بناء بلا
-    سياسة) = وضع legacy: بوابة الموافقة وحدها تحكم (سلوك ما قبل T-058).
+    أوامره الحرة أبدًا. ``enforce=False`` (بناء مباشر بلا سياسة —
+    مسار الاختبارات/التوافق فقط) = وضع legacy: بوابة الموافقة وحدها
+    تحكم (سلوك ما قبل T-058). TSK-617 (قرار D-1): المسار الإنتاجي
+    (``command_policy_from``) لم يعد ينتج legacy أبدًا — غياب/فساد
+    القسم ⇒ ``enforce=True`` بقائمة فارغة (fail-closed).
     ``enforce=True`` مع قائمة فارغة = رفض كل الأوامر (إغلاق صريح).
 
     ملاحظة: الـ allowlist طبقة **إضافية** فوق ApprovalGate (T-013) —
@@ -93,16 +96,20 @@ class CommandPolicy:
 def command_policy_from(cfg: dict | None) -> CommandPolicy:
     """قراءة ``cfg["agent"]`` — تسامحية في الأنواع، صارمة في الدلالة.
 
-    قسم ``command_allowlist`` غائب أو ليس dict ⇒ ``enforce=False``
-    (legacy). موجود ⇒ ``enforce=True`` بالمداخل النصية الصالحة فقط
-    (قيم فارغة/غير نصية تُسقط — قائمة أقصر أأمن من قائمة أوسع).
+    TSK-617 (قرار المالك D-1 — ASF-04): الافتراض الآمن في الكود —
+    قسم ``command_allowlist`` غائب أو ليس dict ⇒ ``enforce=True``
+    بقائمة فارغة = رفض كل أوامر الـ agent برسالة مهيكلة تسمّي
+    ``agent.command_allowlist`` (fail-closed — لا وضع legacy صامت بعد
+    الآن؛ سلوك ما قبل TSK-617 كان legacy بلا فرض). موجود ⇒
+    ``enforce=True`` بالمداخل النصية الصالحة فقط (قيم فارغة/غير
+    نصية تُسقط — قائمة أقصر أأمن من قائمة أوسع).
     """
     section = (cfg or {}).get("agent") or {}
     if not isinstance(section, dict):
-        return CommandPolicy()
+        return CommandPolicy(enforce=True, allowlist={})
     raw = section.get("command_allowlist")
     if not isinstance(raw, dict):
-        return CommandPolicy()
+        return CommandPolicy(enforce=True, allowlist={})
     entries = {
         str(k): v.strip()
         for k, v in raw.items()
