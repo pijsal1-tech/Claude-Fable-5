@@ -607,7 +607,7 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-609 — Instrumentation: توقيت المسارات + التوكنز
-- **Status**: ✅ DONE (S49–53) · **Priority**: P2
+- **Status**: ✅ DONE (S49–54) · **Priority**: P2
 - **Evidence (S49)**:
   - PM-02 مؤكد حيًا: صفر `monotonic` في runners/ (direct.py وagent.py
     وdelegate.py بلا أي توقيت)؛ chain وحده يقيس (executor.py:352
@@ -655,7 +655,7 @@
 - **Behavior preservation**: حقول إضافية فقط — الواجهة تتجاهل المجهول.
 - **Metrics**: تغطية القياس: 1/4 مسارات → 4/4.
 - **Rollback**: revert. · **Resume notes / Blocker**: —
-- **Close-out (S53)**:
+- **Close-out (S53–54)**:
   - **المنفّذ**:
     - PM-02 (runner-level): `runners/direct.py` و`runners/agent.py`
       و`runners/delegate.py` — `_t0 = time.monotonic()` بعد
@@ -853,7 +853,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 606 | M7 | P2 | ✅ DONE (S43) | تخييط apply/direct + إصلاح BUG جانبي في معالج cancel_run؛ +2 اختبارات |
 | 607 | M7 | P2 | ✅ DONE (S45–46) | آخر جيب برومبت خارج الميزانية ضُم؛ +6 اختبارات |
 | 608 | M7 | P2 | ✅ DONE (S47–48) | reap_stale مفعّل + نبض حياة في المحوّل/الدفعة/الاستكمال؛ +17 اختبارًا |
-| 609 | M7 | P2 | ✅ DONE (S49–53) | duration_ms على bus للمسارات 4/4 + توقيت المصادر + duration/token في plan/done؛ +11 اختبارًا |
+| 609 | M7 | P2 | ✅ DONE (S49–54) | duration_ms على bus للمسارات 4/4 + توقيت المصادر + duration/token في plan/done؛ +11 اختبارًا |
 | 610 | M7 | P2 | TODO | بعد 609 |
 | 611 | M8 | P2 | TODO | ADR |
 | 612 | M8 | P2 | TODO | بعد 611+601 |

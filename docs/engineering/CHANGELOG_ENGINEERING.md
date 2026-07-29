@@ -296,7 +296,7 @@
 
 ---
 
-## TSK-609 — Instrumentation: توقيت المسارات + التوكنز — Sessions 49–53
+## TSK-609 — Instrumentation: توقيت المسارات + التوكنز — Sessions 49–54
 
 ### Fixed
 - **PM-02 (§R6)**: صفر قياس زمن للمسارات direct/agent/delegate —

@@ -10,12 +10,12 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Sessions 47–48 — **TSK-608 ✅ DONE — التالي: TSK-609 (M7)**) |
+| last-updated | 2026-07-29 (Sessions 49–54 — **TSK-609 ✅ DONE — التالي: TSK-610 (M7)**) |
 | stage | **EXECUTION (Stage 3 — جارية)** — البرنامج السابق v4.1 مُقفل بالكامل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION — M7 (3/5: 606،607،608 ✅)؛ M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) |
-| current-task | TSK-609 (التالية — P2، بلا تبعيات)؛ TSK-605 مفتوحة تنتظر D-2 |
+| current-phase | Stage 3 EXECUTION — M7 (4/5: 606..609 ✅)؛ M6 (4/5 + 605/TF-02 ✅؛ المتبقي TF-04 محجوب بـ D-2) |
+| current-task | TSK-610 (التالية — P2، تبعيتها 609 ✅ مكتملة)؛ TSK-605 مفتوحة تنتظر D-2 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
-| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **7/26 TSK** (601..604،606..608 ✅؛ 605/TF-04 تنتظر D-2؛ 609..626) |
+| completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **8/26 TSK** (601..604،606..609 ✅؛ 605/TF-04 تنتظر D-2؛ 610..626) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
 
@@ -37,11 +37,24 @@
 **PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — جارية — M7: 3/5؛ M6: 4/5 + 605/TF-02 ✅)
-- Phase/Task: **Stage 3 — M7 — TSK-609** (التالية: P2، بلا تبعيات)؛
+- Stage: EXECUTION (Stage 3 — جارية — M7: 4/5؛ M6: 4/5 + 605/TF-02 ✅)
+- Phase/Task: **Stage 3 — M7 — TSK-610** (التالية: P2، تبعيتها 609 ✅)؛
   TSK-605 تبقى مفتوحة (TF-04 محجوبة بقرار D-2 — الحاجب الوحيد
   لخضرة البوابة الكاملة 0F)
-- Last completed step: **TSK-608 ✅ DONE (Sessions 47–48)** — تفعيل
+- Last completed step: **TSK-609 ✅ DONE (Sessions 49–54)** —
+  Instrumentation (PM-01/02/04 §R6): `duration_ms` في حدث
+  `run_finished` للمسارات direct/agent/delegate (نفس نمط chain —
+  تغطية القياس 1/4 → 4/4)؛ توقيت collect لكل مصدر سياق في
+  `ContextEngine.gather` محمولًا على ContextBundle ومكشوفًا في
+  `MessageContext.source_timings_ms` (حقل افتراضي + compare=False —
+  انحراف موثّق: اختبارات parity تقارن بالمساواة والتوقيت غير
+  حتمي)؛ `duration_ms` + `token_estimate` (CharsPerTokenEstimator
+  المركزي) على إطاري plan/done للمسارين direct/agent — حقول
+  إضافية فقط؛ +11 اختبارًا (test_instrumentation_609.py)؛ gates:
+  contracts+parity+goldens 153/153 · lint clean · Performance
+  ميكروثوانٍ/رسالة؛ regression **1F/1729P/34S** (theme_tokens/TF-04
+  حصرًا — 1718+11=1729 ✓).
+  وقبلها: **TSK-608 ✅ DONE (Sessions 47–48)** — تفعيل
   `ExecutionRegistry.reap_stale` إنتاجيًا (RF-02 §R5): درزة
   `resolve_stale_ttl` (غائب = 900s، null = تعطيل، غير صالح =
   فشل إقلاع صاخب) + تمرير TTL عبر backends_from_config؛ نداء
@@ -152,17 +165,18 @@
   app.js:3638–3645، tests/unit/test_rollback_ui.py:424–434،
   test_file_icons.py:143؛ QA_MASTER_PLAN كامل + RELEASE_READINESS_REPORT
   كامل؛ جرد استشهادات QA-T في tests/ وغياب delegate_approve منها)
-- Next action: **بدء TSK-609** (M7، P2، بلا تبعيات): Instrumentation —
-  التقاط duration للمسار المباشر وحلقة الوكيل وبناء السياق (لكل مصدر
-  من مصادر ContextBuilder السبعة) + تقدير توكنز محلي للمخرج، يُبث في
-  الإطارات الختامية كما يفعل chain (PM-01/02/04 §R6). الملفات:
-  runners/direct.py، chain/agent_loop.py، context/ (نقطة توقيت)،
-  server.py (تمرير)، اختبار. القبول: إطار finished/done يحمل
-  duration_ms (وtoken_estimate حيث ينطبق) للمسارات الثلاثة؛ goldens
-  القائمة تُحدَّث بحقل إضافي فقط (لا كسر بنية). Gates: Performance ·
-  Testing · Regression. حفظ السلوك: حقول إضافية فقط — الواجهة تتجاهل
-  المجهول. قبل التعديل: سجل حفظ السلوك + Fitness pre-check في
-  §TSK-609؛ بعد الإغلاق: جدول الحالة + CHANGELOG + commit محلي.
+- Next action: **بدء TSK-610** (M7، P2 — تبعيتها TSK-609 ✅ مكتملة):
+  Metrics aggregation (PM-03 §R6) — إلحاق سطر JSONL لكل run منتهٍ
+  (mode، duration، حجم سياق، نتيجة) في ملف بيانات المشروع + قارئ
+  بسيط (p50/p95) يُعرض في status-chip أو REST قراءة. الملفات: وحدة
+  جديدة `core/run_metrics.py`، `server.py`، اختبار وحدة. القبول:
+  ‏3 runs → 3 أسطر صالحة؛ p50/p95 محسوبة صحيحًا في الاختبار.
+  Gates: Performance · Testing · Documentation. حفظ السلوك: إضافة
+  صرفة. مدخل جاهز من TSK-609: `duration_ms` متاح في بيانات حدث
+  `run_finished` على bus الرصد لكل المسارات (RunFinished يُنشر في
+  event_bus من _RunnerWSAdapter) — نقطة التقاط طبيعية للسطر.
+  قبل التعديل: سجل حفظ السلوك + Fitness pre-check في §TSK-610؛
+  بعد الإغلاق: جدول الحالة + CHANGELOG + commit محلي.
   تذكير للمالك (مرفوع الأولوية): **D-2 هو الحاجب الوحيد المتبقي
   لإكمال M6 وأول خضرة كاملة للبوابة (0 failed)** — التوصية المسجلة:
   baseline-allowlist مؤرَّخ لألوان v25 + دين tokenization في
@@ -407,6 +421,31 @@
   S48: إعادة تحقق بعد reset + Close-out + جدول الحالة 608→DONE +
   CHANGELOG + تحديث PROGRESS + commit محلي · الموقع → M7/TSK-609؛
   TSK-605 تنتظر D-2.
+- 2026-07-29 (Sessions 49–54): **TSK-609 كاملة** عبر 6 جلسات بأربع
+  resets (استرداد كل مرة: re-clone → فحص origin HEAD → grep-تحقق
+  البقايا → إعادة الفجوات فقط؛ دمج المستخدم التقط تباعًا: f131983
+  direct+agent، c36ce95 delegate، da3920e سياق+خادم، 8098976
+  الاختبارات+السجلات) · أدلة + pre-checks + انحرافان موثّقان في
+  §TSK-609 (agent_loop.py لا يُعدَّل — التوقيت end-to-end عند نداء
+  الـ runner؛ delegate.py يُضاف رغم غيابه من القائمة — تغطية 4/4) ·
+  تنفيذ: `_t0` بعد `stream.started` + `_finish(started_at)` يضيف
+  duration_ms لبيانات finished في runners direct/agent/delegate
+  (7+6+6 مواضع نداء) · توقيت المصادر في ContextEngine.gather →
+  ContextBundle.source_timings_ms → MessageContext (حقل افتراضي) ·
+  server.py: duration_ms + token_estimate (CharsPerTokenEstimator)
+  على plan/done للمسارين direct/agent · +11 اختبارًا
+  (test_instrumentation_609.py) · **انحراف ثالث موثّق (S53)**: أول
+  regression كشف 4 اختبارات parity قائمة تقارن MessageContext
+  بالمساواة الكاملة (فهرس/ذاكرة) — التوقيت غير حتمي فكسرها؛ الحل
+  `compare=False` (الرصد لا يغيّر دلالات المساواة — مثبّت باختبار) ·
+  Gates: 11/11 + contracts/parity/goldens 153/153 + lint clean +
+  Performance (عبء ~14 monotonic/رسالة = ميكروثوانٍ؛ gather
+  ‏20.6ms/نداء — لا تدهور) · regression (S53 وS54 على merged)
+  **1F/1729P/34S** (theme_tokens/TF-04 حصرًا؛ 1718+11=1729 ✓) ·
+  S54: إعادة تحقق بعد reset على origin 8098976 (كل عمل 609 وصل
+  بدمج المستخدم) + Close-out + جدول الحالة 609→DONE + CHANGELOG +
+  تحديث PROGRESS + commit محلي · الموقع → M7/TSK-610؛ TSK-605
+  تنتظر D-2.
 
 ---
 ## 📦 ARCHIVE — v4.1 CORE-ONLY PROGRAM (مُقفل 100% — Sessions 1–23) — كل ما يلي مرجع تاريخي
