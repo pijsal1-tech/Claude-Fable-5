@@ -70,12 +70,16 @@ class MessageContext:
 
     TSK-609 (PM-04 §R6): ``source_timings_ms`` (افتراضي {}) = زمن collect
     لكل مصدر سياق بالميلي ثانية (kind → ms) — حقل رصد إضافي بحت؛
-    goldens T-017 تقارن مفاتيح الـ golden فقط فلا تتأثر."""
+    goldens T-017 تقارن مفاتيح الـ golden فقط فلا تتأثر.
+    ``compare=False``: التوقيت غير حتمي — اختبارات الـ parity القائمة
+    تقارن MessageContext بالمساواة (مع/بدون فهرس، مع/بدون ذاكرة
+    فارغة) والرصد يجب ألا يغيّر دلالات المساواة (حفظ السلوك)."""
     mentioned_files: list[str]
     user_text_with_files: str
     project_context: str
     dropped_attached: list[str] = field(default_factory=list)
-    source_timings_ms: dict[str, int] = field(default_factory=dict)
+    source_timings_ms: dict[str, int] = field(default_factory=dict,
+                                              compare=False)
 
 
 def _default_engine(index: Any = None,

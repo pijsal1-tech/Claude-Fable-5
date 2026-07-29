@@ -293,3 +293,46 @@
 - Metrics: زمن تحرير خانة المشروع بعد انهيار خيط: **∞ → ≤ TTL (900s)**.
 - قيد موثّق: delegate في `waiting_approval` الصامت > TTL يُحصد وتتحرر
   الخانة؛ land/reject اللاحقان آمنان (finish no-op على المحصودة).
+
+---
+
+## TSK-609 — Instrumentation: توقيت المسارات + التوكنز — Sessions 49–53
+
+### Fixed
+- **PM-02 (§R6)**: صفر قياس زمن للمسارات direct/agent/delegate —
+  chain وحده كان يقيس (executor.py:352). الآن الأربعة تبث
+  `duration_ms` في حدث `run_finished` (bus الرصد) — تغطية 1/4 → 4/4.
+- **PM-04 (§R6)**: لا توقيت لكل مصدر في ContextBuilder — الآن
+  `ContextEngine.gather` يوقّت `collect` لكل مصدر (حتى الفاشل).
+- **PM-01 (§R6)**: لا تقدير توكنز للمخرج — الآن `token_estimate`
+  (المقدّر المركزي `CharsPerTokenEstimator`، chars÷4 — لا ثوابت
+  جديدة) على إطاري `plan`/`done`.
+
+### Changed
+- `runners/direct.py` / `runners/agent.py` / `runners/delegate.py`:
+  `_t0 = time.monotonic()` بعد `stream.started()`؛
+  `_finish(..., started_at)` يضيف `duration_ms` لبيانات
+  `stream.finished` (نفس نمط chain) — كل مواضع النداء (7+6+6) مُرّرت.
+- `context/engine.py` + `context/bundle.py`:
+  `ContextBundle.source_timings_ms` (kind → ms) يملؤه gather.
+- `context/facade.py`: `MessageContext.source_timings_ms` — حقل
+  افتراضي **بـ `compare=False`** (انحراف موثّق: 4 اختبارات parity
+  قائمة تقارن MessageContext بالمساواة الكاملة والتوقيت غير حتمي —
+  الرصد لا يغيّر دلالات المساواة).
+- `server.py`: إغلاقا `_run_direct`/`_run_agent` يوقّتان النداء
+  محليًا (RunResult مجمّد) ويضيفان `duration_ms` + `token_estimate`
+  لإطاري `plan`/`done` — حقول إضافية فقط (الواجهة تتجاهل المجهول).
+
+### Verification
+- `tests/integration/test_instrumentation_609.py` جديد → **11 passed**
+  (معيار القبول الحرفي: إطار finished/done يحمل duration_ms
+  وtoken_estimate للمسارات الثلاثة؛ goldens بحقل إضافي فقط).
+- contracts + dispatch_parity + goldens: 142 passed — `run_finished`
+  لا يُنتج إطار WS (المحوّل يعيد مبكرًا) والعقود تفحص بالمفتاح.
+- بوابة العمارة: lint_handler_state → clean.
+- Performance: عبء التوقيت ≈ 173ns × ~14 نداء monotonic/رسالة =
+  ميكروثوانٍ؛ gather_message_context ≈ 20.6ms/نداء — لا تدهور.
+- Regression كامل (S53): `1 failed, 1729 passed, 34 skipped` (~70s)
+  — المتبقي الوحيد test_theme_tokens (TF-04 — محجوب بـ D-2)؛
+  1718 + 11 = 1729 ✓.
+- Metrics: تغطية قياس المدة: **1/4 مسارات → 4/4**.

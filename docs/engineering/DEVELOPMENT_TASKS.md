@@ -607,7 +607,7 @@
 - **Resume notes / Checkpoint / Blocker / Next action**: —
 
 ### TSK-609 — Instrumentation: توقيت المسارات + التوكنز
-- **Status**: IN-PROGRESS (S49) · **Priority**: P2
+- **Status**: ✅ DONE (S49–53) · **Priority**: P2
 - **Evidence (S49)**:
   - PM-02 مؤكد حيًا: صفر `monotonic` في runners/ (direct.py وagent.py
     وdelegate.py بلا أي توقيت)؛ chain وحده يقيس (executor.py:352
@@ -655,6 +655,48 @@
 - **Behavior preservation**: حقول إضافية فقط — الواجهة تتجاهل المجهول.
 - **Metrics**: تغطية القياس: 1/4 مسارات → 4/4.
 - **Rollback**: revert. · **Resume notes / Blocker**: —
+- **Close-out (S53)**:
+  - **المنفّذ**:
+    - PM-02 (runner-level): `runners/direct.py` و`runners/agent.py`
+      و`runners/delegate.py` — `_t0 = time.monotonic()` بعد
+      `stream.started()`، و`_finish(..., started_at)` يضيف
+      `duration_ms=int((time.monotonic()-started_at)*1000)` لبيانات
+      `stream.finished` (نفس نمط chain/executor.py:352) — كل
+      مواضع النداء (7+6+6) مُرّرت بـ `started_at=_t0` ⇒ تغطية
+      القياس 4/4 مسارات على bus الرصد (المقياس تحقق).
+    - PM-04: `ContextEngine.gather` (context/engine.py) يوقّت collect
+      لكل مصدر (الفاشل يُرصد أيضًا والاستثناء يُبتلع كما كان)؛
+      محمول على `ContextBundle.source_timings_ms` (bundle.py) ومكشوف
+      في `MessageContext.source_timings_ms` (facade.py) — حقل افتراضي
+      **و`compare=False`** (انظر الانحراف أدناه).
+    - PM-01/02 (server-level): إغلاقا `_run_direct`/`_run_agent` في
+      server.py يوقّتان النداء محليًا (RunResult مجمّد بلا حقل مدة)
+      ويضيفان `duration_ms` + `token_estimate`
+      (`CharsPerTokenEstimator().estimate(full_response)` — المقدّر
+      المركزي، لا ثوابت جديدة) لإطاري `plan`/`done` — حقول إضافية فقط.
+  - **انحراف موثّق إضافي (S53)**: `source_timings_ms` بـ `compare=False`
+    — التشغيل الأول للمجموعة كشف 4 اختبارات parity قائمة تقارن
+    MessageContext بالمساواة الكاملة (مع/بدون فهرس، ذاكرة فارغة
+    ≡ بلا ذاكرة: test_project_index/test_layered_memory/
+    test_project_memory_source) — التوقيت غير حتمي فيكسرها؛
+    استبعاده من المساواة يحفظ دلالات المقارنة التاريخية (الرصد
+    لا يغيّر السلوك) — مثبّت باختبار default-compat.
+  - **الاختبارات**: `tests/integration/test_instrumentation_609.py`
+    (+11): duration_ms في run_finished للمسارات الثلاثة (نجاح +
+    فشل direct)؛ توقيت المصادر (كلها/بطيء ≥ 40ms/فاشل مرصود
+    ومُبتلَع)؛ كشف الـ facade + توافق الحقل الافتراضي؛ e2e إطار
+    done في chat يحمل الحقلين + المفاتيح التاريخية باقية؛ لا
+    ثوابت تقريب جديدة في server.py (بنيوي).
+  - **Gates**:
+    - Testing: ‏11/11 اختبارًا جديدًا ناجحة.
+    - Regression: `pytest tests` → **1 failed، 1729 passed، 34 skipped**
+      — الإخفاق الوحيد هو المعروف (theme_tokens — TF-04/D-2)؛
+      ‏1718 + 11 = 1729 ✓ (لا انحدار).
+    - Architecture: `lint_handler_state.py` → “handler state clean”؛
+      contracts + dispatch_parity + goldens (142) كلها خضراء.
+    - Performance: عبء التوقيت ≈ ‏173ns × ~14 نداء monotonic/رسالة =
+      ميكروثوانٍ (لا يُذكر)؛ `gather_message_context` ≈ ‏20.6ms/نداء
+      (متوسط 50، مشروع مؤقت صغير) — لا تدهور.
 
 ### TSK-610 — Metrics aggregation (سجل runs بمقاييسه)
 - **Status**: TODO · **Priority**: P2
@@ -811,7 +853,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 606 | M7 | P2 | ✅ DONE (S43) | تخييط apply/direct + إصلاح BUG جانبي في معالج cancel_run؛ +2 اختبارات |
 | 607 | M7 | P2 | ✅ DONE (S45–46) | آخر جيب برومبت خارج الميزانية ضُم؛ +6 اختبارات |
 | 608 | M7 | P2 | ✅ DONE (S47–48) | reap_stale مفعّل + نبض حياة في المحوّل/الدفعة/الاستكمال؛ +17 اختبارًا |
-| 609 | M7 | P2 | TODO | |
+| 609 | M7 | P2 | ✅ DONE (S49–53) | duration_ms على bus للمسارات 4/4 + توقيت المصادر + duration/token في plan/done؛ +11 اختبارًا |
 | 610 | M7 | P2 | TODO | بعد 609 |
 | 611 | M8 | P2 | TODO | ADR |
 | 612 | M8 | P2 | TODO | بعد 611+601 |
