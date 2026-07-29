@@ -699,7 +699,47 @@
       (متوسط 50، مشروع مؤقت صغير) — لا تدهور.
 
 ### TSK-610 — Metrics aggregation (سجل runs بمقاييسه)
-- **Status**: TODO · **Priority**: P2
+- **Status**: IN-PROGRESS (S55) · **Priority**: P2
+- **Evidence (S55)**:
+  - PM-03 مؤكد (MASTER_REVIEW.md:433): القياسات لحظية «تُبث وتُنسى» —
+    `RunFinished` يُنشر على bus الرصد (server.py:362 من
+    `_RunnerWSAdapter.emit`) وبعد TSK-609 حمولته تحوي `duration_ms`
+    لكل المسارات 4/4 — **ولا مشترك يجمعها**: `event_bus.subscribe`
+    بلا أي مشترك تجميع في server.py.
+  - `RunStarted` يحمل `mode` (server.py:357)؛ `RunFinished` يحمل
+    `status` + payload (reason، duration_ms) — لا mode فيه.
+  - نمط تخزين قائم يُحتذى: `ProjectMemoryStore` (core/project_memory.py)
+    — JSONL ملحق-فقط تحت جذر بيانات التطبيق (`_DIR / "projects"`)،
+    يُبنى في main() كخدمة global (server.py:686/2925).
+  - نمط REST قائم: `@app.route("/api/...")` + jsonify (مثل
+    /api/capacity :884).
+- **Pre-check حفظ السلوك**:
+  - إضافة صرفة: مشترك bus جديد (استثناءاته معزولة — EventBus يبتلع
+    أعطال المشتركين بالتصميم، core/events.py) + وحدة جديدة + مسار
+    REST جديد — صفر تعديل على أي مسار قائم عدا سطر بيانات إضافي.
+  - حقل إضافي في بيانات `stream.finished` (`output_chars`) — نفس
+    فئة أمان TSK-609 المثبتة: العقود تفحص `data["reason"]` بالمفتاح
+    (runner_contract.py:96)؛ اختبار المساواة الحرفية على EventStream
+    خام لا يمر بالـ runners (test_runner_contracts.py:186)؛
+    `run_finished` لا يصير إطار WS أبدًا (المحوّل يعيد مبكرًا) —
+    goldens/parity غير متأثرة.
+  - فشل الكتابة (قرص/صلاحيات) لا يُسقط الـ run: الالتقاط داخل
+    المشترك المعزول + try داخلي مع log (نمط NF-14 مصنّف).
+- **Pre-check ملاءمة معمارية**:
+  - التجميع مشترك على bus الرصد (الغرض المعلن للـ bus — T-047) لا
+    حقن في مسارات الإرسال؛ نقطة التقاط واحدة تغطي المسارات الأربعة.
+  - مخزن JSONL ملحق-فقط بنمط ProjectMemoryStore (نفس دلالات
+    الإلحاق/الأمان) في وحدة نقية `core/run_metrics.py` قابلة
+    للاختبار بلا Flask؛ الربط في composition root (main) فقط.
+  - **قرار موثّق (سؤال «ملف بيانات المشروع»)**: ملف واحد على مستوى
+    التطبيق `metrics/runs.jsonl` (بجانب sessions/ وprojects/) مع حقل
+    `project_id` في كل سطر (متاح من RunStarted payload عند وجوده) —
+    التقسيم لكل مشروع قابل لاحقًا بالفلترة؛ RunFinished لا يحمل هوية
+    مشروع فربط سطر-لكل-مشروع كان سيتطلب حالة إضافية هشة.
+  - p50/p95 بأسلوب nearest-rank (بلا تبعيات جديدة)؛ تقدير التوكنز
+    في القارئ عبر `CharsPerTokenEstimator` المركزي (لا ثوابت جديدة).
+  - الكشف عبر REST قراءة `/api/metrics/runs` (الخيار الثاني في نص
+    المهمة — أرخص من status-chip ولا يمس app.js).
 - **Objective**: إلحاق سطر JSONL لكل run منتهٍ (mode، duration، حجم سياق،
   نتيجة) في ملف بيانات المشروع + قارئ بسيط (p50/p95) يُعرض في status-chip
   أو REST قراءة.
