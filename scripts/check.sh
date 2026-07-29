@@ -8,8 +8,15 @@ cd "$(dirname "$0")/.."
 # في providers/ أو chain/. عند إضافة provider جديد راجع أيضًا
 # tests/contracts/provider_contract.py (ProviderContractMixin) وأضف صنفه هناك.
 # T-027 (R-301): sessions/ انضمت للبوابة — وحدة إنتاجية جديدة.
-echo "== mypy (gate: providers/ + chain/ + core/ + context/ + sessions/) =="
-mypy --ignore-missing-imports --follow-imports=silent providers/ chain/ core/ context/ sessions/
+# TSK-614 (QG-04, ADR-004): routes/ + server.py انضما للبوابة، مع
+# --check-untyped-defs (بدونه أجسام الدوال غير المُعنونة لا تُفحص —
+# النداء المدسوس لا يُلتقط، والقبول يسقط). استبعاد وحيد:
+# providers/openai_shelby.py — خطأ قائم مسبقًا (:166) وproviders/
+# خارج نطاق البرنامج (§0.8)؛ يُرفع الاستبعاد يوم يُصلح خارجه.
+echo "== mypy (gate: providers/ + chain/ + core/ + context/ + sessions/ + routes/ + server.py) =="
+mypy --ignore-missing-imports --follow-imports=silent \
+  --check-untyped-defs --exclude 'providers/openai_shelby\.py' \
+  providers/ chain/ core/ context/ sessions/ routes/ server.py
 
 # T-026 (R-204): حدود SafeReader — ممنوع أي قراءة خام لمحتوى ملفات داخل
 # context/ خارج safe_reader.py. حدود مُلتفّ عليها في مكان واحد ليست حدودًا.

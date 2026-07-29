@@ -16,6 +16,7 @@ import queue
 import time
 import uuid
 from types import SimpleNamespace  # TSK-612 (ADR-002)
+from typing import Any  # TSK-614 (ADR-004)
 # ── إجبار UTF-8 ──
 if hasattr(sys.stdout, "reconfigure"):
     # NF-14 §1 (ابتلاع مقصود — تجميلي): فشل ضبط الترميز لا يعطل الإقلاع.
@@ -133,7 +134,7 @@ def _clean_expired_pending_requests() -> None:
 fm: FileManager = None  # type: ignore[assignment]  # sentinel يُملأ في main (ADR-004)
 cmd_runner: CommandRunner = None  # type: ignore[assignment]  # sentinel يُملأ في main (ADR-004)
 parser = ResponseParser()
-provider = None
+provider: Any = None  # TSK-614 (ADR-004): يُربَط لأنواع provider مختلفة في main
 chat_history: list[Message] = []
 session_mgr: SessionManager = None  # type: ignore[assignment]
 # R-303 (T-031): بانر تنبيه ربط الجلسة — يُملأ عند تبديل المشروع تحت
@@ -379,7 +380,7 @@ class _RunnerWSAdapter:
 # حُذفوا جميعًا. كل وضع يُرسل عبر runner موحّد يجتاز RunnerContractMixin.
 # القيم مصانع لأن كل runner يُبنى بسياق طلبه (جسر/مزوّد/إغلاقات WS)؛
 # الإرسال دائمًا: ``RUNNERS[strategy](**deps).run(request, ticket, sink)``.
-RUNNERS = {
+RUNNERS: dict[str, Any] = {
     "direct": lambda **d: DirectRunner(d["stream_fn"]),
     "chain": lambda **d: ChainRunner(d["bridge"]),
     "agent": lambda **d: AgentRunner(d["loop_factory"],
@@ -844,6 +845,10 @@ def api_switch_model():
         return jsonify({"ok": False, "error": "المزود والنموذج مطلوبين"}), 400
 
     try:
+        # TSK-614 (ADR-004): السلسلة تربط أنواع config/provider مختلفة
+        # بالفروع — تعنوين Any يعكس الدلالة الفعلية (لا أثر runtime).
+        cfg: Any
+        provider: Any
         if prov_id == "genspark":
             cfg = GensparkConfig(model=model_name)
             provider = GensparkProvider(cfg)
@@ -1890,6 +1895,9 @@ def main():
     prov_id, model_name = _resolve_default_provider(args.model, _read_config())
 
     _model_kw = {"model": model_name} if model_name else {}
+    # TSK-614 (ADR-004): فروع بأنواع مختلفة — provider نفسه global
+    # (مُعنون Any عند تعريفه الوحدوي :137)؛ لا يجوز تعنوينه محليًا.
+    provider_config: Any
     if prov_id == "genspark":
         provider_config = GensparkConfig(**_model_kw)
         provider = GensparkProvider(provider_config)
