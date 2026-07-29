@@ -253,6 +253,9 @@ class AgentLoop:
                             call.tool, call.args, result, success
                         )
                         
+                        # TSK-616 (ASF-03): إطار النتيجة يحمل علم
+                        # «rollback جزئي» — الأداة ترفعه عندما يتجاوز
+                        # المشروع سقوف مسح snapshot (الإظهار لا الرفع).
                         self.ws_send_fn({
                             "type": "agent_step",
                             "tool": call.tool,
@@ -260,6 +263,8 @@ class AgentLoop:
                             "status": "done",
                             "preview": result[:200],
                             "success": success,
+                            "partial_rollback": bool(getattr(
+                                self.tools, "last_partial_rollback", False)),
                         })
                         
                         truncated = result[:self.TOOL_RESULT_MAX_LEN]

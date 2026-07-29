@@ -1419,7 +1419,7 @@
     خارجي b825afc) · f37be66 (التنفيذ + الاختبارات).
 
 ### TSK-616 — إظهار سقف snapshot (rollback جزئي)
-- **Status**: IN PROGRESS (S72) · **Priority**: P2
+- **Status**: ✅ DONE (S72) · **Priority**: P2
 - **Objective**: عند تجاوز `_CKPT_MAX_FILES`/سقف الحجم — تحذير صريح في إطار
   الموافقة/النتيجة («التراجع سيكون جزئيًا») بدل الصمت.
 - **Background**: ASF-03 (§R4). · **Acceptance**: اختبار بحد مصغّر → إطار
@@ -1475,6 +1475,39 @@
     لا استنتاج لاحق هش (عدّ الملفات ≥400 مثلًا).
   - الواجهة تعرض حالة قائمة فقط (إظهار) — ضمن قرار المهمة المقررة،
     ليس تغيير سلوك منتج.
+- **Close-out (S72)**:
+  - **التنفيذ (كما صُمم في التحقق المسبق)**:
+    1. `chain/agent_tools.py`: علم `self.last_partial_rollback` (يُصفَّر
+       مطلع كل tool_run_command)؛ `_workspace_signatures` →
+       `tuple[dict, bool]` (True عند سقف العدد أو تخطي ملف فوق سقف
+       الحجم — الحقيقة تُشتق حيث تحدث)؛ `_changed_paths` →
+       `tuple[list, bool]`؛ عند `pre_truncated or post_truncated`:
+       العلم True + `_LOG.warning` + سطر ⚠️ عربي صريح في التقرير
+       («التراجع عن آثار هذا الأمر سيكون جزئيًا» مع قيم السقفين) —
+       موضوع **خارج** `if changed:` عمدًا (تغييرات فوق السقف غير مرئية
+       للمقارنة أصلًا؛ قد يكون changed فارغًا زورًا).
+    2. `chain/agent_loop.py`: إطار `agent_step/done` للمسار المعتمد
+       يحمل `"partial_rollback": bool(getattr(self.tools,
+       "last_partial_rollback", False))` — حقل إضافي لا يكسر أحدًا.
+    3. `static/app.js`: `handleRunCommandStep` عند done يستدعي
+       `showPartialRollbackWarning` لو العلم مرفوع — toast تحذيري
+       + نص دائم `.terminal-partial-rollback` على كارت التيرمنال
+       («⚠️ التراجع سيكون جزئيًا — المشروع تجاوز سقف مسح snapshot»).
+    4. `static/style.css`: `.toast.warning` + `.terminal-partial-rollback`
+       بتوكنز الثيم فقط (`var(--warning)` — منضبط TF-04).
+  - **الاختبارات**: `tests/unit/test_snapshot_cap_visibility.py`
+    (10 اختبارات): سقف عدد مصغّر → علم + ⚠️ في التقرير؛ سقف حجم
+    مصغّر → نفس السلوك؛ تحت السقفين → لا علم ولا ⚠️ (سلبي)؛ بلا
+    checkpoint → لا علم (سلبي)؛ تصفير العلم بين الأوامر؛ E2E عبر
+    AgentLoop حقيقي (FakeProvider + بوابة auto) → إطار done يحمل
+    partial_rollback=True فوق السقف / False تحته؛ فحص نصي لـ app.js
+    (قراءة العلم + toast + نص دائم) وstyle.css (توكنز فقط).
+  - **البوابات**: pyflakes نظيف (تحذيرات agent_loop الأربعة قائمة
+    بأصل المستودع قبل التعديل — تحقق بـ git stash)؛
+    lint_handler_state نظيف؛ mypy Success 81 ملفًا؛ contracts+parity
+    113 ✓؛ goldens+ws_router 32 ✓؛ الانحدار الكامل **1841 = 1F/1806P/34S**
+    (1831+10؛ الفشل الوحيد theme_tokens — TF-04/D-2 معروف).
+  - **خط انحدار جديد: 1841**.
 
 ### TSK-617 — أمان الافتراضات البرمجية (ينتظر D-1)
 - **Status**: BLOCKED (قرار منتج D-1) · **Priority**: P2
@@ -1564,7 +1597,7 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 613 | M8 | P2 | ✅ DONE (S64–67) | تجميع 25 REST route في routes/ (7 blueprints، ADR-003)؛ server.py −478 سطرًا؛ mypy نظيف 70 ملفًا |
 | 614 | M8 | P2 | ✅ DONE (S69–70) | بوابة mypy موسعة (+routes/ +server.py، --check-untyped-defs، ADR-004)؛ 81 ملفًا Success؛ أغلقت QF-02 وكشفت NF-25/NF-26 وأصلحتهما |
 | 615 | M9 | P2 | ✅ DONE (S71) | خريطة طلبات معلّقة بمفاتيح + Event لكل طلب؛ أصلحت ASF-05 (استنزاف) وNF-27 (موافقة زائفة)؛ 9 اختبارات تزامن جديدة |
-| 616 | M9 | P2 | TODO | |
+| 616 | M9 | P2 | ✅ DONE (S72) | علم partial_rollback يُشتق عند المسح ويصل الإطار والواجهة (⚠️ toast + نص على الكارت)؛ 10 اختبارات جديدة؛ خط الانحدار 1841 |
 | 617 | M9 | P2 | BLOCKED(D-1) | |
 | 618 | M9 | P2 | TODO | |
 | 619 | M9 | P2 | TODO | CP-1 |

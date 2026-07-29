@@ -672,6 +672,12 @@ function handleRunCommandStep(data) {
         updateTerminalCardStatus(currentTerminalCardEl, "running");
     } else if (data.status === "done" || data.status === "success") {
         updateTerminalCardStatus(currentTerminalCardEl, "success", data.preview || data.output || "");
+        // TSK-616 (ASF-03): إظهار سقف snapshot — لو الخادم رفع علم
+        // partial_rollback (المشروع تجاوز سقوف مسح snapshot) نعرض
+        // تحذيرًا صريحًا: toast + نص دائم على الكارت.
+        if (data.partial_rollback) {
+            showPartialRollbackWarning(currentTerminalCardEl);
+        }
         currentTerminalCardEl = null;
     } else if (data.status === "error" || data.status === "failed") {
         updateTerminalCardStatus(currentTerminalCardEl, "error", data.preview || data.error || "");
@@ -679,6 +685,23 @@ function handleRunCommandStep(data) {
     }
 
     container.scrollTop = container.scrollHeight;
+}
+
+/**
+ * TSK-616 (ASF-03): تحذير «rollback جزئي» — تغطية snapshot تجاوزت
+ * سقوف المسح، فالتراجع عن آثار هذا الأمر سيكون جزئيًا.
+ * إظهار مزدوج: toast مؤقت + نص دائم داخل كارت التيرمنال.
+ */
+function showPartialRollbackWarning(cardEl) {
+    const msg = "⚠️ التراجع سيكون جزئيًا — المشروع تجاوز سقف مسح snapshot";
+    toast(msg, "warning");
+    if (!cardEl) return;
+    const card = cardEl.querySelector(".terminal-card");
+    if (!card || card.querySelector(".terminal-partial-rollback")) return;
+    const note = document.createElement("div");
+    note.className = "terminal-partial-rollback";
+    note.textContent = msg;
+    card.appendChild(note);
 }
 
 /** يبني HTML كارت التيرمنال بحالته الأولية (pending/running) */

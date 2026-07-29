@@ -1287,6 +1287,8 @@ html, body {
 .toast.success { background: var(--bg-surface); border-left: 3px solid var(--success); }
 .toast.error { background: var(--bg-surface); border-left: 3px solid var(--error); }
 .toast.info { background: var(--bg-surface); border-left: 3px solid var(--accent); }
+/* TSK-616 (ASF-03): تحذير rollback جزئي */
+.toast.warning { background: var(--bg-surface); border-left: 3px solid var(--warning); }
 
 @keyframes slideIn {
     from { opacity: 0; transform: translateX(20px); }
@@ -2109,6 +2111,14 @@ html, body {
     margin: 12px 0;
     overflow: hidden;
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* TSK-616 (ASF-03): نص دائم على الكارت عند تغطية snapshot جزئية */
+.terminal-partial-rollback {
+    padding: 8px 12px;
+    color: var(--warning);
+    border-top: 1px solid var(--surface-0);
+    font-size: 0.85em;
 }
 
 .terminal-card-header {
