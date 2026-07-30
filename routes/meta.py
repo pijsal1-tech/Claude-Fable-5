@@ -31,7 +31,8 @@ def api_info():
             "total_size_kb": scan["total_size_kb"],
         },
         "provider": _srv.provider.get_info() if _srv.provider else {},
-        "history_length": len(_srv.chat_history),
+        # TSK-709 (FI-01/3): الطول من المخزن القانوني — نفس المفتاح/القيمة.
+        "history_length": len(_srv.conversation_state),
     })
 
 

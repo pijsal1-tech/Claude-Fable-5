@@ -23,15 +23,18 @@ def register(app, srv):
 @bp.route("/api/chat-history")
 def api_chat_history():
     """الحصول على تاريخ المحادثة بالكامل"""
-    history_data = [{"role": msg.role, "content": msg.content} for msg in _srv.chat_history]
+    # TSK-709 (FI-01/3): القراءة من المخزن القانوني — نفس شكل JSON حرفيًّا.
+    history_data = [{"role": msg.role, "content": msg.content}
+                    for msg in _srv.conversation_state.snapshot()]
     return jsonify({"ok": True, "history": history_data})
 
 
 @bp.route("/api/clear", methods=["POST"])
 def api_clear():
     """مسح المحادثة وبدء جلسة جديدة"""
-    _srv.chat_history = []
-    _srv._binding_banner = ""  # R-303: جلسة جديدة = زوال تنبيه الربط
+    # TSK-709 (FI-01/3): الكتابة عبر المخزن القانوني — دلالة R-303 كما هي.
+    _srv.conversation_state.clear()
+    _srv.conversation_state.clear_banner()  # R-303: جلسة جديدة = زوال تنبيه الربط
     # بدء جلسة جديدة
     if _srv.session_mgr:
         _srv.session_mgr.new_session(str(_srv.fm.root) if _srv.fm else "")
@@ -57,11 +60,11 @@ def api_load_session(session_id):
     if not session:
         return jsonify({"ok": False, "error": "جلسة غير موجودة"}), 404
 
-    # استعادة الـ chat_history
-    _srv.chat_history = [
+    # استعادة التاريخ — TSK-709 (FI-01/3): عبر المخزن القانوني.
+    _srv.conversation_state.replace_all([
         Message(role=m["role"], content=m["content"])
         for m in session.get("messages", [])
-    ]
+    ])
     return jsonify({
         "ok": True,
         "session": session,
@@ -75,8 +78,9 @@ def api_new_session():
     if not _srv.session_mgr:
         return jsonify({"ok": False, "error": "Session manager not initialized"}), 500
 
-    _srv.chat_history = []
-    _srv._binding_banner = ""  # R-303: جلسة جديدة = زوال تنبيه الربط
+    # TSK-709 (FI-01/3): الكتابة عبر المخزن القانوني — دلالة R-303 كما هي.
+    _srv.conversation_state.clear()
+    _srv.conversation_state.clear_banner()  # R-303: جلسة جديدة = زوال تنبيه الربط
     session = _srv.session_mgr.new_session(str(_srv.fm.root) if _srv.fm else "")
     return jsonify({"ok": True, "session": session})
 

@@ -11,9 +11,9 @@
 | Field | Value |
 |---|---|
 | last-updated | 2026-07-30 (Session 90 — **BATCH-FI01 (D-7) مُخطَّطة 📋 PLANNED — TSK-707..711 معرّفة في DEVELOPMENT_TASKS §BATCH-FI01؛ بانتظار كلمة «ابدأ» من المالك — صفر كود مُعدَّل**) |
-| stage | **V3-STAGE 3 EXECUTION — BATCH-FI01 (FI-01) — 1/5** (707 ✅؛ التالي 708)؛ سوابق: BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
+| stage | **V3-STAGE 3 EXECUTION — BATCH-FI01 (FI-01) — 4/5** (707 ✅ 708 ✅ 709 ✅ 710 ✅؛ الباقي 711 الإغلاق)؛ سوابق: BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-FI01 (دفعة D-7 تحت V3): FI-01 توحيد حالة REST/WS → TSK-707..711 (5 تاسكات **صغيرة** بشرط المالك؛ DAG: 707→708→(709∥710)→711) |
-| current-task | **TSK-708 — NEXT (توصيل server.py بالمخزن)** — تُنفَّذ في الجلسة القادمة (تاسك/جلسة حسب شرط المالك) |
+| current-task | **TSK-711 — NEXT (اختبار عقد تكافؤ REST↔WS + ماسح نكوص + إغلاق الدفعة)** — آخر تاسك في BATCH-FI01 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
@@ -479,6 +479,55 @@ CLOSED-AWAITING-OWNER-DIRECTION بقرار D-5 (البرنامج السابق ي
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 93 — TSK-709 ✅ + TSK-710 ✅ (FI-01/3+4: ترحيل routes/* للمخزن) — النافذة الانتقالية مُغلقة**:
+  - **TSK-709 (routes/sessions.py + meta.py)**: القراءة في
+    api_chat_history من `snapshot()`؛ api_clear وapi_new_session عبر
+    `clear()+clear_banner()`؛ استعادة api_load_session عبر
+    `replace_all()`؛ meta.py `history_length` من `len(conversation_state)`
+    — **نفس مفاتيح/قيم JSON حرفيًا**.
+  - **TSK-710 (routes/project.py)**: فرع warn عبر `set_banner()` (نفس
+    نص البانر حرفيًا، والاستجابة تقرأه من المخزن)؛ فرع fork عبر
+    `clear()+clear_banner()` — دلالة R-303 كما هي.
+  - **تحقق الاستئصال**: grep على `_srv.chat_history|_srv._binding_banner`
+    في routes/ = **صفر مواقع** — كل حالة المحادثة المشتركة تمر الآن
+    عبر ConversationState (REST كتابة/قراءة + بذر WS) ⇒ **النافذة
+    الانتقالية الموثقة في S92 مُغلقة**؛ globals server.py:141/:145
+    بقيتا اسمَي توافق غير مستهلكَين من routes (يحرسهما ماسح 711).
+  - **ترحيل الاختبارات المقترنة** (نفس الدلالة، مصدر الحقيقة الجديد):
+    test_session_binding.py (9 مواضع — المخزن يُحقن معزولًا لكل اختبار)
+    وtest_rest_blueprints.py (اختبارا TestLiveInjection — عقد ADR-003 §2
+    live-injection محفوظ عبر monkeypatch على conversation_state).
+  - **القبول**: الحماية المستهدفة (binding + blueprints + session_context
+    + conversation_state + switch_handlers + stale_refs) **70/70 PASS**؛
+    mypy نظيف (83 ملفًا)؛ حارس الدورات 95/247/0.
+  - **الانحدار**: **1904 passed, 34 skipped** — مطابق (صفر انحدار،
+    صفر تغيير أشكال JSON).
+  - **التالي**: TSK-711 (عقد التكافؤ + ماسح النكوص + إغلاق الدفعة).
+- **2026-07-30 — Session 92 — TSK-708 ✅ مُغلقة (FI-01/2: توصيل server.py بالمخزن)**:
+  - **التغيير** (4 مواضع في server.py حصريًا — على origin @ e3ed8b4):
+    (1) استيراد ConversationState @ :86؛ (2) `conversation_state =
+    ConversationState()` @ :152؛ (3) بذر WS في `_build_session_context`:
+    `chat_history=conversation_state.snapshot()` @ :987 و
+    `banner_source=lambda: conversation_state.binding_banner` @ :992
+    (كانا يقرآن globals الخام)؛ (4) مسار الإقلاع في main():
+    `conversation_state.replace_all(chat_history)` @ :1911 بعد استعادة
+    الجلسة — الـ global يبقى اسم توافق انتقاليًّا.
+  - **⚠️ نافذة انتقالية موثقة (تُغلق في 709/710)**: كتابات routes/*
+    ما زالت على globals الخام بينما بذر WS صار من المخزن ⇒ بين 708
+    و709/710 تحميلُ جلسة عبر REST لا ينعكس على اتصالات WS الجديدة.
+    مقبولة عمدًا: (أ) الدفعة تكتمل قبل أي استخدام إنتاجي (localhost
+    مفرد)؛ (ب) لا اختبار قائم يعتمد الاقتران REST→WS (عقده يُضاف في
+    711 بعد الترحيل)؛ (ج) البديل (تاسك واحدة كبيرة) يخالف شرط المالك.
+  - **القبول**: mypy بوابة كاملة نظيف (83 ملفًا)؛ اختبارات الحماية
+    المستهدفة (test_session_context + test_session_binding +
+    test_rest_blueprints + test_conversation_state) 60/60 PASS؛
+    حارس الدورات: 95 وحدة/**247** حافة/0 دورات (+1 حافة =
+    server→conversation_state). أُعيد التحقق من الثلاثة في بيئة ثانية
+    بعد reset (S92b) — كود 708 نجا على origin، وهذا القيد أُعيد بناؤه
+    (كان في أمر مقطوع لم يُلتزم — الدرس المعتاد: الالتزام ينجو فقط).
+  - **الانحدار**: **1904 passed, 34 skipped** — مطابق تمامًا لخط أساس
+    ما-بعد-707 (صفر انحدار، صفر تغيير أشكال).
+  - **التالي**: TSK-709 + TSK-710 (ترحيل كتابات routes/*).
 - **2026-07-30 — Session 91 — «ابدأ» صدرت ⇒ D-7 نافذة؛ TSK-707 ✅ مُغلقة (FI-01/1)**:
   - **الحوكمة**: قيد D-7 أُلحق بـ DECISION_LOG (قرار النطاق الملزم +
     الإجراء الدائم الجديد) قبل أول سطر كود — حسب تعليمات المالك.

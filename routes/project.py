@@ -90,16 +90,19 @@ def api_switch_project():
         # ── R-303 (T-031): تطبيق نتيجة فحص الربط بعد نجاح التبديل ──
         _binding_info = None
         if _bind_check is not None and _bind_check.action == "warn":
-            _srv._binding_banner = (
+            # TSK-710 (FI-01/4): البانر عبر المخزن القانوني — نفس النص حرفيًّا.
+            _srv.conversation_state.set_banner(
                 f"⚠️ [تنبيه ربط الجلسة]: هذه الجلسة بدأت على المشروع "
                 f"{_bound_path} وتم التبديل إلى {abs_path} — "
                 f"التاريخ السابق قد يخص مشروعًا آخر."
             )
-            _binding_info = {"policy": "warn", "banner": _srv._binding_banner}
+            _binding_info = {"policy": "warn",
+                             "banner": _srv.conversation_state.binding_banner}
         elif _bind_check is not None and _bind_check.action == "fork":
-            _srv.chat_history = []
+            # TSK-710 (FI-01/4): fork عبر المخزن — دلالة R-303 كما هي.
+            _srv.conversation_state.clear()
             _new_sess = _srv.session_mgr.new_session(abs_path)
-            _srv._binding_banner = ""
+            _srv.conversation_state.clear_banner()
             _binding_info = {"policy": "fork",
                              "new_session_id": _new_sess["id"]}
 

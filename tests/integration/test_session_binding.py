@@ -20,6 +20,7 @@ import pytest
 
 import server
 from core.app_context import AppContext, ProjectHandle
+from core.conversation_state import ConversationState  # TSK-710 (FI-01/4)
 from actions.session_manager import SessionManager
 
 
@@ -46,8 +47,8 @@ def _setup(monkeypatch, tmp_path, policy, bound_path):
     mgr.new_session(bound_path)
     monkeypatch.setattr(server, "session_mgr", mgr)
     monkeypatch.setattr(server, "_session_binding_policy", lambda: policy)
-    monkeypatch.setattr(server, "_binding_banner", "")
-    monkeypatch.setattr(server, "chat_history", [])
+    # TSK-710 (FI-01/4): الحالة القانونية الآن في المخزن — مخزن معزول لكل اختبار.
+    monkeypatch.setattr(server, "conversation_state", ConversationState())
     return ctx, proj_a, proj_b, mgr
 
 
@@ -70,24 +71,24 @@ def test_warn_switch_allowed_with_banner(monkeypatch, tmp_path):
     assert body["binding"]["policy"] == "warn"
     assert "تنبيه ربط الجلسة" in body["binding"]["banner"]
     assert str(proj_b) in body["binding"]["banner"]
-    # module-level banner set → injected in every message context
-    assert "تنبيه ربط الجلسة" in server._binding_banner
+    # البانر في المخزن القانوني → يُحقن في سياق كل رسالة (TSK-710)
+    assert "تنبيه ربط الجلسة" in server.conversation_state.binding_banner
     assert str(ctx.project.root) == str(proj_b)
 
 
 def test_warn_banner_cleared_by_clear_and_new_session(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path, "warn", str(tmp_path / "proj_a"))
     _switch(tmp_path / "proj_b")
-    assert server._binding_banner
+    assert server.conversation_state.binding_banner
 
     client = server.app.test_client()
     client.post("/api/clear")
-    assert server._binding_banner == ""
+    assert server.conversation_state.binding_banner == ""
 
     _switch(tmp_path / "proj_a")  # re-arm (mismatch مع جلسة clear الجديدة أو لا)
-    server._binding_banner = "⚠️ test"
+    server.conversation_state.set_banner("⚠️ test")
     client.post("/api/session/new")
-    assert server._binding_banner == ""
+    assert server.conversation_state.binding_banner == ""
 
 
 def test_warn_banner_prefixes_project_context():
@@ -109,7 +110,7 @@ def test_fork_clears_history_and_binds_new_session(monkeypatch, tmp_path):
     ctx, proj_a, proj_b, mgr = _setup(monkeypatch, tmp_path,
                                       "fork", str(tmp_path / "proj_a"))
     old_id = mgr.current_session_id
-    server.chat_history.append(object())  # تاريخ موجود قبل التبديل
+    server.conversation_state.append(object())  # تاريخ موجود قبل التبديل (TSK-710)
 
     resp = _switch(proj_b)
     body = resp.get_json()
@@ -118,8 +119,8 @@ def test_fork_clears_history_and_binds_new_session(monkeypatch, tmp_path):
     assert body["binding"]["policy"] == "fork"
     new_id = body["binding"]["new_session_id"]
     assert new_id and new_id != old_id
-    assert server.chat_history == []          # التاريخ مُسح
-    assert server._binding_banner == ""       # لا بانر تحت fork
+    assert server.conversation_state.snapshot() == []          # التاريخ مُسح
+    assert server.conversation_state.binding_banner == ""      # لا بانر تحت fork
     # الجلسة الجديدة مرتبطة بالمشروع الجديد
     new_sess = mgr.load_session(new_id)
     assert new_sess["project_path"] == str(proj_b)
@@ -151,7 +152,7 @@ def test_same_project_switch_is_silent(monkeypatch, tmp_path, policy):
 
     assert resp.status_code == 200 and body["ok"] is True
     assert body["binding"] is None            # لا إجراء ربط
-    assert server._binding_banner == ""
+    assert server.conversation_state.binding_banner == ""
     assert mgr.current_session_id == old_id   # لا fork
 
 
@@ -165,7 +166,7 @@ def test_unbound_legacy_session_switches_silently(monkeypatch, tmp_path,
 
     assert resp.status_code == 200 and body["ok"] is True
     assert body["binding"] is None
-    assert server._binding_banner == ""
+    assert server.conversation_state.binding_banner == ""
     assert str(ctx.project.root) == str(proj_b)
 
 
@@ -174,7 +175,7 @@ def test_no_session_mgr_switch_unaffected(monkeypatch, tmp_path):
     ctx, _, proj_b = _make_ctx(tmp_path)
     monkeypatch.setattr(server, "ctx", ctx)
     monkeypatch.setattr(server, "session_mgr", None)
-    monkeypatch.setattr(server, "_binding_banner", "")
+    monkeypatch.setattr(server, "conversation_state", ConversationState())
     resp = _switch(proj_b)
     body = resp.get_json()
     assert resp.status_code == 200 and body["ok"] is True

@@ -98,25 +98,31 @@ class TestLiveInjection:
     """monkeypatch على فضاء server ينعكس في الـ blueprint (ADR-003 §2)."""
 
     def test_chat_history_read_live(self, monkeypatch):
+        # TSK-709 (FI-01/3): المصدر القانوني صار conversation_state.
         from providers.base import Message
-        monkeypatch.setattr(server, "chat_history",
-                            [Message(role="user", content="مرحبا")])
+        from core.conversation_state import ConversationState
+        cs = ConversationState()
+        cs.append(Message(role="user", content="مرحبا"))
+        monkeypatch.setattr(server, "conversation_state", cs)
         c = server.app.test_client()
         data = c.get("/api/chat-history").get_json()
         assert data["ok"] is True
         assert data["history"] == [{"role": "user", "content": "مرحبا"}]
 
     def test_clear_rebinds_server_global(self, monkeypatch):
+        # TSK-709 (FI-01/3): المسح يقع على المخزن القانوني نفسه
+        # (تكافؤ دلالة global القديمة — ADR-003 §2 محفوظ).
         from providers.base import Message
-        monkeypatch.setattr(server, "chat_history",
-                            [Message(role="user", content="x")])
+        from core.conversation_state import ConversationState
+        cs = ConversationState()
+        cs.append(Message(role="user", content="x"))
+        cs.set_banner("قديم")
+        monkeypatch.setattr(server, "conversation_state", cs)
         monkeypatch.setattr(server, "session_mgr", None)
-        monkeypatch.setattr(server, "_binding_banner", "قديم")
         c = server.app.test_client()
         assert c.post("/api/clear").get_json()["ok"] is True
-        # إعادة الربط وقعت على فضاء server نفسه (تكافؤ عبارة global)
-        assert server.chat_history == []
-        assert server._binding_banner == ""
+        assert server.conversation_state.snapshot() == []
+        assert server.conversation_state.binding_banner == ""
 
 
 class TestNoImportCycle:
