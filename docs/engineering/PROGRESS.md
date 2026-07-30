@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 96 — **BATCH-P0 (D-8) 3/6 — TSK-713 ✅ + TSK-714 ✅**؛ قرارات مالك D-8: (أ) حذف engineering_constitution مؤجَّل لآخر المشروع→EOP-1 (ب) Windows أولًا (ج) تنفيذ P0→P3 حتى النهاية باستئناف موثق) |
-| stage | **V3-STAGE 3 EXECUTION — BATCH-P0 (بوابة الإنتاج) 3/6 (712✅ 713✅ 714✅)**؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
+| last-updated | 2026-07-30 (Session 97 — **BATCH-P0 (D-8) مُقفلة 🏁 6/6 — v1.0.0-rc.1 موسومة**؛ قرارات مالك D-8: (أ) حذف engineering_constitution مؤجَّل لآخر المشروع→EOP-1 (ب) Windows أولًا (ج) تنفيذ P0→P3 حتى النهاية باستئناف موثق) |
+| stage | **V3-STAGE 4 CLOSED-AWAITING-NEXT-BATCH — BATCH-P0 🏁 6/6 (712..717 ✅) — v1.0.0-rc.1**؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P0 (دفعة D-8 تحت V3): بوابة الإنتاج → TSK-712..717 (6 تاسكات **صغيرة**؛ DAG: 712→713→714→(715∥716)→717)؛ المصدر: Evolution Gap Report §10 |
-| current-task | **TSK-715 (دليل المستخدم) ∥ TSK-716 (الإصدار)** NEXT — المُغلق: 712✅ 713✅ 714✅؛ خط الأساس: 1911P/34S check.sh ALL GREEN (تحقق حي S96) |
+| current-task | **لا مهمة — BATCH-P0 مُقفلة 🏁 (712✅ 713✅ 714✅ 715✅ 716✅ 717✅)**؛ التالي بالتفويض القائم (D-8-ج): تخطيط دفعة P1؛ خط الأساس الجديد: **1914P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -34,11 +34,11 @@
 > الدستور الكامل محفوظ في `docs/engineering/prompet_28_7_final.md` (snapshot مرفوع — لا يُعدَّل).
 
 ### Current Stage
-**V3 — STAGE 3 EXECUTION (BATCH-P0 3/6 — 712✅ 713✅ 714✅)** — دفعة بوابة الإنتاج بقرار مالك D-8
+**V3 — BATCH-P0 مُقفلة 🏁 6/6 — v1.0.0-rc.1** — التالي: دفعة P1 (تفويض D-8-ج قائم؛ تخطيط TSK أولًا) — دفعة بوابة الإنتاج بقرار مالك D-8
 («ابدأ الآن من P0 حتى النهاية»)؛ التعريفات: DEVELOPMENT_TASKS §BATCH-P0
 
 ### Current Position
-- Stage: V3 STAGE 3 — BATCH-P0 (TSK-712..717؛ الموضع: 712✅ 713✅ 714✅ → (715∥716) NEXT)
+- Stage: V3 — BATCH-P0 مُقفلة 🏁 (712..717 ✅)؛ الموضع: تخطيط دفعة P1 (FI-05 + لوحة تشخيص + تدوير سجلات + Settings UI)
 - خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
 - برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
 - بند ختامي مُرحَّل: EOP-1 (حذف engineering_constitution/ — آخر المشروع، قرار D-8-أ)
@@ -482,6 +482,26 @@
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 97 — TSK-715 ✅ + TSK-716 ✅ + TSK-717 ✅ ⇒ BATCH-P0 مُقفلة 🏁 6/6 — v1.0.0-rc.1**:
+  استئنافان بعد تصفيري بيئة (S96→S97؛ كل عمل سابق نجا على origin —
+  آلية D-8-ج تعمل كما صُممت). **TSK-716 ✅** (كان قد اكتمل كودًا قبل
+  التصفير ونجا @ 21eb8a9): `core/version.py` = 1.0.0-rc.1 (rc حتى
+  تحقق Windows بيد المالك) + `--version` + الإصدار في ترويسة الإقلاع
+  + مفتاح version في /api/info (إضافة فقط) + سياسة الإصدارات في README
+  + 3 اختبارات جديدة (SemVer/التطابق/السطح). **TSK-715 ✅**:
+  `docs/USER_GUIDE.md` عربي Windows-أولًا — تثبيت خطوة-بخطوة + القاعدة
+  الذهبية (لا 0.0.0.0 أبدًا — مصدرها threat model §5) + استكشاف أخطاء
+  Windows (التدهوران الموثقان من TSK-714)؛ قبول المراجع الأربعة تحقق.
+  **TSK-717 ✅**: LICENSE «All Rights Reserved © 2026 pijsal1-tech»
+  (الافتراضي الآمن — الاستبدال برخصة مفتوحة قيد قرار مالك متى شاء) +
+  قيد إغلاق الدفعة في CHANGELOG + **وسم v1.0.0-rc.1**.
+  **البوابة النهائية**: check.sh ALL GREEN rc=0 — **1914P/34S**
+  (أساس 1911 + 3 version) — هذا خط الأساس الجديد.
+  - **حصيلة BATCH-P0**: فجوات الإنتاج السبع (Gap Report §3-ب) مسدودة؛
+    المتبقي خارج أيدينا: تنفيذ المالك قائمة WINDOWS_COMPAT §6 على
+    جهاز Windows حقيقي (شرط رفع -rc).
+  - **الموضع** → تخطيط دفعة P1 (تفويض D-8-ج قائم): FI-05 فهرس بحث
+    دائم + لوحة تشخيص/support bundle + تدوير سجلات + Settings UI.
 - **2026-07-30 — Session 96 — TSK-713 ✅ + TSK-714 ✅ (P0-3 التغليف + P0-7 تدقيق Windows)**:
   استئناف بعد تصفير بيئة (طقس V3 §3.1؛ عمل S95 نجا كاملًا على origin
   @ bcd3224). **TSK-713 ✅**: `requirements.txt` تشغيلي جديد — 4 تبعيات

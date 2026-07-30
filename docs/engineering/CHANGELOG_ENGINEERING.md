@@ -1144,3 +1144,59 @@ server.py (إغلاق انحراف TSK-704 الموثق)؛ (ج) تدوير PROGR
 
 **FI-01 مُغلقة — BATCH-FI01 مكتملة 🏁 5/5**: مصدر حقيقة واحد لحالة
 المحادثة المشتركة، NF-03/g5 مستأصلة بنيويًّا، وماسح دائم يمنع النكوص.
+
+## [TSK-712..717 / D-8] — 2026-07-30 (Sessions 95–97) — BATCH-P0: بوابة الإنتاج [تغليف + توثيق + كود طفيف]
+
+### Context
+قرارات مالك D-8 (DECISION_LOG): (أ) حذف engineering_constitution/ مؤجَّل
+لآخر المشروع → EOP-1؛ (ب) **Windows أولًا، Linux مستقبلًا**؛ (ج) تفويض
+تنفيذ خارطة P0→P3 كاملة (مصدرها Evolution Gap Report §10) باستئناف
+موثق بين الجلسات. هذه أول دفعة: سد فجوات الإنتاج السبع المتحقق منها
+(لا LICENSE / لا requirements.txt / لا إصدار / لا دليل مستخدم / ترويسة
+PROGRESS متقادمة / Windows غير مدقق).
+
+### Added
+- `requirements.txt` (TSK-713) — القائمة القانونية للتشغيل: 4 تبعيات
+  صلبة مُسقَّفة (flask/flask-sock/requests/pyyaml — أدلة file:line في
+  رأس الملف) + 5 اختيارية معلّقة بأسبابها. **قبول متحقق**: venv نظيف
+  + التثبيت + `import server` ينجح بلا dev deps.
+- `docs/WINDOWS_COMPAT.md` (TSK-714) — تدقيق ساكن على 5 محاور
+  (إشارات/مسارات/كتابة ذرّية/subprocess+ترميز/flask-sock):
+  **AUDITED-STATIC PASS، صفر إصلاحات كود** (الكود عابر للمنصات أصلًا:
+  shlex posix-switch @ command_runner.py:82، cmd.exe /c @ :140،
+  os.replace ذرّي في 6 مواقع)؛ تدهوران موثقان → دليل المستخدم؛
+  قائمة فحص §6 بيد المالك = شرط رفع -rc.
+- `docs/USER_GUIDE.md` (TSK-715) — دليل عربي Windows-أولًا: تثبيت
+  خطوة-بخطوة + عقد localhost بلغة مستخدم (المصدر:
+  deployment_threat_model §5) + استكشاف أخطاء Windows (cp1256،
+  إغلاق النافذة، PATH).
+- `core/version.py` (TSK-716) — المصدر الوحيد للإصدار:
+  `__version__ = "1.0.0-rc.1"` (rc حتى تحقق Windows الفعلي).
+- `tests/unit/test_version.py` (TSK-716) — 3 اختبارات: SemVer صالح +
+  server.APP_VERSION يطابق + /api/info يعرض المفتاح والمفاتيح القائمة
+  سليمة.
+- `LICENSE` (TSK-717) — «All Rights Reserved © 2026 pijsal1-tech»
+  (الافتراضي الآمن الموثق؛ استبداله برخصة مفتوحة = قيد قرار مالك).
+
+### Changed
+- `docs/engineering/PROGRESS.md` (TSK-712) — مصالحة الترويسة الحاكمة:
+  CI-2 (last-updated) + CI-3 (Current Stage/Position) + CI-4
+  (repository @ 9a3aed0)؛ سجل الجلسات append-only لم يُمس.
+- `server.py` (TSK-716) — 3 لمسات: import الإصدار + راية `--version`
+  + الإصدار في ترويسة الإقلاع. صفر تغيير سلوكي آخر.
+- `routes/meta.py` (TSK-716) — `/api/info` يضيف مفتاح `version`
+  (إضافة مفتاح فقط — تجميد السطح في test_rest_blueprints قائم).
+- `README.md` — §التثبيت يشير لـ requirements.txt (TSK-713) +
+  قسم «سياسة الإصدارات» جديد (TSK-716) + §الرخصة يشير لـ LICENSE
+  (TSK-717).
+
+### Verified (Acceptance)
+- **check.sh كامل: ALL GREEN rc=0 — 1914 passed, 34 skipped**
+  (أساس 1911 + 3 اختبارات version)؛ بوابة وسيطة S96 بعد 713+714:
+  1911P/34S.
+- وسم `v1.0.0-rc.1` مدفوع على origin (تفويض D-8-ج).
+
+**BATCH-P0 مكتملة 🏁 6/6** — فجوات الإنتاج السبع مسدودة (السابعة:
+تحقق Windows الفعلي بيد المالك — WINDOWS_COMPAT §6). التالي بالتفويض
+القائم: دفعة P1 (FI-05 فهرس البحث، لوحة تشخيص، تدوير سجلات،
+Settings UI) — تخطيط TSK قبل التنفيذ كالعادة.
