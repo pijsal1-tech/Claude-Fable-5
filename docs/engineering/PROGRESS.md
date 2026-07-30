@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 88 — **TSK-705 مُغلقة ✅ (graceful_shutdown + SIGTERM/SIGINT + 9 اختبارات + دخاني، check.sh ALL GREEN)؛ BATCH-SHORT مكتملة 🏁 5/5**) |
-| stage | **V3-STAGE 4 CLOSED-AWAITING-OWNER-DIRECTION — BATCH-SHORT مكتملة 🏁 5/5** — البرنامج FINAL-GOVERNED السابق مُقفل 🏁 26/26 (أرشيف أدناه) |
-| current-phase | BATCH-SHORT (دفعة D-5 تحت V3): FI-11/12/10/06/03 → TSK-701..705 (DEVELOPMENT_TASKS §BATCH-SHORT) |
-| current-task | **لا مهمة — BATCH-SHORT مُقفلة 🏁 (701✅ 702✅ 703✅ 704✅ 705✅)** — بانتظار توجيه المالك (V3 §8) |
+| last-updated | 2026-07-30 (Session 89 — **D-6 «دفعة التصفير» مكتملة ✅ 5/5 بنود (أ–هـ): حرّاس FI-08 + توصيل 6 مواقع صامتة + تدوير §6.4 + G-10/G-11 محلولتان؛ check.sh بالحرّاس الجدد ALL GREEN rc=0**) |
+| stage | **V3-STAGE 4 CLOSED-AWAITING-OWNER-DIRECTION — BATCH-SHORT 🏁 5/5 + D-6 CLEANUP ✅ 5/5** — الأرضية نظيفة وجاهزة لدفعات MID (FI-01/FI-02…) |
+| current-phase | D-6 «دفعة التصفير» (CLEANUP) تحت V3 — **مكتملة ✅** (أ: FI-08 حرّاس؛ ب: مواقع server.py الصامتة؛ ج: تدوير PROGRESS؛ د: G-10؛ هـ: G-11) |
+| current-task | **لا مهمة — D-6 مُقفلة ✅** — بانتظار توجيه المالك (V3 §8)؛ المتاح التالي: FI-01 (توحيد حالة REST/WS، MID) أو FI-02 (تقسيم server.py، MID — الأخطر) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
@@ -479,6 +479,34 @@ CLOSED-AWAITING-OWNER-DIRECTION بقرار D-5 (البرنامج السابق ي
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Sessions 88–89 — D-6 «دفعة التصفير» مكتملة ✅ 5/5 (أ–هـ) — TSK-706**:
+  - **(د) G-10 محلولة**: المالك حذف `docs/engineering_constitution/` بنفسه
+    (626fd1d — 13 ملفًا). شرط المالك (1) نُفِّذ قبل الاعتماد: فحص مرجعي
+    شامل (*.py/*.js/*.md/*.yaml/*.sh) = **صفر إشارات كود/اختبارات**؛
+    المتبقي 4 وثائق حوكمة append-only تاريخية فقط. انحدار ما-بعد-الحذف:
+    1891P/34S نظيف. **(هـ) G-11 سقطت بالتبعية** (PRODUCT_VISION.md القديم
+    كان داخل المجلد). قيد D-6 في DECISION_LOG.
+  - **(ب) توصيل server.py**: 6 مواقع صامتة فعليًا (من 23 except Exception)
+    وُصلت بـ `_slog_swallowed("server.py:<سطر>", _exc)` — مواقع except:
+    315/1511/1531/1573/1949/2060؛ صفر صامت متبقٍ (الماسح). اختبار العقد
+    `test_no_remaining_silent_sites` وُسِّع ليشمل server.py — 16/16 PASS.
+    انحراف TSK-704 الموثق **مُغلق**.
+  - **(أ) FI-08**: `scripts/check_import_cycles.py` (AST/stdlib، DFS ثلاثي
+    الألوان) — **94 وحدة/245 حافة/0 دورات** + ضابط سلبي ✅؛ حارسان في
+    check.sh قبل pytest (دورات الاستيراد NF-24 + ازدواج
+    MAX_SMART_FILE_SIZE)؛ حارس ws.send قائم سلفًا (T-047).
+  - **(ج) تدوير §6.4**: PROGRESS.md 2389→572 سطرًا؛ Sessions 24–83 +
+    أرشيف v4.1 المضمَّن → `PROGRESS_ARCHIVE_1.md` (1832 سطرًا،
+    append-only)؛ المقاطع الحاكمة لم تُمَس؛ سلامة التدوير مُتحقَّقة على
+    origin (S89).
+  - **القبول (S89)**: **check.sh كامل بالحرّاس الجدد أول تشغيل end-to-end:
+    ALL GREEN rc=0** — «import graph acyclic: 94 modules, 245 edges,
+    0 cycles» + «constants single-sourced» + **1892 passed, 34 skipped
+    in 83.01s** (الـ flaky نجح في التشغيل النظيف). CHANGELOG قيد
+    [TSK-706/D-6] مُلحَق.
+  - **النتيجة**: الأرضية نظيفة 100% — لا مواقع صامتة، لا دورات استيراد،
+    لا بقايا دستور قديم، سجل مُدوَّر، حرّاس دائمون. جاهزون لـ FI-01/FI-02
+    (MID) بلا معوقات.
 - **2026-07-30 — Sessions 87–88 — إغلاق TSK-705 ✅ (FI-03: الإيقاف الرشيق) — BATCH-SHORT مكتملة 🏁 5/5**:
   - **التغيير**: `graceful_shutdown(registry, timeout, poll_interval)` في
     core/execution.py (إلغاء تعاوني لكل الحية عبر list_active→cancel +

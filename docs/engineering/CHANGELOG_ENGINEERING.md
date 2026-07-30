@@ -1048,3 +1048,60 @@
 
 **BATCH-SHORT مكتملة 5/5**: TSK-701 ✅ TSK-702 ✅ TSK-703 ✅ TSK-704 ✅
 TSK-705 ✅ — كل بنود FI-11/FI-12/FI-10/FI-06/FI-03 مقفلة.
+
+## [TSK-706 / D-6] — 2026-07-30 (Sessions 88–89) — دفعة التصفير (CLEANUP) [كود + حوكمة]
+
+**الدفعة**: D-6 «دفعة التصفير» — قرار مالك معتمد (DECISION_LOG).
+البنود: (أ) حرّاس FI-08 في check.sh؛ (ب) توصيل المواقع الصامتة في
+server.py (إغلاق انحراف TSK-704 الموثق)؛ (ج) تدوير PROGRESS §6.4؛
+(د) G-10؛ (هـ) G-11.
+
+### Added
+- `scripts/check_import_cycles.py` (FI-08) — فاحص دورات استيراد
+  stdlib/AST خالص: 9 حزم + server كوحدة عليا، يحلّ الاستيرادات
+  النسبية وfrom-X-import-submodule، DFS ثلاثي الألوان يعيد مسار
+  الدورة عند وجودها. النتيجة: **94 وحدة، 245 حافة، 0 دورات**؛
+  ضابط سلبي (a→b→c→a اصطناعية) يكتشف الدورة ✅.
+- حارسان جديدان في `scripts/check.sh` قبل قسم pytest:
+  فحص دورات الاستيراد (NF-24) + حارس ازدواج الثابت
+  `MAX_SMART_FILE_SIZE` (مصدر وحيد). (البند الثالث في FI-08 —
+  حارس ws.send — كان موجودًا سلفًا منذ T-047.)
+- `docs/engineering/PROGRESS_ARCHIVE_1.md` (1832 سطرًا) — تدوير §6.4:
+  Sessions 24–83 + أرشيف v4.1 CORE-ONLY المضمَّن (Sessions 1–23).
+  append-only. PROGRESS.md: 2389 → 572 سطرًا مع مؤشر أرشيف؛
+  المقاطع الحاكمة (Stage/Position/Checklists/Pending Git) لم تُمَس.
+
+### Changed
+- `server.py` — توصيل **6 مواقع صامتة فعليًا** (من أصل 23
+  `except Exception` — البقية تسجّل/تعالج سلفًا) بـ
+  `_slog_swallowed("server.py:<سطر>", _exc)` مع الحفاظ على التعليقات
+  وعبارة pass القائمة. مواقع except: 315، 1511، 1531، 1573، 1949،
+  2060. **صفر مواقع صامتة متبقية** (تحقق الماسح).
+- `tests/unit/test_structured_log.py` — توسيع اختبار العقد
+  `test_no_remaining_silent_sites` ليشمل server.py إضافة إلى
+  core/+chain/ — يمنع النكوص مستقبلًا. 16/16 PASS.
+
+### Governance (G-10 / G-11)
+- G-10 **محلولة**: المالك حذف `docs/engineering_constitution/` بنفسه
+  (commit 626fd1d — 13 ملفًا: 11 صفرية الحجم + PRODUCT_VISION.md
+  + ENGINEERING_WORKSPACE.md). شرط المالك (1) مُنفَّذ قبل الاعتماد:
+  فحص مرجعي شامل = **صفر إشارات في الكود/الاختبارات**؛ الإشارات
+  المتبقية في 4 وثائق حوكمة append-only فقط (تاريخية، آمنة دلاليًا
+  لأن V3 أعلن الفصول «خاملة» سلفًا).
+- G-11 **سقطت بالتبعية**: PRODUCT_VISION.md القديم كان داخل المجلد
+  المحذوف. قيد D-6 مسجَّل في DECISION_LOG.
+
+### Verified (Acceptance)
+- **check.sh كامل بالحرّاس الجدد أول مرة end-to-end: ALL GREEN
+  rc=0** — «import graph acyclic: 94 modules, 245 edges, 0 cycles»
+  + «constants single-sourced» + mypy نظيف + كل أقسام grep +
+  **1892 passed, 34 skipped in 83.01s**.
+- انحدار ما-بعد-حذف-المالك (تشغيل سابق ضمن الدفعة):
+  1891P/34S مع deselect الـ flaky — الأساس سليم.
+- سلامة التدوير مُتحقَّق منها على origin: PROGRESS.md = 572 سطرًا
+  والمقاطع الحاكمة كاملة + مؤشر الأرشيف؛ ARCHIVE_1 = 1832 سطرًا
+  برأس §6.4 وذيل مكتمل.
+
+**D-6 مكتملة 5/5 بنود (أ–هـ)**: الأرضية نظيفة — لا مواقع صامتة،
+لا دورات استيراد، لا ملفات دستور قديمة، PROGRESS مُدوَّر، حرّاس
+دائمون في البوابة. جاهزون لدفعات MID (FI-01/FI-02…).
