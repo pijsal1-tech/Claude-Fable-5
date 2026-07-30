@@ -2396,3 +2396,69 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 | 624 | M10 | P3 | ✅ DONE (S78) | ADR-005 استرجاعي لإعادة تصميم v25 (النطاق/الأثر/الحرّاس الثلاثة وإصلاحاتها) + قيد retro في DECISION_LOG؛ TD-04 مغلق؛ خط الانحدار بلا تغيير (1900) |
 | 625 | M10 | P3 | ✅ DONE (S77) | _parse_args_body متسامح متعدد الأسطر (طي التكملة، مفاتيح شرعية حيّة من التواقيع)؛ ASF-06 مغلق؛ 18 اختبارًا؛ خط الانحدار 1900 |
 | 626 | M10 | P3 | ✅ DONE (S79) | فرع proposed_actions موثَّق test-only: سطر عقد موحَّد في الـ runners الأربعة + تعليق عند مواقع بناء RunRequest الخمسة (server.py + chat_dispatch.py)؛ RP-04 مغلق؛ خط الانحدار بلا تغيير (1900) |
+
+---
+
+# BATCH-SHORT — دفعة المالك D-5 (تحت حكم V3) — 2026-07-30
+
+> مرآة غير حاكمة — المرجع PROGRESS.md (حالة المهام هناك حصريًا).
+> التفويض: قرار مالك D-5 (DECISION_LOG @ bc3fa7a): «دفعة SHORT كاملة» =
+> FI-03 + FI-06 + FI-10 + FI-11 + FI-12. خط أساس الدفعة (مُعاد تشغيله حيًا
+> هذه الجلسة @ 4e87d6b): **1866P/34S/0F** + test_search_perf البيئي
+> (موثَّق flaky — فشل 1.036s>1.0s على هذا العتاد فقط).
+
+## TSK-701 — FI-11: مواصفة بروتوكول إطارات WS [توثيق فقط]
+- **Fixes**: FI-11. **Deps**: لا شيء.
+- **Evidence**: أشكال الإطارات ضمنية عبر `core/ws_router.py` (جدول 25 نوعًا @ 03c7eab)
+  + مواقع الإرسال في server.py/chat_dispatch + `static/app.js` onmessage.
+- **Change**: ملف جديد `docs/ws_frame_protocol.md` — جرد كل أنواع الإطارات
+  (اتجاهين)، الحقول الإلزامية، الترتيب، إطارات الخطأ/الإنهاء — من الكود الحي.
+- **Accept (آلي)**: كل نوع إطار في المواصفة موجود في الكود والعكس (grep تحقق
+  مزدوج الاتجاه يُرفق في Close-out)؛ صفر تغيير كود؛ الانحدار 1866P ثابت.
+
+## TSK-702 — FI-12: دليل النشر ونموذج التهديد [توثيق فقط]
+- **Fixes**: FI-12. **Deps**: لا شيء (TSK-502 مدموجة سلفًا).
+- **Evidence**: عقد RRR §5 (localhost أحادي المستخدم)؛ `force_command_approval`
+  في config.yaml؛ تحصينات ZIP (TSK-105/_zip_member_violations).
+- **Change**: ملف جديد `docs/deployment_threat_model.md` — حدود الثقة،
+  الافتراضي localhost-only، ماذا يعني أي تعريض أبعد (قرار واعٍ موثَّق).
+- **Accept (آلي)**: كل ادعاء أمني فيه مرساة `file:line @ commit`؛ صفر تغيير كود.
+
+## TSK-703 — FI-10: تعقيم عرض Markdown (DOMPurify) [كود]
+- **Fixes**: FI-10 (سطح XSS client-side المتمم لـ TSK-404). **Deps**: لا شيء.
+- **Evidence**: `renderMarkdown` @ app.js:2389 يعيد `marked.parse(text)` خامًا؛
+  يُحقن عبر innerHTML في ≥8 مواقع (:928..:1043).
+- **Change**: (1) vendoring `static/vendor/purify.min.js` (2) تحميله في
+  index.html قبل app.js (3) تغليف ناتج renderMarkdown الوحيد:
+  `DOMPurify.sanitize(...)` مع fallback آمن إن غاب الرمز (سلوك fail-open
+  للعرض النصي المهرَّب — لا كسر إن فشل التحميل).
+- **Accept (آلي)**: `<img onerror>`/`<script>` في نص نموذجي لا ينجو من التعقيم
+  (اختبار DOM بسيط عبر node إن توفر، وإلا فحص سلسلة التغليف بـ grep-guard)؛
+  الانحدار 1866P ثابت (لا اختبارات python تمس app.js).
+
+## TSK-704 — FI-06: السجلات المهيكلة [كود]
+- **Fixes**: FI-06 (NF-14: مواقع ابتلاع صامتة). **Deps**: لا شيء (TSK-305 مقفلة).
+- **Evidence**: 91 موقع `except Exception` (منها ~31 صامتة pass/continue)
+  عبر server.py(23)/chain(51)/core(17) @ 4e87d6b.
+- **Change** (محكوم الحجم §9.1): وحدة جديدة `core/structured_log.py`
+  (JSON formatter على stdlib logging؛ صفر تبعية جديدة) + توصيل المواقع
+  **الصامتة** في core/ وchain/ بسطر `log.debug/warning(event=...)` —
+  **إضافة سجل فقط، صفر تغيير تدفق تحكم** (bit-identical سلوكيًا).
+  server.py المواقع الـ23 تُوصَّل في نفس النمط إن اتسعت الجلسة وإلا انحراف
+  موثَّق يقصرها على core/+chain/.
+- **Accept (آلي)**: اختبارات جديدة لـ structured_log (صيغة JSON، الحقول)؛
+  grep يثبت صفر `except Exception:` متبوعة بـ pass صامت في core/+chain/
+  (كل موقع إما يسجل أو يعلَّق بتعليل)؛ الانحدار كامل أخضر.
+
+## TSK-705 — FI-03: انضباط الإيقاف الرشيق [كود]
+- **Fixes**: FI-03 (NF-05: خيوط daemon بلا join عند الخروج). **Deps**: TSK-304 مقفلة ✅.
+- **Evidence**: خيوط daemon في server.py؛ `ExecutionRegistry` يملك
+  cancel تعاوني + `list_active` (core/execution.py:161/:265 @ 4e87d6b).
+- **Change**: دالة `graceful_shutdown(registry, timeout)` في core/execution.py
+  (cancel لكل التذاكر الحية + انتظار محدود حتى terminal/انقضاء المهلة) +
+  ربط SIGTERM/SIGINT في مدخل server.py (`main`) فقط — لا تغيير في مسار الطلبات.
+- **Accept (آلي)**: اختبارات وحدة للدالة (تذاكر حية → cancelled؛ احترام المهلة؛
+  صفر تذاكر = عودة فورية)؛ الانحدار كامل أخضر؛ check.sh أخضر.
+
+## ترتيب التنفيذ (DAG بلا دورات)
+701 → 702 → 703 → 704 → 705 (مستقلة كلها؛ الترتيب بالمخاطرة تصاعديًا).

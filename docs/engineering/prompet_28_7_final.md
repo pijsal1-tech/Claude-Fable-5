@@ -1,3 +1,5 @@
+> **[SUPERSEDED by V3 — 2026-07-30]** — الوثيقة التشغيلية الحاكمة الآن: `docs/engineering/CONSTITUTION_V3.md` (تبنّي مالك عبر V3_RESUME_SESSION — قرار الدفعة SHORT). هذا الملف سجل تاريخي محفوظ — لا يُحذف ولا يُعدَّل تحته.
+
 # RESUME SESSION
 
 Resume the project from the latest engineering checkpoint, operating under the
