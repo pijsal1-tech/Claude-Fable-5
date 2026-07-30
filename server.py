@@ -83,6 +83,7 @@ from core.execution import ExecutionRegistry
 from core.execution import RunBusyError
 from core.execution import graceful_shutdown  # TSK-705 (FI-03)
 from core.structured_log import swallowed as _slog_swallowed  # TSK-706 (D-6)
+from core.conversation_state import ConversationState  # TSK-708 (FI-01/2 — D-7)
 from core.session_context import SessionContext
 from core.events import (
     ApprovalRequested,
@@ -143,6 +144,13 @@ session_mgr: SessionManager = None  # type: ignore[assignment]
 # R-303 (T-031): بانر تنبيه ربط الجلسة — يُملأ عند تبديل المشروع تحت
 # سياسة warn ويُحقن في project_context لكل رسالة حتى بدء جلسة جديدة.
 _binding_banner: str = ""
+# TSK-708 (FI-01/2 — D-7): المخزن القانوني الموحد لحالة المحادثة المشتركة.
+# بذر WS (_build_session_context) يقرأ منه حصريًّا؛ مسار الإقلاع يكتب
+# فيه. globals أعلاه (chat_history/_binding_banner) أسماء توافق
+# انتقالية — routes/* ما زالت تكتبها حتى TSK-709/710 (ترحيل الكتابات)
+# ثم يحرسها ماسح النكوص في TSK-711.
+conversation_state = ConversationState()
+
 # TSK-203 (NF-23.2): التعريف الوحيد للثابت — النسخة المكررة أسفل
 # الملف أُزيلت (كانت تطغى على هذه بصمت بنفس القيمة).
 MAX_SMART_FILE_SIZE = 100 * 1024  # حد أقصى لحجم ملف يقرأه Smart Path (100KB)
@@ -974,12 +982,14 @@ def _build_session_context(ws):
         bus=bus,
         adapter=adapter,
         project=project,
-        chat_history=list(chat_history),
+        # TSK-708 (FI-01/2): البذر من المخزن القانوني — نسخة معزولة
+        # (عقد T-048 محفوظ: التبويب يتباعد بعد البذر).
+        chat_history=conversation_state.snapshot(),
         session_mgr=session_mgr,
         chain_bridge=chain_bridge,
         delegate_bridge=delegate_bridge,
         provider_source=_active_provider,
-        banner_source=lambda: _binding_banner,
+        banner_source=lambda: conversation_state.binding_banner,
     )
 
 
@@ -1896,6 +1906,9 @@ def main():
         global chat_history
         msgs = session_mgr.get_current_messages()
         chat_history = [Message(role=m["role"], content=m["content"]) for m in msgs]
+        # TSK-708 (FI-01/2): الكتابة القانونية في المخزن — الـ global
+        # أعلاه اسم توافق انتقالي حتى اكتمال TSK-709/710.
+        conversation_state.replace_all(chat_history)
     else:
         session_mgr.new_session(project_path)
         print("📋 تم بدء جلسة جديدة")
