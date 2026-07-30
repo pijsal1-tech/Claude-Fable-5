@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 87 — **TSK-704 مُغلقة ✅ (structured_log + 32 موقعًا موصولًا + 16 اختبارًا، check.sh ALL GREEN)؛ الموقع → TSK-705 الأخيرة**) |
-| stage | **V3-STAGE 3 EXECUTION — BATCH-SHORT (4/5)** — البرنامج FINAL-GOVERNED السابق مُقفل 🏁 26/26 (أرشيف أدناه) |
+| last-updated | 2026-07-30 (Session 88 — **TSK-705 مُغلقة ✅ (graceful_shutdown + SIGTERM/SIGINT + 9 اختبارات + دخاني، check.sh ALL GREEN)؛ BATCH-SHORT مكتملة 🏁 5/5**) |
+| stage | **V3-STAGE 4 CLOSED-AWAITING-OWNER-DIRECTION — BATCH-SHORT مكتملة 🏁 5/5** — البرنامج FINAL-GOVERNED السابق مُقفل 🏁 26/26 (أرشيف أدناه) |
 | current-phase | BATCH-SHORT (دفعة D-5 تحت V3): FI-11/12/10/06/03 → TSK-701..705 (DEVELOPMENT_TASKS §BATCH-SHORT) |
-| current-task | **TSK-705 (FI-03: الإيقاف الرشيق graceful_shutdown — كود)** — NEXT الأخيرة (701✅ 702✅ 703✅ 704✅) |
+| current-task | **لا مهمة — BATCH-SHORT مُقفلة 🏁 (701✅ 702✅ 703✅ 704✅ 705✅)** — بانتظار توجيه المالك (V3 §8) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
@@ -982,6 +982,33 @@ CLOSED-AWAITING-OWNER-DIRECTION بقرار D-5 (البرنامج السابق ي
   CHANGELOG (commit 686ac90) + تحديث PROGRESS (هذا القيد) + commit
   محلي · الموقع → **M9/TSK-620** (سرد الجلسة — CP-8/UXF-05،
   التبعية 610 ✅)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-30 — Sessions 87–88 — إغلاق TSK-705 ✅ (FI-03: الإيقاف الرشيق) — BATCH-SHORT مكتملة 🏁 5/5**:
+  - **التغيير**: `graceful_shutdown(registry, timeout, poll_interval)` في
+    core/execution.py (إلغاء تعاوني لكل الحية عبر list_active→cancel +
+    انتظار محدود؛ صفر تذاكر = عودة فورية؛ لا إنهاء قسري — المتبقي يُعاد
+    للمستدعي؛ المدخل Protocol بنيوي `_ShutdownRegistry` لتوافق
+    RegistryBackend دون دورة استيراد) + ربط SIGTERM/SIGINT في server.py
+    داخل `main()` حصريًا قبل app.run (إشارة أولى = رشيق 5ث + SystemExit(0)؛
+    ثانية = خروج فوري) — **صفر تغيير في مسار الطلبات**.
+  - **القبول**: 9 اختبارات جديدة (TestGracefulShutdown: حية→cancelled؛
+    احترام المهلة ≥timeout مع متعنتة تبقى running بصدق؛ صفر = فورية <0.5s؛
+    عودة مبكرة تعاونية؛ خليط؛ timeout=0؛ ValueError) → 31/31 في
+    test_execution.py؛ mypy (بأعلام البوابة) نظيف؛ **دخاني وظيفي**: سيرفر
+    حقيقي 127.0.0.1:5599 → HTTP 200 → kill -TERM → خروج ≤2ث برسالتي
+    «⏹️ إيقاف رشيق» ثم «✅ إيقاف نظيف» (أعيد التحقق في بيئتين بعد reset).
+  - **الانحدار**: **1891P/34S** (أساس 1882 + 9 = 1891 ✓، مع deselect
+    الـ flaky) و**check.sh ALL GREEN rc=0** (1892P/34S — الـ flaky نجح).
+    ملاحظة بيئية: في بيئة سابقة (S88 قبل reset #15) القراءة كانت
+    1892P/33S — skip شرطي واحد تحول pass هناك (السبب البيئي الدقيق غير
+    محسوم — ليس node، فهو حاضر في البيئتين)؛ التسوية سليمة في الحالتين.
+  - **ملاحظة تشغيلية**: خلال S87 فشلت بوابة mypy أول مرة (تمرير
+    RegistryBackend إلى توقيع ExecutionRegistry الصلب) — أُصلحت بالـ
+    Protocol المحلي (commit fc6ebff عبر الرافع الآلي)؛ وreset منتصف
+    الجلسة (#14–#15) أخّر الإغلاق — الكود والـ CHANGELOG كانا على
+    origin، وهذا القيد أُكمل في S88.
+  - **خط الأساس الجديد**: **1891P/34S** (قراءة بيئة الإغلاق النهائية).
+  - **الدفعة**: TSK-701✅ 702✅ 703✅ 704✅ 705✅ — FI-11/12/10/06/03 كلها
+    مقفلة. الموقع → **CLOSED-AWAITING-OWNER-DIRECTION (V3 §8)**.
 - **2026-07-30 — Sessions 86–87 — إغلاق TSK-704 ✅ (FI-06: السجلات المهيكلة)**:
   - **التغيير**: `core/structured_log.py` (JsonFormatter + get_logger +
     configure + swallowed — لا يرفع أبدًا، صامت افتراضيًا، stdlib فقط) +
