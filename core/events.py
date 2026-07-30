@@ -48,6 +48,7 @@ import threading
 from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 from typing import Any, Callable
+from core.structured_log import swallowed as _slog_swallowed
 
 
 # ═══════════════════════════════════════════════════════
@@ -157,7 +158,8 @@ class EventBus:
             for fn in subs:
                 try:
                     fn(event)
-                except Exception:
+                except Exception as _exc:
+                    _slog_swallowed("core/events.py:160", _exc)
                     # عزل: مشترك معطوب لا يوقف البث ولا الناشر
                     pass
 

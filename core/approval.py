@@ -45,6 +45,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Callable
+from core.structured_log import swallowed as _slog_swallowed
 
 # ── الأوضاع المسموحة ──
 VALID_MODES = ("auto", "interactive", "deny")
@@ -276,7 +277,8 @@ class ApprovalGate:
             if channel is not None:
                 try:
                     channel(req.to_dict())
-                except Exception:
+                except Exception as _exc:
+                    _slog_swallowed("core/approval.py:279", _exc)
                     pass
 
             got_answer = entry.event.wait(timeout=self.timeout_seconds)

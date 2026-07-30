@@ -32,6 +32,7 @@ from core.runner import RESULT_COMPLETED, RESULT_FAILED, RunRequest
 from core.strategy import RoutingTier
 from prompts.templates import build_prompt, fence_attached, get_system_prompt
 from providers.base import Message
+from core.structured_log import swallowed as _slog_swallowed
 
 
 def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict, skip_path_detection: bool = False, attached_context: list | None = None):
@@ -191,7 +192,8 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
                 for f_path in mentioned_files[:5]:
                     try:
                         files_dict[f_path] = sctx.fm.read_file(f_path)
-                    except Exception:
+                    except Exception as _exc:
+                        _slog_swallowed("core/chat_dispatch.py:194", _exc)
                         # NF-14 §8 (ابتلاع مقصود): ملف مذكور غير مقروء — التوجيه
                         # يكمل ببقية الملفات (إثراء اختياري للراوتر).
                         pass
@@ -201,7 +203,8 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
             if mentioned_files and len(mentioned_files) == 1:
                 try:
                     file_content_for_routing = sctx.fm.read_file(mentioned_files[0])
-                except Exception:
+                except Exception as _exc:
+                    _slog_swallowed("core/chat_dispatch.py:204", _exc)
                     # NF-14 §9 (ابتلاع مقصود): نفس §8 — إثراء اختياري للراوتر.
                     pass
 

@@ -40,6 +40,7 @@ from providers.base import (
     MockProvider, history_to_messages,
 )
 from .agent_loader import AgentLoader, AgentPrompt
+from core.structured_log import swallowed as _slog_swallowed
 
 
 # ═══════════════════════════════════════════════════════
@@ -470,7 +471,8 @@ class ChainExecutor:
                 elif hasattr(raw_response, "choices") and raw_response.choices:
                     if getattr(raw_response.choices[0], "finish_reason", None) in ("safety", "content_filter"):
                         return True
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/executor.py:473", _exc)
                 pass
 
         refusal_phrases = [
@@ -527,7 +529,8 @@ class ChainExecutor:
         if on_event:
             try:
                 on_event(event)
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/executor.py:530", _exc)
                 pass
 
         if self._run_dir:
@@ -538,7 +541,8 @@ class ChainExecutor:
                     with open(events_file, "a", encoding="utf-8") as f:
                         f.write(json.dumps(event.to_dict(),
                                            ensure_ascii=False) + "\n")
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/executor.py:541", _exc)
                 pass
 
     def _save_state(self, run: ChainRun):
@@ -557,7 +561,8 @@ class ChainExecutor:
 
                 # Atomic rename
                 tmp_file.replace(final_file)
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/executor.py:560", _exc)
                 pass
 
     def _save_result(self, run: ChainRun, step: ChainStep):
@@ -568,7 +573,8 @@ class ChainExecutor:
         try:
             result_file = self._run_dir / "results" / f"{step.id}.txt"
             result_file.write_text(step.result, encoding="utf-8")
-        except Exception:
+        except Exception as _exc:
+            _slog_swallowed("chain/executor.py:571", _exc)
             pass
 
     # ═══════════════════════════════════════════════════

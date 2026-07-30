@@ -36,6 +36,7 @@ from core.checkpoint import CheckpointManager
 from core.execution import RunTicket
 from .path_policy import is_secret_file  # T-025 (R-204): فلتر حدود الماسح
 from core.ignore_rules import IGNORED_DIRS  # TSK-202 (BUG-04): قائمة التجاهل الموحّدة
+from core.structured_log import swallowed as _slog_swallowed
 
 
 def _build_project_snapshot(project_root: str,
@@ -369,7 +370,8 @@ class ChainBridge:
             if msg:
                 try:
                     ws_send_fn(msg)
-                except Exception:
+                except Exception as _exc:
+                    _slog_swallowed("chain/bridge.py:372", _exc)
                     pass
 
         # ── Execute in thread ──
@@ -384,13 +386,15 @@ class ChainBridge:
                     run_dir=str(run_dir),
                 )
                 executor.execute(run, on_event=on_event, ticket=ticket)
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/bridge.py:387", _exc)
                 pass  # الركض فشل — لا تطبيق، التنظيف في finally
             else:
                 if run.status == "completed":
                     try:
                         self._gated_apply(run, ws_send_fn)
-                    except Exception:
+                    except Exception as _exc:
+                        _slog_swallowed("chain/bridge.py:393", _exc)
                         pass  # فشل التطبيق لا يفجّر الـ thread
             finally:
                 # T-015 (R-105): إنهاء تذكرة السجل بالحالة النهائية الفعلية
@@ -433,7 +437,8 @@ class ChainBridge:
         def _safe_send(msg: dict) -> None:
             try:
                 ws_send_fn(msg)
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/bridge.py:436", _exc)
                 pass
 
         with self._lock:
@@ -545,7 +550,8 @@ class ChainBridge:
         def _safe_send(msg: dict) -> None:
             try:
                 ws_send_fn(msg)
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/bridge.py:548", _exc)
                 pass
 
         # بلا بوابة ⇒ stage فقط (الواجهة تعرض الأفعال؛ apply_action اليدوي متاح)

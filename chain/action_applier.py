@@ -17,6 +17,7 @@
 import time
 from dataclasses import dataclass, field
 from typing import Callable, TYPE_CHECKING
+from core.structured_log import swallowed as _slog_swallowed
 
 if TYPE_CHECKING:
     from actions.file_manager import FileManager
@@ -211,7 +212,8 @@ class ActionApplier:
             try:
                 self._fm.backup_all()
                 self._backup_done = True
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/action_applier.py:214", _exc)
                 pass  # مش حرج
 
         # ── 4. تطبيق الإجراءات ──
@@ -238,7 +240,8 @@ class ActionApplier:
             if self._on_action:
                 try:
                     self._on_action(ar)
-                except Exception:
+                except Exception as _exc:
+                    _slog_swallowed("chain/action_applier.py:241", _exc)
                     pass
 
         # ── 4.5 Checkpoint: seal ما-بعد-الكتابة (T-054, R-106) ──
@@ -247,7 +250,8 @@ class ActionApplier:
         if checkpoint is not None and ckpt_paths:
             try:
                 checkpoint.seal(run_id, ckpt_paths)
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/action_applier.py:250", _exc)
                 pass  # فشل الـ seal يجعل rollback يرفض بأمان — لا كسر للـ apply
 
         result.duration_ms = int((time.monotonic() - start) * 1000)

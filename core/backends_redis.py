@@ -54,6 +54,7 @@ from core.events import (
     StepProgress,
     Subscriber,
 )
+from core.structured_log import swallowed as _slog_swallowed
 
 #: متغير البيئة + افتراضه — انظر «قرارات الشكل» أعلاه.
 REDIS_URL_ENV = "REDIS_URL"
@@ -176,7 +177,8 @@ class RedisEventBusBackend:
             for fn in subs:
                 try:
                     fn(event)
-                except Exception:
+                except Exception as _exc:
+                    _slog_swallowed("core/backends_redis.py:179", _exc)
                     # عزل: مشترك معطوب لا يوقف البث ولا الناشر
                     pass
 

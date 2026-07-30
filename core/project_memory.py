@@ -83,6 +83,7 @@ key_decisions``؛ لا استيراد من context ⇒ لا دورة اعتما�
 - بصمة الفهرس الحي ``""`` (لا فهرس متاح الآن) ⇒ لا مرجع للمقارنة.
 """
 from __future__ import annotations
+from core.structured_log import swallowed as _slog_swallowed
 
 import dataclasses
 import datetime
@@ -222,7 +223,8 @@ def distill_and_record(store: "ProjectMemoryStore", project_id: str,
                 project_id, kind, text,
                 source="distillation", run_id=run_id, index=index,
             ))
-    except Exception:
+    except Exception as _exc:
+        _slog_swallowed("core/project_memory.py:225", _exc)
         pass          # التقطير مشتق اختياري — فقدانه أرخص من إسقاط run
     return written
 

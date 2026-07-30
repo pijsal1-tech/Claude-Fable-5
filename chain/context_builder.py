@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Callable
 from chain.path_policy import resolve_workspace_path, is_secret_file
 from context.engine import ProjectScan
+from core.structured_log import swallowed as _slog_swallowed
 
 
 # ════════════════════════════════════════════════════
@@ -277,7 +278,8 @@ class ContextBuilder:
                 try:
                     print(f"  [ContextBuilder] {s['files']} files, "
                           f"{s['dirs']} dirs, {s['searches']} searches")
-                except Exception:
+                except Exception as _exc:
+                    _slog_swallowed("chain/context_builder.py:280", _exc)
                     pass
 
         return result
@@ -386,7 +388,8 @@ class ContextBuilder:
                                     size=len(content),
                                 ))
                                 self.on_progress("file", rel_sf, "done")
-                except Exception:
+                except Exception as _exc:
+                    _slog_swallowed("chain/context_builder.py:389", _exc)
                     pass
 
     def _gather_project_overview(self, result: ContextResult,
@@ -486,7 +489,8 @@ class ContextBuilder:
                             candidate_resolved = resolve_workspace_path(self.root, str(candidate), must_exist=True, allow_symlinks=False)
                             full = candidate_resolved
                             break
-                        except Exception:
+                        except Exception as _exc:
+                            _slog_swallowed("chain/context_builder.py:489", _exc)
                             continue
                 if not full or not full.is_file():
                     return None
@@ -583,7 +587,8 @@ class ContextBuilder:
 
                 try:
                     text = fp.read_text(encoding="utf-8", errors="replace")
-                except Exception:
+                except Exception as _exc:
+                    _slog_swallowed("chain/context_builder.py:586", _exc)
                     continue
 
                 for i, line in enumerate(text.splitlines(), 1):
@@ -592,7 +597,8 @@ class ContextBuilder:
                         results.append(f"{rel}:{i}: {line.strip()}")
                         if len(results) >= max_results:
                             return "\n".join(results)
-        except Exception:
+        except Exception as _exc:
+            _slog_swallowed("chain/context_builder.py:595", _exc)
             pass
 
         if not results:

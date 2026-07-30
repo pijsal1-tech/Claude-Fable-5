@@ -22,6 +22,7 @@ from core.execution import RunTicket
 from core.ignore_rules import IGNORED_DIRS  # TSK-202 (BUG-04): قائمة التجاهل الموحّدة
 import hashlib
 import json
+from core.structured_log import swallowed as _slog_swallowed
 
 _LOG = logging.getLogger("chain.agent_tools")
 
@@ -365,7 +366,8 @@ class AgentTools:
                                 f"{search_path.name}:{i}: {line.strip()}")
                             if len(results) >= max_results:
                                 break
-                except Exception:
+                except Exception as _exc:
+                    _slog_swallowed("chain/agent_tools.py:368", _exc)
                     pass
             if not results:
                 return f"(لا نتائج لـ '{query}' في {path})"
@@ -406,7 +408,8 @@ class AgentTools:
             try:
                 count = len(os.listdir(resolved))
                 info.append(f"المحتويات: {count} عنصر")
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/agent_tools.py:409", _exc)
                 pass
         else:
             ext = pathlib.Path(resolved).suffix
@@ -417,7 +420,8 @@ class AgentTools:
                     encoding="utf-8", errors="replace"
                 ).count("\n")
                 info.append(f"السطور: {lines + 1}")
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/agent_tools.py:420", _exc)
                 pass
         
         return "\n".join(info)
@@ -688,7 +692,8 @@ class AgentTools:
                 return str(resolved)
         except PermissionError:
             raise
-        except Exception:
+        except Exception as _exc:
+            _slog_swallowed("chain/agent_tools.py:691", _exc)
             pass
         return None
     

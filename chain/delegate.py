@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from core.execution import RunTicket
+from core.structured_log import swallowed as _slog_swallowed
 
 
 class DelegateCancelled(Exception):
@@ -645,7 +646,8 @@ class DelegateBridge:
         if on_event:
             try:
                 on_event(event_type, data)
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("chain/delegate.py:648", _exc)
                 pass
     
     def _extract_summary(self, response: str) -> str:

@@ -41,6 +41,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from typing import Any, Callable
+from core.structured_log import swallowed as _slog_swallowed
 
 
 def _no_provider() -> Any:
@@ -127,15 +128,18 @@ class SessionContext:
         if loop is not None:
             try:
                 loop.cancel()
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("core/session_context.py:130", _exc)
                 pass
         if self.chain_bridge is not None:
             try:
                 self.chain_bridge.cancel("WebSocket disconnected")
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("core/session_context.py:135", _exc)
                 pass
         if self.adapter is not None:
             try:
                 self.adapter.close()
-            except Exception:
+            except Exception as _exc:
+                _slog_swallowed("core/session_context.py:140", _exc)
                 pass
