@@ -17,5 +17,6 @@ pyyaml>=6.0,<7
 # websocket-client>=1.6   # بث use_ai عبر WS (providers/use_ai.py:25-29 محروس)
 # cloudscraper>=1.2       # مزود deepseek (providers/deepseek.py:15-19 محروس)
 # colorama>=0.4           # تلوين طرفية Windows (actions/command_runner.py:18-20 محروس)
+# pywebview>=5.0          # وضع سطح المكتب TSK-727 (desktop.py:main محروس — ADR-006)
 # redis>=5.0              # backend اختياري T-109 (core/backends_redis.py:72-76 كسول)
 # tree-sitter grammars    # فهرس الرموز — القائمة الكاملة في requirements-dev.txt (تدهور رشيق)

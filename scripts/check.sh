@@ -13,10 +13,10 @@ cd "$(dirname "$0")/.."
 # النداء المدسوس لا يُلتقط، والقبول يسقط). استبعاد وحيد:
 # providers/openai_shelby.py — خطأ قائم مسبقًا (:166) وproviders/
 # خارج نطاق البرنامج (§0.8)؛ يُرفع الاستبعاد يوم يُصلح خارجه.
-echo "== mypy (gate: providers/ + chain/ + core/ + context/ + sessions/ + routes/ + server.py) =="
+echo "== mypy (gate: providers/ + chain/ + core/ + context/ + sessions/ + routes/ + server.py + desktop.py) =="
 mypy --ignore-missing-imports --follow-imports=silent \
   --check-untyped-defs --exclude 'providers/openai_shelby\.py' \
-  providers/ chain/ core/ context/ sessions/ routes/ server.py
+  providers/ chain/ core/ context/ sessions/ routes/ server.py desktop.py
 
 # T-026 (R-204): حدود SafeReader — ممنوع أي قراءة خام لمحتوى ملفات داخل
 # context/ خارج safe_reader.py. حدود مُلتفّ عليها في مكان واحد ليست حدودًا.
