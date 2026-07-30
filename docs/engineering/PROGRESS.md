@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 98 — **تخطيط BATCH-P1 مكتمل (D-9): TSK-718..722 موثقة؛ المهمة الأولى TSK-718 جاهزة — بدء التنفيذ بأمر بروتوكول المالك**) |
+| last-updated | 2026-07-30 (Session 98 — تخطيط BATCH-P1 (D-9) ✅ + **TSK-718 ✅** (core/index_snapshot.py + 19 اختبارًا — 1933P/34S ALL GREEN)) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P1 (دفعة D-9 تحت تفويض D-8-ج): FI-05 + تشخيص + تدوير سجلات + Settings UI → TSK-718..722؛ DAG: 718→719؛ 720∥721؛ 722 آخرًا؛ المصدر: PROGRESS §Current Position (برنامج D-8-ج) |
-| current-task | **TSK-718 — FI-05/1: وحدة snapshot الفهرس (core/index_snapshot.py + اختبارات، بلا توصيل)** — جاهزية متحققة (TSK-501 ✅ S22)؛ خط الأساس: **1914P/34S** |
+| current-task | **TSK-719 — FI-05/2: توصيل snapshot (تحميل عند الفتح + حفظ بعد rebuild)** — سابقتها TSK-718 ✅ (S98)؛ خط الأساس الجديد: **1933P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -38,7 +38,7 @@
 («ابدأ الآن من P0 حتى النهاية»)؛ التعريفات: DEVELOPMENT_TASKS §BATCH-P0
 
 ### Current Position
-- Stage: V3 — BATCH-P1 (D-9) قيد التنفيذ؛ الموضع: TSK-718 (وحدة snapshot الفهرس)؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
+- Stage: V3 — BATCH-P1 (D-9) قيد التنفيذ؛ الموضع: TSK-719 (توصيل snapshot — TSK-718 ✅)؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
 - خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
 - برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
 - بند ختامي مُرحَّل: EOP-1 (حذف engineering_constitution/ — آخر المشروع، قرار D-8-أ)
@@ -503,6 +503,17 @@
   S22 (PROGRESS_ARCHIVE_1.md:868)؛ معايير قبول آلية مكتوبة؛ صفر deps معلقة
   ⇒ بدء التنفيذ (أمر البروتوكول: «إذا كانت جميع الشروط مستوفاة، ابدأ
   بتنفيذ المهمة الأولى»).
+  **TSK-718 ✅ (نفس الجلسة)**: `core/index_snapshot.py` — صيغة v1
+  (JSON: version/root/files-نسبية-بفواصل-posix)؛ `save_snapshot` ذرّي
+  بنمط NF-19 الحرفي (tmp→fsync→os.replace) **لا يرفع أبدًا** (فشل⇒False
+  + أثر NF-14 عبر _slog_swallowed)؛ `load_snapshot` متشكك — None عند أي
+  انحراف (نسخة/جذر/فساد/شكل شاذ/مسارات مطلقة-هاربة-Windows drive)؛
+  الوحدة في core/ عمدًا (بوابة SafeReader grep تمنع open() في context/).
+  + `tests/unit/test_index_snapshot.py` — 19 اختبارًا. **البوابة**:
+  check.sh ALL GREEN rc=0 — **1933P/34S** (1914+19 بالضبط؛ ملاحظة
+  بيئية: فشل عابر واحد قبل تثبيت requirements-dev كان غياب tree-sitter
+  — ليس انحدارًا). ملاحظة انقطاع: الكود نجا على origin عبر قيد
+  Auto-Uploader e58f6c1؛ هذا الإغلاق التوثيقي أُعيد بعد تصفير البيئة.
 - **2026-07-30 — Session 97 — TSK-715 ✅ + TSK-716 ✅ + TSK-717 ✅ ⇒ BATCH-P0 مُقفلة 🏁 6/6 — v1.0.0-rc.1**:
   استئنافان بعد تصفيري بيئة (S96→S97؛ كل عمل سابق نجا على origin —
   آلية D-8-ج تعمل كما صُممت). **TSK-716 ✅** (كان قد اكتمل كودًا قبل
