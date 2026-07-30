@@ -35,6 +35,15 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 RH_MODULE = ROOT / "static" / "js" / "run_history.js"
 SC_MODULE = ROOT / "static" / "js" / "status_chip.js"
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
 INDEX_HTML = ROOT / "static" / "index.html"
 
 sys.path.insert(0, str(ROOT))
@@ -404,7 +413,7 @@ class TestConsumeOnlyAndWiring:
         الوحدة لا تخترع نوع إطار جديد، وapp.js لا يبنيها يدويًا."""
         rh = RH_MODULE.read_text(encoding="utf-8")
         assert '"rollback_run"' in rh and '"rollback_file"' in rh
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         assert "RunHistory.rollbackFrame(" in app
         # لا بناء يدوي لإطار rollback في app.js خارج الوحدة
         stripped = app.replace("RunHistory.rollbackFrame", "")
@@ -439,7 +448,7 @@ class TestConsumeOnlyAndWiring:
         assert -1 not in pos and pos == sorted(pos)
 
     def test_app_js_glue_wired(self):
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         assert 'case "rollback_result"' in app
         assert "RunHistory.buildEntries(" in app
         assert "RunHistory.conflictReportHTML(" in app

@@ -38,6 +38,15 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "static" / "js" / "settings_panel.js"
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
 INDEX_HTML = ROOT / "static" / "index.html"
 
 node = shutil.which("node")
@@ -165,7 +174,7 @@ console.log(JSON.stringify([html.includes("لا يُعرض")]));
 
 class TestWiring:
     def test_app_js_consumes_module_read_only(self):
-        src = APP_JS.read_text(encoding="utf-8")
+        src = _app_bundle()
         assert 'fetch("/api/settings")' in src
         assert "SettingsPanel.renderPanelHTML" in src
         assert "toggleSettingsPanel" in src

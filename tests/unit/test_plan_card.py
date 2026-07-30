@@ -40,6 +40,15 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "static" / "js" / "plan_card.js"
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
 INDEX_HTML = ROOT / "static" / "index.html"
 
 node = shutil.which("node")
@@ -141,7 +150,7 @@ console.log('OK');
 
 class TestWiring:
     def test_app_js_consumes_plan_card(self) -> None:
-        src = APP_JS.read_text(encoding="utf-8")
+        src = _app_bundle()
         assert "PlanCard.createState(" in src, "showPlanCard ينشئ الحالة"
         assert "PlanCard.setEnabled(" in src, "مستمع checkbox يضبط العلم"
         assert "PlanCard.enabledActions(" in src, "executePlan يرسل subset"
