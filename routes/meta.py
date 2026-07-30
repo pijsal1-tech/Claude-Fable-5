@@ -260,7 +260,8 @@ def api_trust():
 
     if request.method == "GET":
         rec = read_trust_record(fm_.root)
-        trust = {"trusted": bool(rec is not None and rec["trusted"] is True)}
+        trust: dict[str, object] = {
+            "trusted": bool(rec is not None and rec["trusted"] is True)}
         if rec is not None:
             trust["decided_at"] = rec.get("decided_at")
             trust["decided_by"] = rec.get("decided_by")
