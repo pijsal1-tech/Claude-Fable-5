@@ -160,3 +160,82 @@ def api_diagnostics():
             "metrics_summary": metrics_summary,
         },
     })
+
+
+@bp.route("/api/settings")
+def api_settings():
+    """TSK-722a (P1-4 / D-9): الإعدادات الفعالة — قراءة فقط، **مُطهَّرة**.
+
+    glass box (سابقة TSK-621): يعرض قيم config الحية كما تُطبَّق فعلًا.
+    **عقد التطهير — whitelist أقسام صريح** (لا blacklist): قسم
+    ``providers`` مُستبعد كليًا (قد يحمل api_key/base_url)؛
+    ``project_root`` لا يُعرض كمسار — راية ``project_root_set`` فقط
+    (نفس عقد لا-مسارات-مطلقة في TSK-721)؛ ``retention.pinned`` تُعرض
+    كعدد فقط (قد تحوي مسارات). ``force_command_approval`` قيمة **فعالة**
+    من ``_srv._force_command_approval()`` (افتراضي fail-closed True عند
+    الغياب — D-1/TSK-617) مع راية ``explicit_in_config``.
+    **لا مسار كتابة** — GET بلا آثار جانبية؛ التعديل عبر config.yaml
+    وإعادة التشغيل (القارئ مُكاش — موثَّق).
+    """
+    cfg = _srv._load_config() or {}
+
+    # whitelist المفاتيح العلوية البسيطة (قيم عددية/نصية/منطقية)
+    _SIMPLE_KEYS = ("default_provider", "language", "auto_execute",
+                    "backup_before_edit", "max_context_files",
+                    "planner", "backend", "dispatch")
+    settings: dict = {}
+    for key in _SIMPLE_KEYS:
+        settings[key] = cfg.get(key)
+
+    # أقسام مركبة مسموحة — تمرَّر بمفاتيحها الفرعية المعلومة فقط
+    def _section(name: str, allowed: tuple) -> dict | None:
+        sec = cfg.get(name)
+        if not isinstance(sec, dict):
+            return None
+        return {k: sec[k] for k in allowed if k in sec}
+
+    settings["agent"] = _section("agent", (
+        "command_allowlist", "command_timeout_seconds",
+        "command_output_max_chars"))
+    settings["context_budget"] = _section("context_budget", (
+        "model_window", "reserved_output", "safety_margin"))
+    settings["history"] = _section("history", ("payload_last_n",))
+    ctx = cfg.get("context")
+    sem = ctx.get("semantic") if isinstance(ctx, dict) else None
+    if isinstance(sem, dict):
+        settings["context_semantic"] = {
+            k: sem[k] for k in ("enabled", "timeout_seconds", "top_k")
+            if k in sem}
+    else:
+        settings["context_semantic"] = None
+    settings["session_binding"] = _section("session_binding",
+                                           ("warn_only", "policy"))
+    settings["execution"] = _section("execution", ("stale_ttl_seconds",))
+    settings["routing"] = _section("routing", (
+        "direct_max", "auto_chain_max", "full_chain_max",
+        "min_accounts_auto_chain", "min_accounts_full_chain",
+        "min_accounts_delegate", "version"))
+
+    # retention: pinned قد تحوي مسارات — عدد فقط (عقد لا-مسارات)
+    ret = cfg.get("retention")
+    if isinstance(ret, dict):
+        pinned = ret.get("pinned")
+        settings["retention"] = {
+            "max_count": ret.get("max_count"),
+            "max_age_days": ret.get("max_age_days"),
+            "dry_run": ret.get("dry_run"),
+            "pinned_count": len(pinned) if isinstance(pinned, list) else 0,
+        }
+    else:
+        settings["retention"] = None
+
+    # مسار الجذر: راية فقط — لا المسار (عقد التطهير)
+    settings["project_root_set"] = bool(cfg.get("project_root"))
+
+    # القيمة الفعالة (fail-closed عند الغياب — D-1/TSK-617)
+    settings["force_command_approval"] = {
+        "effective": _srv._force_command_approval(),
+        "explicit_in_config": "force_command_approval" in cfg,
+    }
+
+    return jsonify({"ok": True, "settings": settings})

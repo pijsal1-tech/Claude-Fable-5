@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P1 (دفعة D-9 تحت تفويض D-8-ج): FI-05 + تشخيص + تدوير سجلات + Settings UI → TSK-718..722؛ DAG: 718→719؛ 720∥721؛ 722 آخرًا؛ المصدر: PROGRESS §Current Position (برنامج D-8-ج) |
-| current-task | **TSK-722a قيد التنفيذ — `/api/settings` قراءة-فقط مُطهَّر** (التفصيل S99 مكتمل: 722a→722b، قراءة-فقط حصريًا، مسار الكتابة مؤجَّل كقرار مالك)؛ المُقفل: 718✅ 719✅ (FI-05 🏁) 720✅ 721✅؛ خط الأساس: **1956P/34S** |
+| current-task | **TSK-722b التالية — لوحة الإعدادات عرض-فقط** (تستهلك /api/settings)؛ المُقفل: 718✅ 719✅ (FI-05 🏁) 720✅ 721✅ 722a✅؛ خط الأساس: **1962P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -500,6 +500,19 @@
   الـ placeholder في DEVELOPMENT_TASKS §BATCH-P1 (كتبه هذا التفصيل؛
   وصل origin عبر Auto-Uploader @ f7830ea أثناء تصفير البيئة — تحقّق
   المحتوى بعد الاستنساخ). هذا القيد يسبق التنفيذ (D-7).
+  **TSK-722a ✅ (نفس الجلسة)**: `GET /api/settings` (routes/meta.py —
+  نمط api_permissions): whitelist أقسام صريح (8 مفاتيح بسيطة + agent/
+  context_budget/history/context.semantic/session_binding/execution/
+  routing بمفاتيح فرعية معلومة فقط — المفتاح غير المعلوم يُسقط)؛
+  استبعاد كلي لقسم providers؛ project_root ⇒ راية project_root_set
+  فقط؛ retention.pinned ⇒ pinned_count عدد فقط؛ force_command_approval
+  = {effective من _force_command_approval() fail-closed, explicit_in_config}.
+  توسيع سطح REST المجمَّد 32→33 موثَّق (test_rest_blueprints — توسيع
+  مقصود ثالث بعد 621/721). 6 اختبارات جديدة
+  (test_settings_endpoint.py): whitelist حي + عدم-تسريب (config مزروع
+  بـ sk-/ghp_ في providers ⇒ صفر أنماط في الحصيلة) + لا-مسارات +
+  راية fail-closed عند config فارغ + GET-فقط (POST/PUT ⇒ 405).
+  **البوابة**: check.sh ALL GREEN rc=0 — **1962P/34S** (1956+6).
 - **2026-07-30 — Session 98 — تخطيط BATCH-P1 (D-9) — TSK-718..722 موثقة؛ TSK-718 جاهزة للتنفيذ**:
   استئناف بعد تصفير بيئة (طقس V3 §3.1: clone @ 78dac87، تطهير remote،
   الهوية، v1.0.0-rc.1 حاضرة). **بروتوكول المالك (4 خطوات)**: (1) استئناف ✅؛

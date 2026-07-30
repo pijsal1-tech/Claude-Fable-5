@@ -1242,3 +1242,15 @@ Settings UI) — تخطيط TSK قبل التنفيذ كالعادة.
 - **Changed**: توسيع سطح REST المجمَّد 31→32 (توثيق القرار داخل
   test_rest_blueprints — سابقة TSK-621).
 - **Verified**: check.sh ALL GREEN rc=0 — **1956P/34S** (1950+6 بالضبط).
+
+## [TSK-722a/D-9] — 2026-07-30
+- **`GET /api/settings` — الإعدادات الفعالة قراءة-فقط مُطهَّرة** (glass
+  box، سابقة TSK-621): whitelist أقسام صريح — قسم providers مُستبعد
+  كليًا، project_root راية فقط، retention.pinned عدد فقط،
+  force_command_approval قيمة فعالة fail-closed (D-1/TSK-617) + راية
+  explicit_in_config. لا مسار كتابة (POST ⇒ 405)؛ التعديل عبر
+  config.yaml + إعادة تشغيل (موثَّق).
+- توسيع سطح REST المجمَّد 32→33 (توسيع مقصود ثالث — موثَّق في
+  test_rest_blueprints).
+- 6 اختبارات (test_settings_endpoint.py) — عقد عدم-التسريب بنمط
+  الـ config المزروع (TSK-721). البوابة: **1962P/34S** ALL GREEN rc=0.

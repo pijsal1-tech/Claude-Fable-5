@@ -9,6 +9,9 @@
    (TSK-721/D-9: +/api/diagnostics GET — توسيع عقد مقصود ثانٍ:
    نقطة تشخيص قراءة-فقط مُطهَّرة — معرَّفة في DEVELOPMENT_TASKS
    §BATCH-P1 ومفوَّضة بقرار D-9.)
+   (TSK-722a/D-9: +/api/settings GET — توسيع عقد مقصود ثالث:
+   إعدادات فعالة قراءة-فقط مُطهَّرة [whitelist أقسام؛ لا providers
+   ولا مسارات] — معرَّفة في DEVELOPMENT_TASKS §BATCH-P1/TSK-722a.)
 2. smoke: كل endpoint يستجيب (لا 404/405) على app غير مهيأ.
 3. الحقن الحي (_srv): monkeypatch على فضاء server ينعكس في الـ
    blueprint فورًا (نفس دلالة globals الأصلية — late binding).
@@ -55,6 +58,7 @@ FROZEN_RULES = [
     ("/api/session/<session_id>", ("GET",)),
     ("/api/session/new", ("POST",)),
     ("/api/sessions", ("GET",)),
+    ("/api/settings", ("GET",)),  # TSK-722a/D-9 — قراءة فقط مُطهَّرة
     ("/api/switch-model", ("POST",)),
     ("/api/switch-project", ("POST",)),
     ("/static/<path:filename>", ("GET",)),
@@ -71,7 +75,7 @@ def _current_rules():
 
 class TestRouteSurfaceFrozen:
     def test_rule_count_constant(self):
-        assert len(_current_rules()) == 32   # 31 + /api/diagnostics (TSK-721)
+        assert len(_current_rules()) == 33   # 31 + diagnostics(721) + settings(722a)
 
     def test_rules_bit_identical(self):
         assert _current_rules() == sorted(FROZEN_RULES)
