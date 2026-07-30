@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **TSK-726b قيد التنفيذ — نقل مجال المحرر/الملفات/التبويبات + التيرمنال (~700 سطر)** (726a مُقفلة 🏁)؛ خط الأساس: **2050P/34S** |
+| current-task | **TSK-726c قيد التنفيذ — نقل الجلسات/النماذج/المرفقات/drag-drop** (726a+726b مُقفلتان 🏁)؛ خط الأساس: **2050P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -574,6 +574,20 @@
   الجوهرية بلا تغيير (تغيّر مصدر القراءة فقط). **البوابة: 2050P/34S
   ALL GREEN rc=0** (من 2043). 726a 🏁 — التالي 726b (المحرر/الملفات/
   التيرمنال).
+- **2026-07-30 — Session 103 — إقفال TSK-726b 🏁 — نقل مجال المحرر/الملفات/التيرمنال**:
+  استئناف بعد تصفير بيئة (الثاني عشر؛ §3.1 — النقل ذاته كان على origin
+  @ b7e7234؛ ترحيل اختبارات wiring الثلاثة الإضافية أُعيد محليًا).
+  التسليم: (1) نقل حرفي لمقطع File Explorer→المحرر→التبويبات→diff
+  panel→التيرمنال (loadFiles/openFile/saveFile/renderDiffPanel/
+  initTerminal/runCommand/diagnoseTerminal — 684 سطرًا) ⇒
+  `static/js/app/20_editor_files_terminal.js`؛ app.js 3815→3131.
+  (2) الربط قبل 90/91 بالترتيب الرقمي بعد app.js (الاستدعاءات
+  التمهيدية كلها داخل DOMContentLoaded — آمنة). (3) حارس
+  test_app_split اجتاز بلا تعديل. (4) ترحيل test_code_highlight/
+  test_diff_panel/test_icon_consumption إلى `_app_bundle()` —
+  التأكيدات الجوهرية بلا تغيير. **البوابة: 2050P/34S ALL GREEN rc=0**
+  (ثابتة — الترحيل لا يضيف اختبارات). 726b 🏁 — التالي 726c
+  (الجلسات/النماذج/المرفقات/drag-drop).
 - **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
   استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،
   الهوية — إقفال TSK-723 مؤكد على origin). **جرد التصميم (يسبق
