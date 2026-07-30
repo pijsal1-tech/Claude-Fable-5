@@ -2672,9 +2672,63 @@ Settings UI. **التقسيم صغيرًا** إجراء دائم (D-7). خط ا�
 - **Accept (آلي)**: اختبار عقد (المفاتيح موجودة + فحص عدم-تسريب: لا نمط
   sk-/ghp_/api_key في الحصيلة)؛ الانحدار كامل أخضر.
 
-## TSK-722 — P1-4: Settings UI [متوسطة — تُفصَّل بعد إغلاق 718-721]
-- **Placeholder مقصود**: تفصيلها يتطلب جرد إعدادات config القائمة أولًا؛
-  تُكتب تعريفًا كاملًا في جلسة لاحقة قبل تنفيذها (D-7).
+## TSK-722 — P1-4: Settings UI [مُفصَّلة — S99/D-9] (تنقسم إلى 722a + 722b)
+
+**جرد التفصيل (S99)**: config.yaml = 221 سطرًا، يُقرأ عبر `_load_config()`
+(server.py:170 — مُكاش، تسامحي، فشل ⇒ {})؛ زر «الإعدادات» في activity bar
+(index.html:271) يستدعي `toggleThemePicker()` فقط — لا لوحة إعدادات فعلية.
+السابقة المعتمدة: TSK-621 (لوحة الصلاحيات glass box قراءة-فقط).
+
+**قرار النطاق (D-7)**: قراءة-فقط حصريًا. **أي مسار كتابة config عبر
+HTTP مؤجَّل صراحةً كقرار مالكٍ منفصل** — لأسباب أمنية (وضعية localhost؛
+مفاتيح fail-closed مثل `force_command_approval` لا يجوز أن تُقلب من
+متصفح؛ config مُكاش ⇒ الكتابة تتطلب عقد invalidation جديد).
+
+### TSK-722a — endpoint `/api/settings` قراءة-فقط مُطهَّر [صغيرة]
+- **ماذا**: `GET /api/settings` في routes/meta.py (نمط api_permissions
+  حرفيًا) يعيد **القيم الفعالة** (effective، لا الخام فقط) من config الحي.
+- **عقد التطهير — whitelist أقسام صريح** (لا blacklist): تُعرض فقط:
+  `default_provider, language, auto_execute, backup_before_edit,
+  max_context_files, agent{command_allowlist,command_timeout_seconds,
+  command_output_max_chars}, context_budget, history, context.semantic,
+  session_binding, retention, planner, backend, dispatch,
+  execution, routing`. **يُستبعد كليًا**: قسم `providers` (قد يحمل
+  api_key/base_url مستقبلًا) و`project_root` (مسار مطلق — يُعرض فقط
+  كراية `project_root_set: bool`). لا مسارات مطلقة في الاستجابة
+  (نفس عقد TSK-721).
+- **القيم الفعالة**: `force_command_approval` تُقرأ من
+  `_srv._force_command_approval()` (تعكس الافتراضي fail-closed عند
+  الغياب — D-1/TSK-617) مع راية `explicit_in_config: bool`.
+- **قراءة-فقط**: GET بلا آثار جانبية؛ لا POST/PUT — توسيع سطح REST
+  المجمَّد 32→33 موثَّق (سابقة TSK-621/721) في test_rest_blueprints.
+- **قبول آلي**: tests/unit/test_settings_endpoint.py — (1) المفاتيح
+  المسموحة تظهر بقيم config الحية؛ (2) **عدم-تسريب**: config مزروع
+  بقسم providers يحوي `api_key: "sk-LEAKED"` ⇒ لا `sk-`/`api_key`/
+  `providers` في الاستجابة كاملة؛ (3) لا مسارات مطلقة (project_root
+  مضبوط ⇒ فقط `project_root_set: true`)؛ (4) config فارغ/معطوب ⇒
+  استجابة سليمة بالقيم الفعالة الافتراضية (force_command_approval
+  = true fail-closed)؛ (5) GET فقط (POST ⇒ 405).
+
+### TSK-722b — لوحة الإعدادات (عرض-فقط) [صغيرة]
+- **ماذا**: `static/js/settings_panel.js` (UMD-lite نقي — نمط
+  permissions_panel.js حرفيًا: `renderPanelHTML` + escapeHtml، صفر DOM
+  glue داخل الوحدة)؛ زر «الإعدادات» في activity bar يفتح اللوحة
+  (toggleSettingsPanel في app.js: fetch `/api/settings` + render)؛
+  زر الثيم الحالي يبقى كما هو (سلوك toggleThemePicker لا يُمس —
+  يُضاف زر لوحة مستقل أو تُعاد تسمية الحالي بوضوح).
+- **عرض-فقط**: لا أزرار تعديل/حفظ ولا أي طلب كتابة؛ الغائب يُعرض
+  UNKNOWN صريحًا (لا اختراع)؛ ملاحظة ظاهرة في اللوحة: «التعديل عبر
+  config.yaml + إعادة تشغيل».
+- **قبول آلي**: tests/unit/test_settings_panel.py (نمط
+  test_permissions_panel node): (1) renderPanelHTML يعرض الأقسام
+  بالقيم الواردة حرفيًا + تهريب HTML؛ (2) حالات الغياب ⇒ UNKNOWN؛
+  (3) wiring: app.js يستهلك SettingsPanel (fetch + render، بلا كتابة)
+  وindex.html يحمّل settings_panel.js قبل app.js + الزر موجود.
+- **سيناريو يدوي موثَّق** (بند Documentation): فتح اللوحة ⇒ قيم
+  config.yaml الحية تظهر؛ تعديل config + إعادة تشغيل ⇒ القيم الجديدة؛
+  DevTools: GET واحد ولا POST.
+
+**ترتيب**: 722a → 722b (اللوحة تستهلك الـ endpoint).
 
 ## ترتيب التنفيذ (DAG بلا دورات)
 718 → 719؛ 720 ∥ 721 (مستقلتان)؛ 722 آخرًا بعد تفصيلها.
