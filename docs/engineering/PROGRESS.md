@@ -11,9 +11,9 @@
 | Field | Value |
 |---|---|
 | last-updated | 2026-07-30 (Session 90 — **BATCH-FI01 (D-7) مُخطَّطة 📋 PLANNED — TSK-707..711 معرّفة في DEVELOPMENT_TASKS §BATCH-FI01؛ بانتظار كلمة «ابدأ» من المالك — صفر كود مُعدَّل**) |
-| stage | **V3-STAGE 3 EXECUTION — BATCH-FI01 (FI-01) — PLANNING-APPROVED-PENDING** (الخطة مكتوبة، التنفيذ معلّق على موافقة صريحة)؛ سوابق: BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
+| stage | **V3-STAGE 3 EXECUTION — BATCH-FI01 (FI-01) — 1/5** (707 ✅؛ التالي 708)؛ سوابق: BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-FI01 (دفعة D-7 تحت V3): FI-01 توحيد حالة REST/WS → TSK-707..711 (5 تاسكات **صغيرة** بشرط المالك؛ DAG: 707→708→(709∥710)→711) |
-| current-task | **TSK-707 — PLANNED (لم يبدأ)** — التنفيذ مشروط بكلمة «ابدأ» الصريحة (إجراء المالك الثابت: خطة موثّقة → موافقة → تنفيذ) |
+| current-task | **TSK-708 — NEXT (توصيل server.py بالمخزن)** — تُنفَّذ في الجلسة القادمة (تاسك/جلسة حسب شرط المالك) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
@@ -479,6 +479,23 @@ CLOSED-AWAITING-OWNER-DIRECTION بقرار D-5 (البرنامج السابق ي
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 91 — «ابدأ» صدرت ⇒ D-7 نافذة؛ TSK-707 ✅ مُغلقة (FI-01/1)**:
+  - **الحوكمة**: قيد D-7 أُلحق بـ DECISION_LOG (قرار النطاق الملزم +
+    الإجراء الدائم الجديد) قبل أول سطر كود — حسب تعليمات المالك.
+  - **التغيير**: `core/conversation_state.py` جديد (95 سطرًا) —
+    `ConversationState`: history + binding_banner خلف RLock واحد؛
+    عمليات مسماة (append/replace_all/clear/snapshot/__len__/
+    set_banner/clear_banner/binding_banner)؛ عزل بالنسخ في الاتجاهين
+    (snapshot يعيد نسخة، replace_all يخزّن نسخة). استيراده الوحيد:
+    providers.base (اتجاه قائم سلفًا — core/chat_dispatch.py:34).
+    **صفر توصيل** — server.py وroutes/ لم يُمسّا (التوصيل TSK-708..710).
+  - **القبول**: 13 اختبارًا جديدًا (tests/unit/test_conversation_state.py:
+    العمليات 4 + عزل النسخ 3 + البانر 4 + أمان الخيوط 2 بكتابات
+    متزامنة 4×50 بلا فقد) — 13/13 PASS؛ mypy نظيف؛ حارس الدورات:
+    **95 وحدة/246 حافة/0 دورات** (الوحدة الجديدة دخلت الرسم نظيفة).
+  - **الانحدار**: **1904 passed, 34 skipped** (أساس 1891 + 13 الجديدة
+    بالضبط — صفر انحدار، مع deselect الـ flaky المعتاد).
+  - **التالي**: TSK-708 (توصيل server.py) — جلسة قادمة.
 - **2026-07-30 — Session 90 — BATCH-FI01 (D-7): تخطيط FI-01 📋 PLANNED — صفر تنفيذ**:
   - **قرار المالك**: البدء بـ FI-01 (توحيد حالة REST/WS) + **إجراء ثابت
     جديد ملزم لكل مهمة قادمة**: (1) خطة مكتوبة أولًا؛ (2) TSK موثقة قبل
