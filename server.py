@@ -84,6 +84,7 @@ from core.execution import RunBusyError
 from core.execution import graceful_shutdown  # TSK-705 (FI-03)
 from core.structured_log import swallowed as _slog_swallowed  # TSK-706 (D-6)
 from core.conversation_state import ConversationState  # TSK-708 (FI-01/2 — D-7)
+from core.version import __version__ as APP_VERSION  # TSK-716 (P0-4 — D-8)
 from core.session_context import SessionContext
 from core.events import (
     ApprovalRequested,
@@ -1873,6 +1874,9 @@ def main():
     global run_metrics_store
 
     arg_parser = argparse.ArgumentParser(description="WebDev AI Editor — Web Server")
+    # TSK-716 (P0-4): راية قياسية — تطبع الإصدار وتخرج (سلوك argparse المدمج).
+    arg_parser.add_argument("--version", action="version",
+                            version=f"WebDev AI Editor {APP_VERSION}")
     arg_parser.add_argument("--project", "-p", type=str, default=".",
                             help="مسار المشروع")
     arg_parser.add_argument("--port", type=int, default=5000,
@@ -2148,7 +2152,7 @@ def main():
 
     print(f"""
 ═══════════════════════════════════════════════════════
-  🖥️  WebDev AI Editor — Web Interface
+  🖥️  WebDev AI Editor — Web Interface (v{APP_VERSION})
   📂 المشروع: {project_path}
   🌐 الرابط: http://{args.host}:{args.port}
   🤖 المزود: {prov_id} / {model_name}

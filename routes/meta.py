@@ -24,6 +24,9 @@ def api_info():
     scan = _srv.fm.scan_project()
     return jsonify({
         "ok": True,
+        # TSK-716 (P0-4/D-8): رقم الإصدار القانوني — إضافة مفتاح فقط
+        # (core/version.py المصدر الوحيد؛ صفر تغيير في المفاتيح القائمة).
+        "version": _srv.APP_VERSION,
         "project": {
             "root": str(_srv.fm.root),
             "name": _srv.fm.root.name,
