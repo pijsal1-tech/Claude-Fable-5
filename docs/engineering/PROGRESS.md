@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 97 — **BATCH-P0 (D-8) مُقفلة 🏁 6/6 — v1.0.0-rc.1 موسومة**؛ قرارات مالك D-8: (أ) حذف engineering_constitution مؤجَّل لآخر المشروع→EOP-1 (ب) Windows أولًا (ج) تنفيذ P0→P3 حتى النهاية باستئناف موثق) |
-| stage | **V3-STAGE 4 CLOSED-AWAITING-NEXT-BATCH — BATCH-P0 🏁 6/6 (712..717 ✅) — v1.0.0-rc.1**؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
-| current-phase | BATCH-P0 (دفعة D-8 تحت V3): بوابة الإنتاج → TSK-712..717 (6 تاسكات **صغيرة**؛ DAG: 712→713→714→(715∥716)→717)؛ المصدر: Evolution Gap Report §10 |
-| current-task | **لا مهمة — BATCH-P0 مُقفلة 🏁 (712✅ 713✅ 714✅ 715✅ 716✅ 717✅)**؛ التالي بالتفويض القائم (D-8-ج): تخطيط دفعة P1؛ خط الأساس الجديد: **1914P/34S** |
+| last-updated | 2026-07-30 (Session 98 — **تخطيط BATCH-P1 مكتمل (D-9): TSK-718..722 موثقة؛ المهمة الأولى TSK-718 جاهزة — بدء التنفيذ بأمر بروتوكول المالك**) |
+| stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
+| current-phase | BATCH-P1 (دفعة D-9 تحت تفويض D-8-ج): FI-05 + تشخيص + تدوير سجلات + Settings UI → TSK-718..722؛ DAG: 718→719؛ 720∥721؛ 722 آخرًا؛ المصدر: PROGRESS §Current Position (برنامج D-8-ج) |
+| current-task | **TSK-718 — FI-05/1: وحدة snapshot الفهرس (core/index_snapshot.py + اختبارات، بلا توصيل)** — جاهزية متحققة (TSK-501 ✅ S22)؛ خط الأساس: **1914P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -38,7 +38,7 @@
 («ابدأ الآن من P0 حتى النهاية»)؛ التعريفات: DEVELOPMENT_TASKS §BATCH-P0
 
 ### Current Position
-- Stage: V3 — BATCH-P0 مُقفلة 🏁 (712..717 ✅)؛ الموضع: تخطيط دفعة P1 (FI-05 + لوحة تشخيص + تدوير سجلات + Settings UI)
+- Stage: V3 — BATCH-P1 (D-9) قيد التنفيذ؛ الموضع: TSK-718 (وحدة snapshot الفهرس)؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
 - خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
 - برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
 - بند ختامي مُرحَّل: EOP-1 (حذف engineering_constitution/ — آخر المشروع، قرار D-8-أ)
@@ -482,6 +482,27 @@
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 98 — تخطيط BATCH-P1 (D-9) — TSK-718..722 موثقة؛ TSK-718 جاهزة للتنفيذ**:
+  استئناف بعد تصفير بيئة (طقس V3 §3.1: clone @ 78dac87، تطهير remote،
+  الهوية، v1.0.0-rc.1 حاضرة). **بروتوكول المالك (4 خطوات)**: (1) استئناف ✅؛
+  (2) تحقق إغلاق P0 ✅ — رأس PROGRESS 6/6 🏁 + كل artifacts الدفعة الخمسة على
+  القرص + DECISION_LOG/DEVELOPMENT_TASKS/CHANGELOG متسقة ⇒ المتابعة مأذونة؛
+  (3) **تخطيط P1 ✅ (قيد D-9)**: مراجعة الأولويات (FI-05 [MID] / تشخيص [SHORT]
+  / تدوير سجلات [SHORT] / Settings UI [MID])؛ قراءات تصميمية:
+  context/index.py (rebuild :82 / notify_write :124 / سياق ProjectHandle.index)
+  + context/search.py (كاش mtime — لا حالة تحتاج حفظًا هناك) + مواقع البناء
+  server.py:661/681/745 + نمط NF-19 (project_memory.py:356) + بوابة SafeReader
+  (check.sh:24-27 ⇒ الوحدة الجديدة تسكن core/ لا context/)؛
+  §BATCH-P1 أُلحق بـ DEVELOPMENT_TASKS: TSK-718 (وحدة snapshot ورقة) →
+  TSK-719 (التوصيل: تحميل عند الفتح + حفظ بعد rebuild، مسار
+  `<root>/.ai_runs/project_index.json` ضمن IGNORED_DIRS) ∥ TSK-720 (تدوير
+  metrics/runs.jsonl — النمو غير المحدود @ server.py:2128) ∥ TSK-721
+  (/api/diagnostics + support bundle مُطهَّر) ثم TSK-722 (Settings UI —
+  placeholder يُفصَّل بعد 718-721)؛
+  (4) **جاهزية TSK-718 متحققة**: Prerequisite FI-05 = TSK-501 ✅ Completed
+  S22 (PROGRESS_ARCHIVE_1.md:868)؛ معايير قبول آلية مكتوبة؛ صفر deps معلقة
+  ⇒ بدء التنفيذ (أمر البروتوكول: «إذا كانت جميع الشروط مستوفاة، ابدأ
+  بتنفيذ المهمة الأولى»).
 - **2026-07-30 — Session 97 — TSK-715 ✅ + TSK-716 ✅ + TSK-717 ✅ ⇒ BATCH-P0 مُقفلة 🏁 6/6 — v1.0.0-rc.1**:
   استئنافان بعد تصفيري بيئة (S96→S97؛ كل عمل سابق نجا على origin —
   آلية D-8-ج تعمل كما صُممت). **TSK-716 ✅** (كان قد اكتمل كودًا قبل
