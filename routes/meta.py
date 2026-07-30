@@ -5,7 +5,7 @@
 نفس دلالة globals الأصلية (late binding، نمط ADR-002).
 """
 from typing import Any
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 
 bp = Blueprint("meta", __name__)
 _srv: Any = None  # كائن وحدة server — يُحقن عند register() (ADR-003)
@@ -239,3 +239,39 @@ def api_settings():
     }
 
     return jsonify({"ok": True, "settings": settings})
+
+
+@bp.route("/api/trust", methods=["GET", "POST"])
+def api_trust():
+    """TSK-725b (Workspace Trust): قراءة/قرار ثقة المجلد الحالي.
+
+    GET ⇒ {ok, trust: {trusted, decided_at?, decided_by?}} — **بلا
+    مسارات** (عقد التطهير — TSK-621/721/722a). غياب/عطب السجل ⇒
+    trusted=False (fail-closed — core/workspace_trust).
+    POST {trusted: bool} ⇒ تخزين **قرار مستخدم صريح** ذريًا (NF-19)
+    — كتابة قرار لا كتابة config (مسموحة ضمن عقد 722a). توسيع رابع
+    موثَّق للسطح المجمّد: 33→34 (test_rest_blueprints).
+    """
+    from core.workspace_trust import read_trust_record, set_trust
+
+    fm_ = _srv.fm
+    if fm_ is None:
+        return jsonify({"ok": False, "error": "لا مشروع مفتوح"}), 503
+
+    if request.method == "GET":
+        rec = read_trust_record(fm_.root)
+        trust = {"trusted": bool(rec is not None and rec["trusted"] is True)}
+        if rec is not None:
+            trust["decided_at"] = rec.get("decided_at")
+            trust["decided_by"] = rec.get("decided_by")
+        return jsonify({"ok": True, "trust": trust})
+
+    # POST — قرار المستخدم الصريح
+    data = request.get_json(silent=True) or {}
+    trusted = data.get("trusted")
+    if not isinstance(trusted, bool):
+        return jsonify({"ok": False,
+                        "error": "trusted يجب أن تكون bool"}), 400
+    if not set_trust(fm_.root, trusted, decided_by="user"):
+        return jsonify({"ok": False, "error": "فشل تخزين قرار الثقة"}), 500
+    return jsonify({"ok": True, "trust": {"trusted": trusted}})

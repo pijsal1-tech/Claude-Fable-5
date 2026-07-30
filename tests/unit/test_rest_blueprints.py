@@ -60,6 +60,7 @@ FROZEN_RULES = [
     ("/api/sessions", ("GET",)),
     ("/api/settings", ("GET",)),  # TSK-722a/D-9 — قراءة فقط مُطهَّرة
     ("/api/switch-model", ("POST",)),
+    ("/api/trust", ("GET", "POST")),  # TSK-725b/D-10 — قرار ثقة المستخدم
     ("/api/switch-project", ("POST",)),
     ("/static/<path:filename>", ("GET",)),
     ("/ws", ("GET",)),
@@ -75,7 +76,7 @@ def _current_rules():
 
 class TestRouteSurfaceFrozen:
     def test_rule_count_constant(self):
-        assert len(_current_rules()) == 33   # 31 + diagnostics(721) + settings(722a)
+        assert len(_current_rules()) == 34   # 31 + diagnostics(721) + settings(722a) + trust(725b)
 
     def test_rules_bit_identical(self):
         assert _current_rules() == sorted(FROZEN_RULES)

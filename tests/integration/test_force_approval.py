@@ -79,9 +79,21 @@ class TestConfigFlag:
         assert server._force_command_approval() is True
 
     def test_flag_off(self, monkeypatch):
+        # TSK-725b: false الصريحة تُحترم **في مساحة موثوقة فقط** —
+        # نثبّت الثقة هنا لاختبار عقد config التاريخي بمعزل.
+        monkeypatch.setattr(server, "_workspace_trusted", lambda: True)
         monkeypatch.setattr(server, "_load_config",
                             lambda: {"force_command_approval": False})
         assert server._force_command_approval() is False
+
+    def test_untrusted_workspace_forces_true_despite_explicit_false(
+            self, monkeypatch):
+        """TSK-725b (Workspace Trust): مساحة غير موثوقة ⇒ إلزام
+        الموافقة حتى مع false صريحة في config (fail-closed يعلو)."""
+        monkeypatch.setattr(server, "_workspace_trusted", lambda: False)
+        monkeypatch.setattr(server, "_load_config",
+                            lambda: {"force_command_approval": False})
+        assert server._force_command_approval() is True
 
     def test_flag_absent_defaults_true(self, monkeypatch):
         """TSK-617 (قرار D-1): config بلا المفتاح ⇒ **True** —
@@ -136,7 +148,9 @@ class TestApiRunEndToEnd:
         assert data["ok"] is False
 
     def test_explicit_false_api_run_not_gated(self, spy_runner, monkeypatch):
-        """false صريح يُحترم — السلوك التاريخي (توافق config المشحون)."""
+        """false صريح يُحترم — السلوك التاريخي (توافق config المشحون).
+        TSK-725b: يتطلب الآن مساحة موثوقة (fail-closed يعلو دونها)."""
+        monkeypatch.setattr(server, "_workspace_trusted", lambda: True)
         monkeypatch.setattr(server, "_load_config",
                             lambda: {"force_command_approval": False})
         client = server.app.test_client()

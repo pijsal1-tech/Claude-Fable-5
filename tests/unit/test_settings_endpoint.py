@@ -109,6 +109,9 @@ def test_no_absolute_paths_project_root_flag_only(monkeypatch):
 
 def test_force_approval_effective_and_explicit_flag(monkeypatch):
     # صريح false في config ⇒ effective=False + explicit=True
+    # TSK-725b: false الفعالة تتطلب مساحة موثوقة — نثبّت الثقة هنا.
+    monkeypatch.setattr(server, "_workspace_trusted", lambda: True,
+                        raising=False)
     data = _get(monkeypatch, _LEAKY_CFG)
     fca = data["settings"]["force_command_approval"]
     assert fca == {"effective": False, "explicit_in_config": True}
