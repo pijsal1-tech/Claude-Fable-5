@@ -28,6 +28,16 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    """TSK-726 (FI-07): «حزمة app» = app.js + مقاطع app/NN بالترتيب —
+    المكافئ الحرفي لتسلسل app.js قبل التقسيم (التأكيدات كما هي)."""
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
 MODULE = ROOT / "static" / "js" / "file_icons.js"
 SPRITE = ROOT / "static" / "icons" / "sprite.svg"
 INDEX_HTML = ROOT / "static" / "index.html"
@@ -63,7 +73,7 @@ class TestSingleSourceMapping:
     def test_old_duplicate_get_file_icon_function_removed(self) -> None:
         # الدالة القديمة كانت تعرّف ext→emoji محليًا في app.js — يجب أن تُحذف
         # تمامًا (الاسم القديم getFileIcon(ext) لم يعد موجودًا في app.js).
-        text = APP_JS.read_text(encoding="utf-8")
+        text = _app_bundle()
         assert "function getFileIcon(" not in text
         # جسم الـ mapping القديم بالذات (امتداد → إيموجي) غير موجود —
         # نفحص التوقيعات الحرفية الفريدة لجداول الإيموجي القديمة (بعضها
@@ -77,7 +87,7 @@ class TestSingleSourceMapping:
             assert old_literal not in text, f"توقيع mapping قديم باقٍ: {old_literal}"
 
     def test_app_js_consumes_file_icons_module(self) -> None:
-        text = APP_JS.read_text(encoding="utf-8")
+        text = _app_bundle()
         assert "function fileIconHTML(" in text
         assert "FileIcons.getFileIcon(" in text
         # نقاط الاستهلاك الثلاث المطلوبة في T-063.
@@ -98,7 +108,7 @@ class TestSingleSourceMapping:
         # + شارات نصية قصيرة لأدوات بلا امتداد ملف) — ليس من tree/tabs/
         # mentions/diff-panel/run-history المذكورة في نطاق T-063. موجود
         # ومُبقى دون تغيير، ونؤكد هنا فقط أنه لم يُحذف بالخطأ.
-        text = APP_JS.read_text(encoding="utf-8")
+        text = _app_bundle()
         assert "function getFileBadgeHTML(" in text
 
 
@@ -109,7 +119,7 @@ class TestFixtureTreeSnapshot:
 
     @staticmethod
     def _extract_file_icon_html_fn() -> str:
-        text = APP_JS.read_text(encoding="utf-8")
+        text = _app_bundle()
         match = re.search(
             r"function fileIconHTML\(path\) \{.*?\n\}\n", text, re.S
         )

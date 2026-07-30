@@ -35,6 +35,16 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "static" / "js" / "diff_panel.js"
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    """TSK-726 (FI-07): «حزمة app» = app.js + مقاطع app/NN بالترتيب —
+    المكافئ الحرفي لتسلسل app.js قبل التقسيم (التأكيدات كما هي)."""
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
 INDEX_HTML = ROOT / "static" / "index.html"
 STYLE_CSS = ROOT / "static" / "style.css"
 
@@ -346,7 +356,7 @@ class TestSchemaAndWiring:
                                                "payload", "summary"}
 
     def test_app_js_wires_request_and_verdict(self) -> None:
-        text = APP_JS.read_text(encoding="utf-8")
+        text = _app_bundle()
         assert 'case "chain_approval_request"' in text
         assert 'case "chain_approval_verdict"' in text
         assert "DiffPanel.decisionFrame(" in text

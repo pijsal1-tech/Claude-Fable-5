@@ -35,6 +35,16 @@ MODULE = ROOT / "static" / "js" / "code_highlight.js"
 VENDOR = ROOT / "static" / "vendor" / "highlight.min.js"
 VENDOR_DOCKER = ROOT / "static" / "vendor" / "hljs-dockerfile.min.js"
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    """TSK-726 (FI-07): «حزمة app» = app.js + مقاطع app/NN بالترتيب —
+    المكافئ الحرفي لتسلسل app.js قبل التقسيم (التأكيدات كما هي)."""
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
 INDEX_HTML = ROOT / "static" / "index.html"
 STYLE_CSS = ROOT / "static" / "style.css"
 
@@ -277,7 +287,7 @@ class TestLargeFilePerf:
 
 class TestConsumptionWiring:
     def test_app_js_uses_single_entry_point_no_direct_hljs(self) -> None:
-        text = APP_JS.read_text(encoding="utf-8")
+        text = _app_bundle()
         assert "CodeHighlight.highlightContainer(" in text
         assert "renderEditorHighlight" in text
         # لا استدعاء مباشر للمحرك خارج الوحدة (نقطة استهلاك وحيدة).
