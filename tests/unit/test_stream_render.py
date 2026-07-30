@@ -38,6 +38,15 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "static" / "js" / "stream_render.js"
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
 INDEX_HTML = ROOT / "static" / "index.html"
 
 node = shutil.which("node")
@@ -180,7 +189,7 @@ console.log(N, renders, parses);
 
 class TestWiring:
     def test_app_js_consumes_stream_render(self) -> None:
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         assert "StreamRender.createThrottler()" in app
         assert "StreamRender.createSectionMemo()" in app
         assert "streamThrottler.request(" in app, "appendStreamChunk مُخنَّق"

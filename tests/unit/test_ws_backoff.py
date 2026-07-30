@@ -29,6 +29,15 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "static" / "js" / "ws_backoff.js"
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
 INDEX_HTML = ROOT / "static" / "index.html"
 
 node = shutil.which("node")
@@ -125,14 +134,14 @@ console.log(WB.safeParseFrame('xxx') === null);
 
 class TestWiring:
     def test_app_js_consumes_ws_backoff(self) -> None:
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         assert "WSBackoff.createBackoff()" in app
         assert "wsReconnectBackoff.reset()" in app, "reset عند onopen"
         assert "wsReconnectBackoff.next()" in app, "next عند onclose"
         assert "WSBackoff.safeParseFrame(" in app, "onmessage محمي"
 
     def test_bare_json_parse_and_fixed_3s_removed(self) -> None:
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         # لا JSON.parse عارٍ على event.data في مسار WS:
         assert "JSON.parse(event.data)" not in app
         # لا إعادة اتصال بثابت 3s:

@@ -102,8 +102,10 @@ class TestGlobalsIntegrity:
             src = f.read_text(encoding="utf-8")
             assert not re.search(r"^const state\b", src, re.M), \
                 f"{f.name} يعيد تعريف state"
-            assert "function sendMessage" not in src or f.name.startswith("9"), \
-                f"{f.name} يحوي قلب الدردشة قبل 726e"
+            # 726e نُفِّذت: قلب الدردشة يعيش حصريًا في 10_chat_ws_stream.js
+            assert "function sendMessage" not in src \
+                or f.name == "10_chat_ws_stream.js", \
+                f"{f.name} يحوي قلب الدردشة خارج مقطعه المخصص"
 
 
 @pytest.mark.skipif(node is None, reason="node غير متوفر")

@@ -36,6 +36,15 @@ from tests.fakes.fake_provider import FakeProvider
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
 STYLE_CSS = ROOT / "static" / "style.css"
 
 WARNING_MARK = "⚠️ [checkpoint]: تغطية snapshot جزئية"
@@ -213,12 +222,12 @@ class TestFrameCarriesFlag:
 class TestUiSurfacesFlag:
 
     def test_app_js_reads_partial_rollback_flag(self):
-        src = APP_JS.read_text(encoding="utf-8")
+        src = _app_bundle()
         assert "data.partial_rollback" in src
         assert "showPartialRollbackWarning" in src
 
     def test_app_js_shows_toast_and_persistent_card_text(self):
-        src = APP_JS.read_text(encoding="utf-8")
+        src = _app_bundle()
         fn = src.split("function showPartialRollbackWarning", 1)[1]
         fn = fn.split("\n}", 1)[0]
         assert "toast(" in fn                      # إظهار مؤقت
