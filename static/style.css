@@ -3841,3 +3841,22 @@ html, body {
     overflow-y: auto;
     padding: 8px 14px 14px;
 }
+
+/* ── TSK-723 (P2-1/D-10): Command Palette — يعيد استخدام أصناف
+   quick-open كاملة؛ هنا غلاف الـ modal وحالة التحديد فقط. */
+#command-palette-modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: color-mix(in srgb, var(--v25-black) 65%, transparent);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 60px;
+}
+
+#command-palette-modal.hidden { display: none !important; }
+
+.cp-item { cursor: pointer; }
+.cp-item kbd { margin-inline-start: auto; }

@@ -3946,3 +3946,100 @@ function updateQuickOpenSelection(items) {
 }
 
 
+// ═══════════════════════════════════════════
+// TSK-723 (P2-1/D-10): Command Palette (Ctrl+Shift+P) — DOM glue فقط.
+// المنطق النقي في command_palette.js؛ التنفيذ عبر lookup صريح في جدول
+// أفعال UI قائمة (لا eval ولا سلاسل كود) — صفر endpoints جديدة.
+// ═══════════════════════════════════════════
+let cpSelectedIndex = 0;
+let cpFiltered = [];
+
+// جدول الأفعال المسموحة: action من السجل ⇒ الدالة القائمة حرفيًا.
+const CP_ACTIONS = {
+    openQuickOpenModal, toggleSettingsPanel, togglePermissionsPanel,
+    downloadDiagnostics, toggleRunHistory, toggleMemoryPanel,
+    toggleSessions, newSession, openFolder, createNewFile,
+    createNewFolder, toggleThemePicker, toggleModelPicker,
+    toggleStatusChip, clearChat,
+};
+
+function openCommandPalette() {
+    const modal = document.getElementById("command-palette-modal");
+    const input = document.getElementById("command-palette-input");
+    if (!modal || !input) return;
+    modal.classList.remove("hidden");
+    input.value = "";
+    cpSelectedIndex = 0;
+    renderCommandPalette("");
+    input.focus();
+}
+
+function closeCommandPalette() {
+    const modal = document.getElementById("command-palette-modal");
+    if (modal) modal.classList.add("hidden");
+}
+
+function closeCommandPaletteOnOutside(e) {
+    if (e.target.id === "command-palette-modal") closeCommandPalette();
+}
+
+function renderCommandPalette(query) {
+    const listEl = document.getElementById("command-palette-results");
+    if (!listEl) return;
+    cpFiltered = CommandPalette.filterCommands(query);
+    if (cpSelectedIndex >= cpFiltered.length) cpSelectedIndex = 0;
+    listEl.innerHTML = CommandPalette.renderListHTML(
+        cpFiltered, cpSelectedIndex);
+}
+
+function executeCommandPaletteItem(cmd) {
+    closeCommandPalette();
+    if (!cmd) return;
+    const fn = CP_ACTIONS[cmd.action];   // lookup صريح — لا eval
+    if (typeof fn === "function") fn();
+}
+
+document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey &&
+        e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        openCommandPalette();
+    }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    const input = document.getElementById("command-palette-input");
+    const listEl = document.getElementById("command-palette-results");
+    if (!input || !listEl) return;
+    input.addEventListener("input", () => {
+        cpSelectedIndex = 0;
+        renderCommandPalette(input.value);
+    });
+    input.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") { closeCommandPalette(); return; }
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (cpFiltered.length) {
+                cpSelectedIndex = (cpSelectedIndex + 1) % cpFiltered.length;
+                renderCommandPalette(input.value);
+            }
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (cpFiltered.length) {
+                cpSelectedIndex = (cpSelectedIndex - 1 + cpFiltered.length)
+                    % cpFiltered.length;
+                renderCommandPalette(input.value);
+            }
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            executeCommandPaletteItem(cpFiltered[cpSelectedIndex]);
+        }
+    });
+    // تفويض النقر: data-cmd-id من الوحدة النقية ⇒ تنفيذ عبر الجدول.
+    listEl.addEventListener("click", (e) => {
+        const item = e.target.closest("[data-cmd-id]");
+        if (!item) return;
+        const cmd = cpFiltered[parseInt(item.dataset.index, 10)];
+        executeCommandPaletteItem(cmd);
+    });
+});

@@ -87,6 +87,9 @@
     <!-- لوحة الإعدادات — TSK-722b (P1-4/D-9): منطق نقي قبل app.js
          لأن toggleSettingsPanel يستهلك SettingsPanel. عرض فقط. -->
     <script src="/static/js/settings_panel.js?v=1"></script>
+    <!-- لوحة الأوامر — TSK-723 (P2-1/D-10): منطق نقي قبل app.js
+         لأن الغراء يستهلك CommandPalette. أفعال UI قائمة فقط. -->
+    <script src="/static/js/command_palette.js?v=1"></script>
 </head>
 
 <body>
@@ -575,6 +578,22 @@
                     <kbd class="quick-open-kbd">Esc</kbd>
                 </div>
                 <div id="quick-open-results" class="quick-open-results-list"></div>
+            </div>
+        </div>
+
+        <!-- ═══════ Command Palette Modal (Ctrl+Shift+P) — TSK-723 ═══════ -->
+        <div id="command-palette-modal" class="hidden" onclick="closeCommandPaletteOnOutside(event)">
+            <div class="quick-open-box">
+                <div class="quick-open-input-wrap">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="4 17 10 11 4 5" />
+                        <line x1="12" y1="19" x2="20" y2="19" />
+                    </svg>
+                    <input type="text" id="command-palette-input"
+                        placeholder="اكتب أمرًا... (Esc للإغلاق، ↑↓ للتنقل، Enter للتنفيذ)" autocomplete="off">
+                    <kbd class="quick-open-kbd">Esc</kbd>
+                </div>
+                <div id="command-palette-results" class="quick-open-results-list"></div>
             </div>
         </div>
 
