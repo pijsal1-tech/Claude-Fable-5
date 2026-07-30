@@ -10,14 +10,14 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-29 (Session 83 — **البرنامج مُقفل 🏁: Stage 3 = 26/26 — D-2←605 ✅، D-1←617 ✅، D-4←622 ✅ (RRR re-vote: GO)، D-3←623 ✅ (أرشفة)؛ M6–M10 كلها مغلقة؛ IR-2 مسجلة؛ مسح الديون = صفر**) |
-| stage | **EXECUTION (Stage 3 — مُقفلة 🏁 26/26)** — والبرنامج السابق v4.1 مُقفل (أرشيف أدناه) |
-| current-phase | Stage 3 EXECUTION مُقفلة — **M6 (5/5) + M7 (5/5) + M8 (4/4) + M9 (8/8) + M10 (4/4) كلها 🏁**؛ IR-1 ✅ + IR-2 ✅ (DECISION_LOG) |
-| current-task | **لا مهمة متبقية** — 26/26 ✅؛ صفر TODO/BLOCKED/دين غير موثَّق (مسح S83)؛ المتبقي حصريًا backlog اختياري موثَّق (FUTURE_IMPROVEMENTS + CP-4 مؤجل بقرار IR-1) — أي دفعة قادمة تبدأ بمراجعته مع المالك (قرار IR-2) |
+| last-updated | 2026-07-30 (Session 84 — **V3 مُتبنّى ✅ + دفعة BATCH-SHORT مفتوحة (قرار مالك D-5): TSK-701..705 مخططة، التنفيذ يبدأ من TSK-701**) |
+| stage | **V3-STAGE 3 EXECUTION — BATCH-SHORT (0/5)** — البرنامج FINAL-GOVERNED السابق مُقفل 🏁 26/26 (أرشيف أدناه) |
+| current-phase | BATCH-SHORT (دفعة D-5 تحت V3): FI-11/12/10/06/03 → TSK-701..705 (DEVELOPMENT_TASKS §BATCH-SHORT) |
+| current-task | **TSK-701 (FI-11: مواصفة إطارات WS — توثيق)** — IN_PROGRESS؛ ثم 702→703→704→705 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
-| governing prompt | **MASTER ENGINEERING CONSTITUTION — FINAL-GOVERNED** (حلّ محل v4.1) |
+| governing prompt | **MASTER ENGINEERING CONSTITUTION V3** (CONSTITUTION_V3.md — تبنّي مالك 2026-07-30، قيد V3-ADOPT؛ حلّ محل FINAL-GOVERNED الموسوم [SUPERSEDED]) |
 
 ### Completion formula
 - Planning stage: completed IN-SCOPE phase-checkpoints ÷ total in-scope checkpoints (= 40).
@@ -34,10 +34,13 @@
 > الدستور الكامل محفوظ في `docs/engineering/prompet_28_7_final.md` (snapshot مرفوع — لا يُعدَّل).
 
 ### Current Stage
-**PLANNING** (Stage 2 — لم تبدأ بعد؛ Stage 1 REVIEW مكتمل 🏁)
+**V3 — STAGE 3 EXECUTION (BATCH-SHORT 0/5)** — انتقال من STAGE 4
+CLOSED-AWAITING-OWNER-DIRECTION بقرار D-5 (البرنامج السابق يبقى مُقفلًا 🏁 كأرشيف)
 
 ### Current Position
-- Stage: EXECUTION (Stage 3 — **مُقفلة 🏁 26/26** — M6–M10 كلها مغلقة؛ IR-1 ✅ + IR-2 ✅)
+- Stage: V3 STAGE 3 — BATCH-SHORT (TSK-701..705؛ الموضع: TSK-701 IN_PROGRESS)
+- خط أساس الدفعة (حي @ 4e87d6b): 1866P/34S/0F (+ search_perf البيئي 1.036s>1.0s على هذا العتاد — flaky موثَّق)
+- [أرشيف الموضع السابق] Stage: EXECUTION (Stage 3 — **مُقفلة 🏁 26/26** — M6–M10 كلها مغلقة؛ IR-1 ✅ + IR-2 ✅)
 - Phase/Task: **البرنامج مُقفل — لا مهمة متبقية** (S83 أغلقت الأربع
   الأخيرة بقرارات المالك: 605←D-2، 617←D-1، 622←D-4، 623←D-3)؛
   مسح الديون النهائي = صفر (تفصيله في قيد الجلسة S83 أدناه)
@@ -979,6 +982,16 @@
   CHANGELOG (commit 686ac90) + تحديث PROGRESS (هذا القيد) + commit
   محلي · الموقع → **M9/TSK-620** (سرد الجلسة — CP-8/UXF-05،
   التبعية 610 ✅)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-30 — Session 84 — تبنّي V3 ✅ + فتح BATCH-SHORT (قرار مالك D-5)**:
+  جلسة كبرى (أولى بعد الإقفال) تحت V3_RESUME_SESSION: اكتشاف حالة مضغوط
+  §7.2 (جرد 20 ملفًا متسقًا؛ G-11 قائم؛ تدوير PROGRESS مستحق لاحقًا) ·
+  تبنّي V3 نافذ (قيد V3-ADOPT + وسم V1 [SUPERSEDED by V3 — 2026-07-30]) ·
+  قرار المالك D-5: «دفعة SHORT كاملة» = FI-03/06/10/11/12 · تخطيط
+  TSK-701..705 في DEVELOPMENT_TASKS §BATCH-SHORT (قبول آلي + DAG خطي) ·
+  خط أساس حي: **1866P/34S/0F** (deselect لـ search_perf البيئي — 1.036s
+  على هذا العتاد، flaky موثَّق) · انقطاع بيئي قبل حفظ PROGRESS —
+  أُعيد بناء هذا القيد في الدور التالي (قيود 5e41b04 نجت عبر origin) ·
+  الموقع → **TSK-701** (مواصفة إطارات WS).
 - **2026-07-29 — Session 83 — إقفال البرنامج 🏁 (26/26) — قرارات المالك D-1..D-4 وصلت**:
   التوجيه الحاكم: «D-2 = tokenization كاملة (لا baseline)» + توجيه
   شامل بإكمال كل المهام المحجوبة حتى صفر TODO/BLOCKED/دين غير
