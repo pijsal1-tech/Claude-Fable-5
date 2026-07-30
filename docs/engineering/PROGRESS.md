@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **TSK-724 قيد التنفيذ — FI-09 نافذة عرض افتراضية (virtual_list.js + غراء حافظ للسلوك)** (BATCH-P2/D-10؛ TSK-723 مُقفلة 🏁)؛ خط الأساس: **1983P/34S** |
+| current-task | **التالي: تفصيل TSK-725 (Workspace Trust) — جرد نقاط الإنفاذ قبل التنفيذ (D-7)** (BATCH-P2/D-10؛ TSK-723 وTSK-724 مُقفلتان 🏁)؛ خط الأساس: **1996P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -501,6 +501,29 @@
   الرسم وتُصحَّح. الوحدة النقية: `computeWindow(scrollTop, viewportH,
   itemHeights, overscan)` ⇒ {start, end, padTop, padBottom} بثبات
   المجموع. هذا القيد يسبق التنفيذ (D-7).
+  **TSK-724 ✅ (نفس الجلسة)**: FI-09 نافذة عرض افتراضية: وحدة نقية
+  `static/js/virtual_list.js` (`computeWindow` — end حصري، قصّ
+  scrollTop/overscan للحدود، **الثابت الصارم** padTop + Σنافذة +
+  padBottom = Σالكل لكل المدخلات؛ + `totalHeight`). الغراء (app.js):
+  استخراج `buildChatMessage` نقية من `addChatMessage` (التي بقيت
+  append+scroll حرفيًا — مسار الرسائل الحية والجلسات القصيرة)؛
+  `renderChatHistory(history)` موحّدة حلّت محل حلقتي
+  `forEach(addChatMessage)` في loadChatHistory/loadSession — تحت
+  عتبة VL_THRESHOLD=150 المسارُ القديم حرفيًا، وفوقها وضع النافذة:
+  [vl-spacer-top][نافذة][vl-spacer-bottom][إلحاقات حية] — البث
+  (currentStreamMsg) وكروت التيرمنال appendChild كما هي بعد
+  spacer-bottom فتبقى آخر القائمة والتمرير التلقائي محفوظ؛ `vlRender`
+  يستبدل ما بين الـ spacers فقط (rAF throttle على scroll) + قياس
+  الارتفاعات الفعلية بعد الرسم وتصحيح التقدير (VL_EST_HEIGHT=120)؛
+  الفتح على آخر رسالة (scrollTop=scrollHeight ثم إعادة رسم). صفر
+  endpoints. 13 اختبارًا (test_virtual_list.py): node ×7 (فارغة/
+  قصيرة/طويلة 1000 عنصر/overscan مقصوص/ثابت المجموع على شبكة مدخلات
+  تشمل سالبًا وفائضًا/تقاطع جزئي/totalHeight) + wiring ×6 (ترتيب
+  التحميل/الاستهلاك/الحلقة الوحيدة داخل renderChatHistory/مسارا البث
+  والتيرمنال بلا مساس/العتبة/نقاء الوحدة). **البوابة: 1996P/34S ALL
+  GREEN rc=0** (من 1983). TSK-724 🏁. **التالي حسب DAG D-10: تفصيل
+  TSK-725 (Workspace Trust — جرد نقاط الإنفاذ في server.py) ثم
+  تنفيذها؛ يليها تفصيل TSK-726 (جرد دوال app.js)**.
 - **2026-07-30 — Session 100 — تخطيط BATCH-P2 (قرار D-10) — TSK-723..727 موثقة؛ TSK-723 جاهزة**:
   استئناف بعد تصفير بيئة (طقس §3.1: clone @ b31f47c، تطهير، الهوية؛
   BATCH-P1 🏁 6/6 مؤكدة على origin). **تخطيط قبل تنفيذ (D-7)** — قراءات

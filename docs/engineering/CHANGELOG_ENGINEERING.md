@@ -1282,3 +1282,15 @@ Settings UI) — تخطيط TSK قبل التنفيذ كالعادة.
 - 12 اختبارًا (test_command_palette.py): node + سجل-الأفعال-قائمة +
   wiring + نقاء الوحدة. البوابة: **1983P/34S** ALL GREEN rc=0.
   التالي حسب DAG D-10: TSK-724 (FI-09 computeWindow).
+
+## [TSK-724/D-10] — 2026-07-30 — FI-09 نافذة عرض افتراضية للمحادثات الطويلة
+- وحدة نقية `static/js/virtual_list.js`: computeWindow (ثابت صارم:
+  padTop + Σنافذة + padBottom = Σالكل؛ overscan مقصوص) + totalHeight.
+- غراء app.js: buildChatMessage نقية مستخرجة من addChatMessage (التي
+  بقيت حرفيًا)؛ renderChatHistory موحّدة (عتبة 150 — دونها المسار
+  القديم)؛ spacers + rAF + قياس ارتفاعات فعلية؛ الفتح على آخر رسالة.
+- **قيود حافظة محقَّقة آليًا**: البث التدفقي (TSK-401) وكروت التيرمنال
+  بلا مساس — appendChild بعد spacer-bottom؛ التمرير التلقائي محفوظ.
+- index.html: virtual_list.js قبل app.js. صفر endpoints — السطح 33.
+- 13 اختبارًا (test_virtual_list.py). البوابة: **1996P/34S** ALL GREEN
+  rc=0. التالي: تفصيل TSK-725 (Workspace Trust) ثم تفصيل TSK-726.
