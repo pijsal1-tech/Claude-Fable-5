@@ -290,3 +290,132 @@ def test_registry_rejects_nonpositive_ttl():
 def test_terminal_states_constant_shape():
     """عقد ثابت للطبقات الأعلى (T-015): الحالات النهائية الثلاث فقط."""
     assert set(TERMINAL_STATES) == {"completed", "failed", "cancelled"}
+
+
+# ═══════════════ TSK-705 (FI-03): graceful_shutdown ═══════════════
+
+from core.execution import graceful_shutdown  # noqa: E402
+
+
+class TestGracefulShutdown:
+    """الإيقاف الرشيق: إلغاء كل الحية + انتظار محدود (TSK-705)."""
+
+    def test_zero_tickets_returns_immediately(self):
+        """صفر تذاكر حية = عودة فورية (بلا أي نوم رغم مهلة ضخمة)."""
+        import time as _time
+        reg = ExecutionRegistry()
+        t0 = _time.monotonic()
+        leftover = graceful_shutdown(reg, timeout=60.0)
+        elapsed = _time.monotonic() - t0
+        assert leftover == []
+        assert elapsed < 0.5  # ما نامت إطلاقًا رغم timeout=60
+
+    def test_terminal_only_registry_returns_immediately(self):
+        """تذاكر منتهية فقط (لا حية) = نفس العودة الفورية."""
+        reg = ExecutionRegistry(exclusive_per_project=False)
+        t = reg.register("chain", "p1")
+        t.finish("completed")
+        assert graceful_shutdown(reg, timeout=60.0) == []
+
+    def test_live_tickets_get_cancel_flag(self):
+        """كل تذكرة حية يُرفع علم إلغائها بسبب 'graceful shutdown'."""
+        reg = ExecutionRegistry(exclusive_per_project=False)
+        t1 = reg.register("chain", "p1")
+        t2 = reg.register("agent", "p2")
+        leftover = graceful_shutdown(reg, timeout=0)
+        assert t1.is_cancelled and t2.is_cancelled
+        assert t1.cancel_reason == "graceful shutdown"
+        assert t2.cancel_reason == "graceful shutdown"
+        # إلغاء تعاوني: لم تُنهِ نفسها ⇒ تعود ضمن المتبقّي بصدق
+        assert set(x.run_id for x in leftover) == {t1.run_id, t2.run_id}
+
+    def test_preexisting_cancel_reason_preserved(self):
+        """علم مرفوع مسبقًا: السبب الأول يفوز (عقد cancel القائم)."""
+        reg = ExecutionRegistry()
+        t = reg.register("chain", "p1")
+        t.cancel("user asked")
+        graceful_shutdown(reg, timeout=0)
+        assert t.cancel_reason == "user asked"
+
+    def test_timeout_honored_when_runs_never_finish(self):
+        """runs لا تلاحظ العلم أبدًا ⇒ العودة عند المهلة (لا انتظار أبدي)."""
+        import time as _time
+        reg = ExecutionRegistry(exclusive_per_project=False)
+        t1 = reg.register("chain", "p1")
+        t0 = _time.monotonic()
+        leftover = graceful_shutdown(reg, timeout=0.2, poll_interval=0.02)
+        elapsed = _time.monotonic() - t0
+        assert [x.run_id for x in leftover] == [t1.run_id]
+        assert elapsed >= 0.2       # احترم المهلة (ما رجع قبلها)
+        assert elapsed < 2.0        # وما علِق بعدها
+        assert t1.state == STATE_RUNNING  # لا إنهاء قسري — السجل لا يكذب
+
+    def test_returns_early_when_runs_observe_flag(self):
+        """run يلاحظ العلم ويُنهي نفسه ⇒ عودة قبل انقضاء المهلة الكاملة."""
+        import time as _time
+        reg = ExecutionRegistry()
+        t = reg.register("chain", "p1")
+
+        def worker():
+            # يحاكي حلقة تنفيذ تعاونية: تفقّد العلم ثم finish("cancelled")
+            deadline = _time.monotonic() + 5.0
+            while _time.monotonic() < deadline:
+                if t.is_cancelled:
+                    t.finish("cancelled")
+                    return
+                _time.sleep(0.01)
+
+        th = threading.Thread(target=worker, daemon=True)
+        th.start()
+        t0 = _time.monotonic()
+        leftover = graceful_shutdown(reg, timeout=5.0, poll_interval=0.02)
+        elapsed = _time.monotonic() - t0
+        th.join(timeout=2.0)
+        assert leftover == []
+        assert t.state == "cancelled"
+        assert elapsed < 3.0  # رجعت مبكرًا، ما استهلكت المهلة كلها
+
+    def test_mixed_some_finish_some_stall(self):
+        """خليط: المُنهي يخرج من المتبقّي والمتعنّت يبقى فيه."""
+        reg = ExecutionRegistry(exclusive_per_project=False)
+        good = reg.register("chain", "p1")
+        stubborn = reg.register("agent", "p2")
+
+        def cooperative():
+            import time as _time
+            deadline = _time.monotonic() + 5.0
+            while _time.monotonic() < deadline:
+                if good.is_cancelled:
+                    good.finish("cancelled")
+                    return
+                _time.sleep(0.01)
+
+        th = threading.Thread(target=cooperative, daemon=True)
+        th.start()
+        leftover = graceful_shutdown(reg, timeout=0.5, poll_interval=0.02)
+        th.join(timeout=2.0)
+        assert [x.run_id for x in leftover] == [stubborn.run_id]
+        assert good.state == "cancelled"
+        assert stubborn.state == STATE_RUNNING
+
+    def test_timeout_zero_cancels_then_checks_once(self):
+        """timeout=0: يرفع الأعلام ويفحص مرة واحدة بلا نوم."""
+        import time as _time
+        reg = ExecutionRegistry()
+        t = reg.register("delegate", "p1")
+        t0 = _time.monotonic()
+        leftover = graceful_shutdown(reg, timeout=0)
+        elapsed = _time.monotonic() - t0
+        assert t.is_cancelled
+        assert [x.run_id for x in leftover] == [t.run_id]
+        assert elapsed < 0.5
+
+    def test_invalid_args_rejected(self):
+        """timeout سالب أو poll_interval غير موجب ⇒ ValueError."""
+        reg = ExecutionRegistry()
+        with pytest.raises(ValueError):
+            graceful_shutdown(reg, timeout=-1)
+        with pytest.raises(ValueError):
+            graceful_shutdown(reg, timeout=1.0, poll_interval=0)
+        with pytest.raises(ValueError):
+            graceful_shutdown(reg, timeout=1.0, poll_interval=-0.1)

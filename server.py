@@ -9,6 +9,7 @@
 import sys
 import os
 import json
+import signal  # TSK-705 (FI-03): الإيقاف الرشيق — يُربط في main() فقط
 import argparse
 import pathlib
 import threading
@@ -80,6 +81,7 @@ from core.project_memory import (
 from chain.knowledge import KnowledgeAccumulator
 from core.execution import ExecutionRegistry
 from core.execution import RunBusyError
+from core.execution import graceful_shutdown  # TSK-705 (FI-03)
 from core.session_context import SessionContext
 from core.events import (
     ApprovalRequested,
@@ -2133,6 +2135,32 @@ def main():
   📋 الجلسة: {session_mgr.current_session_id}
 ═══════════════════════════════════════════════════════
     """)
+
+    # ── TSK-705 (FI-03): الإيقاف الرشيق — SIGTERM/SIGINT في مدخل main فقط ──
+    # قبل هذا: خيوط daemon تموت بلا join عند الخروج (NF-05) — إشارة
+    # إنهاء قد تقطع run في منتصف كتابة ملف. الآن: إلغاء تعاوني لكل
+    # التذاكر الحية + انتظار محدود (5ث) ثم خروج — لا تغيير في مسار
+    # الطلبات؛ المعالج يُسجّل هنا حصريًّا (لا يلمس استيراد الوحدة
+    # كـ module في الاختبارات).
+    _shutdown_once = threading.Event()
+
+    def _graceful_exit(signum, frame):  # pragma: no cover - يتطلب إشارة حقيقية
+        if _shutdown_once.is_set():          # إشارة ثانية = خروج فوري
+            raise SystemExit(1)
+        _shutdown_once.set()
+        sig_name = signal.Signals(signum).name
+        print(f"\n⏹️  {sig_name}: إيقاف رشيق — إلغاء التذاكر الحية وانتظار ≤ 5ث…")
+        leftover = graceful_shutdown(execution_registry, timeout=5.0)
+        if leftover:
+            print(f"⚠️  {len(leftover)} run لم تنته خلال المهلة — خروج رغم ذلك:")
+            for _t in leftover:
+                print(f"   • {_t.run_id} ({_t.kind}, project={_t.project_id!r})")
+        else:
+            print("✅ إيقاف نظيف: كل الـ runs بلغت حالة نهائية.")
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, _graceful_exit)
+    signal.signal(signal.SIGINT, _graceful_exit)
 
     app.run(host=args.host, port=args.port, debug=args.debug)
 

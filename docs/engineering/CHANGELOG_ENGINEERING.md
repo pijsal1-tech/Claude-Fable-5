@@ -962,3 +962,44 @@
   `purify.min.js` @ index.html:46، `node --check app.js` OK.
 - الانحدار: **1866 passed, 34 skipped, 1 deselected** — ثابت (لا
   اختبارات python تمس app.js، البوابة كاملة رغم ذلك).
+
+---
+
+## [TSK-704] — 2026-07-30 (Sessions 86–87) — FI-06: السجلات المهيكلة [كود]
+
+**الدفعة**: BATCH-SHORT — المهمة 4/5.
+
+### Added
+- `core/structured_log.py` — JSON formatter على stdlib logging (صفر
+  تبعيات جديدة): `JsonFormatter` (حقول ثابتة ts/level/logger/event +
+  دمج `record.structured`؛ فشل التسلسل لا يرفع)، `get_logger` (جذر
+  `webdev`)، `configure` (التفعيل الصريح الوحيد — idempotent، بلا
+  propagate للجذر العام)، و`swallowed(event, exc, **fields)` —
+  **لا يرفع أبدًا**، DEBUG على `webdev.swallowed`، **صامت افتراضيًا**
+  (صفر مخرجات ما لم يُفعَّل).
+- `tests/unit/test_structured_log.py` — 16 اختبارًا: الصيغة/الحقول/
+  سطر واحد/تسلسل قيم عدائية/عربية بلا escaping/idempotency/الصمت
+  الافتراضي/عدم الرفع مع استثناء `__str__` منفجر/ثبات التدفق +
+  **اختبار عقد** يفحص المستودع آليًا: صفر مواقع ابتلاع صامتة غير
+  موصولة في core/+chain/ (يمنع الانحدار مستقبلًا).
+
+### Changed (log-only — صفر تغيير تدفق تحكم)
+- توصيل **32 موقع ابتلاع صامت** (`except Exception` → pass/continue)
+  عبر 12 ملفًا بسطر `_slog_swallowed("path:line", exc)` قبل
+  pass/continue القائمَين (تبقى كما هي حرفيًا):
+  core/: approval(1)، backends_redis(1)، chat_dispatch(2)، events(1)،
+  project_memory(1)، session_context(3) — chain/: action_applier(3)،
+  agent_tools(4)، bridge(5)، context_builder(5)، delegate(1)،
+  executor(5).
+- **انحراف موثَّق (نص TSK-704 يجيزه)**: مواقع server.py الـ23 لم
+  تُوصَّل هذه الجلسة — النطاق قُصر على core/+chain/ (بيئة الجلسات
+  متقطعة بـ resets متكررة)؛ التوصيل المكمل مهمة لاحقة اختيارية.
+
+### Verified (Acceptance)
+- اختبارات structured_log: **16/16 PASS**؛ mypy على الوحدة: نظيف.
+- grep القبول: صفر `except Exception` متبوعة بـ pass/continue صامتين
+  في core/+chain/ (الاستثناء الوحيد المصرح: حارس swallowed نفسه —
+  منع العودية؛ مغطى باختبار العقد).
+- الانحدار: **1882 passed** (1866 أساس + 16 جديدة)، 34 skipped —
+  و**check.sh: ALL GREEN rc=0** (1883P — الـ flaky نجح في هذا التشغيل).
+- خط الأساس الجديد للدفعة: **1882P/34S** (مع deselect الـ flaky).

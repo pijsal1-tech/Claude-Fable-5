@@ -379,3 +379,51 @@ class ExecutionRegistry:
             for rid in terminal_ids[:excess]:
                 del self._tickets[rid]
             return excess
+
+
+# ── الإيقاف الرشيق (TSK-705 / FI-03) ──
+def graceful_shutdown(
+    registry: ExecutionRegistry,
+    timeout: float,
+    poll_interval: float = 0.05,
+) -> list[RunTicket]:
+    """إلغاء تعاوني لكل التذاكر الحية ثم انتظار محدود حتى بلوغها حالة نهائية.
+
+    FI-03 (NF-05): خيوط daemon في server.py تموت بلا join عند الخروج —
+    قد يقطع SIGTERM/SIGINT عملية تنفيذ في منتصف كتابة ملف. هذه الدالة هي
+    نصف "الانضباط" القابل للاختبار: ترفع علم الإلغاء على **كل** run نشط
+    (نفس مسار ``cancel_run`` تمامًا — لا آلية إنهاء جديدة) ثم تنتظر بحدّ
+    زمني صارم أن تلاحظ العمليات العلمَ وتُنهي نفسها عبر
+    ``finish("cancelled")``. لا إنهاء قسري: احترامًا لعقد السجل
+    ("السجل لا يكذب بشأن الحياة")، ما لم يُنهِ نفسه خلال المهلة يُعاد
+    للمستدعي كما هو — القرار (خروج رغم ذلك/تسجيل) مسؤولية طبقة الإقلاع.
+
+    Args:
+        registry: السجل المركزي (يُمرَّر صراحة — الدالة بلا حالة عالمية).
+        timeout: أقصى انتظار بالثواني بعد رفع أعلام الإلغاء. 0 = إلغاء
+            ثم فحص واحد فوري بلا نوم. قيمة سالبة ⇒ ValueError.
+        poll_interval: فاصل الاستطلاع بالثواني (يُقصَّر تلقائيًا كي لا
+            يتجاوز النوم الموعدَ النهائي). غير موجب ⇒ ValueError.
+
+    Returns:
+        قائمة التذاكر التي ما تزال ``running`` عند انقضاء المهلة
+        (فارغة = إيقاف نظيف). **صفر تذاكر حية = عودة فورية** بلا أي نوم.
+    """
+    if timeout < 0:
+        raise ValueError("timeout must be >= 0")
+    if poll_interval <= 0:
+        raise ValueError("poll_interval must be positive")
+    live = registry.list_active()
+    if not live:
+        return []
+    for ticket in live:
+        ticket.cancel("graceful shutdown")
+    deadline = time.monotonic() + timeout
+    while True:
+        remaining = registry.list_active()
+        if not remaining:
+            return []
+        now = time.monotonic()
+        if now >= deadline:
+            return remaining
+        time.sleep(min(poll_interval, deadline - now))
