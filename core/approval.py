@@ -167,6 +167,7 @@ class ApprovalGate:
         on_request: Callable[[dict], None] | None = None,
         timeout_seconds: float = 60.0,
         clock: Callable[[], float] = time.time,
+        interactive_override: Callable[[], bool] | None = None,
     ) -> None:
         if mode not in VALID_MODES:
             raise ValueError(f"وضع غير معروف: {mode!r} — المسموح: {VALID_MODES}")
@@ -176,6 +177,11 @@ class ApprovalGate:
         self.on_request = on_request
         self.timeout_seconds = timeout_seconds
         self._clock = clock
+        # TSK-725b (Workspace Trust): إن أعاد True وقت request() عومل
+        # الوضع كـ interactive حتى لو mode=auto — إنفاذ ديناميكي وقت
+        # الطلب (الثقة تتغير وقت التشغيل)؛ فشل النداء ⇒ True
+        # (fail-closed). deny يبقى deny — الـ override لا يرخّي أبدًا.
+        self.interactive_override = interactive_override
 
         self._lock = threading.Lock()
         self._audit: list[dict] = []
@@ -204,7 +210,16 @@ class ApprovalGate:
         if self.mode == "deny":
             return self._record(req, approved=False, reason="deny_mode")
 
-        if self.mode == "auto":
+        # TSK-725b: مساحة عمل غير موثوقة ⇒ interactive إجباري (يتجاوز
+        # auto). فشل الفحص نفسه ⇒ نعامل كغير موثوق (fail-closed).
+        _forced_interactive = False
+        if self.interactive_override is not None:
+            try:
+                _forced_interactive = bool(self.interactive_override())
+            except Exception:
+                _forced_interactive = True
+
+        if self.mode == "auto" and not _forced_interactive:
             kinds = {a.kind for a in req.actions}
             if kinds <= self.auto_whitelist:
                 return self._record(req, approved=True, reason="auto_whitelist")

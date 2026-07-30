@@ -187,6 +187,23 @@ def _load_config() -> dict:
 _read_config = _load_config
 
 
+def _workspace_trusted() -> bool:
+    """TSK-725b: هل جذر المشروع الحالي موثوق؟ **fail-closed**.
+
+    يقرأ قرار الثقة من ``<root>/.ai_runs/trust.json`` عبر
+    core/workspace_trust — الجذر الحالي = ``fm.root`` (يتبدل مع
+    switch-project). fm غير مهيأ بعد (إقلاع مبكر/اختبارات) أو أي
+    استثناء ⇒ غير موثوق (False).
+    """
+    try:
+        if fm is None:
+            return False
+        from core.workspace_trust import is_trusted
+        return is_trusted(fm.root)
+    except Exception:
+        return False
+
+
 def _force_command_approval() -> bool:
     """TSK-502 (NF-16): راية إلزام الموافقة على كل أمر.
 
@@ -203,6 +220,10 @@ def _force_command_approval() -> bool:
     راجع قسم «حدود النشر» في README — الراية إلزامية عند أي ربط
     خارج localhost.
     """
+    # TSK-725b (Workspace Trust): مساحة غير موثوقة ⇒ إلزام الموافقة
+    # قبل أي قراءة من config (fail-closed يعلو على false الصريحة).
+    if not _workspace_trusted():
+        return True
     try:
         return bool(_load_config().get("force_command_approval", True))
     except Exception:
@@ -1984,6 +2005,9 @@ def main():
         mode="auto" if _auto_execute else "interactive",
         auto_whitelist={"write", "edit", "command"} if _auto_execute else None,
         timeout_seconds=120.0,
+        # TSK-725b: مساحة غير موثوقة ⇒ interactive إجباري وقت الطلب
+        # (الثقة ديناميكية — تتغير مع switch-project وقرار المستخدم).
+        interactive_override=lambda: not _workspace_trusted(),
     )
     print(f"  🛡️ ApprovalGate: {approval_gate.mode}")
 
