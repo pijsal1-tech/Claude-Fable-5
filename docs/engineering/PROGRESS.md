@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **TSK-726d قيد التنفيذ — نقل اللوحات (plan/delegate/memory/history/status-chip/settings/permissions + diagnostics)** (726a+726b+726c مُقفلة 🏁)؛ خط الأساس: **2050P/34S** |
+| current-task | **TSK-726e قيد التنفيذ — قلب الدردشة والبث وWS (الأخطر — آخر شريحة)** (726a+726b+726c+726d مُقفلة 🏁)؛ خط الأساس: **2050P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -602,6 +602,28 @@
 - **البوابة:** `bash scripts/check.sh` — **2050 passed / 34 skipped — ALL GREEN** (rc=0).
 - **Commit:** 472dca9 على origin/main.
 - **الحالة:** 726c 🏁 — التالي 726d (اللوحات: plan/delegate/memory/history/status-chip/settings/permissions + diagnostics).
+
+### إقفال TSK-726d — نقل اللوحات ⇒ app/40 🏁
+- **ما نُفِّذ:** نقل حرفي (verbatim) لـ 682 سطرًا من app.js (الأسطر 1954–2635) إلى
+  `static/js/app/40_panels.js`: Plan Card (showPlanCard/executePlan/revisePlan/
+  reviewPlan/cancelPlan/updateTaskProgress)، Delegate UI، sendPathAction،
+  renderSessionNarrative، Run-History/Rollback (toggleRunHistory/confirmRollback/
+  consumeRollbackDecision/handleRollbackResult)، Memory Panel، downloadDiagnostics،
+  Permissions/Settings panels، Status Chip (+CAPACITY_POLL_MS/refreshCapacity)،
+  setActivityView.
+- **app.js:** 2636 → 1951 سطرًا.
+- **الربط:** index.html — المقطع 40 بعد 30 وقبل 90 (ترتيب رقمي محفوظ).
+- **ترحيل اختبارات:** كشفت البوابة 5 ملفات wiring تقرأ APP_JS مباشرة
+  (permissions/plan_card/rollback_ui/session_narrative/settings) — رُحِّلت إلى
+  قارئ الحزمة `_app_bundle()` بالنمط المعتمد (التوكيدات لم تتغير).
+- **الحارس:** test_app_split 7/7 نجحت دون تعديل.
+- **البوابة:** `bash scripts/check.sh` — **2050 passed / 34 skipped — ALL GREEN** (rc=0).
+  (تشغيلة أولى أظهرت فشلًا عابرًا واحدًا في test_no_save_churn_when_list_unchanged
+  — mtime flake بيئي؛ نجح منفردًا وفي إعادة البوابة كاملة.)
+- **ملاحظة بيئية:** الحادثة رقم 13 لتدمير البيئة — بوت الرفع التلقائي أنقذ
+  استخراج 40_panels @ a3d355f (تُحقِّق منه حرفيًا: 684-/690+ ونحو node --check سليم).
+- **Commits:** a3d355f (استخراج+ربط، بوت) + 34050aa (ترحيل الاختبارات).
+- **الحالة:** 726d 🏁 — التالي 726e (قلب الدردشة/WS/البث — الأخطر، آخر شريحة؛ هدف app.js < 800 سطر… الوضع الحالي 1951).
 - **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
   استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،
   الهوية — إقفال TSK-723 مؤكد على origin). **جرد التصميم (يسبق
