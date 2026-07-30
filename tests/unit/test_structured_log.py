@@ -136,17 +136,21 @@ class TestSwallowed:
 
 
 class TestWiredSitesContract:
-    """عقد التوصيل (TSK-704): كل موقع صامت في core/+chain/ موصول."""
+    """عقد التوصيل (TSK-704 + TSK-706): كل موقع صامت في
+    core/+chain/+server.py موصول بـ _slog_swallowed."""
 
     def test_no_remaining_silent_sites(self):
         import os
         import re
         silent = []
+        # TSK-706 (D-6): server.py انضم للعقد — انحراف TSK-704 الموثَّق
+        # (مواقعه الصامتة الـ6) أُغلق بتوصيلها.
+        paths = ["server.py"]
         for d in ("core", "chain"):
             for f in sorted(os.listdir(d)):
-                if not f.endswith(".py"):
-                    continue
-                path = f"{d}/{f}"
+                if f.endswith(".py"):
+                    paths.append(f"{d}/{f}")
+        for path in paths:
                 lines = open(path, encoding="utf-8").read().split("\n")
                 for i, l in enumerate(lines):
                     if not re.search(r"except\s+Exception", l):

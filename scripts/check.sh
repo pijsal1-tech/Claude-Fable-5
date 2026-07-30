@@ -126,6 +126,25 @@ if [ -n "$plugin_violations" ]; then
 fi
 echo "plugin capabilities clean"
 
+# TSK-706 (FI-08 / NF-24): صفر دورات استيراد — أصل معماري محمي (FD-3).
+# كان فحصًا يدويًا «بعد كل milestone»؛ الآن بوابة آلية AST-based.
+echo "== import cycle check (NF-24: zero cycles, AST-based) =="
+python3 scripts/check_import_cycles.py
+
+# TSK-706 (FI-08 / NF-23.2): ثوابت وحيدة المصدر — ممنوع إعادة إدخال
+# تعريف مكرر لـ MAX_SMART_FILE_SIZE (المصدر الوحيد server.py؛
+# core/chat_dispatch.py يستهلكه عبر deps). نفس نمط حراس T-035/T-036.
+echo "== duplicate constant guard (MAX_SMART_FILE_SIZE single-source) =="
+dup_defs=$(grep -rn '^MAX_SMART_FILE_SIZE\s*=\|^\s\+MAX_SMART_FILE_SIZE\s*=' \
+  --include='*.py' chain/ core/ context/ sessions/ routes/ runners/ actions/ \
+  || true)
+if [ -n "$dup_defs" ]; then
+  echo "duplicate MAX_SMART_FILE_SIZE definition outside server.py:"
+  echo "$dup_defs"
+  exit 1
+fi
+echo "constants single-sourced"
+
 echo "== pytest =="
 python3 -m pytest
 
