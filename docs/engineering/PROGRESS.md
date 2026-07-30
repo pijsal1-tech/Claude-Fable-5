@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 84 — **V3 مُتبنّى ✅ + دفعة BATCH-SHORT مفتوحة (قرار مالك D-5): TSK-701..705 مخططة، التنفيذ يبدأ من TSK-701**) |
-| stage | **V3-STAGE 3 EXECUTION — BATCH-SHORT (0/5)** — البرنامج FINAL-GOVERNED السابق مُقفل 🏁 26/26 (أرشيف أدناه) |
+| last-updated | 2026-07-30 (Session 85 — **TSK-701 ✅ + TSK-702 مُغلقة ✅ (docs/deployment_threat_model.md، 23/23 مرساة)؛ الموقع → TSK-703**) |
+| stage | **V3-STAGE 3 EXECUTION — BATCH-SHORT (2/5)** — البرنامج FINAL-GOVERNED السابق مُقفل 🏁 26/26 (أرشيف أدناه) |
 | current-phase | BATCH-SHORT (دفعة D-5 تحت V3): FI-11/12/10/06/03 → TSK-701..705 (DEVELOPMENT_TASKS §BATCH-SHORT) |
-| current-task | **TSK-701 (FI-11: مواصفة إطارات WS — توثيق)** — IN_PROGRESS؛ ثم 702→703→704→705 |
+| current-task | **TSK-703 (FI-10: تعقيم Markdown عبر DOMPurify — كود)** — NEXT؛ ثم 704→705 (701 ✅ 702 ✅ DONE S85) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
@@ -982,6 +982,33 @@ CLOSED-AWAITING-OWNER-DIRECTION بقرار D-5 (البرنامج السابق ي
   CHANGELOG (commit 686ac90) + تحديث PROGRESS (هذا القيد) + commit
   محلي · الموقع → **M9/TSK-620** (سرد الجلسة — CP-8/UXF-05،
   التبعية 610 ✅)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-30 — Session 85 (تابع) — إغلاق TSK-702 ✅ (FI-12: دليل النشر ونموذج التهديد)**:
+  - **الناتج**: `docs/deployment_threat_model.md` (وصفية، صفر كود):
+    §1 عقد localhost (لا مصادقة/لا TLS بالتصميم) · §3 خريطة الدفاعات
+    (احتواء مسارات/حجب أسرار/CommandPolicy fail-closed + ApprovalGate/
+    Zip-Slip guard/escapeHtml) · §4 نموذج التهديد الثلاثي · §5 القاعدة:
+    أي host غير loopback = كسر العقد و‎RCE بلا مصادقة عبر /api/run —
+    الحد الأدنى قبل التعريض معدَّد وغير موجود = قرار مالك · §6 checklist
+    (منها: حذف force_command_approval أأمن من false — الغياب=True).
+  - **القبول**: 23/23 مرساة `file:line @ 7d39e9f` تحقق آلي PASS؛
+    git diff نظيف (doc-only)؛ الانحدار = نفس شجرة 1866P/34S الخضراء.
+  - **التالي**: TSK-703 (FI-10: DOMPurify).
+- **2026-07-30 — Session 85 — إغلاق TSK-701 ✅ (FI-11: مواصفة إطارات WS)**:
+  - **الناتج**: `docs/ws_frame_protocol.md` (وثيقة وصفية، صفر تغيير كود):
+    §1 نقل (/ws، `_WSAdapter._send` الموقع الأوحد T-047) · §2 نوع مجهول =
+    no-op صامت متماثل بالاتجاهين · §3 جدول C2S كامل (25 مقبض WS_HANDLERS +
+    الحقول المقروءة فعليًا + مرسل الواجهة) · §3.1 عدم تماثل `stop` موثق
+    ومحفوظ · §4 جداول S2C (49 مبثوث / 38 مستهلك / 11 متجاهل §4.7) ·
+    §4.4 كشف: لا إطار `agent_approval_request` فعلي — الموافقة تصل
+    `agent_step` بـ awaiting_approval · §5 إزالة لبس (أنواع الإجراءات/
+    journal/صفوف diff ليست إطارات).
+  - **القبول (تحقق مزدوج الاتجاه آلي)**: 25/25 + 16/16 + 42/42 + 44/44 —
+    PASS صفر فجوات. الانحدار: **1866P/34S/1deselected** (الأساس ثابت).
+    check.sh: الفشل الوحيد = flaky البيئي الموثق (1.018s>1.0s).
+  - **ملاحظة بيئية**: انقطاعان (resets 9+10) بين كتابة المواصفة والإغلاق؛
+    Auto-Uploader حفظ المواصفة على origin @ 5102111 — أُعيد بناء الإغلاق
+    (CHANGELOG + PROGRESS) هذه الجلسة فقط.
+  - **التالي**: TSK-702 (FI-12: docs/deployment_threat_model.md).
 - **2026-07-30 — Session 84 — تبنّي V3 ✅ + فتح BATCH-SHORT (قرار مالك D-5)**:
   جلسة كبرى (أولى بعد الإقفال) تحت V3_RESUME_SESSION: اكتشاف حالة مضغوط
   §7.2 (جرد 20 ملفًا متسقًا؛ G-11 قائم؛ تدوير PROGRESS مستحق لاحقًا) ·
