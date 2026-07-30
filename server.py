@@ -82,6 +82,7 @@ from chain.knowledge import KnowledgeAccumulator
 from core.execution import ExecutionRegistry
 from core.execution import RunBusyError
 from core.execution import graceful_shutdown  # TSK-705 (FI-03)
+from core.structured_log import swallowed as _slog_swallowed  # TSK-706 (D-6)
 from core.session_context import SessionContext
 from core.events import (
     ApprovalRequested,
@@ -311,8 +312,9 @@ class _WSAdapter:
         try:
             with self._lock:
                 self._ws.send(json.dumps(frame, ensure_ascii=False))
-        except Exception:
+        except Exception as _exc:
             # NF-14 §3 (ابتلاع مقصود): WS مقفول/معطوب — نفس ابتلاع القديم (عقد T-047).
+            _slog_swallowed("server.py:315", _exc)
             pass
 
 
@@ -1506,9 +1508,10 @@ def _ws_delegate_message(ctx, sctx, msg):
             try:
                 content = sctx.fm.read_file(f["path"])
                 files_context[f["path"]] = content
-            except Exception:
+            except Exception as _exc:
                 # NF-14 §11 (ابتلاع مقصود): ملف سياق غير مقروء — التفويض
                 # يكمل ببقية الملفات (إثراء اختياري).
+                _slog_swallowed("server.py:1511", _exc)
                 pass
     except Exception as e:
         # NF-14 §12 (يحتاج log — أضيف): فشل scan المشروع كله كان صامتًا.
@@ -1525,8 +1528,9 @@ def _ws_delegate_message(ctx, sctx, msg):
     project_context = ""
     try:
         project_context = sctx.fm.get_project_context()
-    except Exception:
+    except Exception as _exc:
         # NF-14 §13 (ابتلاع مقصود): سياق المشروع إثراء اختياري للتفويض.
+        _slog_swallowed("server.py:1531", _exc)
         pass
 
     # T-041 (R-501): نفس مسار الإرسال الموحّد — DelegateRunner فوق
@@ -1566,9 +1570,10 @@ def _ws_delegate_approve(ctx, sctx, msg):
         def approval_handler(et, ed):
             try:
                 sctx.send({"type": et, **ed})
-            except Exception:
+            except Exception as _exc:
                 # NF-14 §14 (ابتلاع مقصود): WS مقفول أثناء حدث اعتماد —
                 # نفس سياسة §3 (الإرسال لا يعطل الهبوط).
+                _slog_swallowed("server.py:1573", _exc)
                 pass
 
         landed = sctx.delegate_bridge.land(on_event=approval_handler)
@@ -1941,8 +1946,9 @@ def main():
     _auto_execute = False
     try:
         _auto_execute = bool(_load_config().get("auto_execute", False))
-    except Exception:
+    except Exception as _exc:
         # NF-14 §17 (ابتلاع مقصود): config غير مقروء → الوضع التفاعلي الآمن.
+        _slog_swallowed("server.py:1949", _exc)
         pass
     global approval_gate
     approval_gate = ApprovalGate(
@@ -2051,8 +2057,9 @@ def main():
                 fb_provider = fb_cls(fb_cfg_cls())
                 fb_provider.initialize()
                 provider_pool.add(fb_name, fb_provider)
-            except Exception:
+            except Exception as _exc:
                 # NF-14 §18 (ابتلاع مقصود): مزود احتياطي فشل تهيئته — غير حرج.
+                _slog_swallowed("server.py:2060", _exc)
                 pass
 
     account_budget = AccountAwareBudget(provider_pool.all_providers)
