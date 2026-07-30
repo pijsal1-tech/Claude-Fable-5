@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **TSK-725b قيد التنفيذ — إنفاذ الثقة (interactive_override + force fail-closed) + /api/trust (33→34)** (725a مُقفلة 🏁)؛ خط الأساس: **2012P/34S** |
+| current-task | **TSK-725c قيد التنفيذ — واجهة الثقة (لافتة قرار + شارة حالة، غراء fetch فقط)** (725a+725b مُقفلتان 🏁)؛ خط الأساس: **2030P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -503,6 +503,28 @@
   + ذرية/موقع/فشل-كتابة-بلا-رفع ×3 (+ معلمات). **البوابة: 2012P/34S
   ALL GREEN rc=0** (من 1996). 725a 🏁 — التالي 725b (الإنفاذ +
   /api/trust).
+- **2026-07-30 — Session 103 — إقفال TSK-725b 🏁 — إنفاذ Workspace Trust + /api/trust (33→34)**:
+  استئناف بعد تصفيرَي بيئة (الثامن والتاسع؛ طقس §3.1 ×2؛ Auto-Uploader
+  أنقذ تغييرات النواة @ 3742325 وملف الاختبارات @ f8c17d2 — تحقّق كامل
+  من المحتوى قبل المتابعة). التسليم: (1) `ApprovalGate` معلمة جديدة
+  `interactive_override: Callable[[], bool] | None` — تقييم **ديناميكي
+  عند الطلب** لا عند الإقلاع؛ استثناء المُستدعى ⇒ فرض تفاعلي
+  (fail-closed)؛ deny يبقى deny؛ توافق خلفي كامل عند None.
+  (2) `server._workspace_trusted()` (fm=None أو استثناء ⇒ False) +
+  `_force_command_approval()` يعيد True عند عدم الثقة **قبل** قراءة
+  config (يتجاوز false الصريح) + تمرير lambda للبوابة. (3) `/api/trust`
+  GET (بلا مسارات — عقد التطهير) + POST {trusted: bool} (قرار مستخدم
+  صريح، NF-19) في routes/meta.py = **التوسيع الرابع الموثَّق للسطح
+  المجمّد 33→34** (test_rest_blueprints مُحدَّث). (4) ترحيل 3 اختبارات
+  تاريخية بتثبيت `_workspace_trusted→True` (monkeypatch) + اختبار جديد
+  يقنّن السلوك fail-closed (untrusted يتجاوز false الصريح). (5) حزمة
+  إنفاذ جديدة test_workspace_trust_enforcement.py — 17 اختبارًا:
+  override ×5 (فرض تفاعلي رغم auto+whitelist، ثقة تمرّر auto، توافق
+  خلفي، استثناء fail-closed، deny ثابت) + force ×5 + endpoint ×7
+  (GET fail-closed + لا-مسارات، دورة POST→GET + إبطال + ثبات على
+  القرص، 400 ×4 معلمات، 503 بلا fm). إصلاح mypy (تعليق نوع dict).
+  **البوابة: 2030P/34S ALL GREEN rc=0** (من 2012). 725b 🏁 — التالي
+  725c (لافتة/شارة الثقة UI ثم إقفال TSK-725 الكامل + CHANGELOG).
 - **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
   استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،
   الهوية — إقفال TSK-723 مؤكد على origin). **جرد التصميم (يسبق
