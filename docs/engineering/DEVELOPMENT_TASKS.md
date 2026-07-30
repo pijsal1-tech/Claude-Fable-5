@@ -2833,10 +2833,49 @@ interactive_override) + force_command_approval فعالة True رغم false
 صريحة في config + frozen surface 34 موثقة + عدم-تسريب مسارات في
 payload؛ 725c wiring (شريط/شارة/استهلاك endpoint).
 
-## TSK-726 — P2-4: FI-07 تفكيك app.js إلى ES modules [كبيرة — Placeholder]
+## TSK-726 — P2-4: FI-07 تفكيك app.js [كبيرة — مُفصَّلة S103]
 - **Placeholder مقصود** (سابقة TSK-722): يتطلب جرد ~150 دالة وخريطة
   تبعياتها أولًا؛ يُفصَّل إلى شرائح استخراج صغيرة (وحدة/جلسة) بعد
   إغلاق TSK-724 (شرط FI-07: لا تفكيك أثناء تعديل المُصيِّر).
+
+### TSK-726 — التفصيل النهائي (S103 — جرد 162 دالة مكتمل)
+**الجرد**: app.js = 4204 سطرًا؛ **162 دالة top-level** + كائن `state`
+المركزي (:9) + ثوابت مجالية (THEMES/DIFF_WINDOW_ROWS/_TEXT_EXTENSIONS/
+CAPACITY_POLL_MS/CP_ACTIONS/VL_*)؛ **24 دالة مستدعاة من onclick مضمّن
+في index.html** (openFolder/saveFile/newSession/…) ⇒ يجب أن تبقى
+عمومية global.
+
+**قرار معماري (يعدّل FI-07 بمسوّغ موثَّق)**: لا تحويل إلى ES modules
+الآن — التحويل يكسر 24 onclick عموميًا ويستلزم إما window.* re-export
+شاملًا أو إعادة كتابة كل الـ handlers، ولا bundler في المشروع.
+البديل المكافئ سلوكيًا: **تقسيم-تسلسلي محافظ (concatenation-equivalent
+split)** — نقل مقاطع متماسكة حرفيًا إلى ملفات `static/js/app/NN_*.js`
+تُحمَّل بالترتيب نفسه بعد وحدات UMD-lite وقبل بقية app.js؛ النطاق
+العمومي مشترك ⇒ صفر تغيير سلوكي، والمكسب: ملفات مجالية قابلة للقراءة
+والمراجعة والاختبار المستقل (السقف الحرفي < 800 سطر/ملف). ملاحظة:
+معظم *المنطق النقي* مستخرج فعلًا (14 وحدة UMD-lite في static/js/) —
+TSK-726 تنقل *الغراء* المتبقي إلى ملفات مجالية.
+
+**الشرائح** (كل شريحة: نقل حرفي + بوابة كاملة + push — لا خلط):
+- **726a — البنية + أول نقل (الإثبات)**: مجلد static/js/app/ + حارس
+  اختبار (test_app_split.py): (1) ترتيب التحميل في index.html =
+  UMD-lite ثم app/NN بالترتيب الرقمي ثم app.js؛ (2) كل دوال onclick
+  الـ 24 معرَّفة top-level في الملفات المحمَّلة؛ (3) لا ازدواج تعريف
+  دالة عبر الملفات؛ (4) node --check لكل ملف. النقل الأول: مجال
+  الثيم + Quick Open + Command Palette + غراء VL/Trust (~500 سطر).
+- **726b — المحرر/الملفات/التبويبات + التيرمنال** (~700 سطر):
+  loadFiles→renderTreeNode→openFile→saveFile + initTerminal→runCommand.
+- **726c — الجلسات/النماذج/المرفقات/drag-drop** (~600 سطر).
+- **726d — لوحات (plan/delegate/memory/history/status-chip/settings/
+  permissions) + diagnostics** (~700 سطر).
+- **726e — قلب الدردشة والبث وWS** (الأخطر — آخرًا): initWebSocket +
+  handleWSMessage + sendMessage + مسار البث (TSK-401) + بطاقات
+  التيرمنال؛ يبقى في app.js: state + الثوابت العامة + DOMContentLoaded
+  التمهيدية فقط (~هدف نهائي لـ app.js < 800 سطر).
+**قبول آلي**: حارس 726a يعمل بعد كل شريحة؛ كل اختبارات wiring القائمة
+(command_palette/virtual_list/trust_banner/…) تُحدَّث مساراتها إن لزم
+**دون تغيير التأكيدات الجوهرية**؛ صفر endpoints — السطح 34 لا يُمسّ؛
+كل شريحة نقل حرفي (git diff يُظهر حذف+إضافة متطابقين جوهريًا).
 ## TSK-727 — P2-5: غلاف سطح مكتب Windows-أولًا [كبيرة — Placeholder]
 - **Placeholder مقصود**: خيار التقنية (pywebview/Tauri/Electron) قرار
   معماري يحتاج موازنة مكتوبة؛ التحقق النهائي على Windows بيد المالك
