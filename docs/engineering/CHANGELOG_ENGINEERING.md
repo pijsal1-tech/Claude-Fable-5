@@ -928,3 +928,37 @@
 - صفر تغيير كود: `git diff --stat` نظيف (ملف doc جديد فقط).
 - الانحدار: نفس شجرة تشغيل 1866P/34S هذه الجلسة (doc-only، لا إعادة
   تشغيل مطلوبة بعد التغيير الوثائقي).
+
+---
+
+## [TSK-703] — 2026-07-30 (Session 86) — FI-10: تعقيم عرض Markdown عبر DOMPurify [كود]
+
+**الدفعة**: BATCH-SHORT — المهمة 3/5. **أول تغيير كود تحت V3.**
+
+### Added
+- `static/vendor/purify.min.js` — DOMPurify **3.2.6** vendored محليًا
+  (22,305 بايت، ترخيص Apache-2.0/MPL-2.0، التحقق: يبدأ بترويسة الترخيص
+  الرسمية ويُحمَّل بنجاح في node/jsdom).
+- تحميله في index.html بعد marked وقبل app.js (index.html:43–46) —
+  محلي لا CDN (اتساقًا مع سياسة vendor القائمة لـ highlight.js).
+
+### Changed
+- `renderMarkdown` (app.js:2389): كان يعيد `marked.parse(text)` **خامًا**
+  فيُحقن عبر innerHTML في ≥8 مواقع (:928..:1043) — سطح XSS من محتوى
+  النموذج (`<script>`, `<img onerror>`, `javascript:` …). الآن:
+  `DOMPurify.sanitize(rawHtml)` على الناتج الوحيد؛ وإن غاب DOMPurify
+  (فشل تحميل vendor) ⇒ **fail-safe**: نفس fallback التهريب النصي
+  الموجود في catch — لا HTML خام يصل الواجهة في أي مسار.
+- cache-bust: `app.js?v=25` → `v=26` (index.html:560).
+- لا مواقع أخرى: `marked.parse` الفعلي موقع وحيد (app.js:2403)؛
+  stream_render.js يستهلك renderMarkdown ولا ينادي marked مباشرة.
+
+### Verified (Acceptance)
+- اختبار DOM فعلي (node + jsdom ضد الملف الـ vendored نفسه): 6/6 PASS —
+  `<script>` يُنزع، `onerror` يُنزع، `javascript:` href يُجرَّد،
+  `<iframe>` يُحذف، `svg onload` يُنزع، وmarkdown سليم (strong/
+  code language-js) **يُحفظ كما هو**.
+- grep-guards: `DOMPurify.sanitize` @ app.js:2405، تحميل
+  `purify.min.js` @ index.html:46، `node --check app.js` OK.
+- الانحدار: **1866 passed, 34 skipped, 1 deselected** — ثابت (لا
+  اختبارات python تمس app.js، البوابة كاملة رغم ذلك).

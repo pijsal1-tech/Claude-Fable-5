@@ -2396,7 +2396,15 @@ function renderMarkdown(text) {
             breaks: true,
             gfm: true,
         });
-        return marked.parse(text);
+        // TSK-703 (FI-10): تعقيم ناتج marked قبل أي innerHTML — يغلق سطح
+        // XSS المتمم لـ TSK-404 (نص النموذج قد يحوي <script>/<img onerror>).
+        // غياب DOMPurify (فشل تحميل vendor) ⇒ fallback العرض النصي المهرَّب
+        // نفسه المستخدم في catch — لا HTML خام يصل الواجهة أبدًا.
+        const rawHtml = marked.parse(text);
+        if (typeof DOMPurify !== "undefined" && DOMPurify.sanitize) {
+            return DOMPurify.sanitize(rawHtml);
+        }
+        return escapeHtml(text).replace(/\n/g, "<br>");
     } catch (e) {
         return escapeHtml(text).replace(/\n/g, "<br>");
     }

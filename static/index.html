@@ -40,6 +40,11 @@
     <!-- marked.js for markdown -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
 
+    <!-- DOMPurify — TSK-703 (FI-10): تعقيم ناتج marked.parse قبل أي innerHTML.
+         vendored محليًا (3.2.6) قبل app.js لأن renderMarkdown يستهلكه؛
+         غيابه لا يكسر العرض (fallback تهريب نصي داخل renderMarkdown). -->
+    <script src="/static/vendor/purify.min.js"></script>
+
     <!-- File-type icons — T-063 (R-903): وحدة الأيقونات تُحمّل قبل app.js
          لأن app.js يستدعي FileIcons.getFileIcon() في الشجرة/التبويبات/المرفقات. -->
     <script src="/static/js/file_icons.js?v=1"></script>
@@ -552,7 +557,7 @@
 
         <div class="toast-container" id="toast-container"></div>
 
-        <script src="/static/app.js?v=25"></script>
+        <script src="/static/app.js?v=26"></script>
 </body>
 
 </html>

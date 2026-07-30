@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 85 — **TSK-701 ✅ + TSK-702 مُغلقة ✅ (docs/deployment_threat_model.md، 23/23 مرساة)؛ الموقع → TSK-703**) |
-| stage | **V3-STAGE 3 EXECUTION — BATCH-SHORT (2/5)** — البرنامج FINAL-GOVERNED السابق مُقفل 🏁 26/26 (أرشيف أدناه) |
+| last-updated | 2026-07-30 (Session 86 — **TSK-703 مُغلقة ✅ (DOMPurify 3.2.6 vendored + تغليف renderMarkdown، اختبار DOM 6/6)؛ الموقع → TSK-704**) |
+| stage | **V3-STAGE 3 EXECUTION — BATCH-SHORT (3/5)** — البرنامج FINAL-GOVERNED السابق مُقفل 🏁 26/26 (أرشيف أدناه) |
 | current-phase | BATCH-SHORT (دفعة D-5 تحت V3): FI-11/12/10/06/03 → TSK-701..705 (DEVELOPMENT_TASKS §BATCH-SHORT) |
-| current-task | **TSK-703 (FI-10: تعقيم Markdown عبر DOMPurify — كود)** — NEXT؛ ثم 704→705 (701 ✅ 702 ✅ DONE S85) |
+| current-task | **TSK-704 (FI-06: السجلات المهيكلة core/structured_log.py — كود)** — NEXT؛ ثم 705 (701✅ 702✅ 703✅) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
@@ -982,6 +982,16 @@ CLOSED-AWAITING-OWNER-DIRECTION بقرار D-5 (البرنامج السابق ي
   CHANGELOG (commit 686ac90) + تحديث PROGRESS (هذا القيد) + commit
   محلي · الموقع → **M9/TSK-620** (سرد الجلسة — CP-8/UXF-05،
   التبعية 610 ✅)؛ TSK-605 تنتظر D-2 (الحاجب الوحيد لأول 0F).
+- **2026-07-30 — Session 86 — إغلاق TSK-703 ✅ (FI-10: DOMPurify) — أول كود تحت V3**:
+  - **التغيير**: (1) `static/vendor/purify.min.js` = DOMPurify 3.2.6
+    vendored (تحقق ترويسة الترخيص + تحميل node/jsdom ناجح)؛ (2) تحميله
+    index.html:46 قبل app.js؛ (3) `renderMarkdown` يغلّف ناتج marked
+    الوحيد بـ `DOMPurify.sanitize` — وغيابه ⇒ fallback التهريب النصي
+    (fail-safe، لا HTML خام بأي مسار)؛ (4) cache-bust v=26.
+  - **القبول**: اختبار DOM فعلي jsdom 6/6 PASS (script/onerror/
+    javascript:/iframe/svg-onload تُنزع، markdown سليم يُحفظ)؛
+    node --check OK؛ grep-guards موجودة؛ الانحدار **1866P/34S** ثابت.
+  - **التالي**: TSK-704 (FI-06: structured logging).
 - **2026-07-30 — Session 85 (تابع) — إغلاق TSK-702 ✅ (FI-12: دليل النشر ونموذج التهديد)**:
   - **الناتج**: `docs/deployment_threat_model.md` (وصفية، صفر كود):
     §1 عقد localhost (لا مصادقة/لا TLS بالتصميم) · §3 خريطة الدفاعات
