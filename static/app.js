@@ -906,8 +906,7 @@ function sendMessage() {
     document.getElementById("send-btn").disabled = true;
 }
 
-function addChatMessage(role, content) {
-    const container = document.getElementById("chat-messages");
+function buildChatMessage(role, content) {
     const msg = document.createElement("div");
     msg.className = `chat-msg ${role}`;
 
@@ -957,6 +956,12 @@ function addChatMessage(role, content) {
         msg.appendChild(copyBtn);
     }
 
+    return msg;
+}
+
+function addChatMessage(role, content) {
+    const container = document.getElementById("chat-messages");
+    const msg = buildChatMessage(role, content);
     container.appendChild(msg);
     container.scrollTop = container.scrollHeight;
     return msg;
@@ -2204,11 +2209,7 @@ function loadChatHistory() {
         .then(r => r.json())
         .then(data => {
             if (data.ok && data.history) {
-                const container = document.getElementById("chat-messages");
-                container.innerHTML = "";
-                data.history.forEach(msg => {
-                    addChatMessage(msg.role, msg.content);
-                });
+                renderChatHistory(data.history);
             }
         })
         .catch(() => { });
@@ -2700,13 +2701,7 @@ function loadSession(sessionId) {
                 return;
             }
             state.currentSessionId = sessionId;
-            const container = document.getElementById("chat-messages");
-            container.innerHTML = "";
-            if (data.history) {
-                data.history.forEach(msg => {
-                    addChatMessage(msg.role, msg.content);
-                });
-            }
+            renderChatHistory(data.history || []);
             toast(`تم تحميل الجلسة`, "success");
             document.getElementById("sessions-dropdown").classList.add("hidden");
         })
@@ -4041,5 +4036,105 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!item) return;
         const cmd = cpFiltered[parseInt(item.dataset.index, 10)];
         executeCommandPaletteItem(cmd);
+    });
+});
+
+// ═══════════════════════════════════════════
+// TSK-724 (P2-2/D-10 — FI-09): نافذة عرض افتراضية — DOM glue فقط.
+// المنطق النقي في static/js/virtual_list.js (VirtualList.computeWindow).
+// قيود حافظة للسلوك: البث (currentStreamMsg) وكروت التيرمنال والرسائل
+// الحية تُلحق appendChild كما هي — تقع بعد spacer-bottom فتبقى آخر
+// القائمة؛ التمرير التلقائي لأسفل محفوظ؛ النافذة تُفعَّل فقط عند تحميل
+// تاريخ ≥ VL_THRESHOLD (الجلسات القصيرة = المسار القديم حرفيًا).
+// ═══════════════════════════════════════════
+
+const VL_THRESHOLD = 150;   // أقل عدد رسائل يفعّل النافذة
+const VL_OVERSCAN = 8;      // عناصر إضافية قبل/بعد المنفذ
+const VL_EST_HEIGHT = 120;  // تقدير أولي للارتفاع (يُقاس ويُصحَّح)
+let vlMessages = [];
+let vlHeights = [];
+let vlActive = false;
+let vlPending = false;
+
+function vlDeactivate() {
+    vlActive = false;
+    vlMessages = [];
+    vlHeights = [];
+}
+
+/** نقطة الدخول الموحدة لرسم تاريخ محادثة كامل (تحميل/تبديل جلسة). */
+function renderChatHistory(history) {
+    const container = document.getElementById("chat-messages");
+    container.innerHTML = "";
+    vlDeactivate();
+    if (!history || history.length < VL_THRESHOLD) {
+        // المسار القديم كما هو — جلسات قصيرة
+        (history || []).forEach(msg => addChatMessage(msg.role, msg.content));
+        return;
+    }
+    vlMessages = history.slice();
+    vlHeights = vlMessages.map(() => VL_EST_HEIGHT);
+    vlActive = true;
+    const top = document.createElement("div");
+    top.id = "vl-spacer-top";
+    const bottom = document.createElement("div");
+    bottom.id = "vl-spacer-bottom";
+    container.appendChild(top);
+    container.appendChild(bottom);
+    // سلوك التحميل الحالي: ابدأ من آخر القائمة
+    top.style.height = VirtualList.totalHeight(vlHeights) + "px";
+    container.scrollTop = container.scrollHeight;
+    vlRender();
+    container.scrollTop = container.scrollHeight;
+    vlRender();
+}
+
+/** إعادة رسم ما بين الـ spacers فقط حسب computeWindow. */
+function vlRender() {
+    if (!vlActive) return;
+    const container = document.getElementById("chat-messages");
+    const top = document.getElementById("vl-spacer-top");
+    const bottom = document.getElementById("vl-spacer-bottom");
+    if (!container || !top || !bottom) {
+        // الحاوية مُسحت (clearChat/newSession) — تعطيل آمن
+        vlDeactivate();
+        return;
+    }
+    const w = VirtualList.computeWindow(
+        container.scrollTop, container.clientHeight, vlHeights, VL_OVERSCAN);
+    let node = top.nextSibling;
+    while (node && node !== bottom) {
+        const next = node.nextSibling;
+        container.removeChild(node);
+        node = next;
+    }
+    const frag = document.createDocumentFragment();
+    const els = [];
+    for (let i = w.start; i < w.end; i++) {
+        const el = buildChatMessage(vlMessages[i].role, vlMessages[i].content);
+        el.dataset.vlIndex = i;
+        els.push(el);
+        frag.appendChild(el);
+    }
+    container.insertBefore(frag, bottom);
+    top.style.height = w.padTop + "px";
+    bottom.style.height = w.padBottom + "px";
+    // قياس الارتفاعات الفعلية وتصحيح التقدير تدريجيًا
+    for (const el of els) {
+        const h = el.offsetHeight;
+        if (h > 0) vlHeights[parseInt(el.dataset.vlIndex, 10)] = h;
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const chatEl = document.getElementById("chat-messages");
+    if (!chatEl) return;
+    chatEl.addEventListener("scroll", () => {
+        if (!vlActive || vlPending) return;
+        vlPending = true;
+        requestAnimationFrame(() => {
+            vlPending = false;
+            vlRender();
+        });
     });
 });
