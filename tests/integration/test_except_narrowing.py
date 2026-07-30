@@ -147,6 +147,9 @@ class TestExceptHygiene:
 
     def test_warning_frame_type_is_new(self):
         """نوع الإطار الجديد ``warning`` لا يظلل نوعًا قائمًا في الواجهة."""
-        app_js = (pathlib.Path(server.__file__).parent
-                  / "static" / "app.js").read_text(encoding="utf-8")
+        _static = pathlib.Path(server.__file__).parent / "static"
+        _parts = [(_static / "app.js").read_text(encoding="utf-8")]
+        for _f in sorted((_static / "js" / "app").glob("*.js")):
+            _parts.append(_f.read_text(encoding="utf-8"))
+        app_js = "\n".join(_parts)  # المكافئ الحرفي
         assert 'case "warning":' in app_js  # الواجهة تتعامل معه (toast)

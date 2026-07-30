@@ -30,7 +30,10 @@ import server
 
 SERVER_SRC = pathlib.Path(server.__file__).read_text(encoding="utf-8")
 ROOT = pathlib.Path(server.__file__).resolve().parent
-APP_JS = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+_APP_PARTS = [(ROOT / "static" / "app.js").read_text(encoding="utf-8")]
+for _f in sorted((ROOT / "static" / "js" / "app").glob("*.js")):
+    _APP_PARTS.append(_f.read_text(encoding="utf-8"))
+APP_JS = "\n".join(_APP_PARTS)  # المكافئ الحرفي — app.js + مقاطع التقسيم
 
 
 class _Stop(BaseException):
