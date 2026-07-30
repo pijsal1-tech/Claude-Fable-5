@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **TSK-723 قيد التنفيذ — Command Palette (Ctrl+Shift+P)** (أولى BATCH-P2/D-10)؛ سابقتها BATCH-P1 مُقفلة 🏁 6/6؛ خط الأساس: **1971P/34S** |
+| current-task | **TSK-724 التالية — FI-09 نافذة العرض الافتراضية (computeWindow)** (BATCH-P2/D-10؛ TSK-723 Command Palette مُقفلة 🏁)؛ خط الأساس: **1983P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -499,6 +499,28 @@
   آخرًا. قيد D-10 في DECISION_LOG. **جاهزية الأولى (TSK-723)**: نمط
   قائم + سابقة وحدات نقية + معايير آلية + صفر تبعيات ⇒ التنفيذ مأذون
   (بروتوكول S98 + D-8-ج). هذا القيد يسبق التنفيذ (D-7).
+  **TSK-723 ✅ (نفس الجلسة — عبر تصفيرَي بيئة إضافيين)**: Command
+  Palette (Ctrl+Shift+P): وحدة نقية `static/js/command_palette.js`
+  (UMD-lite نمط settings_panel): سجل ساكن COMMANDS ×15
+  `{id,label(ar),hint,action}` حيث action = اسم دالة UI قائمة؛
+  `filterCommands` (فارغ⇒نسخة الكل؛ وإلا احتواء label|id غير حساس
+  لحالة الأحرف) + `renderListHTML` (تهريب HTML، مؤشر selected،
+  data-cmd-id/data-index، حالة «لا أوامر مطابقة»). الغراء (app.js):
+  جدول `CP_ACTIONS` = 15 مرجع دالة مباشر — التنفيذ lookup صريح
+  `CP_ACTIONS[cmd.action]` (**لا eval ولا onclick مضمّن**)؛ تفويض
+  نقر عبر `closest("[data-cmd-id]")`؛ لوحة مفاتيح ↑↓ (التفاف) /
+  Enter / Esc؛ modal يعيد استخدام أنماط quick-open. index.html:
+  الوحدة تُحمَّل قبل app.js + بنية command-palette-modal؛ style.css:
+  غلاف الـ modal + .cp-item. **صفر endpoints — السطح المجمّد يبقى
+  33** (test_rest_blueprints بلا تعديل). 12 اختبارًا
+  (test_command_palette.py): node (ترشيح ×3/render حرفي+تحديد+kbd/
+  تهريب/شكل السجل) + سجل-الأفعال (كل action دالة قائمة في app.js +
+  مفتاح في CP_ACTIONS + لا eval) + wiring (ترتيب التحميل/الاستهلاك/
+  الاختصار/التفويض) + نقاء الوحدة. **البوابة: 1983P/34S ALL GREEN
+  rc=0** (من 1971). ملاحظات بيئة: تصفير ×2 أثناء التنفيذ —
+  Auto-Uploader أنقذ الوحدة @ c862331 والغراء أُعيدت كتابته ثم دُفع
+  فورًا @ 9b3c955 (درس: دفع الغراء قبل الاختبارات). TSK-723 🏁.
+  **التالي: TSK-724 (FI-09 — computeWindow)** حسب DAG D-10.
 - **2026-07-30 — Session 99 — تفصيل TSK-722 (D-7) — Settings UI تنقسم 722a+722b قراءة-فقط**:
   استئناف بعد تصفير بيئة ×2 (طقس §3.1: clone @ f34d376 ثم f7830ea، تطهير
   remote، الهوية). **جرد التفصيل**: config.yaml قُرئ كاملًا (221 سطرًا —

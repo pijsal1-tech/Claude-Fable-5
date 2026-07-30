@@ -1268,3 +1268,17 @@ Settings UI) — تخطيط TSK قبل التنفيذ كالعادة.
   إعدادات مُطهَّر) → 722b (اللوحة). مسار خط الأساس عبر الدفعة:
   1914 → 1933 → 1943 → 1950 → 1956 → 1962 → **1971P/34S**.
   التالي: تخطيط BATCH-P2 بقيد قرار جديد (D-7).
+
+## [TSK-723/D-10] — 2026-07-30 — Command Palette (Ctrl+Shift+P) — أولى BATCH-P2
+- وحدة نقية `static/js/command_palette.js`: سجل ساكن COMMANDS ×15
+  (action = اسم دالة UI قائمة — لا سلاسل eval) + filterCommands +
+  renderListHTML (تهريب HTML، مؤشر تحديد، data-cmd-id).
+- غراء app.js: جدول CP_ACTIONS (lookup صريح ×15 مرجع دالة مباشر)،
+  فتح/إغلاق/عرض/تنفيذ، اختصار Ctrl/Meta+Shift+P، تنقّل ↑↓/Enter/Esc
+  مع التفاف، تفويض نقر closest("[data-cmd-id]").
+- index.html: تحميل الوحدة قبل app.js + command-palette-modal (إعادة
+  استخدام أنماط quick-open)؛ style.css: غلاف الـ modal + .cp-item.
+- **صفر endpoints جديدة — سطح REST المجمّد يبقى 33.**
+- 12 اختبارًا (test_command_palette.py): node + سجل-الأفعال-قائمة +
+  wiring + نقاء الوحدة. البوابة: **1983P/34S** ALL GREEN rc=0.
+  التالي حسب DAG D-10: TSK-724 (FI-09 computeWindow).
