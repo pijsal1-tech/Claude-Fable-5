@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P1 (دفعة D-9 تحت تفويض D-8-ج): FI-05 + تشخيص + تدوير سجلات + Settings UI → TSK-718..722؛ DAG: 718→719؛ 720∥721؛ 722 آخرًا؛ المصدر: PROGRESS §Current Position (برنامج D-8-ج) |
-| current-task | **لا مهمة قيد التنفيذ — المتبقي من BATCH-P1: TSK-722 (Settings UI) placeholder يُفصَّل أولًا (D-7)**؛ المُقفل: 718✅ 719✅ (FI-05 🏁) 720✅ 721✅؛ خط الأساس: **1956P/34S** |
+| current-task | **TSK-722a قيد التنفيذ — `/api/settings` قراءة-فقط مُطهَّر** (التفصيل S99 مكتمل: 722a→722b، قراءة-فقط حصريًا، مسار الكتابة مؤجَّل كقرار مالك)؛ المُقفل: 718✅ 719✅ (FI-05 🏁) 720✅ 721✅؛ خط الأساس: **1956P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -38,7 +38,7 @@
 («ابدأ الآن من P0 حتى النهاية»)؛ التعريفات: DEVELOPMENT_TASKS §BATCH-P0
 
 ### Current Position
-- Stage: V3 — BATCH-P1 (D-9) قيد التنفيذ؛ الموضع: BATCH-P1 — أُقفلت 718..721 (FI-05 🏁 + تدوير + تشخيص)؛ المتبقي TSK-722 (تفصيل أولًا — D-7)؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
+- Stage: V3 — BATCH-P1 (D-9) قيد التنفيذ؛ الموضع: BATCH-P1 — أُقفلت 718..721 (FI-05 🏁 + تدوير + تشخيص)؛ TSK-722 فُصِّلت (S99: 722a endpoint → 722b لوحة؛ قراءة-فقط) و722a قيد التنفيذ؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
 - خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
 - برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
 - بند ختامي مُرحَّل: EOP-1 (حذف engineering_constitution/ — آخر المشروع، قرار D-8-أ)
@@ -482,6 +482,24 @@
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 99 — تفصيل TSK-722 (D-7) — Settings UI تنقسم 722a+722b قراءة-فقط**:
+  استئناف بعد تصفير بيئة ×2 (طقس §3.1: clone @ f34d376 ثم f7830ea، تطهير
+  remote، الهوية). **جرد التفصيل**: config.yaml قُرئ كاملًا (221 سطرًا —
+  17 قسمًا فعالًا)؛ معمارية القراءة: `_load_config()` @ server.py:170
+  (مُكاش، تسامحي ⇒ {})، alias `_read_config` @ :187،
+  `_force_command_approval` @ :190 (افتراضي fail-closed True — D-1/TSK-617)؛
+  الواجهة: زر «الإعدادات» @ index.html:271 يستدعي toggleThemePicker()
+  فقط — لا لوحة إعدادات. **قرار النطاق**: قراءة-فقط حصريًا على سابقة
+  TSK-621 (glass box)؛ **أي مسار كتابة config عبر HTTP مؤجَّل صراحةً
+  كقرار مالك منفصل** (مفاتيح fail-closed لا تُقلب من متصفح + config
+  مُكاش يتطلب عقد invalidation). **التقسيم (D-7 — مهام صغيرة)**:
+  TSK-722a = `GET /api/settings` مُطهَّر (whitelist أقسام صريح؛ استبعاد
+  كلي لقسم providers وproject_root — راية project_root_set فقط؛ توسيع
+  سطح REST 32→33 موثَّق) → TSK-722b = لوحة عرض-فقط (settings_panel.js
+  نمط permissions_panel.js + اختبارات node). التعريف الكامل حلّ محل
+  الـ placeholder في DEVELOPMENT_TASKS §BATCH-P1 (كتبه هذا التفصيل؛
+  وصل origin عبر Auto-Uploader @ f7830ea أثناء تصفير البيئة — تحقّق
+  المحتوى بعد الاستنساخ). هذا القيد يسبق التنفيذ (D-7).
 - **2026-07-30 — Session 98 — تخطيط BATCH-P1 (D-9) — TSK-718..722 موثقة؛ TSK-718 جاهزة للتنفيذ**:
   استئناف بعد تصفير بيئة (طقس V3 §3.1: clone @ 78dac87، تطهير remote،
   الهوية، v1.0.0-rc.1 حاضرة). **بروتوكول المالك (4 خطوات)**: (1) استئناف ✅؛
