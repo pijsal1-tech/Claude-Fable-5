@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **TSK-726e قيد التنفيذ — قلب الدردشة والبث وWS (الأخطر — آخر شريحة)** (726a+726b+726c+726d مُقفلة 🏁)؛ خط الأساس: **2050P/34S** |
+| current-task | **TSK-727 — الغلاف المكتبي (Placeholder — يُفصَّل الآن حسب D-7)**؛ TSK-726 مُقفلة بالكامل 🏁 (a+b+c+d+e)؛ خط الأساس: **2050P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -624,6 +624,34 @@
   استخراج 40_panels @ a3d355f (تُحقِّق منه حرفيًا: 684-/690+ ونحو node --check سليم).
 - **Commits:** a3d355f (استخراج+ربط، بوت) + 34050aa (ترحيل الاختبارات).
 - **الحالة:** 726d 🏁 — التالي 726e (قلب الدردشة/WS/البث — الأخطر، آخر شريحة؛ هدف app.js < 800 سطر… الوضع الحالي 1951).
+
+### إقفال TSK-726e — قلب الدردشة/WS/البث ⇒ app/10 🏁 (وإقفال TSK-726 بالكامل 🏁)
+- **ما نُفِّذ:** نقل حرفي (verbatim) لـ 1237 سطرًا من app.js
+  (الأسطر 141–1221: WebSocket initWebSocket/handleWSMessage + بطاقات الطرفية
+  handleRunCommandStep/renderTerminalCard/respondAgentApproval + قلب الدردشة
+  sendMessage/buildChatMessage/البث TSK-401 startStreaming→finalize +
+  streamThrottler + الإيقاف stopGeneration؛ والأسطر 1296–1452:
+  Apply Buttons/Actions Bar) إلى `static/js/app/10_chat_ws_stream.js`.
+- **أمان eval-time:** `const wsReconnectBackoff = WSBackoff.createBackoff()`
+  و`StreamRender.createThrottler()` — الوحدتان UMD تسبقان app.js فتقييم
+  المقطع بعده آمن (العقد المُعدَّل في S103 محفوظ).
+- **app.js:** 1951 → **712 سطرًا** — الهدف (< 800) مُحقَّق. المتبقي:
+  state + boot + الثيمات + أدوات (escapeHtml/toast/markdown/direction/
+  quick-replies/resize/openFolder/…).
+- **الحارس:** تعديل توكيد sendMessage — قلب الدردشة يعيش حصريًا في
+  10_chat_ws_stream.js (كان «قبل 726e»)؛ 7/7 نجحت.
+- **ترحيل اختبارات:** 3 وحدات (snapshot_cap_visibility/stream_render/
+  ws_backoff ⇒ _app_bundle) + 2 تكامل (scan_start ثابت APP_JS المجمَّع؛
+  except_narrowing قراءة داخلية مجمَّعة).
+- **البوابة:** `bash scripts/check.sh` — **2050 passed / 34 skipped — ALL GREEN** (rc=0).
+- **ملاحظة بيئية:** الحادثة رقم 14 — بوت الرفع أنقذ ترحيل التكامل @ 9000760
+  (تُحقِّق منه ثم أُعيدت البوابة كاملة خضراء بعد الاستنساخ).
+- **Commits:** c45dfa2 (استخراج app/10 + حارس + 3 ترحيلات) + 9000760 (ترحيل التكامل، بوت).
+
+**TSK-726 مُقفلة بالكامل 🏁 (a+b+c+d+e)** — FI-07 مُنجزة:
+app.js 4204 ⇒ 712 سطرًا + 6 مقاطع مجالية (10/20/30/40/90/91 = 3527 سطرًا)
+بنطاق عام مشترك وترتيب تحميل رقمي محروس باختبار test_app_split الدائم.
+التالي حسب DAG D-10: تفصيل TSK-727 (الغلاف المكتبي) — آخر مهام P2.
 - **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
   استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،
   الهوية — إقفال TSK-723 مؤكد على origin). **جرد التصميم (يسبق
