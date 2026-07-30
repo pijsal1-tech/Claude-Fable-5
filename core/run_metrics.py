@@ -42,6 +42,10 @@ MAX_PENDING = 256
 #: أقصى أسطر يقرأها الملخّص من ذيل الملف (سقف زمن القراءة).
 MAX_TAIL_LINES = 5000
 
+#: TSK-720 (P1-3): سقف حجم الملف قبل التدوير عند الإقلاع (5MB —
+#: أكبر بكثير من نافذة الملخّص MAX_TAIL_LINES، فلا فقد وظيفي).
+ROTATE_MAX_BYTES = 5 * 1024 * 1024
+
 
 class RunMetricsStore:
     """مخزن JSONL ملحق-فقط لمقاييس الـ runs + ملخّص p50/p95.
@@ -55,6 +59,34 @@ class RunMetricsStore:
     def __init__(self, path: str | pathlib.Path) -> None:
         self.path = pathlib.Path(path)
         self._write_lock = threading.Lock()
+
+    # ── التدوير (TSK-720) ──
+
+    def rotate_if_oversized(self, max_bytes: int = ROTATE_MAX_BYTES) -> bool:
+        """تدوير بالحجم — يُستدعى عند الإقلاع (نمط تدوير PROGRESS/D-6).
+
+        تجاوز السقف ⇒ ``runs.jsonl`` → ``runs.jsonl.1`` (``os.replace``
+        ذرّي — جيل واحد يكفي للنطاق؛ الجيل الأسبق يُستبدل) ويبدأ
+        ملف جديد مع أول append. القارئ (الملخّص) يقرأ الحالي فقط —
+        غياب تاريخ الجيل السابق من الملخّص مقبول وموثّق (قرار
+        TSK-720). **لا يرفع أبدًا** (مسار رصد اختياري — نفس تصنيف
+        NF-14 لفشل الكتابة). يعيد True إذا حدث تدوير. idempotent:
+        النداء التالي يجد ملفًا غائبًا/صغيرًا فلا يفعل شيئًا.
+        """
+        try:
+            with self._write_lock:
+                try:
+                    size = self.path.stat().st_size
+                except OSError:
+                    return False               # غائب — لا شيء يُدوّر
+                if size <= max_bytes:
+                    return False
+                import os
+                os.replace(self.path, self.path.with_name(
+                    self.path.name + ".1"))
+                return True
+        except Exception:
+            return False                       # ابتلاع معلّل (NF-14)
 
     # ── الكتابة ──
 

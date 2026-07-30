@@ -2138,6 +2138,10 @@ def main():
     # bus الرصد — إضافة صرفة (الـ bus يعزل أعطال المشتركين؛ فشل
     # الكتابة لا يمس الـ run — قرار موثّق في §TSK-610).
     run_metrics_store = RunMetricsStore(str(_DIR / "metrics" / "runs.jsonl"))
+    # TSK-720 (P1-3): تدوير بالحجم عند الإقلاع — يمنع النمو غير المحدود
+    # للملف الملحق-فقط (لا-يرفع؛ تجاوز 5MB ⇒ runs.jsonl → runs.jsonl.1).
+    if run_metrics_store.rotate_if_oversized():
+        print("  ♻️ Run Metrics: runs.jsonl دُوِّر (تجاوز السقف) → runs.jsonl.1")
     event_bus.subscribe(RunMetricsRecorder(run_metrics_store))
     print("  📈 Run Metrics: مفعّل — metrics/runs.jsonl")
     agent_tools = AgentTools(
