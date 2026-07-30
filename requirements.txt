@@ -1,0 +1,21 @@
+# requirements.txt — تبعيات التشغيل (Runtime) — TSK-713 (P0-3 / دفعة D-8)
+# ---------------------------------------------------------------
+# التثبيت:  pip install -r requirements.txt
+# للتطوير/الاختبارات أضف:  pip install -r requirements-dev.txt
+#
+# «صلبة» = import أعلى موديول يمر به مسار الإقلاع — غيابها يمنع التشغيل.
+# الأدلة (file:line): flask @ server.py:32 · flask-sock @ server.py:33 ·
+# requests @ providers/use_ai.py:18 + alle_ai.py:15 + openai_shelby.py:12 ·
+# pyyaml @ chain/agent_loader.py
+
+flask>=3.0,<4
+flask-sock>=0.7,<1
+requests>=2.31,<3
+pyyaml>=6.0,<7
+
+# ── اختيارية (محروسة بـ try/except أو استيراد كسول — غيابها لا يكسر الإقلاع) ──
+# websocket-client>=1.6   # بث use_ai عبر WS (providers/use_ai.py:25-29 محروس)
+# cloudscraper>=1.2       # مزود deepseek (providers/deepseek.py:15-19 محروس)
+# colorama>=0.4           # تلوين طرفية Windows (actions/command_runner.py:18-20 محروس)
+# redis>=5.0              # backend اختياري T-109 (core/backends_redis.py:72-76 كسول)
+# tree-sitter grammars    # فهرس الرموز — القائمة الكاملة في requirements-dev.txt (تدهور رشيق)
