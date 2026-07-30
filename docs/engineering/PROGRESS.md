@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **TSK-725c قيد التنفيذ — واجهة الثقة (لافتة قرار + شارة حالة، غراء fetch فقط)** (725a+725b مُقفلتان 🏁)؛ خط الأساس: **2030P/34S** |
+| current-task | **TSK-726 — تفصيل FI-07 (جرد ~150 دالة في app.js قبل التقسيم — D-7)** (TSK-725 مُقفلة بالكامل 🏁 a+b+c)؛ خط الأساس: **2043P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -525,6 +525,28 @@
   القرص، 400 ×4 معلمات، 503 بلا fm). إصلاح mypy (تعليق نوع dict).
   **البوابة: 2030P/34S ALL GREEN rc=0** (من 2012). 725b 🏁 — التالي
   725c (لافتة/شارة الثقة UI ثم إقفال TSK-725 الكامل + CHANGELOG).
+- **2026-07-30 — Session 103 — إقفال TSK-725c 🏁 ⇒ TSK-725 كاملة 🏁 — واجهة Workspace Trust**:
+  استئناف بعد تصفير بيئة (العاشر؛ طقس §3.1؛ Auto-Uploader أنقذ ترميز
+  CSS الجزئي @ e00b993 — أُكمل التحقق ثم الإصلاح). التسليم:
+  (1) وحدة نقية `static/js/trust_banner.js` (UMD-lite): parseTrust
+  **fail-closed** (أي شكل غير متوقع ⇒ غير موثوق بلا قرار؛ trusted
+  يستلزم decided؛ decided عبر decided_at/decided_by) + renderBanner
+  (زرّا data-trust-action=trust|keep — تفويض، لا onclick) +
+  renderBadge (موثوق/غير موثوق؛ غير-bool ⇒ غير موثوق حتى في العرض).
+  (2) غراء app.js (fetch/DOM فقط — **لا منطق قرار في المتصفح**):
+  applyTrustUI (اللافتة فقط عند «غير موثوق ولا قرار مسجَّل») +
+  refreshTrustUI (GET /api/trust؛ فشل الشبكة ⇒ عرض fail-closed) +
+  decideTrust (POST {trusted} حرفي) + تفويض نقر + نداء عند
+  DOMContentLoaded وعند نجاح switch-project. (3) index.html: الوحدة
+  قبل app.js + #trust-banner (hidden افتراضيًا) + #trust-badge بجوار
+  project-crumb؛ style.css بتوكنز الثيم فقط (surface-1/green-soft/
+  red-soft — أصلح lint الألوان بعد ضبطة أولى بألوان خام). (4) صفر
+  endpoints جديدة — /api/trust من 725b؛ السطح يبقى 34. 13 اختبارًا
+  (test_trust_banner.py): node fail-closed ×5 + نقاء ×2 + wiring ×6
+  (بينها «لا منطق قرار» و«كل fetch يستهدف /api/trust حصرًا») +
+  سيناريو يدوي موثَّق. **البوابة: 2043P/34S ALL GREEN rc=0** (من
+  2030). **TSK-725 كاملة 🏁 (a+b+c)** — التالي حسب DAG D-10:
+  تفصيل TSK-726 (FI-07: جرد ~150 دالة في app.js) ثم تنفيذه شرائحيًا.
 - **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
   استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،
   الهوية — إقفال TSK-723 مؤكد على origin). **جرد التصميم (يسبق

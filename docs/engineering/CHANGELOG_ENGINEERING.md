@@ -1294,3 +1294,23 @@ Settings UI) — تخطيط TSK قبل التنفيذ كالعادة.
 - index.html: virtual_list.js قبل app.js. صفر endpoints — السطح 33.
 - 13 اختبارًا (test_virtual_list.py). البوابة: **1996P/34S** ALL GREEN
   rc=0. التالي: تفصيل TSK-725 (Workspace Trust) ثم تفصيل TSK-726.
+
+## [TSK-725/D-10] — 2026-07-30 — Workspace Trust — بوابة ثقة fail-closed (شرائح a+b+c)
+- **725a — التخزين**: `core/workspace_trust.py` — trust.json في
+  `<root>/.ai_runs/` (داخل IGNORED_DIRS)؛ قراءة صارمة (trusted يجب أن
+  تكون bool حرفيًا؛ عطب/غياب ⇒ غير موثوق)؛ كتابة ذرية NF-19
+  (tmp+fsync+os.replace) لا-ترفع أبدًا. 16 اختبارًا.
+- **725b — الإنفاذ**: `ApprovalGate(interactive_override=...)` —
+  تقييم ديناميكي عند الطلب؛ استثناء ⇒ فرض تفاعلي؛ deny يبقى deny.
+  `_force_command_approval()` يعيد True عند عدم الثقة **قبل** قراءة
+  config (يتجاوز false الصريح). `/api/trust` GET (بلا مسارات) +
+  POST {trusted: bool} (قرار مستخدم صريح) — **التوسيع الرابع الموثَّق
+  للسطح المجمّد: 33→34**. 17 اختبار إنفاذ + ترحيل 3 اختبارات تاريخية.
+- **725c — الواجهة**: وحدة نقية `trust_banner.js` (parseTrust
+  fail-closed + renderBanner/renderBadge) + غراء app.js (fetch
+  /api/trust حصرًا — لا منطق قرار في المتصفح) + لافتة «هل تثق بهذا
+  المجلد؟» (تظهر فقط بلا قرار مسجَّل) + شارة دائمة بجوار اسم المشروع
+  + تحديث عند switch-project؛ CSS بتوكنز الثيم فقط. 13 اختبارًا.
+- البوابات: 2012P (a) → 2030P (b) → **2043P/34S** ALL GREEN rc=0 (c).
+  التالي حسب DAG D-10: تفصيل TSK-726 (FI-07 تفكيك app.js).
+
