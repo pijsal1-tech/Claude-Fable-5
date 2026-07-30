@@ -2462,3 +2462,68 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 
 ## ترتيب التنفيذ (DAG بلا دورات)
 701 → 702 → 703 → 704 → 705 (مستقلة كلها؛ الترتيب بالمخاطرة تصاعديًا).
+
+# BATCH-FI01 — دفعة المالك D-7 (تحت حكم V3) — 2026-07-30
+
+> FI-01: توحيد حالة الجلسة REST/WS (FUTURE_IMPROVEMENTS.md:16-27).
+> شرط المالك الملزم: **تاسكات صغيرة** — كل TSK قابلة للإغلاق في جلسة واحدة.
+> Prerequisite (FI-01:26): TSK-302 ✅ مقفلة منذ S14 (PROGRESS_ARCHIVE_1.md:860).
+> قرار نطاق ملزم (يُسجَّل في DECISION_LOG عند البدء): التوحيد = مخزن
+> قانوني واحد `ConversationState` تمر عبره كل كتابات/قراءات REST؛
+> عزل التبويبات لكل اتصال WS (T-048) **يبقى كما هو** — إزالته نكوص
+> مقصود ضده lint_handler_state. ما يُستأصل: طفرات globals الخام
+> (`chat_history` @ server.py:141، `_binding_banner` @ server.py:145
+> و12 موقع كتابة/قراءة في routes/*).
+
+## TSK-707 — FI-01/1: إنشاء core/conversation_state.py [كود — صغيرة]
+- **Fixes**: جزء FI-01 (NF-03 dual-state، خطر g5). **Deps**: لا شيء.
+- **Change**: ملف جديد `core/conversation_state.py` — `ConversationState`
+  (dataclass/class): `history: list[Message]`، `binding_banner: str` +
+  عمليات مسماة (append/replace_all/clear/snapshot/set_banner/clear_banner)
+  خلف قفل RLock واحد. **صفر توصيل** — الملف مستقل.
+- **Accept (آلي)**: اختبارات وحدة جديدة (سلوك العمليات + العزل بالنسخ
+  في snapshot)؛ حارس الدورات 0 cycles؛ mypy نظيف.
+
+## TSK-708 — FI-01/2: توصيل server.py بالمخزن القانوني [كود — صغيرة]
+- **Fixes**: جزء FI-01. **Deps**: TSK-707.
+- **Evidence**: `chat_history` @ server.py:141؛ `_binding_banner` @ :145؛
+  بذر WS @ :977 (`chat_history=list(chat_history)`) و:982
+  (`banner_source=lambda: _binding_banner`)؛ استعادة الإقلاع @ :1896-1898.
+- **Change**: إنشاء `conversation_state = ConversationState()` في server.py؛
+  `_build_session_context` يبذر من `conversation_state.snapshot()` والبانر
+  من `conversation_state.binding_banner`؛ مسار الإقلاع في main() يكتب عبر
+  المخزن. globals القديمة تبقى **كأسماء توافق للقراءة فقط** مؤقتًا إن لزم
+  لعدم كسر الاختبارات القائمة (يُوثَّق أي إبقاء).
+- **Accept (آلي)**: الانحدار كامل أخضر (سلوك مطابق)؛ صفر تغيير في أشكال
+  إطارات WS (مواصفة TSK-701 مرجع).
+
+## TSK-709 — FI-01/3: ترحيل routes/sessions.py + meta.py [كود — صغيرة]
+- **Fixes**: جزء FI-01. **Deps**: TSK-708.
+- **Evidence**: كتابات `_srv.chat_history` @ routes/sessions.py:33/:61/:78؛
+  `_srv._binding_banner` @ :34/:79؛ قراءة @ :26؛ قراءة meta.py:34.
+- **Change**: استبدال كل قراءة/كتابة مباشرة باستدعاءات
+  `_srv.conversation_state.*` — **صفر تغيير في أشكال JSON** (نفس المفاتيح
+  والقيم حرفيًا).
+- **Accept (آلي)**: test_rest_blueprints أخضر؛ الانحدار كامل أخضر.
+
+## TSK-710 — FI-01/4: ترحيل routes/project.py (فرعا warn/fork) [كود — صغيرة]
+- **Fixes**: جزء FI-01. **Deps**: TSK-708.
+- **Evidence**: `_srv._binding_banner` @ routes/project.py:93/:102؛
+  `_srv.chat_history = []` @ :100.
+- **Change**: نفس نمط TSK-709 على مسار switch-project (R-303) — دلالة
+  warn/fork/block تبقى حرفيًا.
+- **Accept (آلي)**: test_session_binding + test_switch_project_stale_refs
+  أخضران؛ الانحدار كامل أخضر.
+
+## TSK-711 — FI-01/5: اختبار عقد التكافؤ REST↔WS + إغلاق الدفعة [اختبار — صغيرة]
+- **Fixes**: إغلاق FI-01. **Deps**: TSK-709 + TSK-710.
+- **Change**: اختبار عقد جديد: (1) كتابة عبر مسار REST ثم بذر SessionContext
+  جديد ⇒ يرى نفس التاريخ/البانر؛ (2) ماسح ثابت يمنع عودة الكتابة المباشرة
+  على `chat_history`/`_binding_banner` خارج المخزن (نمط اختبار
+  test_no_remaining_silent_sites). تحديث FUTURE_IMPROVEMENTS غير مطلوب
+  (الحالة في PROGRESS فقط).
+- **Accept (آلي)**: check.sh كامل ALL GREEN rc=0؛ الانحدار vs خط الأساس
+  1891P/34S (+ الاختبارات الجديدة).
+
+## ترتيب التنفيذ (DAG بلا دورات)
+707 → 708 → (709 ∥ 710) → 711. كل واحدة صغيرة ومغلقة في جلسة.

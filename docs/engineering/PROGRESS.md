@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 89 — **D-6 «دفعة التصفير» مكتملة ✅ 5/5 بنود (أ–هـ): حرّاس FI-08 + توصيل 6 مواقع صامتة + تدوير §6.4 + G-10/G-11 محلولتان؛ check.sh بالحرّاس الجدد ALL GREEN rc=0**) |
-| stage | **V3-STAGE 4 CLOSED-AWAITING-OWNER-DIRECTION — BATCH-SHORT 🏁 5/5 + D-6 CLEANUP ✅ 5/5** — الأرضية نظيفة وجاهزة لدفعات MID (FI-01/FI-02…) |
-| current-phase | D-6 «دفعة التصفير» (CLEANUP) تحت V3 — **مكتملة ✅** (أ: FI-08 حرّاس؛ ب: مواقع server.py الصامتة؛ ج: تدوير PROGRESS؛ د: G-10؛ هـ: G-11) |
-| current-task | **لا مهمة — D-6 مُقفلة ✅** — بانتظار توجيه المالك (V3 §8)؛ المتاح التالي: FI-01 (توحيد حالة REST/WS، MID) أو FI-02 (تقسيم server.py، MID — الأخطر) |
+| last-updated | 2026-07-30 (Session 90 — **BATCH-FI01 (D-7) مُخطَّطة 📋 PLANNED — TSK-707..711 معرّفة في DEVELOPMENT_TASKS §BATCH-FI01؛ بانتظار كلمة «ابدأ» من المالك — صفر كود مُعدَّل**) |
+| stage | **V3-STAGE 3 EXECUTION — BATCH-FI01 (FI-01) — PLANNING-APPROVED-PENDING** (الخطة مكتوبة، التنفيذ معلّق على موافقة صريحة)؛ سوابق: BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
+| current-phase | BATCH-FI01 (دفعة D-7 تحت V3): FI-01 توحيد حالة REST/WS → TSK-707..711 (5 تاسكات **صغيرة** بشرط المالك؛ DAG: 707→708→(709∥710)→711) |
+| current-task | **TSK-707 — PLANNED (لم يبدأ)** — التنفيذ مشروط بكلمة «ابدأ» الصريحة (إجراء المالك الثابت: خطة موثّقة → موافقة → تنفيذ) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
@@ -479,6 +479,29 @@ CLOSED-AWAITING-OWNER-DIRECTION بقرار D-5 (البرنامج السابق ي
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 90 — BATCH-FI01 (D-7): تخطيط FI-01 📋 PLANNED — صفر تنفيذ**:
+  - **قرار المالك**: البدء بـ FI-01 (توحيد حالة REST/WS) + **إجراء ثابت
+    جديد ملزم لكل مهمة قادمة**: (1) خطة مكتوبة أولًا؛ (2) TSK موثقة قبل
+    أي سطر كود؛ (3) تحديث PROGRESS قبل التنفيذ لا بعده؛ (4) تقدير مجهود؛
+    (5) لا تنفيذ إلا بكلمة «ابدأ» صريحة. + شرط: **تاسكات صغيرة**.
+  - **تشخيص الازدواج (بالدليل)**: REST يطفّر globals الوحدة —
+    `chat_history` (server.py:141) و`_binding_banner` (:145) تُكتبان من
+    routes/sessions.py:33/:34/:61/:78/:79 وroutes/project.py:93/:100/:102
+    وتُقرآن من routes/sessions.py:26 وmeta.py:34؛ بينما WS يبذر
+    `SessionContext` (T-048) نسخةً وقت الاتصال (server.py:977/:982) —
+    مساران لنفس الحالة = NF-03/خطر g5.
+  - **الخطة**: مخزن قانوني واحد `core/conversation_state.py`
+    (ConversationState خلف RLock) تمر عبره كل كتابات REST وبذر WS؛
+    عزل التبويبات (T-048) يبقى كما هو. 5 تاسكات صغيرة معرّفة في
+    DEVELOPMENT_TASKS §BATCH-FI01: TSK-707 (المخزن، مستقل) →
+    TSK-708 (توصيل server.py) → TSK-709 (routes/sessions+meta) ∥
+    TSK-710 (routes/project — warn/fork) → TSK-711 (اختبار عقد تكافؤ
+    REST↔WS + ماسح نكوص + إغلاق).
+  - **الضمانات**: صفر تغيير في أشكال JSON/إطارات WS (مواصفة TSK-701
+    مرجع)؛ خط الأساس 1891P/34S + check.sh ALL GREEN شرط إغلاق كل TSK؛
+    حرّاس D-6 (دورات + ازدواج) فعّالون. Prerequisite TSK-302 ✅ (S14).
+  - **تقدير المجهود**: 3–5 جلسات (TSK/جلسة؛ 709+710 قد تُدمجان في جلسة).
+  - **الحالة**: PLANNED — بانتظار «ابدأ» من المالك. صفر ملفات كود مُست.
 - **2026-07-30 — Sessions 88–89 — D-6 «دفعة التصفير» مكتملة ✅ 5/5 (أ–هـ) — TSK-706**:
   - **(د) G-10 محلولة**: المالك حذف `docs/engineering_constitution/` بنفسه
     (626fd1d — 13 ملفًا). شرط المالك (1) نُفِّذ قبل الاعتماد: فحص مرجعي
