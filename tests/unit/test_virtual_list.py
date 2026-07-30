@@ -37,6 +37,17 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "static" / "js" / "virtual_list.js"
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    """TSK-726a: «حزمة app» = app.js + مقاطع app/NN بالترتيب الرقمي —
+    المكافئ الحرفي لتسلسل app.js قبل التقسيم (التأكيدات الجوهرية
+    كما هي؛ تغيّر فقط مصدر القراءة)."""
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
 INDEX_HTML = ROOT / "static" / "index.html"
 
 node = shutil.which("node")
@@ -142,7 +153,7 @@ class TestWiring:
         assert mod_pos < app_pos, "الوحدة يجب أن تُحمَّل قبل app.js"
 
     def test_app_consumes_module(self):
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         assert "VirtualList.computeWindow" in app
         assert "VirtualList.totalHeight" in app
         assert "function renderChatHistory(" in app
@@ -151,7 +162,7 @@ class TestWiring:
         assert "requestAnimationFrame" in app
 
     def test_history_loops_replaced_by_unified_render(self):
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         # لم تبق حلقة forEach(addChatMessage) على history خارج renderChatHistory
         assert app.count("renderChatHistory(data.history") == 2, \
             "loadChatHistory وloadSession يجب أن يستدعيا renderChatHistory"
@@ -165,7 +176,7 @@ class TestWiring:
             "الحلقة المتبقية يجب أن تكون داخل renderChatHistory حصريًا"
 
     def test_streaming_and_terminal_paths_untouched(self):
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         # handleRunCommandStep: append مباشر بلا أي مرجع vl
         m = re.search(r"function handleRunCommandStep\(data\) \{(.*?)\n\}", app, re.S)
         assert m, "handleRunCommandStep موجودة"
@@ -184,7 +195,7 @@ class TestWiring:
         assert "appendChild(msg)" not in m3.group(1)
 
     def test_threshold_short_sessions_legacy_path(self):
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         assert "VL_THRESHOLD" in app
         m = re.search(r"const VL_THRESHOLD = (\d+)", app)
         assert m and int(m.group(1)) >= 50, "عتبة معقولة للجلسات القصيرة"

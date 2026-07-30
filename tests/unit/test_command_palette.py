@@ -40,6 +40,17 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "static" / "js" / "command_palette.js"
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    """TSK-726a: «حزمة app» = app.js + مقاطع app/NN بالترتيب الرقمي —
+    المكافئ الحرفي لتسلسل app.js قبل التقسيم (التأكيدات الجوهرية
+    كما هي؛ تغيّر فقط مصدر القراءة)."""
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
 INDEX_HTML = ROOT / "static" / "index.html"
 
 node = shutil.which("node")
@@ -145,7 +156,7 @@ class TestRegistryActionsExist:
         return re.findall(r'action:\s*"([A-Za-z0-9_$]+)"', src)
 
     def test_every_action_is_existing_app_function(self):
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         actions = self._actions()
         assert len(actions) >= 10
         for name in actions:
@@ -154,7 +165,7 @@ class TestRegistryActionsExist:
             ), f"action بلا دالة قائمة في app.js: {name}"
 
     def test_every_action_in_cp_actions_lookup(self):
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         m = re.search(r"const CP_ACTIONS = \{(.*?)\};", app, re.S)
         assert m, "جدول CP_ACTIONS غير موجود في app.js"
         table = m.group(1)
@@ -170,7 +181,7 @@ class TestRegistryActionsExist:
             assert "new Function" not in src
             assert "onclick=" not in src
         # الغراء: التنفيذ عبر lookup صريح فقط
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         glue = app[app.index("const CP_ACTIONS"):]
         assert "eval(" not in glue and "new Function" not in glue
         assert "CP_ACTIONS[cmd.action]" in glue
@@ -187,7 +198,7 @@ class TestWiring:
         assert 'id="command-palette-results"' in html
 
     def test_app_consumes_module_and_shortcut(self):
-        app = APP_JS.read_text(encoding="utf-8")
+        app = _app_bundle()
         assert "CommandPalette.filterCommands" in app
         assert "CommandPalette.renderListHTML" in app
         # اختصار Ctrl/Meta+Shift+P

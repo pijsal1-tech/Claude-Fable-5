@@ -45,6 +45,17 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "static" / "js" / "trust_banner.js"
 APP_JS = ROOT / "static" / "app.js"
+APP_SPLIT_DIR = ROOT / "static" / "js" / "app"
+
+
+def _app_bundle() -> str:
+    """TSK-726a: «حزمة app» = app.js + مقاطع app/NN بالترتيب الرقمي —
+    المكافئ الحرفي لتسلسل app.js قبل التقسيم (التأكيدات الجوهرية
+    كما هي؛ تغيّر فقط مصدر القراءة)."""
+    parts = [APP_JS.read_text(encoding="utf-8")]
+    for f in sorted(APP_SPLIT_DIR.glob("*.js")):
+        parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
 INDEX_HTML = ROOT / "static" / "index.html"
 
 node = shutil.which("node")
@@ -154,7 +165,7 @@ class TestWiring:
         assert 'id="trust-badge"' in html
 
     def test_app_js_consumes_trust_banner_glue_only(self):
-        src = APP_JS.read_text(encoding="utf-8")
+        src = _app_bundle()
         assert "TrustBanner.parseTrust" in src
         assert "TrustBanner.renderBanner" in src
         assert "TrustBanner.renderBadge" in src
@@ -162,7 +173,7 @@ class TestWiring:
         assert "data-trust-action" in src
 
     def test_app_js_refresh_on_boot_and_switch(self):
-        src = APP_JS.read_text(encoding="utf-8")
+        src = _app_bundle()
         # نداء عند الإقلاع (داخل DOMContentLoaded) + عند نجاح switch-project
         assert src.count("refreshTrustUI()") >= 2
         # التبديل: النداء داخل نجاح openFolder (قرب refreshFiles)
@@ -171,7 +182,7 @@ class TestWiring:
 
     def test_no_decision_logic_in_browser(self):
         """POST يحمل قرار المستخدم الحرفي فقط — لا اشتقاق/قلب في الغراء."""
-        src = APP_JS.read_text(encoding="utf-8")
+        src = _app_bundle()
         m = re.search(r"function decideTrust\(trusted\) \{(.*?)\n\}",
                       src, re.DOTALL)
         assert m is not None
@@ -182,7 +193,7 @@ class TestWiring:
         assert "localStorage" not in body
 
     def test_glue_get_and_post_target_api_trust_only(self):
-        src = APP_JS.read_text(encoding="utf-8")
+        src = _app_bundle()
         # كل نداءات الثقة تستهدف /api/trust حصرًا (GET افتراضي + POST)
         section = src[src.find("Workspace Trust glue"):]
         urls = re.findall(r'fetch\("([^"]+)"', section)
