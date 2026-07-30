@@ -1254,3 +1254,17 @@ Settings UI) — تخطيط TSK قبل التنفيذ كالعادة.
   test_rest_blueprints).
 - 6 اختبارات (test_settings_endpoint.py) — عقد عدم-التسريب بنمط
   الـ config المزروع (TSK-721). البوابة: **1962P/34S** ALL GREEN rc=0.
+
+## [TSK-722b/D-9] — 2026-07-30 — **BATCH-P1 مُقفلة 🏁 6/6**
+- **لوحة الإعدادات — عرض فقط** (glass box، نمط TSK-621):
+  settings_panel.js وحدة نقية (renderPanelHTML؛ UNKNOWN صريح للغائب؛
+  تهريب HTML؛ صفر أزرار كتابة + ملاحظة «التعديل عبر config.yaml»)
+  + toggleSettingsPanel (fetch /api/settings + render فقط) + زر
+  Settings في activity bar يفتح اللوحة (زر الثيم بالهيدر كما هو).
+- 9 اختبارات (test_settings_panel.py) — node + wiring + نقاء الوحدة.
+  البوابة: **1971P/34S** ALL GREEN rc=0.
+- **إقفال الدفعة**: BATCH-P1 = 718 (وحدة snapshot) → 719 (توصيلها —
+  FI-05 🏁) ∥ 720 (تدوير metrics) ∥ 721 (تشخيص) → 722a (endpoint
+  إعدادات مُطهَّر) → 722b (اللوحة). مسار خط الأساس عبر الدفعة:
+  1914 → 1933 → 1943 → 1950 → 1956 → 1962 → **1971P/34S**.
+  التالي: تخطيط BATCH-P2 بقيد قرار جديد (D-7).

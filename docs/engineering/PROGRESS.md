@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P1 (دفعة D-9 تحت تفويض D-8-ج): FI-05 + تشخيص + تدوير سجلات + Settings UI → TSK-718..722؛ DAG: 718→719؛ 720∥721؛ 722 آخرًا؛ المصدر: PROGRESS §Current Position (برنامج D-8-ج) |
-| current-task | **TSK-722b التالية — لوحة الإعدادات عرض-فقط** (تستهلك /api/settings)؛ المُقفل: 718✅ 719✅ (FI-05 🏁) 720✅ 721✅ 722a✅؛ خط الأساس: **1962P/34S** |
+| current-task | **لا مهمة قيد التنفيذ — BATCH-P1 مُقفلة 🏁 6/6** (718✅ 719✅ FI-05 🏁 720✅ 721✅ 722a✅ 722b✅)؛ التالي: تخطيط BATCH-P2 (D-7: تخطيط قبل تنفيذ)؛ خط الأساس: **1971P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -38,7 +38,7 @@
 («ابدأ الآن من P0 حتى النهاية»)؛ التعريفات: DEVELOPMENT_TASKS §BATCH-P0
 
 ### Current Position
-- Stage: V3 — BATCH-P1 (D-9) قيد التنفيذ؛ الموضع: BATCH-P1 — أُقفلت 718..721 (FI-05 🏁 + تدوير + تشخيص)؛ TSK-722 فُصِّلت (S99: 722a endpoint → 722b لوحة؛ قراءة-فقط) و722a قيد التنفيذ؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
+- Stage: V3 — **BATCH-P1 مُقفلة 🏁 6/6** (718→719 FI-05 🏁؛ 720 تدوير؛ 721 تشخيص؛ 722a endpoint إعدادات؛ 722b لوحة عرض-فقط)؛ الموضع: التالي تخطيط BATCH-P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب — D-8-ج) بقيد قرار جديد قبل أي تنفيذ (D-7)؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
 - خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
 - برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
 - بند ختامي مُرحَّل: EOP-1 (حذف engineering_constitution/ — آخر المشروع، قرار D-8-أ)
@@ -513,6 +513,23 @@
   بـ sk-/ghp_ في providers ⇒ صفر أنماط في الحصيلة) + لا-مسارات +
   راية fail-closed عند config فارغ + GET-فقط (POST/PUT ⇒ 405).
   **البوابة**: check.sh ALL GREEN rc=0 — **1962P/34S** (1956+6).
+  **TSK-722b ✅ (نفس الجلسة — بعد تصفير بيئة ثالث؛ كود اللوحة نجا عبر
+  Auto-Uploader @ b3218e1 وتحقّق بعد الاستنساخ)**: لوحة الإعدادات
+  عرض-فقط — settings_panel.js (UMD-lite نقي، نمط permissions_panel.js:
+  renderPanelHTML + escapeHtml + fmtValue؛ الغائب ⇒ UNKNOWN صريح؛
+  ملاحظة «التعديل عبر config.yaml + إعادة تشغيل» ظاهرة؛ الأقسام تعيد
+  استخدام أصناف pp-*) + toggleSettingsPanel في app.js (fetch + render
+  فقط) + زر Settings في activity bar تحوَّل من toggleThemePicker إلى
+  اللوحة (زر الثيم في الهيدر @ :166 لم يُمس) + هيكل اللوحة في
+  style.css. 9 اختبارات (test_settings_panel.py): node ×6 (قيم حية/
+  fail-closed مصدرًا/تهريب HTML/UNKNOWN/لا-أزرار-كتابة+ملاحظة config/
+  راية project_root) + wiring ×3 (app.js قراءة-فقط، ترتيب التحميل،
+  نقاء الوحدة صفر DOM). **البوابة**: check.sh ALL GREEN rc=0 —
+  **1971P/34S** (1962+9؛ إخفاق عابر وحيد لـ test_no_save_churn
+  [دقة mtime] زال في إعادة تشغيل منفردة وفي البوابة الكاملة الثانية —
+  بيئي لا انحدار). **⇒ BATCH-P1 مُقفلة 🏁 6/6** — إنجازها: FI-05
+  (فتح فوري بلا مشية شجرية) + تدوير المقاييس + حزمة تشخيص + Settings
+  UI قراءة-فقط؛ التالي: تخطيط BATCH-P2 بقيد قرار (D-7).
 - **2026-07-30 — Session 98 — تخطيط BATCH-P1 (D-9) — TSK-718..722 موثقة؛ TSK-718 جاهزة للتنفيذ**:
   استئناف بعد تصفير بيئة (طقس V3 §3.1: clone @ 78dac87، تطهير remote،
   الهوية، v1.0.0-rc.1 حاضرة). **بروتوكول المالك (4 خطوات)**: (1) استئناف ✅؛
