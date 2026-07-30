@@ -76,8 +76,8 @@
 git clone <repo-url>
 cd editor_v2
 
-# تثبيت المكتبات
-pip install flask flask-sock websockets requests
+# تثبيت مكتبات التشغيل (القائمة القانونية — TSK-713)
+pip install -r requirements.txt
 
 # تشغيل السيرفر
 python server.py --project ./my_project --port 5000

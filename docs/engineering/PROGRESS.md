@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 95 — **BATCH-P0 (D-8) مفتوحة ▶️ — TSK-712 IN_PROGRESS**؛ قرارات مالك D-8: (أ) حذف engineering_constitution مؤجَّل لآخر المشروع→EOP-1 (ب) Windows أولًا (ج) تنفيذ P0→P3 حتى النهاية باستئناف موثق) |
-| stage | **V3-STAGE 3 EXECUTION — BATCH-P0 (بوابة الإنتاج) 1/6 (712✅)**؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
+| last-updated | 2026-07-30 (Session 96 — **BATCH-P0 (D-8) 3/6 — TSK-713 ✅ + TSK-714 ✅**؛ قرارات مالك D-8: (أ) حذف engineering_constitution مؤجَّل لآخر المشروع→EOP-1 (ب) Windows أولًا (ج) تنفيذ P0→P3 حتى النهاية باستئناف موثق) |
+| stage | **V3-STAGE 3 EXECUTION — BATCH-P0 (بوابة الإنتاج) 3/6 (712✅ 713✅ 714✅)**؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P0 (دفعة D-8 تحت V3): بوابة الإنتاج → TSK-712..717 (6 تاسكات **صغيرة**؛ DAG: 712→713→714→(715∥716)→717)؛ المصدر: Evolution Gap Report §10 |
-| current-task | **TSK-713 — requirements.txt تشغيلي** NEXT (سابقتها TSK-712 ✅ مُغلقة S95)؛ خط الأساس: **1910P/34S** (مع deselect الـ flaky)؛ check.sh = 1911P/34S (تحقق حي @ 9a3aed0) |
+| current-task | **TSK-715 (دليل المستخدم) ∥ TSK-716 (الإصدار)** NEXT — المُغلق: 712✅ 713✅ 714✅؛ خط الأساس: 1911P/34S check.sh ALL GREEN (تحقق حي S96) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -34,11 +34,11 @@
 > الدستور الكامل محفوظ في `docs/engineering/prompet_28_7_final.md` (snapshot مرفوع — لا يُعدَّل).
 
 ### Current Stage
-**V3 — STAGE 3 EXECUTION (BATCH-P0 1/6 — 712✅)** — دفعة بوابة الإنتاج بقرار مالك D-8
+**V3 — STAGE 3 EXECUTION (BATCH-P0 3/6 — 712✅ 713✅ 714✅)** — دفعة بوابة الإنتاج بقرار مالك D-8
 («ابدأ الآن من P0 حتى النهاية»)؛ التعريفات: DEVELOPMENT_TASKS §BATCH-P0
 
 ### Current Position
-- Stage: V3 STAGE 3 — BATCH-P0 (TSK-712..717؛ الموضع: TSK-712 ✅ → TSK-713 NEXT)
+- Stage: V3 STAGE 3 — BATCH-P0 (TSK-712..717؛ الموضع: 712✅ 713✅ 714✅ → (715∥716) NEXT)
 - خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
 - برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
 - بند ختامي مُرحَّل: EOP-1 (حذف engineering_constitution/ — آخر المشروع، قرار D-8-أ)
@@ -482,6 +482,22 @@
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 96 — TSK-713 ✅ + TSK-714 ✅ (P0-3 التغليف + P0-7 تدقيق Windows)**:
+  استئناف بعد تصفير بيئة (طقس V3 §3.1؛ عمل S95 نجا كاملًا على origin
+  @ bcd3224). **TSK-713 ✅**: `requirements.txt` تشغيلي جديد — 4 تبعيات
+  صلبة مُسقَّفة (flask/flask-sock/requests/pyyaml، الأدلة file:line في
+  رأس الملف) + الاختيارية الخمس معلّقة بأسبابها؛ README §التثبيت يشير
+  إليه بدل قائمة pip اليدوية. **القبول تحقق**: venv نظيف +
+  `pip install -r requirements.txt` + `import server` ينجح بلا dev deps.
+  **TSK-714 ✅**: `docs/WINDOWS_COMPAT.md` — تدقيق ساكن على المحاور
+  الخمسة (إشارات/مسارات/كتابة ذرّية/subprocess+ترميز/flask-sock):
+  **AUDITED-STATIC PASS، صفر إصلاحات كود مطلوبة** (الكود عابر للمنصات
+  أصلًا: shlex posix-switch @ command_runner.py:82، cmd.exe /c @ :140،
+  تطبيع '\\' @ server.py:780، os.replace ذرّي في 6 مواقع)؛ تدهوران
+  موثقان (إغلاق النافذة ≠ رشيق؛ cp1256 في مخرجات cmd) → لدليل
+  المستخدم؛ قائمة فحص §6 للمالك على Windows حقيقي = شرط رفع -rc.
+  **البوابة**: check.sh ALL GREEN — **1911P/34S** (82.71s) — خط الأساس ثابت.
+  - **الموضع** → TSK-715 (دليل المستخدم) ∥ TSK-716 (الإصدار).
 - **2026-07-30 — Session 95 — Evolution Gap Report + قرارات مالك D-8 + فتح BATCH-P0 + TSK-712 ✅**:
   جلسة كبرى: (1) **Evolution Gap Report** سُلِّم (10 أسئلة: الحالة/المكتمل/
   الفجوات/التناقضات CI-1..CI-6/الدين=صفر غير موثق/المخاطر/الجاهزية/مقارنة
