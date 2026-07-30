@@ -60,7 +60,8 @@ class ProjectIndex:
 
     def __init__(self, root: str | pathlib.Path,
                  max_age_seconds: float = 2.0,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+                 clock: Callable[[], float] = time.monotonic,
+                 snapshot_path: str | pathlib.Path | None = None) -> None:
         self.root = pathlib.Path(root).resolve()
         self.max_age_seconds = max_age_seconds
         self._clock = clock
@@ -70,7 +71,15 @@ class ProjectIndex:
         self._names: list[tuple[str, pathlib.Path]] = []
         self._built_at: float = float("-inf")
         self.rebuild_count: int = 0
-        self.rebuild()
+        # TSK-719 (FI-05/2): snapshot اختياري — تحميل ناجح يبذر الفهرس
+        # بلا مشية شجرية (الفتح فوري)؛ الطزاجة تبقى على عقد T-049 القائم
+        # (نافذة staleness واحدة ≤ max_age حتى أول sweep — نفس عقد
+        # التعديلات الخارجية). فاشل/غائب ⇒ rebuild كالسابق.
+        self._snapshot_path = (pathlib.Path(snapshot_path)
+                               if snapshot_path is not None else None)
+        self._snapshot_rels: list[str] | None = None   # آخر محفوظ/محمَّل
+        if not self._seed_from_snapshot():
+            self.rebuild()
 
     # ═══════════════════════ البناء والاشتقاق ═══════════════════════
 
@@ -93,6 +102,44 @@ class ProjectIndex:
         self._reindex()
         self._built_at = self._clock()
         self.rebuild_count += 1
+        self._save_snapshot_if_changed()   # TSK-719: حفظ فقط عند التغيّر
+
+    # ═══════════════ snapshot (TSK-719 / FI-05) ═══════════════
+
+    def _seed_from_snapshot(self) -> bool:
+        """بذر الفهرس من snapshot صالح — يعيد True عند النجاح.
+
+        لا مشية شجرية: القائمة تُبنى من المسارات النسبية المحفوظة
+        (فرز دفاعي يعيد فرض عقد الترتيب العالمي T-017)؛ ``_built_at``
+        يُختم الآن فتنطبق نافذة sweep القياسية (≤ max_age) — أول
+        استعلام بعدها يجري rebuild يلتقط أي انحراف خارجي.
+        """
+        if self._snapshot_path is None:
+            return False
+        from core.index_snapshot import load_snapshot
+        rels = load_snapshot(self._snapshot_path, self.root)
+        if rels is None:
+            return False
+        self._files = sorted(self.root / r for r in rels)
+        self._reindex()
+        self._built_at = self._clock()
+        self._snapshot_rels = [self.rel(p) for p in self._files]
+        return True
+
+    def _save_snapshot_if_changed(self) -> None:
+        """حفظ snapshot بعد rebuild — **فقط** إذا تغيّرت القائمة.
+
+        يمنع churn الكتابة من sweep الدوري (rebuild كل ~2s على مشروع
+        ساكن = صفر كتابات). الحفظ لا-يرفع (عقد core/index_snapshot).
+        """
+        if self._snapshot_path is None:
+            return
+        rels = [self.rel(p) for p in self._files]
+        if rels == self._snapshot_rels:
+            return
+        from core.index_snapshot import save_snapshot
+        if save_snapshot(self._snapshot_path, self.root, rels):
+            self._snapshot_rels = rels
 
     def _reindex(self) -> None:
         """اشتقاق الفهارس المقلوبة من ``_files`` (المفروزة مسبقًا)."""

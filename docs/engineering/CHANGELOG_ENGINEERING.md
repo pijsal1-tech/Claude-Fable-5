@@ -1210,3 +1210,17 @@ Settings UI) — تخطيط TSK قبل التنفيذ كالعادة.
 - **Changed**: لا شيء قائم مُس — إضافة صافية (صفر توصيل بالتصميم).
 - **Verified**: check.sh ALL GREEN rc=0 — **1933P/34S** (خط أساس 1914 +
   19 الجديدة بالضبط؛ بوابات grep سليمة — الوحدة خارج context/).
+
+## [TSK-719 / D-9] — 2026-07-30 — FI-05/2: توصيل snapshot ⇒ FI-05 مُقفل 🏁
+- **Context**: الشطر الثاني من FI-05 — فتح المشروع المفهرس سابقًا يصير
+  تحميل+delta بدل مشية شجرية كاملة (هدف QA-T13: مشاريع 5k+ ملف).
+- **Changed**: `context/index.py` (snapshot_path اختياري + _seed_from_snapshot
+  + _save_snapshot_if_changed — التوقيع القديم يعمل حرفيًا كما كان) +
+  `server.py` (_index_snapshot_path → `<root>/.ai_runs/project_index.json`
+  موصول في _server_handle_factory + _build_ctx).
+- **Added**: `tests/unit/test_index_snapshot_wiring.py` (10 اختبارات:
+  تكافؤ ذهبي fresh≡seeded، بذر بلا rebuild، تقارب snapshot قديم بعد
+  force sweep، سقوط نظيف للفاسد/الجذر المغاير، no-churn، خطاف T-049
+  فوق فهرس مبذور، مسار الخادم داخل .ai_runs).
+- **Verified**: check.sh ALL GREEN rc=0 — **1943P/34S** (1933+10 بالضبط)؛
+  عقد الطزاجة T-049 بلا تغيير دلالي (نافذة ≤2s موثقة في التعريف).

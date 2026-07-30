@@ -645,6 +645,14 @@ def _active_provider():
     return provider
 
 
+def _index_snapshot_path(root: str) -> str:
+    """TSK-719 (FI-05/2): مسار snapshot فهرس المشروع — داخل
+    ``.ai_runs`` (ضمن IGNORED_DIRS منذ TSK-202 ⇒ لا يظهر في نتائج
+    البحث ولا يلوث مشية الفهرس نفسها — ملاحظة: الملف يُفهرس في
+    ``_files`` كأي ملف لكن فلاتر البحث تسقطه عبر IGNORED_DIRS)."""
+    return str(pathlib.Path(root) / ".ai_runs" / "project_index.json")
+
+
 def _server_handle_factory(root: str) -> ProjectHandle:
     """T-007 (R-102): server flavor of the handle factory.
 
@@ -658,7 +666,9 @@ def _server_handle_factory(root: str) -> ProjectHandle:
     """
     from context.index import ProjectIndex
     fm = FileManager(root)
-    index = ProjectIndex(root)
+    # TSK-719 (FI-05/2): snapshot داخل .ai_runs (ضمن IGNORED_DIRS —
+    # لا يلوث البحث)؛ فتح مشروع مفهرس سابقًا = تحميل بلا مشية شجرية.
+    index = ProjectIndex(root, snapshot_path=_index_snapshot_path(root))
     index.attach(fm)
     return ProjectHandle(
         root=root,
@@ -678,7 +688,9 @@ def _build_ctx(project_path: str) -> AppContext:
     to the (global) FileManager — same shape as _server_handle_factory.
     """
     from context.index import ProjectIndex
-    _index = ProjectIndex(project_path)
+    # TSK-719 (FI-05/2): نفس توصيل snapshot الذي في _server_handle_factory.
+    _index = ProjectIndex(project_path,
+                          snapshot_path=_index_snapshot_path(project_path))
     _index.attach(fm)
     return AppContext(
         project=ProjectHandle(root=project_path, fm=fm, cmd_runner=cmd_runner,

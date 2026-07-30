@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 98 — تخطيط BATCH-P1 (D-9) ✅ + **TSK-718 ✅** (core/index_snapshot.py + 19 اختبارًا — 1933P/34S ALL GREEN)) |
+| last-updated | 2026-07-30 (Session 98 — تخطيط BATCH-P1 (D-9) ✅ + **TSK-718 ✅ + TSK-719 ✅ ⇒ FI-05 مُقفل 🏁** — 1943P/34S ALL GREEN) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P1 (دفعة D-9 تحت تفويض D-8-ج): FI-05 + تشخيص + تدوير سجلات + Settings UI → TSK-718..722؛ DAG: 718→719؛ 720∥721؛ 722 آخرًا؛ المصدر: PROGRESS §Current Position (برنامج D-8-ج) |
-| current-task | **TSK-719 — FI-05/2: توصيل snapshot (تحميل عند الفتح + حفظ بعد rebuild)** — سابقتها TSK-718 ✅ (S98)؛ خط الأساس الجديد: **1933P/34S** |
+| current-task | **TSK-720 — P1-3: تدوير metrics/runs.jsonl** — سابقتاها TSK-718 ✅ + TSK-719 ✅ (FI-05 مُقفل 🏁)؛ خط الأساس الجديد: **1943P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -38,7 +38,7 @@
 («ابدأ الآن من P0 حتى النهاية»)؛ التعريفات: DEVELOPMENT_TASKS §BATCH-P0
 
 ### Current Position
-- Stage: V3 — BATCH-P1 (D-9) قيد التنفيذ؛ الموضع: TSK-719 (توصيل snapshot — TSK-718 ✅)؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
+- Stage: V3 — BATCH-P1 (D-9) قيد التنفيذ؛ الموضع: TSK-720 (تدوير سجلات) — FI-05 مُقفل 🏁 (718+719 ✅)؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
 - خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
 - برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
 - بند ختامي مُرحَّل: EOP-1 (حذف engineering_constitution/ — آخر المشروع، قرار D-8-أ)
@@ -514,6 +514,20 @@
   بيئية: فشل عابر واحد قبل تثبيت requirements-dev كان غياب tree-sitter
   — ليس انحدارًا). ملاحظة انقطاع: الكود نجا على origin عبر قيد
   Auto-Uploader e58f6c1؛ هذا الإغلاق التوثيقي أُعيد بعد تصفير البيئة.
+  **TSK-719 ✅ (نفس الجلسة) ⇒ FI-05 مُقفل 🏁**: توصيل snapshot —
+  (1) `ProjectIndex.__init__` يقبل `snapshot_path` اختياريًا؛ تحميل صالح
+  ⇒ `_seed_from_snapshot()` يبذر `_files` + `_reindex()` **بلا مشية
+  شجرية** (rebuild_count=0 مُثبَت اختباريًا)؛ فاشل/فاسد/جذر مغاير ⇒
+  rebuild كالسابق؛ (2) `_save_snapshot_if_changed()` بعد كل rebuild —
+  **فقط عند تغيّر القائمة** (اختبار no-churn: mtime لا يتحرك على sweep
+  لشجرة ساكنة)؛ (3) التوصيل في server.py `_index_snapshot_path()` →
+  `<root>/.ai_runs/project_index.json` (ضمن IGNORED_DIRS) موصول في
+  `_server_handle_factory` + `_build_ctx`. عقد الطزاجة محفوظ: نافذة
+  staleness واحدة ≤2s حتى أول sweep (اختبار التقارب بعد force=True)؛
+  خطاف write-through يعمل فوق فهرس مبذور. + 10 اختبارات
+  (`test_index_snapshot_wiring.py`) منها التكافؤ الذهبي fresh≡seeded
+  والتوقيع القديم بلا snapshot_path يعمل حرفيًا كما كان.
+  **البوابة**: check.sh ALL GREEN rc=0 — **1943P/34S** (1933+10).
 - **2026-07-30 — Session 97 — TSK-715 ✅ + TSK-716 ✅ + TSK-717 ✅ ⇒ BATCH-P0 مُقفلة 🏁 6/6 — v1.0.0-rc.1**:
   استئنافان بعد تصفيري بيئة (S96→S97؛ كل عمل سابق نجا على origin —
   آلية D-8-ج تعمل كما صُممت). **TSK-716 ✅** (كان قد اكتمل كودًا قبل
