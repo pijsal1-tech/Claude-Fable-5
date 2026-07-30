@@ -10,13 +10,13 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 90 — **BATCH-FI01 (D-7) مُخطَّطة 📋 PLANNED — TSK-707..711 معرّفة في DEVELOPMENT_TASKS §BATCH-FI01؛ بانتظار كلمة «ابدأ» من المالك — صفر كود مُعدَّل**) |
-| stage | **V3-STAGE 4 CLOSED-AWAITING-OWNER-DIRECTION — BATCH-FI01 مكتملة 🏁 5/5** (FI-01 ✅)؛ سوابق: BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
-| current-phase | BATCH-FI01 (دفعة D-7 تحت V3): FI-01 توحيد حالة REST/WS → TSK-707..711 (5 تاسكات **صغيرة** بشرط المالك؛ DAG: 707→708→(709∥710)→711) |
-| current-task | **لا مهمة — BATCH-FI01 مُقفلة 🏁 (707✅ 708✅ 709✅ 710✅ 711✅)** — بانتظار توجيه المالك (V3 §8)؛ خط الأساس الجديد: **1910P/34S** (مع deselect الـ flaky)؛ check.sh = 1911P/34S |
+| last-updated | 2026-07-30 (Session 95 — **BATCH-P0 (D-8) مفتوحة ▶️ — TSK-712 IN_PROGRESS**؛ قرارات مالك D-8: (أ) حذف engineering_constitution مؤجَّل لآخر المشروع→EOP-1 (ب) Windows أولًا (ج) تنفيذ P0→P3 حتى النهاية باستئناف موثق) |
+| stage | **V3-STAGE 3 EXECUTION — BATCH-P0 (بوابة الإنتاج) 1/6 (712✅)**؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
+| current-phase | BATCH-P0 (دفعة D-8 تحت V3): بوابة الإنتاج → TSK-712..717 (6 تاسكات **صغيرة**؛ DAG: 712→713→714→(715∥716)→717)؛ المصدر: Evolution Gap Report §10 |
+| current-task | **TSK-713 — requirements.txt تشغيلي** NEXT (سابقتها TSK-712 ✅ مُغلقة S95)؛ خط الأساس: **1910P/34S** (مع deselect الـ flaky)؛ check.sh = 1911P/34S (تحقق حي @ 9a3aed0) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
-| repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
+| repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
 | governing prompt | **MASTER ENGINEERING CONSTITUTION V3** (CONSTITUTION_V3.md — تبنّي مالك 2026-07-30، قيد V3-ADOPT؛ حلّ محل FINAL-GOVERNED الموسوم [SUPERSEDED]) |
 
 ### Completion formula
@@ -34,12 +34,15 @@
 > الدستور الكامل محفوظ في `docs/engineering/prompet_28_7_final.md` (snapshot مرفوع — لا يُعدَّل).
 
 ### Current Stage
-**V3 — STAGE 3 EXECUTION (BATCH-SHORT 0/5)** — انتقال من STAGE 4
-CLOSED-AWAITING-OWNER-DIRECTION بقرار D-5 (البرنامج السابق يبقى مُقفلًا 🏁 كأرشيف)
+**V3 — STAGE 3 EXECUTION (BATCH-P0 1/6 — 712✅)** — دفعة بوابة الإنتاج بقرار مالك D-8
+(«ابدأ الآن من P0 حتى النهاية»)؛ التعريفات: DEVELOPMENT_TASKS §BATCH-P0
 
 ### Current Position
-- Stage: V3 STAGE 3 — BATCH-SHORT (TSK-701..705؛ الموضع: TSK-701 IN_PROGRESS)
-- خط أساس الدفعة (حي @ 4e87d6b): 1866P/34S/0F (+ search_perf البيئي 1.036s>1.0s على هذا العتاد — flaky موثَّق)
+- Stage: V3 STAGE 3 — BATCH-P0 (TSK-712..717؛ الموضع: TSK-712 ✅ → TSK-713 NEXT)
+- خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
+- برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
+- بند ختامي مُرحَّل: EOP-1 (حذف engineering_constitution/ — آخر المشروع، قرار D-8-أ)
+- [أرشيف موضع BATCH-SHORT عند فتحها] خط أساسها (حي @ 4e87d6b): 1866P/34S/0F (+ search_perf البيئي 1.036s>1.0s على هذا العتاد — flaky موثَّق)
 - [أرشيف الموضع السابق] Stage: EXECUTION (Stage 3 — **مُقفلة 🏁 26/26** — M6–M10 كلها مغلقة؛ IR-1 ✅ + IR-2 ✅)
 - Phase/Task: **البرنامج مُقفل — لا مهمة متبقية** (S83 أغلقت الأربع
   الأخيرة بقرارات المالك: 605←D-2، 617←D-1، 622←D-4، 623←D-3)؛
@@ -479,6 +482,25 @@ CLOSED-AWAITING-OWNER-DIRECTION بقرار D-5 (البرنامج السابق ي
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 95 — Evolution Gap Report + قرارات مالك D-8 + فتح BATCH-P0 + TSK-712 ✅**:
+  جلسة كبرى: (1) **Evolution Gap Report** سُلِّم (10 أسئلة: الحالة/المكتمل/
+  الفجوات/التناقضات CI-1..CI-6/الدين=صفر غير موثق/المخاطر/الجاهزية/مقارنة
+  7 منافسين/مصفوفة 16 بُعدًا/خارطة P0→P3) — تحليل فقط، مبني على قراءة
+  كاملة سابقة + بوابة حية 1911P/34S @ 9a3aed0. (2) **قرارات مالك D-8**
+  (ثلاثة قيود في DECISION_LOG): (أ) CI-1 محسومة — حذف engineering_constitution/
+  مؤجَّل لآخر المشروع → بند ختامي EOP-1؛ إلى حينها HISTORICAL-INERT.
+  (ب) **Windows أولًا مبدئيًا، Linux مستقبلًا**. (ج) تفويض تنفيذ P0→P3
+  حتى النهاية، استئناف موثق بين الجلسات — يشمل تفويض الحفظ على origin
+  (سابقة فناء العمل مع تصفير البيئة موثقة S84/S86). (3) **تخطيط BATCH-P0**:
+  TSK-712..717 معرّفة في DEVELOPMENT_TASKS §BATCH-P0 (مصالحة PROGRESS /
+  requirements.txt / تدقيق Windows / دليل مستخدم / إصدار+version.py /
+  LICENSE+tag v1.0.0-rc.1) — DAG: 712→713→714→(715∥716)→717.
+  (4) **TSK-712 ✅ مُغلقة (هذه الجلسة)**: مصالحة الترويسة الحاكمة —
+  last-updated/stage/current-phase/current-task (CI-2) + repository
+  9a3aed0 (CI-4) + أقسام Current Stage/Position (CI-3)؛ سجل الجلسات
+  لم يُمس (append-only). صفر تعديل كود ⇒ الانحدار غير مطلوب منطقيًا،
+  وسيجري كاملًا عند أول TSK كودية (713+).
+  - **الموضع** → TSK-713 (requirements.txt تشغيلي).
 - **2026-07-30 — Session 94 — TSK-711 ✅ ⇒ BATCH-FI01 مكتملة 🏁 5/5 — FI-01 مُغلقة**:
   - **التغيير**: `tests/integration/test_rest_ws_state_parity.py` جديد —
     6 اختبارات: (1) بذر WS ≡ قراءة /api/chat-history حرفيًا؛ (2) /api/clear

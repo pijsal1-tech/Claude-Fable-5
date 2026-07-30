@@ -2527,3 +2527,90 @@ grep/wc نظيفة من 892KB التلوث؛ المحتوى محفوظ في أر
 
 ## ترتيب التنفيذ (DAG بلا دورات)
 707 → 708 → (709 ∥ 710) → 711. كل واحدة صغيرة ومغلقة في جلسة.
+
+# BATCH-P0 — دفعة المالك D-8: بوابة الإنتاج (تحت حكم V3) — 2026-07-30
+
+> المصدر: Evolution Gap Report §10 (P0) + قرارات مالك D-8 (DECISION_LOG).
+> شرط المالك الدائم (D-7): تاسكات صغيرة، كل TSK قابلة للإغلاق في جلسة واحدة.
+> سياق المنصات (D-8-ب): **Windows أولًا، Linux مستقبلًا**.
+> P0-1 (مصير engineering_constitution/) خرج من الدفعة: مؤجَّل بقرار D-8-أ إلى
+> بند ختامي **EOP-1** (حذف المجلد قبل الوسم النهائي للمشروع).
+
+## TSK-712 — P0-5: مصالحة ترويسة PROGRESS (CI-2/CI-3/CI-4) [توثيق — صغيرة]
+- **Fixes**: CI-2 (last-updated متجمدة على S90) + CI-3 (أقسام Current Stage/
+  Position/Next action متجمدة على حقبة S83/S84) + CI-4 (سطر repository @ 35c05d7).
+- **Deps**: لا شيء.
+- **Change**: تحديث حقول الترويسة الحاكمة فقط (last-updated/stage/current-phase/
+  current-task/repository) + أقسام Current Stage/Position/Next وفق الواقع
+  (BATCH-P0 جارية)؛ سجل الجلسات append-only لا يُمس؛ قيد جلسة جديد S95.
+- **Accept (آلي)**: صفر تعديل كود؛ diff محصور في PROGRESS.md؛ الترويسة
+  تطابق DECISION_LOG (D-8) حرفيًا.
+
+## TSK-713 — P0-3: requirements.txt تشغيلي + تحقق تثبيت نظيف [تغليف — صغيرة]
+- **Fixes**: فجوة «لا مسار تثبيت» (Gap Report §3-ب).
+- **Deps**: TSK-712.
+- **Evidence**: الصلبة (import أعلى الموديول): flask @ server.py:32،
+  flask_sock @ :33، requests @ providers/use_ai.py:18 + alle_ai.py:15 +
+  openai_shelby.py:12، yaml @ chain/agent_loader.py. الاختيارية المحروسة:
+  websocket-client (use_ai.py:25-29)، cloudscraper (deepseek.py:15-19)،
+  colorama (command_runner.py:18-20)، redis (backends_redis.py:72-76 كسول)،
+  tree-sitter (symbol_index.py — تدهور رشيق موثق في requirements-dev.txt).
+- **Change**: ملف `requirements.txt` جديد: 4 تبعيات صلبة مُسقَّفة الإصدار +
+  قسم معلّق للاختيارية مع سبب كل واحدة؛ تحديث README §التشغيل السريع
+  (pip install -r requirements.txt).
+- **Accept (آلي)**: venv نظيف + `pip install -r requirements.txt` +
+  `python -c "import server"` ينجح (بلا dev deps)؛ الانحدار الكامل أخضر
+  في بيئة dev المعتادة.
+
+## TSK-714 — P0-7: تدقيق توافق Windows [تدقيق + إصلاحات طفيفة — صغيرة]
+- **Fixes**: D-8-ب (Windows أولًا). **Deps**: TSK-713.
+- **Scope**: تدقيق ساكن (البيئة الحالية Linux): (1) الإشارات — SIGTERM لا
+  يُطلق عمليًا على Windows وsignal.signal(SIGTERM) قانوني لكن CTRL_C يمر
+  عبر SIGINT (مسار TSK-705 يعمل)؛ (2) المسارات — pathlib عمومًا،
+  server.py:780 يطبّع '\\'→'/' أصلًا؛ (3) subprocess/encoding (cp1256!)؛
+  (4) القفل/الملفات المفتوحة (rename فوق ملف مفتوح يفشل على Windows —
+  مراجعة project_memory/checkpoint)؛ (5) سلوك flask-sock.
+- **Change**: تقرير `docs/WINDOWS_COMPAT.md` (نتائج + قائمة فحص تشغيل
+  للمالك على جهاز Windows حقيقي) + إصلاحات كود **طفيفة فقط** إن وُجدت
+  مواقع قاطعة (كل إصلاح بقيد دليل)؛ أي إصلاح غير طفيف → TSK مستقلة.
+- **Accept (آلي)**: check.sh ALL GREEN؛ التقرير يغطي المحاور الخمسة
+  بأدلة file:line؛ قائمة فحص المالك مُسلَّمة.
+
+## TSK-715 — P0-6: دليل المستخدم النهائي (عربي، Windows-أولًا) [توثيق — صغيرة]
+- **Fixes**: فجوة «لا دليل مستخدم». **Deps**: TSK-713 (يستشهد بمسار التثبيت)
+  + TSK-714 (يستشهد بقائمة Windows).
+- **Change**: `docs/USER_GUIDE.md` بالعربية: المتطلبات → التثبيت (Windows
+  خطوة-بخطوة + Linux مختصر) → التشغيل → الواجهة → **عقد localhost الأمني
+  بلغة مستخدم** (deployment_threat_model.md §5 مصدرًا: لا تعرض المنفذ
+  خارج جهازك أبدًا) → الأسئلة الشائعة/الاستكشاف.
+- **Accept (آلي)**: صفر تعديل كود؛ كل أمر مذكور في الدليل منسوخ من
+  مصدر متحقق (README/WINDOWS_COMPAT)؛ روابط داخلية سليمة.
+
+## TSK-716 — P0-4: رقم الإصدار + سياسة الإصدارات [كود طفيف + توثيق — صغيرة]
+- **Fixes**: فجوة «لا نسخة». **Deps**: TSK-712.
+- **Change**: (1) `core/version.py` — ثابت `__version__ = "1.0.0-rc.1"`
+  (SemVer؛ rc حتى تحقق Windows الفعلي من المالك)؛ (2) server.py يعرضه في
+  سطر الإقلاع + `--version`؛ (3) `/api/meta` يضيف حقل version (إضافة مفتاح
+  فقط — لا كسر شكل)؛ (4) قسم «سياسة الإصدارات» في README (متى يرتفع
+  major/minor/patch، الوسم = بعد إغلاق كل دفعة إنتاج).
+- **Accept (آلي)**: اختبار وحدة جديد (استيراد الثابت + وجوده في meta)؛
+  الانحدار كامل أخضر؛ صفر تغيير في مفاتيح JSON القائمة.
+
+## TSK-717 — P0-2 + إغلاق الدفعة: LICENSE + وسم v1.0.0-rc.1 [قانوني/إغلاق — صغيرة]
+- **Fixes**: فجوة «لا LICENSE». **Deps**: TSK-713..716 كلها.
+- **قرار مطلوب**: المالك لم يحدد الرخصة بعد. **الافتراضي الآمن المؤقت**:
+  LICENSE «All Rights Reserved — © 2026 pijsal1-tech» (ملكية خاصة؛ الخيار
+  الوحيد القانوني الآمن لمستودع خاص بلا قرار) — قابل للاستبدال بـ MIT/
+  Apache-2.0 بكلمة واحدة من المالك، ويُسجَّل الاستبدال قيد قرار.
+- **Change**: ملف LICENSE + إشارة في README + إغلاق الدفعة: CHANGELOG
+  قيد [TSK-712..717/D-8] + PROGRESS + **git tag v1.0.0-rc.1** (تفويض
+  D-8-ج) + الحفظ على origin.
+- **Accept (آلي)**: check.sh ALL GREEN rc=0 (بوابة الإغلاق)؛ الانحدار vs
+  خط الأساس 1911P/34S؛ tag موجود على origin.
+
+## ترتيب التنفيذ (DAG بلا دورات)
+712 → 713 → 714 → (715 ∥ 716) → 717. كل واحدة صغيرة ومغلقة في جلسة.
+
+## بند ختامي مُرحَّل (خارج BATCH-P0)
+- **EOP-1** (قرار D-8-أ): حذف `docs/engineering_constitution/` — يُنفَّذ في
+  **آخر المشروع** قبل الوسم النهائي؛ إلى حينها المجلد HISTORICAL-INERT.
