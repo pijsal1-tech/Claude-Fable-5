@@ -11,9 +11,9 @@
 | Field | Value |
 |---|---|
 | last-updated | 2026-07-30 (Session 90 — **BATCH-FI01 (D-7) مُخطَّطة 📋 PLANNED — TSK-707..711 معرّفة في DEVELOPMENT_TASKS §BATCH-FI01؛ بانتظار كلمة «ابدأ» من المالك — صفر كود مُعدَّل**) |
-| stage | **V3-STAGE 3 EXECUTION — BATCH-FI01 (FI-01) — 4/5** (707 ✅ 708 ✅ 709 ✅ 710 ✅؛ الباقي 711 الإغلاق)؛ سوابق: BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
+| stage | **V3-STAGE 4 CLOSED-AWAITING-OWNER-DIRECTION — BATCH-FI01 مكتملة 🏁 5/5** (FI-01 ✅)؛ سوابق: BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-FI01 (دفعة D-7 تحت V3): FI-01 توحيد حالة REST/WS → TSK-707..711 (5 تاسكات **صغيرة** بشرط المالك؛ DAG: 707→708→(709∥710)→711) |
-| current-task | **TSK-711 — NEXT (اختبار عقد تكافؤ REST↔WS + ماسح نكوص + إغلاق الدفعة)** — آخر تاسك في BATCH-FI01 |
+| current-task | **لا مهمة — BATCH-FI01 مُقفلة 🏁 (707✅ 708✅ 709✅ 710✅ 711✅)** — بانتظار توجيه المالك (V3 §8)؛ خط الأساس الجديد: **1910P/34S** (مع deselect الـ flaky)؛ check.sh = 1911P/34S |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 35c05d7) |
@@ -479,6 +479,24 @@ CLOSED-AWAITING-OWNER-DIRECTION بقرار D-5 (البرنامج السابق ي
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 94 — TSK-711 ✅ ⇒ BATCH-FI01 مكتملة 🏁 5/5 — FI-01 مُغلقة**:
+  - **التغيير**: `tests/integration/test_rest_ws_state_parity.py` جديد —
+    6 اختبارات: (1) بذر WS ≡ قراءة /api/chat-history حرفيًا؛ (2) /api/clear
+    ينعكس على اتصال WS جديد بينما القائم يحتفظ بنسخته (عزل T-048)؛
+    (3) البانر حي للاتصالات القائمة (banner_source)؛ (4) history_length
+    في /api/info من المخزن؛ (5) **ماسح نكوص دائم**: صفر وصول خام
+    `_srv.chat_history|_srv._binding_banner` في routes/*؛ (6) بذر
+    `_build_session_context` من المخزن حصريًا (لا `list(chat_history)`
+    ولا `lambda: _binding_banner`).
+  - **ضابط سلبي**: زرع `_srv.chat_history = []` مؤقتًا في routes/rollback.py
+    → الماسح فشل كما يجب → أُزيل الزرع → أخضر.
+  - **القبول (إغلاق الدفعة)**: **check.sh كامل ALL GREEN rc=0 —
+    1911 passed, 34 skipped** (أساس 1892 + 13 اختبار 707 + 6 اختبارات
+    711)؛ 0 دورات (95/247)؛ mypy نظيف؛ CHANGELOG قيد [TSK-707..711/D-7].
+  - **خط الأساس الجديد**: **1910P/34S** (مع deselect الـ flaky)؛
+    check.sh = 1911P/34S.
+  - **NF-03/g5 مستأصلة بنيويًّا**: مصدر حقيقة واحد (ConversationState)
+    لكل حالة المحادثة المشتركة + ماسح دائم يمنع النكوص للأبد.
 - **2026-07-30 — Session 93 — TSK-709 ✅ + TSK-710 ✅ (FI-01/3+4: ترحيل routes/* للمخزن) — النافذة الانتقالية مُغلقة**:
   - **TSK-709 (routes/sessions.py + meta.py)**: القراءة في
     api_chat_history من `snapshot()`؛ api_clear وapi_new_session عبر
