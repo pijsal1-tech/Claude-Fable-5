@@ -91,6 +91,9 @@
          لأن الغراء يستهلك CommandPalette. أفعال UI قائمة فقط. -->
     <script src="/static/js/command_palette.js?v=1"></script>
     <script src="/static/js/virtual_list.js?v=1"></script>
+    <!-- Workspace Trust — TSK-725c (P2-3/D-10): منطق نقي قبل app.js
+         لأن غراء الثقة يستهلك TrustBanner. القرار للمستخدم فقط. -->
+    <script src="/static/js/trust_banner.js?v=1"></script>
 </head>
 
 <body>
@@ -143,6 +146,9 @@
                     </svg>
                 </div>
 
+                <!-- شارة ثقة المجلد — TSK-725c: يملؤها غراء app.js من TrustBanner -->
+                <span id="trust-badge"></span>
+
                 <div class="global-search-bar" id="global-search-btn" onclick="openQuickOpenModal()"
                     title="البحث الشامل في ملفات المشروع (Ctrl+K)">
                     <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -191,7 +197,11 @@
                     </div>
                 </div>
             </div>
-        </header>
+                </header>
+
+        <!-- لافتة قرار الثقة — TSK-725c: تظهر فقط عند «غير موثوق ولا قرار
+             مسجَّل»؛ يملؤها/يديرها غراء app.js (تفويض data-trust-action) -->
+        <div id="trust-banner" class="trust-banner hidden"></div>
 
         <!-- ═══════ Sessions Dropdown ═══════ -->
         <div class="sessions-dropdown hidden" id="sessions-dropdown">

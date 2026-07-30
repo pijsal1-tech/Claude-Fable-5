@@ -2538,6 +2538,8 @@ function openFolder() {
                 document.getElementById("run-btn").classList.add("hidden");
                 // تحديث الملفات
                 refreshFiles();
+                // إعادة تقييم ثقة المجلد الجديد — TSK-725c
+                refreshTrustUI();
                 toast(`تم فتح: ${data.project.name}`, "success");
             } else {
                 toast(data.error, "error");
@@ -4137,4 +4139,66 @@ document.addEventListener("DOMContentLoaded", () => {
             vlRender();
         });
     });
+});
+
+
+// ═══════════════════════════════════════════
+// Workspace Trust glue — TSK-725c (P2-3/D-10)
+// غراء fetch/DOM فقط — لا منطق قرار في المتصفح: العرض من
+// TrustBanner (وحدة نقية)، القرار للمستخدم (زرّا اللافتة)،
+// الإنفاذ في الخادم (fail-closed — TSK-725a/b).
+// ═══════════════════════════════════════════
+function applyTrustUI(parsed) {
+    const badge = document.getElementById("trust-badge");
+    const banner = document.getElementById("trust-banner");
+    if (badge) badge.innerHTML = TrustBanner.renderBadge(parsed.trusted);
+    if (!banner) return;
+    // اللافتة فقط عند «غير موثوق ولا قرار مسجَّل» (عقد parseTrust)
+    if (!parsed.trusted && !parsed.decided) {
+        banner.innerHTML = TrustBanner.renderBanner();
+        banner.classList.remove("hidden");
+    } else {
+        banner.classList.add("hidden");
+        banner.innerHTML = "";
+    }
+}
+
+function refreshTrustUI() {
+    fetch("/api/trust")
+        .then(r => r.json())
+        .then(data => applyTrustUI(TrustBanner.parseTrust(data)))
+        .catch(() => applyTrustUI({ trusted: false, decided: false }));
+}
+
+function decideTrust(trusted) {
+    fetch("/api/trust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trusted: trusted }),
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                toast(trusted ? "✓ تم توثيق المجلد" :
+                    "⛔ بقي المجلد غير موثوق — كل أمر يتطلب موافقة",
+                    trusted ? "success" : "error");
+            } else {
+                toast(data.error || "فشل تخزين قرار الثقة", "error");
+            }
+            refreshTrustUI();
+        })
+        .catch(() => refreshTrustUI());
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const banner = document.getElementById("trust-banner");
+    if (banner) {
+        // تفويض نقر عبر data-trust-action — لا onclick مضمّن (سابقة 723)
+        banner.addEventListener("click", (e) => {
+            const btn = e.target.closest("[data-trust-action]");
+            if (!btn) return;
+            decideTrust(btn.dataset.trustAction === "trust");
+        });
+    }
+    refreshTrustUI();
 });
