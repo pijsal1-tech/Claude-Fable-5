@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **التالي: تفصيل TSK-725 (Workspace Trust) — جرد نقاط الإنفاذ قبل التنفيذ (D-7)** (BATCH-P2/D-10؛ TSK-723 وTSK-724 مُقفلتان 🏁)؛ خط الأساس: **1996P/34S** |
+| current-task | **TSK-725a قيد التنفيذ — وحدة تخزين الثقة النقية core/workspace_trust.py** (تفصيل 725 النهائي موثَّق S102؛ BATCH-P2/D-10)؛ خط الأساس: **1996P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -482,6 +482,18 @@
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 102 — التفصيل النهائي لـ TSK-725 (Workspace Trust) — جرد الإنفاذ مكتمل (D-7)**:
+  استئناف بعد تصفير بيئة (السابع؛ طقس §3.1: clone @ 81d28b1 — إقفال
+  TSK-724 مؤكد على origin). جرد نقاط الإنفاذ:
+  `_force_command_approval` @ server.py:190 (مستهلَكة في run.py:59/:96
+  وserver.py:1837)؛ ApprovalGate يُبنى مرة عند الإقلاع @ :1983 من
+  auto_execute ⇒ الإنفاذ ديناميكي وقت request() عبر معامل اختياري
+  `interactive_override` (تغيير core صغير قابل للاختبار)؛ الذرية
+  بسابقة NF-19 (os.replace)؛ .ai_runs ضمن IGNORED_DIRS. **التفصيل
+  النهائي أُلحق بـ DEVELOPMENT_TASKS §TSK-725**: شرائح 725a (وحدة
+  تخزين نقية fail-closed لا-ترمي) → 725b (إنفاذ + `/api/trust`
+  GET/POST — توسيع رابع موثَّق 33→34) → 725c (شريط + شارة، glue
+  فقط). هذا القيد يسبق التنفيذ (D-7).
 - **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
   استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،
   الهوية — إقفال TSK-723 مؤكد على origin). **جرد التصميم (يسبق

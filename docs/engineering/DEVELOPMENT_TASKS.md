@@ -2793,6 +2793,46 @@ Windows من المالك (D-8-ب) ⇒ آخرًا.
 - **يُفصَّل نهائيًا قبل التنفيذ** (نقاط الإنفاذ الدقيقة في server.py
   تتطلب جردًا — جلسة التفصيل تسبق التنفيذ، D-7).
 
+### TSK-725 — التفصيل النهائي (S102 — جرد نقاط الإنفاذ مكتمل)
+**جرد الإنفاذ (كما هو في الكود اليوم)**:
+- `_force_command_approval()` @ server.py:190 (fail-closed True) —
+  مواضع الاستهلاك الثلاثة: routes/run.py:59 (/api/run) و:96
+  (/api/run-file) وserver.py:1837 (apply-actions).
+- `ApprovalGate` يُبنى مرة عند الإقلاع @ server.py:1983 من
+  `auto_execute` (mode=auto+whitelist أو interactive) — الثقة تتغير
+  وقت التشغيل (switch-project/قرار المستخدم) ⇒ الإنفاذ يجب أن يكون
+  **ديناميكيًا وقت الطلب** لا وقت البناء.
+- سابقة الذرية: os.replace (core/index_snapshot.py:82 — NF-19)؛
+  `.ai_runs` ضمن IGNORED_DIRS (core/ignore_rules.py:30).
+- جذر المشروع الحالي: `_srv.fm.root`؛ التبديل @ routes/project.py:26.
+**الشرائح (D-7 — صغيرة، كل شريحة تُقفل ببوابة)**:
+- **725a — وحدة التخزين النقية** `core/workspace_trust.py`:
+  `trust_path(root)` ⇒ `<root>/.ai_runs/trust.json`؛
+  `is_trusted(root)` ⇒ bool — ملف معدوم/JSON معطوب/قيمة غير bool/
+  أي استثناء ⇒ **False (fail-closed، لا يرمي أبدًا)**؛
+  `set_trust(root, trusted, decided_by="user")` ⇒ سجل
+  `{version:1, trusted, decided_at(iso), decided_by}` كتابة ذرية
+  tmp+os.replace (NF-19) مع mkdir لـ .ai_runs. اختبارات python.
+- **725b — الإنفاذ + REST**: (1) `_workspace_trusted()` في server.py
+  (يقرأ جذر fm الحالي عبر workspace_trust)؛ (2) تعديل
+  `_force_command_approval()`: غير موثوق ⇒ True قبل قراءة config؛
+  (3) `ApprovalGate` يكسب معامل اختياري
+  `interactive_override: Callable[[], bool] | None` — يُفحص أول
+  `request()`: إن أعاد True عومل الوضع كـ interactive (يتجاوز auto)؛
+  يُمرَّر عند البناء بـ lambda على `_workspace_trusted() is False`؛
+  (4) endpoint واحد `/api/trust` GET (⇒ {trusted, decided_at?} —
+  **بلا مسارات**، عقد التطهير) + POST ({trusted: bool} — كتابة قرار
+  مستخدم صريح، مسموحة ضمن العقد) — **توسيع السطح المجمّد 33→34
+  (قاعدة واحدة بمنهجين) يُوثَّق رابعًا** في test_rest_blueprints.
+- **725c — الواجهة**: شريط «هل تثق بهذا المجلد؟» عند الإقلاع/التبديل
+  (غير موثوق فقط) بزرّي «أثق/أبقِه غير موثوق» + شارة حالة دائمة؛
+  glue فقط (fetch GET/POST /api/trust) — لا منطق قرار في المتصفح.
+**قبول آلي**: 725a قراءة معدومة/معطوبة⇒غير موثوق + ذرية لا-ترفع؛
+725b غير-موثوق يجبر interactive رغم auto_execute:true (عبر
+interactive_override) + force_command_approval فعالة True رغم false
+صريحة في config + frozen surface 34 موثقة + عدم-تسريب مسارات في
+payload؛ 725c wiring (شريط/شارة/استهلاك endpoint).
+
 ## TSK-726 — P2-4: FI-07 تفكيك app.js إلى ES modules [كبيرة — Placeholder]
 - **Placeholder مقصود** (سابقة TSK-722): يتطلب جرد ~150 دالة وخريطة
   تبعياتها أولًا؛ يُفصَّل إلى شرائح استخراج صغيرة (وحدة/جلسة) بعد
