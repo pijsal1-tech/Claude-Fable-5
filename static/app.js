@@ -3668,6 +3668,27 @@ function handleMemoryDeleteResult(frame) {
 // ── TSK-621 (CP-5/UXF-04): لوحة الصلاحيات — قراءة فقط (glass box) ──
 // المنطق النقي في permissions_panel.js؛ هنا fetch + toggle فقط —
 // لا أي مسار كتابة للسياسة.
+// ── TSK-721 (P1-2/D-9): تنزيل حزمة التشخيص — fetch + Blob download فقط.
+// الحصيلة مُطهَّرة في الخادم (/api/diagnostics)؛ الواجهة لا تضيف شيئًا.
+async function downloadDiagnostics() {
+    try {
+        const resp = await fetch("/api/diagnostics");
+        const data = await resp.json();
+        if (!data.ok) throw new Error("diagnostics failed");
+        const blob = new Blob(
+            [JSON.stringify(data.diagnostics, null, 2)],
+            { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+        a.download = `webdev-diagnostics-${ts}.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch (e) {
+        alert("⚠️ تعذّر توليد حزمة التشخيص");
+    }
+}
+
 async function togglePermissionsPanel() {
     const panel = document.getElementById("permissions-panel");
     if (!panel.classList.contains("hidden")) {

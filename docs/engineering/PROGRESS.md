@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718 ✅ + TSK-719 ✅ (FI-05 🏁) + **TSK-720 ✅** (تدوير runs.jsonl) — 1950P/34S ALL GREEN) |
+| last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P1 (دفعة D-9 تحت تفويض D-8-ج): FI-05 + تشخيص + تدوير سجلات + Settings UI → TSK-718..722؛ DAG: 718→719؛ 720∥721؛ 722 آخرًا؛ المصدر: PROGRESS §Current Position (برنامج D-8-ج) |
-| current-task | **TSK-721 — P1-2: /api/diagnostics + Support Bundle** — المُقفل: 718✅ 719✅ (FI-05 🏁) 720✅؛ خط الأساس الجديد: **1950P/34S** |
+| current-task | **لا مهمة قيد التنفيذ — المتبقي من BATCH-P1: TSK-722 (Settings UI) placeholder يُفصَّل أولًا (D-7)**؛ المُقفل: 718✅ 719✅ (FI-05 🏁) 720✅ 721✅؛ خط الأساس: **1956P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -38,7 +38,7 @@
 («ابدأ الآن من P0 حتى النهاية»)؛ التعريفات: DEVELOPMENT_TASKS §BATCH-P0
 
 ### Current Position
-- Stage: V3 — BATCH-P1 (D-9) قيد التنفيذ؛ الموضع: TSK-721 (تشخيص/support bundle) — المُقفل: 718+719 (FI-05 🏁) + 720 ✅؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
+- Stage: V3 — BATCH-P1 (D-9) قيد التنفيذ؛ الموضع: BATCH-P1 — أُقفلت 718..721 (FI-05 🏁 + تدوير + تشخيص)؛ المتبقي TSK-722 (تفصيل أولًا — D-7)؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
 - خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
 - برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
 - بند ختامي مُرحَّل: EOP-1 (حذف engineering_constitution/ — آخر المشروع، قرار D-8-أ)
@@ -538,6 +538,18 @@
   ويبدأ ملف نظيف؛ تحته لا يُمس؛ idempotent؛ غائب noop؛ الجيل الأسبق
   يُستبدل؛ السقف 5MB؛ الملخّص من الحالي فقط.
   **البوابة**: check.sh ALL GREEN rc=0 — **1950P/34S** (1943+7).
+  **TSK-721 ✅ (نفس الجلسة)**: `/api/diagnostics` (routes/meta.py —
+  نمط ADR-003): version + platform (system/release/python) + سلامة
+  التبعيات الأربع (find_spec) + project_name (**الاسم فقط — لا مسار**)
+  + provider مُطهَّر (مفاتيح get_info الوصفية الخمسة فقط — أي مفتاح
+  غريب كـ api_key/base_url يُسقط) + metrics_summary (فشله لا يُفشل
+  التشخيص). واجهة: زر Diagnostics في شريط الأنشطة →
+  `downloadDiagnostics()` (fetch + Blob → webdev-diagnostics-<ts>.json).
+  + 6 اختبارات (`test_diagnostics.py`) منها **فحص عدم-التسريب** (مزود
+  leaky بمفاتيح sk-/ghp_ مزروعة ⇒ لا نمط سري ولا مسار مطلق في
+  الحصيلة كاملة). توسيع سطح REST المجمَّد 31→32 موثَّق داخل
+  test_rest_blueprints (توسيع عقد مقصود بقرار D-9 — نفس سابقة TSK-621).
+  **البوابة**: check.sh ALL GREEN rc=0 — **1956P/34S** (1950+6).
 - **2026-07-30 — Session 97 — TSK-715 ✅ + TSK-716 ✅ + TSK-717 ✅ ⇒ BATCH-P0 مُقفلة 🏁 6/6 — v1.0.0-rc.1**:
   استئنافان بعد تصفيري بيئة (S96→S97؛ كل عمل سابق نجا على origin —
   آلية D-8-ج تعمل كما صُممت). **TSK-716 ✅** (كان قد اكتمل كودًا قبل

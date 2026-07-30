@@ -1232,3 +1232,13 @@ Settings UI) — تخطيط TSK قبل التنفيذ كالعادة.
   os.replace → جيل .1 واحد؛ لا-يرفع تحت قفل الكتابة) + 7 اختبارات.
 - **Changed**: server.py — استدعاء التدوير عند الإقلاع قبل subscribe.
 - **Verified**: check.sh ALL GREEN rc=0 — **1950P/34S** (1943+7 بالضبط).
+
+## [TSK-721 / D-9] — 2026-07-30 — P1-2: /api/diagnostics + Support Bundle
+- **Context**: فجوة «لا أداة تشخيص للمستخدم» (Evolution Gap §10).
+- **Added**: `/api/diagnostics` قراءة-فقط مُطهَّرة (version/platform/deps/
+  project_name-بلا-مسار/provider-وصفي-فقط/metrics) + زر Diagnostics في
+  شريط الأنشطة + `downloadDiagnostics()` (Blob تنزيل JSON) + 6 اختبارات
+  عقد أبرزها فحص عدم-التسريب بمزود leaky مزروع الأسرار.
+- **Changed**: توسيع سطح REST المجمَّد 31→32 (توثيق القرار داخل
+  test_rest_blueprints — سابقة TSK-621).
+- **Verified**: check.sh ALL GREEN rc=0 — **1956P/34S** (1950+6 بالضبط).

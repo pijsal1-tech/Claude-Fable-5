@@ -250,6 +250,15 @@
                         </svg>
                         <span class="act-label">Permissions</span>
                     </button>
+                    <!-- TSK-721 (P1-2): تنزيل حزمة التشخيص — قراءة فقط من
+                         /api/diagnostics (مُطهّرة: لا أسرار/مسارات مطلقة) -->
+                    <button class="activity-btn" id="act-diagnostics" title="حزمة التشخيص — تنزيل JSON"
+                        onclick="downloadDiagnostics()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                        </svg>
+                        <span class="act-label">Diagnostics</span>
+                    </button>
                 </div>
                 <!-- Bottom: settings + open folder -->
                 <div class="activity-bottom">

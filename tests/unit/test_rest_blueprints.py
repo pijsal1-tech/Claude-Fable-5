@@ -6,6 +6,9 @@
    وmethods حرفيًا — معيار القبول «عدد routes ثابت».
    (TSK-621: +/api/permissions GET — توسيع عقد مقصود وموثّق:
    القبول ينص حرفيًا على «endpoint قراءة» — قرار المرحلة 2.)
+   (TSK-721/D-9: +/api/diagnostics GET — توسيع عقد مقصود ثانٍ:
+   نقطة تشخيص قراءة-فقط مُطهَّرة — معرَّفة في DEVELOPMENT_TASKS
+   §BATCH-P1 ومفوَّضة بقرار D-9.)
 2. smoke: كل endpoint يستجيب (لا 404/405) على app غير مهيأ.
 3. الحقن الحي (_srv): monkeypatch على فضاء server ينعكس في الـ
    blueprint فورًا (نفس دلالة globals الأصلية — late binding).
@@ -30,6 +33,7 @@ FROZEN_RULES = [
     ("/api/chat-history", ("GET",)),
     ("/api/clear", ("POST",)),
     ("/api/cwd", ("GET",)),
+    ("/api/diagnostics", ("GET",)),  # TSK-721/D-9 — قراءة فقط مُطهَّرة
     ("/api/file/<path:filepath>", ("DELETE",)),
     ("/api/file/<path:filepath>", ("GET",)),
     ("/api/file/<path:filepath>", ("POST",)),
@@ -67,7 +71,7 @@ def _current_rules():
 
 class TestRouteSurfaceFrozen:
     def test_rule_count_constant(self):
-        assert len(_current_rules()) == 31
+        assert len(_current_rules()) == 32   # 31 + /api/diagnostics (TSK-721)
 
     def test_rules_bit_identical(self):
         assert _current_rules() == sorted(FROZEN_RULES)

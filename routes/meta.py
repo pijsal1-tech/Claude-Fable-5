@@ -107,3 +107,56 @@ def api_permissions():
             "approval_gate": gate_info,
         },
     })
+
+
+@bp.route("/api/diagnostics")
+def api_diagnostics():
+    """TSK-721 (P1-2 / D-9): حزمة تشخيص — قراءة فقط، **مُطهَّرة**.
+
+    الغرض: support bundle يحمّله المستخدم عند طلب مساعدة — يجيب
+    «ما إصدارك؟ ما منصتك؟ هل التبعيات سليمة؟ ما حالة المزود؟» بلا
+    جولات أسئلة. **عقد التطهير الصارم**: صفر أسرار/مفاتيح، صفر مسارات
+    مطلقة (اسم جذر المشروع فقط — لا المسار)، معلومات المزود تقتصر على
+    مفاتيح get_info الوصفية (name/model/available/initialized —
+    لا config خام). GET بلا آثار جانبية.
+    """
+    import importlib.util
+    import platform as _platform
+    import sys as _sys
+
+    deps = {}
+    for mod in ("flask", "flask_sock", "requests", "yaml"):
+        deps[mod] = importlib.util.find_spec(mod) is not None
+
+    prov_info = {}
+    if _srv.provider is not None:
+        raw = _srv.provider.get_info() or {}
+        # تطهير: مفاتيح وصفية معلومة فقط — أي مفتاح آخر (urls/tokens
+        # المحتملة في overrides) لا يمر.
+        for k in ("name", "description", "model", "available",
+                  "initialized"):
+            if k in raw:
+                prov_info[k] = raw[k]
+
+    metrics_summary = None
+    if _srv.run_metrics_store is not None:
+        try:
+            metrics_summary = _srv.run_metrics_store.summary()
+        except Exception:
+            metrics_summary = None      # التشخيص لا يفشل بسبب المقاييس
+
+    return jsonify({
+        "ok": True,
+        "diagnostics": {
+            "version": _srv.APP_VERSION,
+            "platform": {
+                "system": _platform.system(),
+                "release": _platform.release(),
+                "python": _sys.version.split()[0],
+            },
+            "dependencies": deps,
+            "project_name": _srv.fm.root.name,   # الاسم فقط — لا مسار
+            "provider": prov_info,
+            "metrics_summary": metrics_summary,
+        },
+    })
