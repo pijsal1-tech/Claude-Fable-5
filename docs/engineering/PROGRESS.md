@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **TSK-726c قيد التنفيذ — نقل الجلسات/النماذج/المرفقات/drag-drop** (726a+726b مُقفلتان 🏁)؛ خط الأساس: **2050P/34S** |
+| current-task | **TSK-726d قيد التنفيذ — نقل اللوحات (plan/delegate/memory/history/status-chip/settings/permissions + diagnostics)** (726a+726b+726c مُقفلة 🏁)؛ خط الأساس: **2050P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -588,6 +588,20 @@
   التأكيدات الجوهرية بلا تغيير. **البوابة: 2050P/34S ALL GREEN rc=0**
   (ثابتة — الترحيل لا يضيف اختبارات). 726b 🏁 — التالي 726c
   (الجلسات/النماذج/المرفقات/drag-drop).
+
+### إقفال TSK-726c — نقل الجلسات/النماذج/المرفقات/drag-drop ⇒ app/30 🏁
+- **ما نُفِّذ:** نقل حرفي (verbatim) لـ 496 سطرًا من app.js (الأسطر 1953–2448) إلى
+  `static/js/app/30_sessions_models_attachments.js`: إدارة الجلسات
+  (toggleSessions/loadSessions/loadSession/newSession/deleteSession)،
+  النماذج (loadModels/renderModelList/switchModel)، الثوابت
+  (_TEXT_EXTENSIONS/_IGNORE_DIRS/_MAX_*)، والمرفقات + drag-drop
+  (initDragDrop/readDirectoryRecursive/attachFile/attachFolder/renderAttachments).
+- **app.js:** 3131 → 2636 سطرًا.
+- **الربط:** index.html — المقطع 30 بعد app.js وقبل 90 (ترتيب رقمي محفوظ).
+- **الحارس:** test_app_split 7/7 نجحت دون تعديل — العقد (التقييم بعد app.js) سليم.
+- **البوابة:** `bash scripts/check.sh` — **2050 passed / 34 skipped — ALL GREEN** (rc=0).
+- **Commit:** 472dca9 على origin/main.
+- **الحالة:** 726c 🏁 — التالي 726d (اللوحات: plan/delegate/memory/history/status-chip/settings/permissions + diagnostics).
 - **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
   استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،
   الهوية — إقفال TSK-723 مؤكد على origin). **جرد التصميم (يسبق
