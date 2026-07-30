@@ -12,8 +12,8 @@
 |---|---|
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
-| current-phase | BATCH-P1 (دفعة D-9 تحت تفويض D-8-ج): FI-05 + تشخيص + تدوير سجلات + Settings UI → TSK-718..722؛ DAG: 718→719؛ 720∥721؛ 722 آخرًا؛ المصدر: PROGRESS §Current Position (برنامج D-8-ج) |
-| current-task | **لا مهمة قيد التنفيذ — BATCH-P1 مُقفلة 🏁 6/6** (718✅ 719✅ FI-05 🏁 720✅ 721✅ 722a✅ 722b✅)؛ التالي: تخطيط BATCH-P2 (D-7: تخطيط قبل تنفيذ)؛ خط الأساس: **1971P/34S** |
+| current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
+| current-task | **TSK-723 قيد التنفيذ — Command Palette (Ctrl+Shift+P)** (أولى BATCH-P2/D-10)؛ سابقتها BATCH-P1 مُقفلة 🏁 6/6؛ خط الأساس: **1971P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -38,7 +38,7 @@
 («ابدأ الآن من P0 حتى النهاية»)؛ التعريفات: DEVELOPMENT_TASKS §BATCH-P0
 
 ### Current Position
-- Stage: V3 — **BATCH-P1 مُقفلة 🏁 6/6** (718→719 FI-05 🏁؛ 720 تدوير؛ 721 تشخيص؛ 722a endpoint إعدادات؛ 722b لوحة عرض-فقط)؛ الموضع: التالي تخطيط BATCH-P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب — D-8-ج) بقيد قرار جديد قبل أي تنفيذ (D-7)؛ سابقتها BATCH-P0 مُقفلة 🏁 (v1.0.0-rc.1)
+- Stage: V3 — BATCH-P2 (D-10) قيد التنفيذ؛ الموضع: TSK-723 (Command Palette) الأولى؛ سوابق مُقفلة: BATCH-P1 🏁 6/6 (FI-05 🏁 + تدوير + تشخيص + Settings UI) وBATCH-P0 🏁 (v1.0.0-rc.1)
 - خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
 - برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
 - بند ختامي مُرحَّل: EOP-1 (حذف engineering_constitution/ — آخر المشروع، قرار D-8-أ)
@@ -482,6 +482,23 @@
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 100 — تخطيط BATCH-P2 (قرار D-10) — TSK-723..727 موثقة؛ TSK-723 جاهزة**:
+  استئناف بعد تصفير بيئة (طقس §3.1: clone @ b31f47c، تطهير، الهوية؛
+  BATCH-P1 🏁 6/6 مؤكدة على origin). **تخطيط قبل تنفيذ (D-7)** — قراءات
+  تصميمية: FUTURE_IMPROVEMENTS §FI-07 (شرط: لا تفكيك أثناء تعديل
+  المُصيِّر ⇒ بعد FI-09) و§FI-09 (Prerequisite TSK-401 ✅)؛ app.js =
+  3948 سطرًا/~150 دالة؛ نمط Quick Open Ctrl+K قائم (app.js:3821-3900)؛
+  ApprovalGate من auto_execute (server.py:1972-1985). §BATCH-P2 أُلحق
+  بـ DEVELOPMENT_TASKS: TSK-723 (Command Palette — صفر endpoints،
+  سجل أفعال معرَّفة لا eval) → TSK-724 (FI-09 — computeWindow نقية +
+  قيود حافظة: البث/النسخ/التمرير التلقائي لا تُمس) → TSK-726 (FI-07 —
+  placeholder، جرد الدوال أولًا)؛ TSK-725 (Workspace Trust — fail-closed
+  غير موثوق افتراضيًا، trust.json ذري في .ai_runs، يُفصَّل نهائيًا قبل
+  التنفيذ)؛ TSK-727 (غلاف سطح مكتب — placeholder، موازنة تقنية مكتوبة +
+  تحقق Windows بيد المالك D-8-ب). DAG: 723→724→726؛ 725 مستقلة؛ 727
+  آخرًا. قيد D-10 في DECISION_LOG. **جاهزية الأولى (TSK-723)**: نمط
+  قائم + سابقة وحدات نقية + معايير آلية + صفر تبعيات ⇒ التنفيذ مأذون
+  (بروتوكول S98 + D-8-ج). هذا القيد يسبق التنفيذ (D-7).
 - **2026-07-30 — Session 99 — تفصيل TSK-722 (D-7) — Settings UI تنقسم 722a+722b قراءة-فقط**:
   استئناف بعد تصفير بيئة ×2 (طقس §3.1: clone @ f34d376 ثم f7830ea، تطهير
   remote، الهوية). **جرد التفصيل**: config.yaml قُرئ كاملًا (221 سطرًا —
