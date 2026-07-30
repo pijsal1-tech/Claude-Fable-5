@@ -3710,6 +3710,30 @@ async function togglePermissionsPanel() {
     }
 }
 
+// ── TSK-722b (P1-4/D-9): لوحة الإعدادات — عرض فقط (glass box) ──
+// المنطق النقي في settings_panel.js؛ هنا fetch + toggle فقط —
+// لا أي مسار كتابة للإعدادات (التعديل عبر config.yaml + إعادة تشغيل).
+async function toggleSettingsPanel() {
+    const panel = document.getElementById("settings-panel");
+    if (!panel.classList.contains("hidden")) {
+        panel.classList.add("hidden");
+        return;
+    }
+    panel.classList.remove("hidden");
+    const listEl = document.getElementById("settings-panel-list");
+    listEl.innerHTML =
+        '<div class="pp-none">⏳ جارٍ تحميل الإعدادات...</div>';
+    try {
+        const resp = await fetch("/api/settings");
+        const data = await resp.json();
+        listEl.innerHTML = SettingsPanel.renderPanelHTML(
+            data.ok ? data.settings : null);
+    } catch (e) {
+        listEl.innerHTML =
+            '<div class="pp-none">⚠️ تعذّر تحميل الإعدادات</div>';
+    }
+}
+
 // ═══════════════════════════════════════════
 // T-066 (R-906): شريحة حالة التوجيه/السعة — DOM glue فوق StatusChip.
 // عرض قراءة فقط من إطارات موجودة + /api/capacity — صفر endpoints جديدة.

@@ -84,6 +84,9 @@
     <!-- لوحة الصلاحيات — TSK-621 (CP-5): منطق نقي (مستقل) قبل app.js
          لأن togglePermissionsPanel يستهلك PermissionsPanel. قراءة فقط. -->
     <script src="/static/js/permissions_panel.js?v=1"></script>
+    <!-- لوحة الإعدادات — TSK-722b (P1-4/D-9): منطق نقي قبل app.js
+         لأن toggleSettingsPanel يستهلك SettingsPanel. عرض فقط. -->
+    <script src="/static/js/settings_panel.js?v=1"></script>
 </head>
 
 <body>
@@ -268,7 +271,7 @@
                         </svg>
                         <span class="act-label">Open</span>
                     </button>
-                    <button class="activity-btn" title="الإعدادات" onclick="toggleThemePicker()">
+                    <button class="activity-btn" id="act-settings" title="الإعدادات (عرض فقط) — TSK-722b" onclick="toggleSettingsPanel()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                             <circle cx="12" cy="12" r="3" />
                             <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
@@ -523,6 +526,17 @@
                 onclick="document.getElementById('permissions-panel').classList.add('hidden')">✕</button>
         </div>
         <div id="permissions-panel-list"></div>
+    </div>
+
+    <!-- TSK-722b (P1-4/D-9): لوحة الإعدادات — عرض فقط (glass box) -->
+    <div id="settings-panel" class="hidden">
+        <div id="settings-panel-head">
+            <span>⚙️ الإعدادات (عرض فقط)</span>
+            <span class="spacer"></span>
+            <button id="settings-panel-close"
+                onclick="document.getElementById('settings-panel').classList.add('hidden')">✕</button>
+        </div>
+        <div id="settings-panel-list"></div>
     </div>
 
     <!-- T-066 (R-906): شريحة حالة التوجيه/السعة — مطوية افتراضيًا، عرض قراءة فقط -->
