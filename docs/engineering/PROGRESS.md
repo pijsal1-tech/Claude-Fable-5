@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **TSK-724 التالية — FI-09 نافذة العرض الافتراضية (computeWindow)** (BATCH-P2/D-10؛ TSK-723 Command Palette مُقفلة 🏁)؛ خط الأساس: **1983P/34S** |
+| current-task | **TSK-724 قيد التنفيذ — FI-09 نافذة عرض افتراضية (virtual_list.js + غراء حافظ للسلوك)** (BATCH-P2/D-10؛ TSK-723 مُقفلة 🏁)؛ خط الأساس: **1983P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -482,6 +482,25 @@
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
+  استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،
+  الهوية — إقفال TSK-723 مؤكد على origin). **جرد التصميم (يسبق
+  التنفيذ)**: مسار عرض الرسائل في app.js: `addChatMessage(role,
+  content)` @ :909 (يبني العنصر + append + scroll — نقطة الفصل:
+  استخراج `buildChatMessage` يُرجع العنصر بلا append)؛ **حلقتا الرسم
+  الكامل** المستهدفتان بالنافذة: `loadChatHistory` @ :2202
+  (`history.forEach(addChatMessage)`) و`loadSession` @ :2694 (نفس
+  النمط)؛ البث (TSK-401) عبر `currentStreamMsg` append مباشر —
+  **لا يُمس**؛ كروت التيرمنال (`handleRunCommandStep` @ :654) append
+  مباشر — لا تُمس. **خطة الغراء الحافظة للسلوك**: النافذة تُفعَّل فقط
+  عند تحميل تاريخ ≥ عتبة (VL_THRESHOLD)؛ بنية الحاوية في وضع النافذة:
+  [spacer-top][رسائل النافذة][spacer-bottom][إلحاقات حية لاحقة] —
+  الإلحاقات الحية (بث/كروت/رسائل جديدة) تقع بعد spacer-bottom فتبقى
+  آخر القائمة بصريًا والتمرير التلقائي محفوظ؛ إعادة الرسم على scroll
+  (rAF) تستبدل ما بين الـ spacers فقط؛ ارتفاعات مقدَّرة ثم تُقاس بعد
+  الرسم وتُصحَّح. الوحدة النقية: `computeWindow(scrollTop, viewportH,
+  itemHeights, overscan)` ⇒ {start, end, padTop, padBottom} بثبات
+  المجموع. هذا القيد يسبق التنفيذ (D-7).
 - **2026-07-30 — Session 100 — تخطيط BATCH-P2 (قرار D-10) — TSK-723..727 موثقة؛ TSK-723 جاهزة**:
   استئناف بعد تصفير بيئة (طقس §3.1: clone @ b31f47c، تطهير، الهوية؛
   BATCH-P1 🏁 6/6 مؤكدة على origin). **تخطيط قبل تنفيذ (D-7)** — قراءات
