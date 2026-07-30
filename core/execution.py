@@ -63,7 +63,7 @@ from __future__ import annotations
 import threading
 import time
 import uuid
-from typing import Callable
+from typing import Callable, Protocol
 
 # ── الأنواع والحالات المسموحة ──
 # T-040 (R-501): "direct" انضم — المسار المباشر صار run مسجّلًا
@@ -382,8 +382,22 @@ class ExecutionRegistry:
 
 
 # ── الإيقاف الرشيق (TSK-705 / FI-03) ──
+class _ShutdownRegistry(Protocol):
+    """السطح البنيوي الأدنى الذي يحتاجه الإيقاف الرشيق.
+
+    لماذا Protocol محلي وليس ``ExecutionRegistry`` صلبًا: مدخل
+    server.py يمرر ``RegistryBackend`` (core/backends.py — Protocol
+    منذ T-108)، ولا يمكن لـ core/execution استيراد core/backends
+    (دورة: backends يستورد execution). الدالة تستخدم ``list_active``
+    فقط (الإلغاء يمر عبر التذكرة نفسها) — فهذا كامل السطح المطلوب،
+    وكلا النوعين يطابقه بنيويًّا.
+    """
+
+    def list_active(self) -> list[RunTicket]: ...
+
+
 def graceful_shutdown(
-    registry: ExecutionRegistry,
+    registry: _ShutdownRegistry,
     timeout: float,
     poll_interval: float = 0.05,
 ) -> list[RunTicket]:
