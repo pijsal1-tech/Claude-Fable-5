@@ -45,9 +45,13 @@ class CommandRunner:
     """تنفيذ أوامر الطرفية مع طلب إذن وإعادة محاولة عند الأخطاء المؤقتة"""
 
     def __init__(self, cwd: str = ".", auto_approve: bool = False,
-                 max_retries: int = 2, retry_delay: float = 1.5):
+                 max_retries: int = 2, retry_delay: float = 1.5,
+                 hook_runner=None):
         self.cwd = os.path.abspath(cwd)
         self.auto_approve = auto_approve
+        # TSK-728b (CP-4): خطّافات المالك بعقد تشديد-فقط — None ⇒ سلوك
+        # اليوم حرفيًا (صفر subprocess إضافي). راجع core/hooks.py.
+        self.hook_runner = hook_runner
         self.max_retries = max_retries       # عدد إعادات المحاولة الإضافية (غير المحاولة الأولى)
         self.retry_delay = retry_delay       # ثواني قبل أول إعادة محاولة (يتضاعف تصاعديًا)
         self._history: list[dict] = []
@@ -95,6 +99,14 @@ class CommandRunner:
                 break
         if has_blocked:
             return self._build_entry(command, False, "", "❌ خطأ: استخدام معاملات الطرفية (operators) مثل && أو | أو ; غير مسموح به للأمان.", -1, 0)
+
+        # TSK-728b (CP-4): خطّاف pre_command — تشديد-فقط، fail-closed.
+        # يسبق كل فحوص الموافقة: الـ hook يستطيع الحجب فقط ولا يملك أي
+        # قناة لمنح موافقة — ApprovalGate/الفحوص أدناه تبقى كما هي.
+        if self.hook_runner is not None:
+            _hook_allowed, _hook_reason = self.hook_runner.pre_command(command)
+            if not _hook_allowed:
+                return self._build_entry(command, False, "", _hook_reason, -1, 0)
 
         # فحص الأمان
         is_dangerous = self._is_dangerous(command)
