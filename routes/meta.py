@@ -292,3 +292,42 @@ def api_trust():
     if not set_trust(fm_.root, trusted, decided_by="user"):
         return jsonify({"ok": False, "error": "فشل تخزين قرار الثقة"}), 500
     return jsonify({"ok": True, "trust": {"trusted": trusted}})
+
+
+@bp.route("/api/update-check")
+def api_update_check():
+    """TSK-731b (BATCH-P3/D-11): فحص تحديث يدوي — **opt-in، معطَّل افتراضيًا**.
+
+    العقد الأمني (IR-1 لا-phone-home):
+    - قسم config ``updates: {check_enabled, manifest_url}`` — غيابه أو
+      ``check_enabled`` ليست True حرفيًا أو ``manifest_url`` فارغة ⇒
+      ``{ok, enabled: false}`` مع **صفر لمس شبكة** (لا استيراد فحص أصلًا).
+    - لا polling خلفي أبدًا — الاستدعاء يدوي من المستخدم فقط.
+    - التطهير: ``manifest_url`` لا تُردَّد في الاستجابة (قد تحمل
+      tokens في query)؛ ``url`` القادمة من الـ manifest تمر (وجهة
+      تحميل مقصودة للمستخدم).
+    - فشل الفحص صامت (check_for_update ⇒ None): ``latest: null``
+      و``update_available: false`` — لا 5xx ولا تفاصيل خطأ.
+    توسيع خامس موثَّق للسطح المجمّد: 34→35 (test_rest_blueprints).
+    """
+    cfg = _srv._load_config() or {}
+    upd = cfg.get("updates")
+    if not isinstance(upd, dict) or upd.get("check_enabled") is not True:
+        return jsonify({"ok": True, "enabled": False})
+    manifest_url = upd.get("manifest_url")
+    if not isinstance(manifest_url, str) or not manifest_url.strip():
+        return jsonify({"ok": True, "enabled": False})
+
+    # استيراد كسول — لا يُحمَّل إطلاقًا على المسار الافتراضي المعطَّل
+    from core.update_check import check_for_update
+
+    current = str(_srv.APP_VERSION)
+    info = check_for_update(manifest_url.strip(), current)
+    if info is None:                       # فشل صامت — عقد update_check
+        return jsonify({"ok": True, "enabled": True, "current": current,
+                        "latest": None, "update_available": False,
+                        "url": ""})
+    return jsonify({"ok": True, "enabled": True, "current": info.current,
+                    "latest": info.latest,
+                    "update_available": info.update_available,
+                    "url": info.url})

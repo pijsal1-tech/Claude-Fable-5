@@ -233,3 +233,14 @@ providers:
 #     - command: "python scripts/lint_on_write.py"
 #   post_run:
 #     - command: "python scripts/audit_runs.py"
+
+# ── فحص التحديث اليدوي (TSK-731 / BATCH-P3) — opt-in، معطَّل افتراضيًا ──
+# لا phone-home أبدًا (IR-1): الافتراضي معطَّل ⇒ صفر اتصال شبكة.
+# التفعيل يدوي صريح فقط؛ الفحص يحدث عند طلب GET /api/update-check
+# من المستخدم — لا polling خلفي. الـ manifest ملف JSON بسيط:
+#   {"latest": "1.2.3", "url": "https://example.com/download"}
+# التثبيت يبقى يدويًا (توثيق docs/desktop/WINDOWS_BUILD.md) —
+# التحديث الآلي مؤجل لتأشير المالك (OWNER_CHECKLIST / TSK-727).
+# updates:
+#   check_enabled: true
+#   manifest_url: "https://example.com/releases/manifest.json"

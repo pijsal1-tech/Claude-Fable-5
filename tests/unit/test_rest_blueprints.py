@@ -12,6 +12,9 @@
    (TSK-722a/D-9: +/api/settings GET — توسيع عقد مقصود ثالث:
    إعدادات فعالة قراءة-فقط مُطهَّرة [whitelist أقسام؛ لا providers
    ولا مسارات] — معرَّفة في DEVELOPMENT_TASKS §BATCH-P1/TSK-722a.)
+   (TSK-731b/D-11: +/api/update-check GET — توسيع عقد مقصود خامس:
+   فحص تحديث يدوي opt-in معطَّل افتراضيًا [صفر شبكة على المسار
+   الافتراضي] — معرَّف في DEVELOPMENT_TASKS §BATCH-P3/TSK-731.)
 2. smoke: كل endpoint يستجيب (لا 404/405) على app غير مهيأ.
 3. الحقن الحي (_srv): monkeypatch على فضاء server ينعكس في الـ
    blueprint فورًا (نفس دلالة globals الأصلية — late binding).
@@ -61,6 +64,7 @@ FROZEN_RULES = [
     ("/api/settings", ("GET",)),  # TSK-722a/D-9 — قراءة فقط مُطهَّرة
     ("/api/switch-model", ("POST",)),
     ("/api/trust", ("GET", "POST")),  # TSK-725b/D-10 — قرار ثقة المستخدم
+    ("/api/update-check", ("GET",)),  # TSK-731b/D-11 — فحص تحديث يدوي opt-in
     ("/api/switch-project", ("POST",)),
     ("/static/<path:filename>", ("GET",)),
     ("/ws", ("GET",)),
@@ -76,7 +80,7 @@ def _current_rules():
 
 class TestRouteSurfaceFrozen:
     def test_rule_count_constant(self):
-        assert len(_current_rules()) == 34   # 31 + diagnostics(721) + settings(722a) + trust(725b)
+        assert len(_current_rules()) == 35   # 31 + diagnostics(721) + settings(722a) + trust(725b) + update-check(731b)
 
     def test_rules_bit_identical(self):
         assert _current_rules() == sorted(FROZEN_RULES)
