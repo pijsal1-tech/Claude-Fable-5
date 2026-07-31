@@ -187,6 +187,20 @@ def _load_config() -> dict:
 _read_config = _load_config
 
 
+def _hook_runner():
+    """TSK-728b (CP-4): HookRunner مشترك مبني من config.yaml — كسول
+    ومُكاش (نفس فلسفة _load_config). غياب قسم hooks: ⇒ runner فارغ ⇒
+    صفر subprocess إضافي (سلوك ما قبل TSK-728 حرفيًا)."""
+    global _hook_runner_cache
+    if _hook_runner_cache is None:
+        from core.hooks import HookRunner
+        _hook_runner_cache = HookRunner.from_config(_load_config())
+    return _hook_runner_cache
+
+
+_hook_runner_cache = None
+
+
 def _workspace_trusted() -> bool:
     """TSK-725b: هل جذر المشروع الحالي موثوق؟ **fail-closed**.
 
@@ -694,7 +708,8 @@ def _server_handle_factory(root: str) -> ProjectHandle:
     return ProjectHandle(
         root=root,
         fm=fm,
-        cmd_runner=CommandRunner(cwd=root, auto_approve=True),
+        cmd_runner=CommandRunner(cwd=root, auto_approve=True,
+                                 hook_runner=_hook_runner()),
         index=index,
     )
 
@@ -1927,7 +1942,8 @@ def main():
         print(f"📁 تم إنشاء مجلد المشروع: {project_path}")
 
     fm = FileManager(project_path)
-    cmd_runner = CommandRunner(cwd=project_path, auto_approve=True)
+    cmd_runner = CommandRunner(cwd=project_path, auto_approve=True,
+                               hook_runner=_hook_runner())
 
     # إعداد مدير الجلسات
     sessions_dir = str(_DIR / "sessions")
