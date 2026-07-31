@@ -201,6 +201,14 @@ def _hook_runner():
 _hook_runner_cache = None
 
 
+def _post_write_hook(rel_path: str) -> None:
+    """TSK-728c: خطّاف post_write — تحذير فقط (الفعل وقع)؛ يُسجَّل عبر
+    درز T-049 (FileManager.add_write_hook) فيغطي write_file وedit_file
+    معًا بلا أي تعديل على الكتابة الذرّية نفسها."""
+    for _w in _hook_runner().post_write(rel_path):
+        print(_w)
+
+
 def _workspace_trusted() -> bool:
     """TSK-725b: هل جذر المشروع الحالي موثوق؟ **fail-closed**.
 
@@ -705,6 +713,7 @@ def _server_handle_factory(root: str) -> ProjectHandle:
     # لا يلوث البحث)؛ فتح مشروع مفهرس سابقًا = تحميل بلا مشية شجرية.
     index = ProjectIndex(root, snapshot_path=_index_snapshot_path(root))
     index.attach(fm)
+    fm.add_write_hook(_post_write_hook)  # TSK-728c: post_write (تحذير فقط)
     return ProjectHandle(
         root=root,
         fm=fm,
@@ -1942,6 +1951,7 @@ def main():
         print(f"📁 تم إنشاء مجلد المشروع: {project_path}")
 
     fm = FileManager(project_path)
+    fm.add_write_hook(_post_write_hook)  # TSK-728c: post_write (تحذير فقط)
     cmd_runner = CommandRunner(cwd=project_path, auto_approve=True,
                                hook_runner=_hook_runner())
 

@@ -102,6 +102,52 @@ class TestPreCommandInjection:
             "hook ناجح يجب ألا يتجاوز بوابة الموافقة"
 
 
+class TestPostHooks728c:
+    """728c: post_run في CommandRunner + post_write عبر درز T-049."""
+
+    def test_post_run_called_with_exit_code(self, tmp_path):
+        calls = []
+
+        class _PostSpy(HookRunner):
+            def post_run(self, command, exit_code):
+                calls.append((command, exit_code))
+                return []
+
+        runner = CommandRunner(cwd=str(tmp_path), auto_approve=True,
+                               hook_runner=_PostSpy(hooks={}))
+        result = runner.run(f"{PY} --version", need_approval=False)
+        assert result["success"]
+        assert len(calls) == 1 and calls[0][1] == 0
+
+    def test_post_run_failure_does_not_change_result(self, tmp_path):
+        hooks = HookRunner(hooks={"post_run": [HookSpec(HOOK_FAIL)]})
+        runner = CommandRunner(cwd=str(tmp_path), auto_approve=True,
+                               hook_runner=hooks)
+        result = runner.run(f"{PY} --version", need_approval=False)
+        assert result["success"], "فشل post_run تحذير فقط — لا يغيّر النتيجة"
+
+    def test_post_write_via_t049_seam(self, tmp_path):
+        from actions.file_manager import FileManager
+        fm = FileManager(str(tmp_path))
+        seen = []
+        fm.add_write_hook(lambda rel: seen.append(rel))
+        fm.write_file("a.txt", "hello")
+        assert seen == ["a.txt"]
+
+    def test_server_registers_post_write_hook(self):
+        src = (ROOT / "server.py").read_text(encoding="utf-8")
+        assert "def _post_write_hook" in src
+        assert src.count("fm.add_write_hook(_post_write_hook)") == 2, \
+            "موضعا بناء FileManager (المصنع + main) يجب أن يسجّلا post_write"
+
+    def test_config_example_is_commented_out(self):
+        cfg = (ROOT / "config.yaml").read_text(encoding="utf-8")
+        import yaml
+        parsed = yaml.safe_load(cfg) or {}
+        assert "hooks" not in parsed, \
+            "مثال config.yaml يجب أن يبقى معلَّقًا — الافتراضي بلا خطّافات"
+
+
 class TestServerWiring:
     """التوصيل في server.py — فحص بنيوي (بلا إقلاع Flask)."""
 

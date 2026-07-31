@@ -172,6 +172,14 @@ class CommandRunner:
                     result.returncode, attempt,
                 )
 
+                # TSK-728c (CP-4): خطّاف post_run — الفعل وقع؛ الفشل
+                # تحذير فقط (لا حجب ولا تغيير للنتيجة). يُنادى عن كل
+                # تنفيذ فعلي (بما فيه إعادات المحاولة — كل واحدة تشغيلة).
+                if self.hook_runner is not None:
+                    for _w in self.hook_runner.post_run(command,
+                                                        result.returncode):
+                        print(_w)
+
                 if success or not retry_on_nonzero or attempt == max_attempts:
                     self._history.append(entry)
                     return entry

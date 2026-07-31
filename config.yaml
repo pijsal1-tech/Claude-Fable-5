@@ -219,3 +219,17 @@ providers:
   # openai:
   #   api_key: ""
   #   model: "gpt-4o"
+
+# ── خطّافات المالك (TSK-728 / CP-4) — عقد «تشديد-فقط» ──
+# pre_command: خروج ≠0 أو فشل/مهلة ⇒ حجب الأمر (fail-closed).
+# post_write / post_run: الفشل تحذير فقط (الفعل وقع).
+# الـ hook لا يستطيع أبدًا منح موافقة — ApprovalGate مصدر الحقيقة.
+# الحمولة تصل عبر البيئة: HOOK_EVENT / HOOK_COMMAND / HOOK_PATH / HOOK_EXIT_CODE.
+# hooks:
+#   pre_command:
+#     - command: "python scripts/my_guard.py"
+#       timeout: 10        # ثوانٍ (السقف 60)
+#   post_write:
+#     - command: "python scripts/lint_on_write.py"
+#   post_run:
+#     - command: "python scripts/audit_runs.py"
