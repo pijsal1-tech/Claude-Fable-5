@@ -51,3 +51,39 @@ pyinstaller desktop.spec
 
 نفّذ قائمة الفحص: `docs/desktop/OWNER_CHECKLIST.md` — إقفال P2
 النهائي معلَّق على تأشيرك عليها (D-8-ب).
+
+## قناة التحديث (TSK-731 / BATCH-P3)
+
+**التثبيت والتحديث يدويان بالكامل** — لا تحديث آلي (لا تنزيل صامت،
+لا استبدال exe ذاتي). القرار موثَّق في DEVELOPMENT_TASKS §TSK-731:
+التحديث الآلي مؤجَّل حتى تأشير المالك على OWNER_CHECKLIST (727)
+لأنه سطح أمني جديد ويصطدم بمبدأ لا-phone-home (IR-1).
+
+### فحص التحديث اليدوي (opt-in — معطَّل افتراضيًا)
+
+التطبيق **لا يتصل بأي خادم أبدًا** على الإعدادات الافتراضية.
+إن أردت فحص وجود إصدار أحدث يدويًا:
+
+1. أضف في `config.yaml` (المثال موجود معلَّقًا في نهايته):
+
+   ```yaml
+   updates:
+     check_enabled: true
+     manifest_url: "https://your-host/releases/manifest.json"
+   ```
+
+2. الـ manifest ملف JSON بسيط تستضيفه أنت:
+
+   ```json
+   {"latest": "1.2.3", "url": "https://your-host/releases/download"}
+   ```
+
+3. الفحص يحدث **فقط** عند طلبك `GET /api/update-check` — لا polling
+   خلفي. الاستجابة: `{enabled, current, latest, update_available, url}`.
+   أي فشل (شبكة/JSON معطوب) صامت — لا يكسر شيئًا.
+
+### التحديث نفسه
+
+نزّل الإصدار الجديد من `url` وثبّته يدويًا: أعد البناء بالخطوات
+أعلاه أو استبدل مجلد `dist\WebDevAIEditor` كاملًا. ملف
+`config.yaml` المجاور للـ exe يبقى كما هو (لا يُستبدل تلقائيًا).
