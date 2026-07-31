@@ -3022,7 +3022,38 @@ plugins توسيع، auto-update — أربع مهام: TSK-728..731.
 3. اختبار حارس: الدرز لا يتسرّب إلى مسار الإقلاع الافتراضي
    (server.py يقلع بلا redis إطلاقًا).
 
-**الحالة**: مخطَّطة — تُنفَّذ بعد TSK-728.
+**الحالة**: مُفصَّلة نهائيًا — جاهزة للتنفيذ (جرد 2026-07-31).
+
+### التفصيل النهائي (S105 — نتيجة الجرد)
+
+**خريطة الواقع**: الدرز موجود ومُغطى جزئيًا:
+- core/backends_redis.py — RedisEventBusBackend (:118) وRedisWorkQueue
+  (:212) يقبلان `client=` حقنًا (درزة اختبار جاهزة بالبناء).
+- tests/integration/test_redis_backends.py — 12 اختبارًا: 3 حراس كسل
+  تعمل دائمًا + 9 توافق موسومة needs_redis (تُتخطى محليًا، تعمل في CI).
+- server.py:318 — الاستيراد داخل `if _dispatch_mode == "worker"` فقط؛
+  worker.py::resolve_dispatch_mode يرفض القيم المجهولة صاخبًا.
+- docs/worker_runbook.md — دليل تفعيل قائم.
+
+**الفجوات (نطاق 729 الفعلي)**:
+1. اختبارات التوافق (عدة T-108 ContractMixin) لا تعمل أبدًا في بيئة
+   التطوير المحلية (لا Redis) ⇒ **fakeredis** يشغّلها في كل بوابة.
+2. لا حارس آليًا على «الإقلاع الافتراضي لا يلمس redis» في server.py
+   (الحارس الحالي يغطي core/backends*.py فقط).
+3. worker_runbook.md لا يشير إليه دليل FI-12 (deployment_threat_model).
+
+**الشرائح**:
+- **729a**: fakeredis في requirements-dev + صنفا توافق جديدان في
+  test_redis_backends.py يرثان نفس ContractMixin فوق fakeredis
+  (import-or-skip) ⇒ عقد Redis يعمل في كل بوابة محلية. ملاحظة حدود:
+  fakeredis يحاكي Streams (XADD/XRANGE/XREADGROUP/XAUTOCLAIM) —
+  أي فجوة محاكاة تُوسم skip موضعيًا لا تعطيلًا شاملًا.
+- **729b**: حارس عدم تسرّب — اختبار يفحص server.py: كل ذكر
+  backends_redis داخل فرع worker المشروط؛ + اختبار تشغيلي: استيراد
+  server (بلا main) لا يضع redis في sys.modules.
+- **729c**: توثيق — مقطع تفعيل في deployment_threat_model.md (FI-12)
+  يحيل إلى worker_runbook.md + إغلاق بالبوابة.
+
 
 ## TSK-730 — plugins توسيع (placeholder)
 
