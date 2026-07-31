@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **TSK-730 قيد التنفيذ (BATCH-P3/D-11)**: plugins توسيع — مُفصَّلة (جرد 2026-07-31): 730a إظهار في /api/diagnostics + 730b إثراء PluginContext (run_id/metadata) + 730c توثيق؛ خط الأساس: **2109P/34S** |
+| current-task | **TSK-730 مغلقة 🏁 (BATCH-P3/D-11)**: plugins توسيع (إظهار /api/diagnostics + إثراء PluginContext بـ run_id/metadata + توثيق) — التالي تفصيل TSK-731 (auto-update، مرهونة جزئيًا بتأشير المالك)؛ خط الأساس الجديد: **2120P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -709,6 +709,13 @@ app.js 4204 ⇒ 712 سطرًا + 6 مقاطع مجالية (10/20/30/40/90/91 = 
 - **729c**: مقطع §7 في `docs/deployment_threat_model.md` (FI-12) — تفعيل الوضع الموزَّع الاختياري بإحالة إلى worker_runbook + اتساع حدود الثقة + إعادة تأكيد قيد D-11 (الافتراضي لا يتغير).
 - **البوابة**: `bash scripts/check.sh` = **2109 passed / 34 skipped — ALL GREEN** (خط أساس جديد؛ +17 عن 2092P).
 - **Commits:** 4b442bf (a+b) + 8c91c30 (c).
+
+**TSK-730 مغلقة 🏁 (BATCH-P3/D-11 — plugins توسيع، 2026-07-31):**
+- **730a**: إظهار glass-box — مفتاح `plugins = {loaded مفروزة, quarantined عبر to_dict()}` في `/api/diagnostics` (routes/meta.py) من plugin_registry؛ None/انفجار السجل ⇒ قوائم فارغة (التشخيص لا يفشل أبدًا)؛ عقد التطهير TSK-721 صامد — 4 اختبارات.
+- **730b**: إثراء PluginContext في المسار الحقيقي — `PlanRequest.run_id` (bridge يمرّر المعرّف المُنشأ) → select_strategy → `_build_via_plugin` يمرّر run_id + `metadata={"complexity": analysis.to_dict()}`؛ الافتراضي "" = سلوك تاريخي حرفي (goldens الـ planner صامدة)؛ قيد موثَّق: emit تبقى noop وقت التخطيط — 7 اختبارات (tests/unit/test_plugin_context_enrichment.py).
+- **730c**: توثيق مؤلّف الإضافات — examples/demo_strategy/README.md (سطحا run_id/metadata + قيد emit + ظهور التشخيص).
+- **البوابة**: `bash scripts/check.sh` = **2120 passed / 34 skipped — ALL GREEN** (خط أساس جديد؛ +11)؛ فشل search_perf البيئي المعروف ظهر مرة وزال على إعادة نظيفة.
+- **Commits:** fde6eca (تفصيل) + 3df2247 (a) + 4b588a9 (b) + 2a72147 (c).
 
 - **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
   استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،

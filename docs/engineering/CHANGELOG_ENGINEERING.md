@@ -1356,3 +1356,11 @@ pre_command fail-closed، post_write/post_run تحذير فقط، غياب ال�
 العمل/reclaim — 17 اختبارًا في tests/unit/test_redis_seam_fake.py، fakeredis>=2.20 في
 requirements-dev)؛ حارس عدم التسرّب بنيوي وتشغيلي (subprocess معزول)؛ مقطع §7 في دليل
 FI-12 لتفعيل الوضع الموزَّع الاختياري. بوابة **2109P/34S** خط أساس جديد.
+
+## [TSK-730/BATCH-P3] — 2026-07-31
+plugins توسيع فوق بنية T-100/101/102 القائمة (لا معمارية جديدة):
+إظهار glass-box في /api/diagnostics (مفتاح plugins — أسماء/مراحل/أسباب
+فقط، عقد التطهير TSK-721 صامد)؛ إثراء PluginContext في المسار الحقيقي
+(run_id عبر PlanRequest من bridge + metadata[complexity] — الافتراضي ""
+سلوك تاريخي حرفي)؛ توثيق مؤلّف الإضافات في demo_strategy/README.
+11 اختبارًا جديدًا. بوابة **2120P/34S** خط أساس جديد.
