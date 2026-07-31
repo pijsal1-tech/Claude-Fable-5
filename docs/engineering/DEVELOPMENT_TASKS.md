@@ -2967,7 +2967,48 @@ plugins توسيع، auto-update — أربع مهام: TSK-728..731.
 **معايير القبول**: اختبارات عقد للحالات الثلاث أعلاه + بوابة check.sh
 خضراء كاملة + لا تعديل على السلوك الافتراضي (اختبار «غياب القسم»).
 
-**الحالة**: مخطَّطة — التفصيل النهائي (جرد نقاط الحقن) قبل التنفيذ.
+**الحالة**: مُفصَّلة نهائيًا (جرد الحقن مكتمل) — جاهزة للتنفيذ.
+
+### التفصيل النهائي (S105 — نتيجة جرد نقاط الحقن)
+
+**خريطة الواقع (grep مؤرَّخ 2026-07-31)**:
+- ApprovalGate تُبنى مرة واحدة @ server.py:2004؛ الآلية core/approval.py:152
+  (request :199 «لا يرمي أبدًا، يرجع Verdict دائمًا»، resolve :235).
+- مسار الأوامر الكلاسيكي: actions/command_runner.py::CommandRunner.run (:55)
+  — حجب المعاملات :95–97، فحص خطير/آمن + _ask_approval :100–115.
+- المسار الوكيلي: chain/agent_tools.py::tool_run_command (:466) محروس
+  بالرمز APPROVAL_GRANTED (:483) بعد حكم ApprovalGate عبر
+  agent_loop._request_approval (:484)؛ **التنفيذ الفعلي يفوَّض إلى
+  CommandRunner نفسه** (_static_cmd :179) ⇒ حقن pre_command واحد في
+  CommandRunner.run يغطي المسارين معًا.
+- نقطة الكتابة الوحيدة: actions/file_manager.py::write_file (:91، كتابة
+  ذرّية) — server.py:1846 يستدعيها ⇒ post_write هناك.
+- core/runner.py (EVENT_RUN_FINISHED :67) سباكة أحداث لا نقطة حقن —
+  الـ hooks تبقى في طبقة actions.
+
+**التصميم**:
+- وحدة جديدة `core/hooks.py`: `HookRunner` يقرأ قسم `hooks:` من
+  config.yaml (قوائم لكل حدث: `{command, timeout}`).
+- تنفيذ الـ hook عبر subprocess.run **مباشرة** (أبدًا ليس عبر
+  CommandRunner — منع العودّية)، حمولة الحدث في متغيرات بيئة
+  `HOOK_EVENT` / `HOOK_COMMAND` / `HOOK_PATH`.
+- الدلالة: خروج 0 = مرور. `pre_command`: خروج ≠0 أو استثناء أو مهلة ⇒
+  **حجب** (fail-closed) **قبل** أي فحص موافقة — الحقن يسبق ApprovalGate
+  فلا يستطيع الـ hook إلا الإضافة للصرامة. `post_write`/`post_run`:
+  خروج ≠0 أو فشل ⇒ تحذير مسجَّل فقط (الفعل وقع).
+- الإضعاف مستحيل بالبناء: الـ hook لا يملك أي قناة لحقن موافقة —
+  ApprovalGate تبقى مصدر الحقيقة الوحيد.
+- غياب `hooks:` ⇒ HookRunner فارغ ⇒ صفر subprocess ⇒ سلوك اليوم حرفيًا.
+
+**الشرائح**:
+- **728a**: core/hooks.py (تحليل config + HookRunner) + اختبارات وحدة
+  نقية (بلا حقن) — تشمل: قسم غائب ⇒ لا شيء؛ فشل/مهلة ⇒ fail-closed
+  لـ pre_command؛ post_* لا يحجب.
+- **728b**: حقن pre_command في CommandRunner.run (+ تمرير HookRunner
+  اختياريًا — None ⇒ سلوك اليوم) + اختبارات عقد المسارين.
+- **728c**: حقن post_write في file_manager.write_file + post_run في
+  CommandRunner بعد التنفيذ + توثيق config.yaml + إغلاق بالبوابة.
+
 
 ## TSK-729 — تصليب درز redis (FI-04 مُكيَّفة بقرار D-11/IR-1)
 
