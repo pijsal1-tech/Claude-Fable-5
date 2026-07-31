@@ -145,6 +145,21 @@ def api_diagnostics():
         except Exception:
             metrics_summary = None      # التشخيص لا يفشل بسبب المقاييس
 
+    # TSK-730a (BATCH-P3): إظهار الإضافات — glass-box. حتى الآن كان
+    # المُحمَّلون/المحجورون يُطبعون عند الإقلاع فقط (server.py) بلا أثر
+    # في حزمة التشخيص. عقد التطهير يبقى: أسماء/مراحل/أسباب فقط —
+    # QuarantineRecord.to_dict() لا يحمل مسارات ولا أسرارًا.
+    plugins_info: dict = {"loaded": [], "quarantined": []}
+    _reg = getattr(_srv, "plugin_registry", None)
+    if _reg is not None:
+        try:
+            plugins_info["loaded"] = sorted(_reg.loaded)
+            plugins_info["quarantined"] = [
+                q.to_dict() for q in _reg.quarantined]
+        except Exception:
+            # التشخيص لا يفشل بسبب سجل الإضافات — نفس فلسفة المقاييس.
+            plugins_info = {"loaded": [], "quarantined": []}
+
     return jsonify({
         "ok": True,
         "diagnostics": {
@@ -158,6 +173,7 @@ def api_diagnostics():
             "project_name": _srv.fm.root.name,   # الاسم فقط — لا مسار
             "provider": prov_info,
             "metrics_summary": metrics_summary,
+            "plugins": plugins_info,             # TSK-730a
         },
     })
 
