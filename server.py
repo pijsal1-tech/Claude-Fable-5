@@ -17,7 +17,7 @@ import queue
 import time
 import uuid
 from types import SimpleNamespace  # TSK-612 (ADR-002)
-from typing import Any  # TSK-614 (ADR-004)
+from typing import Any, TYPE_CHECKING  # TSK-614 (ADR-004)
 # ── إجبار UTF-8 ──
 if hasattr(sys.stdout, "reconfigure"):
     # NF-14 §1 (ابتلاع مقصود — تجميلي): فشل ضبط الترميز لا يعطل الإقلاع.
@@ -187,7 +187,13 @@ def _load_config() -> dict:
 _read_config = _load_config
 
 
-def _hook_runner():
+_hook_runner_cache: "HookRunner | None" = None
+
+if TYPE_CHECKING:  # pragma: no cover — للتلميح فقط، الاستيراد الفعلي كسول
+    from core.hooks import HookRunner
+
+
+def _hook_runner() -> "HookRunner":
     """TSK-728b (CP-4): HookRunner مشترك مبني من config.yaml — كسول
     ومُكاش (نفس فلسفة _load_config). غياب قسم hooks: ⇒ runner فارغ ⇒
     صفر subprocess إضافي (سلوك ما قبل TSK-728 حرفيًا)."""
@@ -196,9 +202,6 @@ def _hook_runner():
         from core.hooks import HookRunner
         _hook_runner_cache = HookRunner.from_config(_load_config())
     return _hook_runner_cache
-
-
-_hook_runner_cache = None
 
 
 def _post_write_hook(rel_path: str) -> None:
