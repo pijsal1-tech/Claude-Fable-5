@@ -6,6 +6,7 @@
 
 **يقرأ مشروعك • يفهم الكود • يعدل الملفات • ينفذ الأوامر — تلقائياً**
 
+[![Version](https://img.shields.io/badge/Version-1.0.0--rc.1-blue?style=for-the-badge)](core/version.py)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776ab?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-Web_Server-000000?style=for-the-badge&logo=flask)](https://flask.palletsprojects.com)
 [![WebSocket](https://img.shields.io/badge/WebSocket-Real_Time-010101?style=for-the-badge&logo=socketdotio)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
@@ -30,6 +31,13 @@
 | 💬 **Real-time Streaming** | ردود AI تظهر حرف بحرف عبر WebSocket |
 | 🛡️ **Backup تلقائي** | نسخة احتياطية قبل أي تعديل |
 | 📋 **إدارة جلسات** | حفظ واستعادة محادثات سابقة |
+| 🖥️ **غلاف سطح مكتب** | تغليف Windows exe بنقرة مزدوجة (PyInstaller + pywebview) |
+| 🧩 **نظام إضافات** | استراتيجيات خارجية عبر entry points ببوابة تحقق وحجر صحي |
+| 🪝 **خطّافات المالك** | hooks بعقد «تشديد-فقط» (pre_command / post_write / post_run) |
+| 🔍 **بحث دائم مفهرس** | فهرس بحث دائم عبر الجلسات مع تحديث تزايدي |
+| 🩺 **تشخيص وإعدادات** | `/api/diagnostics` + `/api/settings` — قراءة فقط مُطهَّرة |
+| 🔐 **Workspace Trust** | قرار ثقة صريح لكل مجلد قبل التنفيذ |
+| 🔔 **فحص تحديث opt-in** | `/api/update-check` — معطَّل افتراضيًا، صفر phone-home |
 
 ---
 
@@ -74,7 +82,7 @@
 ```bash
 # استنساخ المشروع
 git clone <repo-url>
-cd editor_v2
+cd <project-root>
 
 # تثبيت مكتبات التشغيل (القائمة القانونية — TSK-713)
 pip install -r requirements.txt
@@ -110,6 +118,19 @@ python server.py --port 8080
 ```
 
 ثم افتح المتصفح على: **http://127.0.0.1:5000**
+
+### 🖥️ نسخة سطح المكتب (Windows)
+
+بدل المتصفح: غلاف نافذة أصلية بنقرة مزدوجة —
+
+```bash
+python desktop.py --project ./my_project      # تشغيل مباشر
+# أو تغليف exe كامل:
+pyinstaller desktop.spec                       # الناتج: dist/WebDevAIEditor/
+```
+
+التفاصيل الكاملة (بناء/تغليف/استكشاف أخطاء/قناة التحديث):
+`docs/desktop/WINDOWS_BUILD.md`.
 
 ---
 
@@ -296,6 +317,23 @@ npm install express
 | `error` | رسالة خطأ |
 | `pong` | رد على ping |
 
+
+### 🌐 سطح REST (مختارات)
+
+السطح كامل مجمَّد باختبار عقد (`tests/unit/test_rest_blueprints.py`) —
+أي توسيع يحتاج قرارًا موثَّقًا. أبرز النقاط:
+
+| Endpoint | Method | الوظيفة |
+|----------|--------|---------|
+| `/api/info` | GET | معلومات المشروع + المزود + رقم الإصدار |
+| `/api/diagnostics` | GET | حزمة تشخيص مُطهَّرة (بيئة/تبعيات/مقاييس/إضافات) |
+| `/api/settings` | GET | الإعدادات الفعالة — whitelist مُطهَّر (لا أسرار/مسارات) |
+| `/api/permissions` | GET | سياسة الأوامر والأدوات الحية |
+| `/api/trust` | GET/POST | قراءة/تسجيل قرار ثقة المجلد |
+| `/api/update-check` | GET | فحص تحديث يدوي (opt-in — معطَّل افتراضيًا) |
+| `/api/capacity` | GET | سعة صادقة من CapacityModel |
+| `/api/metrics/runs` | GET | عدّادات + p50/p95 لمدد الـ runs |
+
 ---
 
 ## 🎨 الواجهة (Frontend)
@@ -317,8 +355,9 @@ npm install express
 ## 📁 هيكل المشروع
 
 ```
-editor_v2/
+<project-root>/
 ├── 🖥️  server.py                    # الخادم الرئيسي (Flask + WebSocket)
+├── 🪟  desktop.py + desktop.spec    # غلاف سطح المكتب + مواصفة PyInstaller
 ├── 📋  config.yaml                  # إعدادات المشروع
 │
 ├── 🎨  static/                      # الواجهة الأمامية
@@ -353,6 +392,12 @@ editor_v2/
 │   ├── agent_loader.py              # تحميل 21 عميل
 │   └── prompts/                     # base prompts (analyze/plan/execute/review)
 │
+├── 🧬  core/                        # نواة الخدمات (version، approval، hooks،
+│                                    #   update_check، workspace_trust، backends، ...)
+├── 🌐  routes/                      # blueprints سطح REST (meta/files/sessions/...)
+├── 🧭  context/                     # محرك السياق + الفهرس الدائم
+├── 🧩  examples/demo_strategy/      # إضافة مرجعية + دليل مؤلف الإضافات
+│
 ├── 🧠  agents_rules/               # قواعد العملاء (21 تخصص)
 │   ├── AGENTS.md                    # القواعد الرئيسية
 │   ├── MICRO_WORKER_SYSTEM_PROMPT.md
@@ -368,7 +413,10 @@ editor_v2/
 │
 ├── ⚙️  .github/workflows/ci.yml     # CI: check.sh + coverage ratchet
 │
-└── 📂  sessions/                    # كود مخزن الجلسات (البيانات خارج git)
+├── 📂  sessions/                    # كود مخزن الجلسات (البيانات خارج git)
+│
+└── 📚  docs/                        # التوثيق (engineering/ سجلات الحوكمة،
+                                     #   desktop/ دليل البناء وقائمة المالك)
 ```
 
 ---
@@ -420,6 +468,12 @@ auto_execute: false          # طلب إذن قبل الأوامر
 backup_before_edit: true     # نسخة احتياطية قبل التعديل
 max_context_files: 15        # أقصى ملفات في السياق
 force_command_approval: false  # إلزام الموافقة على كل أمر — غياب المفتاح = true (راجع «حدود النشر»)
+
+# أقسام اختيارية (معطَّلة افتراضيًا — أمثلة معلَّقة في نهاية config.yaml):
+# hooks:    خطّافات المالك «تشديد-فقط» (pre_command/post_write/post_run)
+#           — فشل pre_command ⇒ حجب الأمر (fail-closed)؛ لا تمنح موافقة أبدًا.
+# updates:  فحص تحديث يدوي opt-in (check_enabled + manifest_url)
+#           — الافتراضي معطَّل ⇒ صفر اتصال شبكة (لا phone-home).
 ```
 
 ---
@@ -434,6 +488,9 @@ force_command_approval: false  # إلزام الموافقة على كل أمر 
 | 🔒 **Force Command Approval** | راية `force_command_approval` — موافقة إلزامية على كل أمر (TSK-502) |
 | 📏 **Size Limits** | حدود على حجم الملفات والمجلدات |
 | 🔐 **Binary File Rejection** | يرفض الملفات غير النصية |
+| 🔐 **Workspace Trust** | قرار ثقة مستخدم صريح لكل مجلد (fail-closed عند الغياب) |
+| 🪝 **Owner Hooks** | خطّافات «تشديد-فقط»: ترفع الصرامة ولا تستطيع منح موافقة أبدًا |
+| 🕵️ **لا phone-home** | صفر اتصالات صادرة افتراضيًا — فحص التحديث opt-in يدوي فقط |
 
 ### 🚧 حدود النشر والأمان (Deployment Limits — TSK-502 / NF-16)
 
@@ -478,6 +535,20 @@ localhost** — ليست خدمة ويب للنشر العام. الحدود ا�
 2. نفّذ `send()` و `stream()` و `is_available()`
 3. سجّله في `main()` بـ `register_provider()`
 
+### إضافة استراتيجية كإضافة خارجية (Plugin) 🧩
+
+بدون لمس كود المضيف — عبر entry points:
+
+1. حزمة Python تعرّف class يطابق عقد `chain/plugin_api.py`
+   (`strategy_name` + `routing_hints` + `build(ctx)` — `PluginContext`
+   هو السطح الوحيد المرئي للإضافة).
+2. سجّلها في `pyproject.toml` تحت group باسم `webdev_ai.strategies`.
+3. عند الإقلاع: بوابة تحقق ثلاثية (import/shape/dry_run) — الإضافة
+   الفاسدة تُحجَر (quarantine) ولا تُسقط المضيف أبدًا؛ الحالة تظهر في
+   `/api/diagnostics` (مفتاح `plugins`).
+
+المثال الكامل خطوة-بخطوة: `examples/demo_strategy/README.md`.
+
 ### إضافة عميل (Agent) جديد
 
 1. أنشئ مجلد في `agents_rules/` باسم التخصص
@@ -501,8 +572,9 @@ localhost** — ليست خدمة ويب للنشر العام. الحدود ا�
   - `patch`: إصلاحات بلا تغيير عقد.
   - `minor`: ميزات متوافقة (دفعات P1/P2).
   - `major`: أي كسر عقد (أشكال JSON / إطارات WS / عقد localhost).
-- **لاحقة `-rc.N`** تبقى حتى يكتمل تحقق Windows الفعلي
-  (قائمة `docs/WINDOWS_COMPAT.md` §6 — قرار D-8-ب: Windows أولًا).
+- **لاحقة `-rc.N`** تبقى حتى يكتمل تحقق Windows الفعلي بيد المالك
+  (`docs/desktop/OWNER_CHECKLIST.md` — قرار D-8-ب: Windows أولًا).
+  الإصدار الحالي: `1.0.0-rc.1`.
 - **الوسم**: `git tag vX.Y.Z[-rc.N]` بعد إغلاق كل دفعة إنتاج
   (بوابة الإغلاق: `check.sh` ALL GREEN).
 
