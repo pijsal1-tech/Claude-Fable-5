@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **TSK-727a قيد التنفيذ — قرار الغلاف المكتبي (pywebview) + ADR-006** (727 مُفصَّلة S104)؛ خط الأساس: **2050P/34S** |
+| current-task | **دفعة D-10 (P2) مكتملة الكود 🏁**: 723–727 كلها منفَّذة؛ بند تحقق خارجي وحيد معلَّق: تأشير المالك على OWNER_CHECKLIST (D-8-ب)؛ خط الأساس: **2058P/34S** |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -652,6 +652,33 @@
 app.js 4204 ⇒ 712 سطرًا + 6 مقاطع مجالية (10/20/30/40/90/91 = 3527 سطرًا)
 بنطاق عام مشترك وترتيب تحميل رقمي محروس باختبار test_app_split الدائم.
 التالي حسب DAG D-10: تفصيل TSK-727 (الغلاف المكتبي) — آخر مهام P2.
+
+### إقفال TSK-727 — غلاف سطح المكتب Windows-أولًا (a+b+c) 🏁 (كود + وثائق؛ تحقق المالك معلَّق)
+- **727a (القرار):** موازنة pywebview/Tauri/Electron مكتوبة في §TSK-727
+  (S104) — **القرار: pywebview + PyInstaller** (نفس اللغة، صفر سلاسل
+  أدوات جديدة، صفر لمس للكود المُختبر)؛ قيد S104 في DECISION_LOG +
+  **ADR-006** في ARCHITECTURE_DECISIONS.md — قبل أي كود (D-7).
+- **727b (المُطلِق):** `desktop.py` — منفذ حر (bind 0) → server.main()
+  بخيط خلفي daemon (صفر تعديل على server.py؛ غلاف signal.signal يبتلع
+  ValueError خارج الخيط الرئيسي حصريًا) → انتظار جاهزية HTTP →
+  webview.create_window؛ pywebview اختيارية محروسة import (غيابها ⇒
+  رسالة عربية إرشادية + إحالة لوضع المتصفح). **8 اختبارات بنيوية**
+  (test_desktop_launcher: import-safe/رسالة الغياب/منفذ حر/جاهزية/
+  عقد ADR-006 نصيًا: server.py غير ممسوس + 127.0.0.1 حصريًا)؛
+  pywebview في requirements كتعليق اختياري؛ desktop.py ضُم لبوابة mypy.
+- **727c (التغليف):** `desktop.spec` (datas: static + agents_rules +
+  chain/prompts + config.yaml؛ hiddenimports: flask_sock/simple_websocket/
+  yaml؛ console=False) + `docs/desktop/WINDOWS_BUILD.md` (أمرًا-بأمر)
+  + `docs/desktop/OWNER_CHECKLIST.md` (7 محاور/20 بندًا).
+- **البوابة:** `bash scripts/check.sh` — **2058 passed / 34 skipped —
+  ALL GREEN** (rc=0) — خط الأساس الجديد (+8 اختبارات المُطلِق).
+- **ملاحظة بيئية:** الحادثة رقم 15 — البوت أنقذ desktop.spec @ 36cfb35
+  (تُحقِّق منه وأُصلح: ضم chain/prompts المقروءة وقت التشغيل).
+- **Commits:** 13338d2 (a) + 8bf8e45 (b) + 36cfb35/5479b1e (c).
+- **بند خارجي معلَّق (لا يمنع P3):** تأشير المالك على OWNER_CHECKLIST
+  على Windows (D-8-ب) — إقفال P2 النهائي الرسمي عنده.
+
+**دفعة D-10 (P2) مكتملة الكود 🏁**: 723 ✅ 724 ✅ 725 ✅ 726 ✅ 727 ✅.
 - **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
   استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،
   الهوية — إقفال TSK-723 مؤكد على origin). **جرد التصميم (يسبق
