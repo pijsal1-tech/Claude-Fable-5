@@ -3055,10 +3055,41 @@ plugins توسيع، auto-update — أربع مهام: TSK-728..731.
   يحيل إلى worker_runbook.md + إغلاق بالبوابة.
 
 
-## TSK-730 — plugins توسيع (placeholder)
+## TSK-730 — plugins توسيع (إظهار + إثراء سياق + توثيق)
 
-**الحالة**: حجز فقط — يُفصَّل لاحقًا بعد إغلاق 728/729 (D-7 يمنع
-التفصيل المبكر بلا جرد).
+**الحالة**: مُفصَّلة نهائيًا — جاهزة للتنفيذ (جرد 2026-07-31).
+
+**خريطة الواقع (جرد مؤرَّخ)**: بنية T-100/101/102 قائمة وكاملة —
+StrategyPluginRegistry (اكتشاف entry_points + بوابة import/shape/dry_run
++ حجر صحي)، PluginContext محدود القدرات (بوابة grep في check.sh :118)،
+ترشيح routing_hints في SmartOrchestrator._match_plugin (:160)، حزمة
+demo_strategy مرجعية. **لا حاجة لأي معمارية جديدة** — التوسيع = سد
+ثلاث فجوات مجرودة:
+
+- **730a — إظهار في حزمة التشخيص (glass-box)**: المحجورون يُطبعون عند
+  الإقلاع فقط (server.py:2052) والمُحمَّلون كذلك — لا أثر في
+  `/api/diagnostics` (routes/meta.py:112، عقد TSK-721). الإضافة: مفتاح
+  `plugins` = `{loaded: [أسماء مفروزة], quarantined: [QuarantineRecord.to_dict()]}`
+  من `_srv.plugin_registry` (None ⇒ قوائم فارغة — لا كسر عقد). عقد
+  التطهير يبقى: أسماء/مراحل/أسباب فقط — لا مسارات.
+- **730b — إثراء PluginContext عند البناء الفعلي**: `_build_via_plugin`
+  (orchestrator.py:185) يبني السياق **بلا run_id وبلا metadata** رغم أن
+  العقد (plugin_api) يكشفهما. السد: حقل `run_id: str | None = None` في
+  PlanRequest (مجمّد، افتراضي None — توافق خلفي)، معامل `run_id: str = ""`
+  في select_strategy، وتمرير run_id + `_metadata={"complexity": analysis.to_dict()}`
+  إلى PluginContext؛ bridge.start_chain يمرّر run_id المُنشأ سلفًا (:330).
+  **قيد صريح**: حقّاقة emit تبقى noop وقت التخطيط (البناء متزامن قبل
+  التشغيل — لا bus في الأوركستريتور بالتصميم)؛ يُوثَّق.
+- **730c — توثيق**: examples/demo_strategy/README.md (سطحا run_id/metadata
+  + سلوك emit وقت التخطيط) + ظهور الإضافات في حزمة التشخيص.
+
+**معايير القبول**: (1) /api/diagnostics يعرض plugins بالقوائم — واختبار
+None⇒فارغ + سجل مزيف⇒ظهور + عدم-تسريب؛ (2) إضافة تجريبية ترى run_id
+وcomplexity في metadata عبر مسار select_strategy الحقيقي؛ (3) goldens
+الـ planner بلا تغيير (run_id الافتراضي "" لا يغيّر الخطط)؛ (4) بوابة
+check.sh خضراء كاملة (ومنها بوابة plugin capability grep بلا مساس).
+
+**DAG داخلي**: 730a مستقلة؛ 730b ثم 730c.
 
 ## TSK-731 — auto-update (placeholder)
 
