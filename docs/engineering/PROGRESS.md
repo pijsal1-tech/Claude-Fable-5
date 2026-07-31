@@ -13,7 +13,7 @@
 | last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
 | stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
 | current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **BATCH-P3 مكتملة 🏁 (D-11)**: TSK-728 🏁 + TSK-729 🏁 + TSK-730 🏁 + TSK-731 🏁 — الحزمة الرابعة كاملة؛ خط الأساس الجديد: **2168P/34S** |
+| current-task | **EOP-1 مُنفَّذ 🏁 بأمر مالك صريح**: حُذف docs/engineering_constitution/ (قرار D-8-أ) — خريطة P0→P3 مكتملة + البند الختامي مُنجز؛ خط الأساس: **2168P/34S**؛ المتبقي الخارجي الوحيد: تأشير المالك على OWNER_CHECKLIST (727) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -41,7 +41,7 @@
 - Stage: V3 — BATCH-P2 (D-10) قيد التنفيذ؛ الموضع: TSK-723 (Command Palette) الأولى؛ سوابق مُقفلة: BATCH-P1 🏁 6/6 (FI-05 🏁 + تدوير + تشخيص + Settings UI) وBATCH-P0 🏁 (v1.0.0-rc.1)
 - خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
 - برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
-- بند ختامي مُرحَّل: EOP-1 (حذف engineering_constitution/ — آخر المشروع، قرار D-8-أ)
+- بند ختامي مُرحَّل: EOP-1 — **مُنفَّذ 🏁 2026-07-31 بأمر مالك صريح** (حذف engineering_constitution/، قرار D-8-أ)
 - [أرشيف موضع BATCH-SHORT عند فتحها] خط أساسها (حي @ 4e87d6b): 1866P/34S/0F (+ search_perf البيئي 1.036s>1.0s على هذا العتاد — flaky موثَّق)
 - [أرشيف الموضع السابق] Stage: EXECUTION (Stage 3 — **مُقفلة 🏁 26/26** — M6–M10 كلها مغلقة؛ IR-1 ✅ + IR-2 ✅)
 - Phase/Task: **البرنامج مُقفل — لا مهمة متبقية** (S83 أغلقت الأربع
@@ -745,6 +745,16 @@ app.js 4204 ⇒ 712 سطرًا + 6 مقاطع مجالية (10/20/30/40/90/91 = 
   اختبارات عبر الحزمة؛ كل مهمة أُقفلت ببوابة ALL GREEN مستقلة.
 - **معلَّق خارجي (غير حاجز):** تأشير المالك على OWNER_CHECKLIST (727)
   يقفل P2 رسميًا ويفتح أي أتمتة تحديث مستقبلية.
+
+### EOP-1 — حذف docs/engineering_constitution/ (قرار D-8-أ) 🏁
+- **المُشغِّل:** أمر مالك صريح («نفذ ده EOP-1») — 2026-07-31.
+- **التحقق قبل الحذف:** صفر مراجع في الكود/الاختبارات/السكربتات
+  (grep على *.py/*.sh/*.yaml/*.js + tests/ + scripts/ = لا شيء)؛
+  مراجع الوثائق الهندسية تاريخية (سجلات append-only) وتبقى كما هي.
+- **المحذوف:** 13 ملف MD (AGENT_CONSTITUTION..UX_PRINCIPLES) — كانت
+  HISTORICAL-INERT منذ D-8-أ؛ V3 (docs/engineering/CONSTITUTION_V3.md)
+  هو الدستور الحاكم الوحيد ولا يتأثر.
+- **البوابة بعد الحذف:** check.sh ALL GREEN (الحذف وثائقي بحت).
 
 - **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
   استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،
