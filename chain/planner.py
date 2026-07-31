@@ -68,6 +68,9 @@ class PlanRequest:
     file_content: str | None = None
     file_path: str = ""
     force_strategy: str | None = None
+    # TSK-730b: معرّف التشغيلة — يصل للإضافات عبر PluginContext.
+    # "" (الافتراضي) = السلوك التاريخي حرفيًّا (goldens تثبته).
+    run_id: str = ""
 
 
 # ═══════════════════════════════════════════════════════
@@ -125,6 +128,7 @@ class HeuristicPlanner:
             file_content=request.file_content,
             file_path=request.file_path,
             force_strategy=request.force_strategy,
+            run_id=request.run_id,           # TSK-730b
         )
 
 

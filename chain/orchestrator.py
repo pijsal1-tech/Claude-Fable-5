@@ -185,9 +185,17 @@ class SmartOrchestrator:
     def _build_via_plugin(self, name: str, cls: type, user_request: str,
                           files: dict[str, str] | None,
                           file_content: str | None,
-                          file_path: str) -> StrategyResult | None:
+                          file_path: str,
+                          run_id: str = "",
+                          metadata: dict | None = None
+                          ) -> StrategyResult | None:
         """بناء خطة الإضافة عبر PluginContext — None عند أي فشل
-        (سقوط آمن للاختيار المدمج؛ لا استثناء يتسرب للطلب)."""
+        (سقوط آمن للاختيار المدمج؛ لا استثناء يتسرب للطلب).
+
+        TSK-730b: run_id/metadata يصلان للإضافة عبر PluginContext —
+        العقد (plugin_api) كان يكشفهما لكن هذا المسار الحقيقي كان
+        يبنيهما فارغَين. emit تبقى noop وقت التخطيط (البناء متزامن
+        قبل التشغيل — لا bus في الأوركستريتور بالتصميم)."""
         bundle = ContextBundle()
         if file_content:
             bundle.add(ContextItem("attachment", file_path or "attached",
@@ -195,7 +203,9 @@ class SmartOrchestrator:
         for fpath, fcontent in (files or {}).items():
             bundle.add(ContextItem("attachment", fpath, fcontent))
         ctx = PluginContext(user_request=user_request,
-                            _bundle=bundle)
+                            run_id=run_id,
+                            _bundle=bundle,
+                            _metadata=dict(metadata or {}))
         try:
             result = cls().build(ctx)
         except Exception:
@@ -321,11 +331,14 @@ class SmartOrchestrator:
                         files: dict[str, str] | None = None,
                         file_content: str | None = None,
                         file_path: str = "",
-                        force_strategy: str | None = None) -> StrategyResult:
+                        force_strategy: str | None = None,
+                        run_id: str = "") -> StrategyResult:
         """
         يحلل ويبني StrategyResult جاهزة.
 
         force_strategy: يفرض استراتيجية معينة (للتجاوز اليدوي).
+        run_id (TSK-730b): يمرَّر للإضافات عبر PluginContext — "" (الافتراضي)
+            لا يغيّر أي خطة مدمجة (goldens تثبته).
         """
         analysis = self.analyze_complexity(
             user_request, files, file_content, file_path
@@ -348,7 +361,9 @@ class SmartOrchestrator:
                 plugin_name, plugin_cls = matched
                 plugin_result = self._build_via_plugin(
                     plugin_name, plugin_cls, user_request,
-                    files, file_content, file_path)
+                    files, file_content, file_path,
+                    run_id=run_id,
+                    metadata={"complexity": analysis.to_dict()})
                 if plugin_result is not None:
                     plugin_result.metadata["complexity"] = analysis.to_dict()
                     plugin_result.metadata["plugin_name"] = plugin_name

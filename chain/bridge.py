@@ -334,6 +334,7 @@ class ChainBridge:
             file_content=file_content,
             file_path=file_path,
             force_strategy=force_strategy,
+            run_id=run_id,                   # TSK-730b: يصل للإضافات
         ))
         run = plan.to_chain_run(run_id)
 
