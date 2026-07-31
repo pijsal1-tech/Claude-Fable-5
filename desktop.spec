@@ -13,10 +13,12 @@ block_cipher = None
 
 # بيانات التطبيق التي يقرأها الخادم وقت التشغيل نسبةً إلى _DIR:
 # static/ (الواجهة كاملة بما فيها themes/ + js/app/ المقاطع)،
-# agents_rules/ (تعريفات الوكلاء YAML)، config.yaml (الإعدادات).
+# agents_rules/ (تعريفات الوكلاء YAML)، chain/prompts/ (قوالب
+# المراحل والتفويض — تُقرأ وقت التشغيل)، config.yaml (الإعدادات).
 datas = [
     ("static", "static"),
     ("agents_rules", "agents_rules"),
+    ("chain/prompts", "chain/prompts"),
     ("config.yaml", "."),
 ]
 
