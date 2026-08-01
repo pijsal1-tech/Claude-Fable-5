@@ -43,6 +43,9 @@ from providers.genspark import GensparkProvider, GensparkConfig, GENSPARK_MODELS
 from providers.deepseek import DeepSeekProvider, DeepSeekConfig
 from providers.alle_ai import AlleAIProvider, AlleAIConfig
 from providers.openai_shelby import OpenAIShelbyProvider, OpenAIShelbyConfig
+from providers.you_com import YouComProvider, YouComConfig
+from providers.perplexity import PerplexityProvider, PerplexityConfig
+from providers.blackbox import BlackboxProvider, BlackboxConfig
 from providers.base import Message
 from sessions.memory import WindowPolicy, select_history
 from context.budget import CharsPerTokenEstimator  # TSK-609 (PM-01)
@@ -887,7 +890,71 @@ def api_models():
         {
             "id": "use_ai",
             "name": "🤖 Use.ai",
-            "models": ["gateway-claude-sonnet-5", "gateway-claude-sonnet-4-6", "gateway-glm-5-2", "gateway-grok-4-3", "gateway-gpt-5-5"],
+            "models": [
+                "gateway-claude-sonnet-5",
+                "gateway-claude-sonnet-4-6",
+                "gateway-fable-5",
+                "gateway-gemini-3-6-flash",
+                "gateway-glm-5-2",
+                "gateway-gpt-5-5",
+                "gateway-gpt-5-6",
+                "gateway-grok-4-3",
+                "gateway-grok-4-5",
+                "gateway-opus-4-8",
+                "gateway-opus-5",
+            ],
+        },
+        {
+            "id": "you_com",
+            "name": "🚀 You.com AI",
+            "models": [
+                "claude_4_8_opus_thinking",
+                "claude_4_6_opus",
+                "deepseek_r1",
+                "gpt_5_4_pro",
+                "gemini_3_1_pro"
+            ],
+        },
+        {
+            "id": "perplexity",
+            "name": "🌐 Perplexity AI",
+            "models": [
+                "pplx_asi_gpt_56_sol",
+                "pplx_sonar_r1_pro",
+                "pplx_claude_4_6_opus",
+                "pplx_gpt_5_4_pro",
+                "pplx_deepseek_r1"
+            ],
+        },
+        {
+            "id": "blackbox",
+            "name": "⬛ Blackbox AI",
+            "models": [
+                "gpt-5.3-codex",
+                "gpt-5.4",
+                "gpt-5.4-nano",
+                "gpt-5.4-pro",
+                "gpt-5.5",
+                "gpt-5.5-pro",
+                "deepseek-v4-pro",
+                "blackbox-pro",
+                "gemini-3.1-flash-lite",
+                "gemini-3.5-flash",
+                "grok-build-0.1",
+                "grok-4.3",
+                "glm-5.2-vercel",
+                "glm-5.2",
+                "kimi-k2.7-code",
+                "nemotron-3-ultra-550b",
+                "nemotron-3-nano-30b",
+                "nemotron-3-super-120b",
+                "mistral-medium-3.5",
+                "devstral-2",
+                "llama-3.1-8b",
+                "llama-3.1-70b",
+                "nova-2-lite",
+                "trinity-large-thinking"
+            ],
         },
     ]
     _prov = _active_provider()
@@ -942,6 +1009,15 @@ def api_switch_model():
         elif prov_id == "use_ai":
             cfg = UseAIConfig(model=model_name, ws_timeout=90, accounts_dir=str(_DIR))
             provider = UseAIProvider(cfg)
+        elif prov_id == "you_com":
+            cfg = YouComConfig(model=model_name)
+            provider = YouComProvider(cfg)
+        elif prov_id == "perplexity":
+            cfg = PerplexityConfig(model=model_name)
+            provider = PerplexityProvider(cfg)
+        elif prov_id == "blackbox":
+            cfg = BlackboxConfig(model=model_name)
+            provider = BlackboxProvider(cfg)
         else:
             return jsonify({"ok": False, "error": f"مزود غير معروف: {prov_id}"}), 400
 
@@ -1989,6 +2065,9 @@ def main():
     register_provider("genspark", GensparkProvider)
     register_provider("deepseek", DeepSeekProvider)
     register_provider("alle_ai", AlleAIProvider)
+    register_provider("you_com", YouComProvider)
+    register_provider("perplexity", PerplexityProvider)
+    register_provider("blackbox", BlackboxProvider)
 
     # المزود الافتراضي — T-051 (R-703): **config يفوز**. الـ hardcode
     # القديم ("genspark:claude-sonnet-5") كان يناقض config.yaml — محذوف.
@@ -2007,6 +2086,15 @@ def main():
     elif prov_id == "alle_ai":
         provider_config = AlleAIConfig(**_model_kw)
         provider = AlleAIProvider(provider_config)
+    elif prov_id == "you_com":
+        provider_config = YouComConfig(**_model_kw)
+        provider = YouComProvider(provider_config)
+    elif prov_id == "perplexity":
+        provider_config = PerplexityConfig(**_model_kw)
+        provider = PerplexityProvider(provider_config)
+    elif prov_id == "blackbox":
+        provider_config = BlackboxConfig(**_model_kw)
+        provider = BlackboxProvider(provider_config)
     else:
         provider_config = UseAIConfig(
             ws_timeout=90,
@@ -2137,6 +2225,9 @@ def main():
         "deepseek": (DeepSeekProvider, DeepSeekConfig),
         "use_ai": (UseAIProvider, UseAIConfig),
         "alle_ai": (AlleAIProvider, AlleAIConfig),
+        "you_com": (YouComProvider, YouComConfig),
+        "perplexity": (PerplexityProvider, PerplexityConfig),
+        "blackbox": (BlackboxProvider, BlackboxConfig),
     }
     for fb_name, (fb_cls, fb_cfg_cls) in _fallback_providers.items():
         if fb_name != prov_id:
