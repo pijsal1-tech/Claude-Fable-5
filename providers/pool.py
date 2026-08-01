@@ -154,23 +154,29 @@ class CircuitBreaker:
 
 
 # ═══════════════════════════════════════════════════════
-#   Provider Priority / Cost
+#   Provider Priority / Cost 
 # ═══════════════════════════════════════════════════════
 
 # ترتيب الأولوية (الأفضل أولاً — context + quality)
 _QUALITY_RANK = {
-    "genspark": 1,    # Claude/GPT via Genspark — أفضل جودة
-    "use_ai": 2,      # Claude via Use.ai — streaming حقيقي
-    "alle_ai": 3,     # Gemini + Nova — dual response
-    "deepseek": 4,    # DeepSeek R1 — free fallback
+    "blackbox": 1,    # Blackbox AI — 24 models (أسرع وأقوى برمجة)
+    "you_com": 2,     # You.com AI — 21 models
+    "perplexity": 3,  # Perplexity AI — 44 models
+    "genspark": 4,    # Claude/GPT via Genspark — rotation كبير
+    "use_ai": 5,      # Claude via Use.ai — streaming حقيقي
+    "alle_ai": 6,     # Gemini + Nova — dual response
+    "deepseek": 7,    # DeepSeek R1 — free fallback
 }
 
 # ترتيب التكلفة (الأرخص أولاً)
 _COST_RANK = {
     "deepseek": 0,    # مجاني — anonymous
-    "genspark": 1,    # رخيص — rotation كبير
-    "alle_ai": 2,     # متوسط — daily limit
-    "use_ai": 3,      # غالي — 1 حساب = 1 رسالة
+    "blackbox": 1,    # API مباشر سريع
+    "you_com": 2,     # حسابات متعددة
+    "perplexity": 3,  # حسابات متعددة
+    "genspark": 4,    # رخيص — rotation كبير
+    "alle_ai": 5,     # متوسط — daily limit
+    "use_ai": 6,      # غالي — 1 حساب = 1 رسالة
 }
 
 
