@@ -1343,7 +1343,12 @@ def _ws_message(ctx, sctx, msg):
         sctx.send({"type": "error", "text": "رسالة فارغة"})
         return
 
-    _dispatch_chat_message(ctx, sctx, user_text, mode, msg, skip_path_detection=False)
+    # TSK-501 (عيب 3): مرفق صريح من الواجهة ⇐ المحتوى يُقرأ مباشرة —
+    # لا بحث نصي مكرر عن مسارات داخل نص الرسالة المدموج (دفاع أول؛
+    # الدفاع الثاني: قصّ ATTACHMENTS_MARKER في core/chat_dispatch.py).
+    _has_attachments = bool(msg.get("has_attachments"))
+    _dispatch_chat_message(ctx, sctx, user_text, mode, msg,
+                           skip_path_detection=_has_attachments)
     return
 
 

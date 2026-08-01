@@ -16,6 +16,7 @@ agent_tools) تصل عبر كائن ``deps`` يبنيه غلاف
 (test_scan_start.py) يثبّته هناك؛ صفر تغيير في ترتيب الإطارات.
 """
 import os
+import re
 import threading
 import time
 import uuid
@@ -53,6 +54,33 @@ PATH_REL_OUTSIDE = "outside"    # خارج الشجرة — الوحيد الذ�
 # مباشرة كمحتوى، لا يُعاد البحث النصي داخله.
 ATTACHMENTS_MARKER = "[📎 ملفات مرفقة]:"
 
+# TSK-501 (عيب 2): نمط مسارات Windows — ثابت وحدة ليُفحص مباشرة
+# في الاختبارات. الفاصل بعد النقطتين \\ أو / فقط (لا مسافة —
+# النمط القديم كان يلتقط "D: كلام" مسارًا زائفًا)، والمقاطع تقبل
+# مسافات مفردة داخل أسماء المجلدات (القديم كان يقطع عند أول
+# مسافة: "D:\\My Projects\\app" ← "D:\\My").
+WIN_PATH_RE = r'[A-Za-z]:[\\/](?:[^\s,;"\'<>|*?]+(?: [^\s,;"\'<>|*?]+)*)?'
+
+
+def iter_win_path_candidates(text: str):
+    """TSK-501 (عيب 2): مرشحو مسارات Windows من النص.
+
+    المسافة مبهمة بطبعها: قد تكون داخل اسم مجلد ("My Projects")
+    أو فاصلًا قبل كلام عادي ("D:\\app دلوقتي") — لا يحسمها regex.
+    التصميم: مطابقة جشعة (تسمح بمسافات مفردة) ثم قصّ المقاطع
+    المفصولة بمسافة من اليمين تدريجيًا — المستهلك يحسم بالقرص
+    (isdir/isfile) ويأخذ أول مرشح موجود فعليًا (الأطول أولًا).
+    """
+    for m in re.findall(WIN_PATH_RE, text):
+        m = m.strip().rstrip('.,;?)')
+        if not m:
+            continue
+        parts = m.split(' ')
+        for i in range(len(parts), 0, -1):
+            cand = ' '.join(parts[:i]).rstrip('.,;?)')
+            if cand:
+                yield cand
+
 
 def classify_path_relation(detected: str, project_root: str) -> str:
     """TSK-501: أين يقع ``detected`` بالنسبة لـ ``project_root``؟
@@ -64,9 +92,13 @@ def classify_path_relation(detected: str, project_root: str) -> str:
     r = os.path.normcase(os.path.normpath(os.path.abspath(project_root)))
     if d == r:
         return PATH_REL_SAME
-    if d.startswith(r + os.sep):
+    # حدود الفاصل — جذر نظام الملفات ("/" أو "D:\\") ينتهي بالفاصل
+    # أصلًا — إلحاق os.sep أعمى كان ينتج "//" فيفلت الجذر من ancestor.
+    d_pfx = d if d.endswith(os.sep) else d + os.sep
+    r_pfx = r if r.endswith(os.sep) else r + os.sep
+    if d.startswith(r_pfx):
         return PATH_REL_INSIDE
-    if r.startswith(d + os.sep):
+    if r.startswith(d_pfx):
         return PATH_REL_ANCESTOR
     return PATH_REL_OUTSIDE
 
@@ -109,11 +141,7 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
         #      أخرى. الآن: الفاصل بعد النقطتين \\ أو / فقط، والمقاطع
         #      التالية تسمح بمسافات مفردة داخل أسماء المجلدات (لا
         #      مسافة في الذيل — نهاية المسار لا تكون مسافة).
-        win_paths = re.findall(
-            r'[A-Za-z]:[\\/](?:[^\s,;"\'<>|*?]+(?: [^\s,;"\'<>|*?]+)*)?',
-            scan_text)
-        for wp in win_paths:
-            wp = wp.strip().rstrip('.,;?)')
+        for wp in iter_win_path_candidates(scan_text):
             if os.path.isdir(wp):
                 detected_dir = os.path.abspath(wp)
                 break
