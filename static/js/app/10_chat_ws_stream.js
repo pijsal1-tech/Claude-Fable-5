@@ -749,7 +749,10 @@ function sendMessage() {
     }
 
     // دمج المرفقات العادية في النص
-    if (state.attachments.length > 0) {
+    // TSK-501 (عيب 3): علم صريح للسيرفر — مرفق موجود ⇐ لا بحث نصي
+    // مكرر عن مسارات داخل محتوى المرفق (يُقرأ مباشرة كبيانات).
+    const hasAttachments = state.attachments.length > 0;
+    if (hasAttachments) {
         let attachText = "\n\n[📎 ملفات مرفقة]:";
         state.attachments.forEach(att => {
             const ext = att.name.split(".").pop() || "";
@@ -770,6 +773,7 @@ function sendMessage() {
         type: "message",
         text: text,
         mode: state.mode,
+        has_attachments: hasAttachments,  // TSK-501
     }));
 
     // تعطيل الزر أثناء الـ streaming

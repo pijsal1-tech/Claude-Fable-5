@@ -35,6 +35,42 @@ from providers.base import Message
 from core.structured_log import swallowed as _slog_swallowed
 
 
+# ── TSK-501: تصنيف قرابة مسار مكتشف بالمشروع المفتوح ──
+# الكارت path_detected_options كان يُرفع لأي مجلد مكتشف بلا فحص
+# قرابة: سحب ملف من نفس المشروع المفتوح أو ذكر مجلد أب (مثل D:\)
+# كان يوقف الرسالة بسؤال بلا معنى (أو خطر: توسيع النطاق لدرايف
+# كامل). السؤال مشروع فقط لمسار خارج شجرة المشروع تمامًا.
+PATH_REL_SAME = "same"          # نفس جذر المشروع المفتوح
+PATH_REL_INSIDE = "inside"      # مجلد ولد تحت المشروع
+PATH_REL_ANCESTOR = "ancestor"  # مجلد أب للمشروع (مثل جذر الدرايف)
+PATH_REL_OUTSIDE = "outside"    # خارج الشجرة — الوحيد الذي يستحق السؤال
+
+# TSK-501 (عيب 3): الواجهة تدمج محتوى المرفقات الصريحة في نص
+# الرسالة تحت هذا العنوان (10_chat_ws_stream.js) — كشف المسارات
+# كان يمسح المحتوى المدموج كله (عشرات KB من كود قد يحوي
+# "D:\\" حرفيًا) فيرفع كارت مسار زائفًا. المسح يقتصر الآن على
+# ما قبل العلامة (كلام المستخدم نفسه فقط) — المرفق يُقرأ
+# مباشرة كمحتوى، لا يُعاد البحث النصي داخله.
+ATTACHMENTS_MARKER = "[📎 ملفات مرفقة]:"
+
+
+def classify_path_relation(detected: str, project_root: str) -> str:
+    """TSK-501: أين يقع ``detected`` بالنسبة لـ ``project_root``؟
+
+    المقارنة بعد تطبيع مطلق + normcase (لا حساسية حالة على
+    Windows — نفس مبدأ ProjectHandle.project_id). لا وصول للقرص.
+    """
+    d = os.path.normcase(os.path.normpath(os.path.abspath(detected)))
+    r = os.path.normcase(os.path.normpath(os.path.abspath(project_root)))
+    if d == r:
+        return PATH_REL_SAME
+    if d.startswith(r + os.sep):
+        return PATH_REL_INSIDE
+    if r.startswith(d + os.sep):
+        return PATH_REL_ANCESTOR
+    return PATH_REL_OUTSIDE
+
+
 def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict, skip_path_detection: bool = False, attached_context: list | None = None):
     """إرسال ومعالجة رسالة الشات مع الـ AI (جمع السياق والتوجيه).
 
@@ -48,8 +84,12 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
     detected_dir = None
     detected_file = None
 
+    # TSK-501 (عيب 3): المسح على كلام المستخدم فقط — محتوى المرفقات
+    # المدموج بعد العلامة خارج نطاق كشف المسارات (بيانات لا أوامر).
+    scan_text = user_text.split(ATTACHMENTS_MARKER, 1)[0]
+
     # البحث عن مسارات بين علامات التنصيص
-    quoted = re.findall(r'["\']([^"\']+)["\']', user_text)
+    quoted = re.findall(r'["\']([^"\']+)["\']', scan_text)
     for p in quoted:
         p_clean = p.strip()
         if os.path.isdir(p_clean):
@@ -62,7 +102,16 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
     # البحث في الكلمات عن مسارات (مع دعم Windows backslash)
     if not detected_dir and not detected_file:
         # كشف مسارات Windows مثل D:\path\to\file
-        win_paths = re.findall(r'[A-Za-z]:[\\/ ][^\s,;"\'>]+', user_text)
+        # TSK-501 (عيب 2): النمط القديم [A-Za-z]:[\\/ ][^\s,;"'>]+ كان:
+        #   أ) يقبل مسافة بعد النقطتين — فـ "D: كلام" يُلتقط مسارًا زائفًا؛
+        #   ب) يقطع عند أول مسافة داخل المسار — "D:\My Projects\app"
+        #      يصبح "D:\My" (غير موجود) ثم ينهار لـ "D:\" عبر فروع
+        #      أخرى. الآن: الفاصل بعد النقطتين \\ أو / فقط، والمقاطع
+        #      التالية تسمح بمسافات مفردة داخل أسماء المجلدات (لا
+        #      مسافة في الذيل — نهاية المسار لا تكون مسافة).
+        win_paths = re.findall(
+            r'[A-Za-z]:[\\/](?:[^\s,;"\'<>|*?]+(?: [^\s,;"\'<>|*?]+)*)?',
+            scan_text)
         for wp in win_paths:
             wp = wp.strip().rstrip('.,;?)')
             if os.path.isdir(wp):
@@ -73,7 +122,7 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
                 break
 
     if not detected_dir and not detected_file:
-        for w in user_text.split():
+        for w in scan_text.split():
             w_clean = w.strip('.,;?()[]{}"\'')
             if os.path.isdir(w_clean):
                 detected_dir = os.path.abspath(w_clean)
@@ -82,10 +131,10 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
                 detected_file = os.path.abspath(w_clean)
                 break
 
-    if not detected_dir and not detected_file and os.path.isdir(user_text.strip()):
-        detected_dir = os.path.abspath(user_text.strip())
-    elif not detected_dir and not detected_file and os.path.isfile(user_text.strip()):
-        detected_file = os.path.abspath(user_text.strip())
+    if not detected_dir and not detected_file and os.path.isdir(scan_text.strip()):
+        detected_dir = os.path.abspath(scan_text.strip())
+    elif not detected_dir and not detected_file and os.path.isfile(scan_text.strip()):
+        detected_file = os.path.abspath(scan_text.strip())
 
     # ── معالجة ملف مكتشف: قراءة محتواه وإرفاقه ──
     # TSK-103 (BUG-03): لا إلحاق خام في user_text — المحتوى يدخل
@@ -117,6 +166,21 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
         detected_file = None  # لا نغير المجلد
 
     # ── معالجة مجلد مكتشف: عدم التبديل التلقائي إلا إذا كان نص الرسالة هو المسار فقط ──
+    # TSK-501 (عيب 1 — الجذر الرئيسي): بوابة قرابة قبل الكارت —
+    # مسار داخل المشروع المفتوح (نفسه/ولد) أو أبٌ له ← تجاهل صامت
+    # والرسالة تكمل للـ AI طبيعيًا. كارت السؤال يُرفع فقط لمسار
+    # خارج الشجرة تمامًا (outside). استثناء: الرسالة = المسار وحده
+    # وهو مجلد مختلف فعليًا ← فتح مباشر كالسابق (لا تغيير سلوك).
+    if detected_dir and not skip_path_detection:
+        _root = getattr(getattr(sctx, "fm", None), "root", None)
+        if _root is not None:
+            _rel = classify_path_relation(detected_dir, str(_root))
+            if _rel != PATH_REL_OUTSIDE:
+                # نفس المشروع / ولد / أب — لا كارت ولا تبديل: المستخدم
+                # واقف هنا أصلًا، وـ ancestor (مثل D:\) توسيعٌ خطر.
+                print(f"  📍 مسار مكتشف {_rel} للمشروع المفتوح — "
+                      f"تجاهل صامت: {detected_dir}")
+                detected_dir = None
     if detected_dir and not skip_path_detection:
         if user_text.strip() == detected_dir:
             # كتابة مسار المجلد بمفرده تعني أمر فتح مباشر للمجلد
