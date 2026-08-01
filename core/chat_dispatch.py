@@ -61,9 +61,13 @@ ATTACHMENTS_MARKER = "[📎 ملفات مرفقة]:"
 # مسافة: "D:\\My Projects\\app" ← "D:\\My").
 WIN_PATH_RE = r'[A-Za-z]:[\\/](?:[^\s,;"\'<>|*?]+(?: [^\s,;"\'<>|*?]+)*)?'
 
+# مسارات POSIX مطلقة (تبدأ بـ /) — نفس مبدأ المسافات المفردة؛
+# فرع تقسيم الكلمات القديم كان يقطع عند المسافة بنفس الطريقة.
+POSIX_PATH_RE = r'(?<![\w/])/(?:[^\s,;"\'<>|*?]+(?: [^\s,;"\'<>|*?]+)*)'
 
-def iter_win_path_candidates(text: str):
-    """TSK-501 (عيب 2): مرشحو مسارات Windows من النص.
+
+def iter_path_candidates(text: str):
+    """TSK-501 (عيب 2): مرشحو مسارات (Windows + POSIX) من النص.
 
     المسافة مبهمة بطبعها: قد تكون داخل اسم مجلد ("My Projects")
     أو فاصلًا قبل كلام عادي ("D:\\app دلوقتي") — لا يحسمها regex.
@@ -71,15 +75,20 @@ def iter_win_path_candidates(text: str):
     المفصولة بمسافة من اليمين تدريجيًا — المستهلك يحسم بالقرص
     (isdir/isfile) ويأخذ أول مرشح موجود فعليًا (الأطول أولًا).
     """
-    for m in re.findall(WIN_PATH_RE, text):
-        m = m.strip().rstrip('.,;?)')
-        if not m:
-            continue
-        parts = m.split(' ')
-        for i in range(len(parts), 0, -1):
-            cand = ' '.join(parts[:i]).rstrip('.,;?)')
-            if cand:
-                yield cand
+    for pattern in (WIN_PATH_RE, POSIX_PATH_RE):
+        for m in re.findall(pattern, text):
+            m = m.strip().rstrip('.,;?)')
+            if not m:
+                continue
+            parts = m.split(' ')
+            for i in range(len(parts), 0, -1):
+                cand = ' '.join(parts[:i]).rstrip('.,;?)')
+                if cand:
+                    yield cand
+
+
+# توافق خلفي — الاسم الأول قبل تعميم POSIX.
+iter_win_path_candidates = iter_path_candidates
 
 
 def classify_path_relation(detected: str, project_root: str) -> str:
@@ -141,7 +150,7 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
         #      أخرى. الآن: الفاصل بعد النقطتين \\ أو / فقط، والمقاطع
         #      التالية تسمح بمسافات مفردة داخل أسماء المجلدات (لا
         #      مسافة في الذيل — نهاية المسار لا تكون مسافة).
-        for wp in iter_win_path_candidates(scan_text):
+        for wp in iter_path_candidates(scan_text):
             if os.path.isdir(wp):
                 detected_dir = os.path.abspath(wp)
                 break
