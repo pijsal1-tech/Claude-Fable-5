@@ -316,3 +316,68 @@ requirements-dev.txt` على بيئة جديدة يجلب **mypy 2.3.0** (الق
 requirements-dev.txt + سطر تعليل (خطأ providers قائم خارج النطاق —
 يُرفع السقف يوم يُحسم خارجيًا). لا مساس بـproviders/ ولا بإعدادات mypy.
 → TSK ضمن BATCH-CEV-G1.
+
+### CEV-F-001 [تحديث الجذر — S106ب] — الجذر الحقيقي ليس نسخة mypy بل كود جديد خارج الحوكمة
+**C1 / S2 → يتفرع.** التحقيق الأعمق نفى فرضية «انجراف نسخة mypy»: الأخطاء
+التسعة تُعاد إنتاجها حتى بـ mypy==1.10.0 (الحد الأدنى المعلن). الجذر
+المُثبت: **commit `c9ab00c` (المالك، 2026-08-01 18:14) أضاف 3 مزودات
+جديدة** `providers/{you_com,perplexity,blackbox}.py` (+ إعادة ترتيب
+pool.py) **بعد** آخر خط أساس أخضر (S105/2168P) — بنمط
+`module_from_spec(spec)` بلا حارس None (`:30-31` في الثلاثة). ومعه
+**commit `8dd9e8a` (المالك) عدّل server.py (+92 سطرًا — داخل النطاق)**
+لتسجيل المزودات الثلاثة. يبقى من CEV-F-001 الأصلي بندان صالحان:
+(أ) mypy بلا سقف نسخة في requirements-dev/CI (هشاشة قائمة وإن لم تكن
+جذر هذا الفشل)؛ (ب) types-requests/types-PyYAML غائبتان عن
+requirements-dev — بيئة نظيفة تفشل بـ`Library stubs not installed`
+(أُعيد إنتاجها S106). **المعالجة**: providers/ خارج النطاق §0.8 —
+لا يُصلح الكود؛ الخيارات للمالك: (1) إصلاح النمط بنفسه (3 أسطر حارس
+spec-None لكل ملف)، أو (2) توسيع استثناء mypy الموجود
+(`--exclude 'providers/openai_shelby\.py'`) ليشمل الثلاثة بقرار موثَّق
+(سابقة ADR-004 القائمة). تعديل server.py الوارد يُدقَّق ضمن G6/G8.
+
+### CEV-F-002 — بوابة check.sh حمراء على HEAD: خط الأساس 2168P/34S غير قابل لإعادة الإنتاج حاليًا
+**C1 / S2.** على clone نظيف @ ba2d9f0 (ثم 4ebd965): `bash scripts/check.sh`
+= RC=1 عند بوابة mypy (أخطاء CEV-F-001 التسعة) قبل الوصول لـpytest.
+البرنامج CEV يشترط (G9) خط أساس أخضر حيًّا — **حاجز يجب فكه قبل إقفال
+أي TSK**. → BATCH-CEV-G1 أول أولوية.
+
+### CEV-F-003 — قيد التنظيف ba2d9f0 حذف fixture مطلوبة: tests/fixtures/sample_project/.env
+**C1 / S2.** الدليل الحي (S106ب): `pytest -k sample_project_fixture_isolated`
+= FAILED — `test_fake_provider.py:62` يشترط وجود `.env` بمحتوى FAKE
+(fixture أضيفت مع TSK-730-era @ a9f52b5، محتواها **مزيف موثَّق**:
+«FAKE credentials — NOT real secrets»). قيد البوت ba2d9f0 («تنظيف بيئة
+الاختبار») اجتث الـfixture ضمن تنظيف ملفات Qwen الدخيلة — إيجابية
+كاذبة في التنظيف. **الإصلاح المفوَّض** (استرجاع محتوى تاريخي، لا ملف
+جديد): استعادة `.env` من `git show a9f52b5:...` — منفَّذ S106ب.
+
+### CEV-F-004 — أصول واردة خارج الحوكمة تنتظر التدقيق (سجل حصر)
+**C2 / S3.** وردت على main بين S105 وS106 بلا دورة TSK: (1) المزودات
+الثلاثة + pool.py (خارج النطاق — تُحصر فقط)؛ (2) **server.py +92 سطرًا
+@ 8dd9e8a (داخل النطاق!)** — قائمة نماذج hardcoded ضخمة في
+`/api/providers` (أسماء نماذج مثل gateway-claude-sonnet-5 …) تُدقَّق
+في G6 (تضخم/تكرار بنية) وG8؛ (3) `docs/docs/Zizo_Maestro…/cont22.md`
+(نسخة مالك من تكليف CEV — توثيقية، لا فعل)؛ (4) موجة ملفات جذر
+(tasks.md/live_test_v100.py/test_qwen_integration.py/user_feature_test.py)
+أضيفت وحُذفت 3 مرات — زالت من HEAD؛ أثرها الوحيد الباقي كان حذف
+الـfixture (CEV-F-003). لا حاجة TSK لـ(3)/(4) — حُصرا.
+
+### CEV-F-005 — استيرادات/معاملات ميتة مؤكدة (G1، vulture ≥90% + تحقق يدوي)
+**C2 / S4.** مسح vulture مع فرز يدوي شامل (grep على كامل الشجرة لكل
+مرشح — CEV-R3). **ميت مؤكد (8+1):**
+(1) `chain/executor.py:35` — خمسة استيرادات من providers.base بلا أي
+استخدام: `history_to_messages, MalformedProviderResponseError,
+MockProvider, ProviderContextTooLargeError, ProviderMessage`
+(مستهلكو MockProvider الأربعة الخارجيون يستوردون مباشرة من
+providers.base، لا عبر executor).
+(2) `server.py:16` — `import queue` (صفر استخدام في 2358 سطرًا).
+(3) `server.py:40` — `get_provider, list_providers` (صفر استخدام في
+server/routes/tests).
+(4) `chain/delegate.py:660` — معامل `original_files` في
+`_extract_touched_files` لا يُلمَس في الجسم (regex على `response`
+فقط)؛ المستدعي الوحيد `delegate.py:364` يمرر `brief.files_context`
+بلا أثر. إزالته = تغيير توقيع دالة خاصة بمستدعٍ واحد — آمن.
+**إيجابيات كاذبة مستبعدة:** `chain/router.py:27 BudgetSnapshot` —
+داخل `if TYPE_CHECKING:` ومستخدم كتوصيف نصي ×4
+(`:195/:246/:325/:372`) — يبقى. المعالجة: BATCH-CEV-G1 (إزالة
+الاستيرادات الميتة + سقف mypy + stubs في requirements-dev) — تنتظر
+فك حاصر CEV-F-002.
