@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-07-30 (Session 98 — تخطيط D-9 ✅ + TSK-718..721 ✅ (FI-05 🏁 + تدوير + تشخيص) — 1956P/34S ALL GREEN؛ المتبقي: TSK-722 تفصيل ثم تنفيذ) |
-| stage | **V3-STAGE 4 OPEN — BATCH-P1 (D-9) قيد التنفيذ** — سوابق مُقفلة: BATCH-P0 🏁 6/6 (v1.0.0-rc.1)؛ سوابق مُقفلة: BATCH-FI01 🏁 5/5 + BATCH-SHORT 🏁 5/5 + D-6 ✅ 5/5 |
-| current-phase | BATCH-P2 (دفعة D-10 تحت تفويض D-8-ج): Command Palette + FI-09 + Workspace Trust + FI-07 + غلاف سطح مكتب → TSK-723..727؛ DAG: 723→724→726؛ 725 مستقلة؛ 727 آخرًا؛ 725/726/727 تُفصَّل قبل تنفيذها (D-7)؛ سابقتها BATCH-P1 🏁 (D-9) |
-| current-task | **EOP-1 مُنفَّذ 🏁 بأمر مالك صريح**: حُذف docs/engineering_constitution/ (قرار D-8-أ) — خريطة P0→P3 مكتملة + البند الختامي مُنجز؛ خط الأساس: **2168P/34S**؛ المتبقي الخارجي الوحيد: تأشير المالك على OWNER_CHECKLIST (727) |
+| last-updated | 2026-08-01 (Session 106 — **فتح برنامج CEV بقرار مالك D-12** + housekeeping ترويسة §0.5؛ خط الأساس الموثَّق 2168P/34S — يُعاد تثبيته حيًّا هذه الجلسة) |
+| stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
+| current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) بالترتيب — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ البوابة المفتوحة: **G1 (البنية)** — Stage 1 REVIEW |
+| current-task | CEV-G1 OPEN: جرد بنيوي بالدليل (dead code/تكرار/دورات استيراد/تضخم ملفات/فصل اهتمامات)؛ خط الأساس: **2168P/34S**؛ المعلَّق الخارجي الوحيد (غير حاجز): تأشير المالك على OWNER_CHECKLIST (727) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -34,12 +34,16 @@
 > الدستور الكامل محفوظ في `docs/engineering/prompet_28_7_final.md` (snapshot مرفوع — لا يُعدَّل).
 
 ### Current Stage
-**V3 — BATCH-P0 مُقفلة 🏁 6/6 — v1.0.0-rc.1** — التالي: دفعة P1 (تفويض D-8-ج قائم؛ تخطيط TSK أولًا) — دفعة بوابة الإنتاج بقرار مالك D-8
-(«ابدأ الآن من P0 حتى النهاية»)؛ التعريفات: DEVELOPMENT_TASKS §BATCH-P0
+**CEV مفتوح (قرار مالك D-12 — 2026-08-01)** — برنامج تدقيق جودة صفر-ميزات
+تحت حكم V3؛ الوثيقة: `CEV_PROGRAM_PROMPT.md`؛ البوابات G1..G12 (+G8.5
+AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
+[أرشيف المرحلة السابقة] BATCH-P0 🏁 6/6 (v1.0.0-rc.1) → … → BATCH-P3 🏁 4/4
+(D-11) + EOP-1 🏁 — برنامج D-8-ج مكتمل؛ التعريفات: DEVELOPMENT_TASKS
 
 ### Current Position
-- Stage: V3 — BATCH-P2 (D-10) قيد التنفيذ؛ الموضع: TSK-723 (Command Palette) الأولى؛ سوابق مُقفلة: BATCH-P1 🏁 6/6 (FI-05 🏁 + تدوير + تشخيص + Settings UI) وBATCH-P0 🏁 (v1.0.0-rc.1)
-- خط أساس الدفعة (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
+- Stage: **CEV (D-12) — البوابة G1 (البنية) OPEN** — Stage 1 REVIEW: جرد بنيوي بالدليل؛ الاكتشافات → NEW_FINDINGS (معرّفات CEV-F-xxx)؛ سوابق مُقفلة كلها: P0→P3 🏁 + EOP-1 🏁
+- خط أساس البرنامج (موثَّق S105؛ يُعاد تثبيته حيًّا S106): **2168P/34S** + check.sh ALL GREEN rc=0
+- [أرشيف موضع BATCH-P2 عند فتحها] خط أساسها (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
 - برنامج ما-بعد-P0 المفوَّض (D-8-ج): P1 (FI-05، لوحة تشخيص، تدوير سجلات، Settings UI) → P2 (FI-09، FI-07، Command Palette، Workspace Trust، غلاف سطح مكتب) → P3 (FI-04، CP-4، توسيع plugins، auto-update) — كل دفعة بتخطيط TSK مسبق وقيد قرار
 - بند ختامي مُرحَّل: EOP-1 — **مُنفَّذ 🏁 2026-07-31 بأمر مالك صريح** (حذف engineering_constitution/، قرار D-8-أ)
 - [أرشيف موضع BATCH-SHORT عند فتحها] خط أساسها (حي @ 4e87d6b): 1866P/34S/0F (+ search_perf البيئي 1.036s>1.0s على هذا العتاد — flaky موثَّق)
