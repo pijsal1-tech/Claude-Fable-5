@@ -1,0 +1,115 @@
+diff --git a/chain/delegate.py b/chain/delegate.py
+index c828fad..5bd0027 100644
+--- a/chain/delegate.py
++++ b/chain/delegate.py
+@@ -237,6 +237,22 @@ class DelegateBridge:
+             return self._ctx.active_provider
+         return self._static_provider
+ 
++    def _send_llm(self, prompt: str, system: str = "") -> str:
++        """TSK-504: نداء LLM موحّد مع failover.
++
++        يفضّل ``ctx.provider_pool.send_with_fallback`` عند توفره —
++        فشل المزود النشط (مهلة curl 300s، انقطاع، rate-limit) يفتح
++        قاطع الدائرة ويحوّل تلقائيًا للمزود التالي بدل إسقاط دورة
++        التفويض كلها بخطأ خام. عند غياب الـ pool (اختبارات/تشغيل
++        مجرد) يسقط للمسار القديم ``self._provider.send`` حرفيًا.
++        """
++        pool = (getattr(self._ctx, "provider_pool", None)
++                if self._ctx is not None else None)
++        if pool is not None and hasattr(pool, "send_with_fallback"):
++            text, _used = pool.send_with_fallback(prompt, None, system)
++            return text
++        return self._provider.send(prompt, system_prompt=system)
++
+     @staticmethod
+     def _to_prompt_history(messages) -> str:
+         """R-103 (T-009): render a message list to the ``send(prompt: str)`` contract.
+@@ -318,8 +334,8 @@ class DelegateBridge:
+             system = agent_prompt.content
+         
+         messages = [Message(role="user", content=prompt)]
+-        response = self._provider.send(
+-            self._to_prompt_history(messages), system_prompt=system)
++        response = self._send_llm(
++            self._to_prompt_history(messages), system)
+         
+         brief = DelegateBrief(
+             task_description=user_request,
+@@ -348,8 +364,8 @@ class DelegateBridge:
+         
+         start = time.monotonic()
+         messages = [Message(role="user", content=prompt)]
+-        response = self._provider.send(
+-            self._to_prompt_history(messages), system_prompt=system)
++        response = self._send_llm(
++            self._to_prompt_history(messages), system)
+         elapsed = time.monotonic() - start
+         
+         result = DelegateResult(
+@@ -387,8 +403,8 @@ class DelegateBridge:
+             system = agent_prompt.content
+         
+         messages = [Message(role="user", content=prompt)]
+-        response = self._provider.send(
+-            self._to_prompt_history(messages), system_prompt=system)
++        response = self._send_llm(
++            self._to_prompt_history(messages), system)
+         
+         verdict = self._parse_verdict(response)
+         return verdict
+diff --git a/server.py b/server.py
+index c67a00a..7813964 100644
+--- a/server.py
++++ b/server.py
+@@ -9,6 +9,7 @@
+ import sys
+ import os
+ import json
++import re  # TSK-504: strip_ansi — تعقيم تسلسلات ANSI قبل إطارات الواجهة
+ import signal  # TSK-705 (FI-03): الإيقاف الرشيق — يُربط في main() فقط
+ import argparse
+ import pathlib
+@@ -343,6 +344,32 @@ _APPROVAL_FRAME_TYPES = ("approval_request", "chain_approval_request",
+                          "agent_approval_request")
+ 
+ 
++# ── TSK-504: تعقيم ANSI — طبقة نقل، عند موقع ws.send الأوحد ──
++# مزودات CLI/curl (مثل Blackbox) قد تُرجع نصوص خطأ ملوّنة
++# ("\x1b[91m…\x1b[0m") تصل للواجهة خامًا فتظهر كـ "[91m…[0m".
++# التعقيم هنا (وليس في كل مزود) لأن هذا الصنف هو بوابة النقل
++# الوحيدة بالعقد المعماري (T-047) — أي إطار للواجهة يمر من هنا.
++_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
++# الحقول النصية المتجهة للمستخدم فقط — لا نمس بنية الإطار.
++_USER_FACING_TEXT_KEYS = ("text", "message", "error", "summary", "reason")
++
++
++def strip_ansi(value: Any) -> Any:
++    """TSK-504: يزيل تسلسلات ANSI (ألوان/تنسيق تيرمنال) من نص."""
++    if not isinstance(value, str):
++        return value
++    return _ANSI_ESCAPE_RE.sub("", value)
++
++
++def _strip_ansi_frame(frame: dict) -> dict:
++    """تعقيم الحقول النصية المعروفة في إطار واجهة — بدون تغيير البنية."""
++    for key in _USER_FACING_TEXT_KEYS:
++        val = frame.get(key)
++        if isinstance(val, str) and "\x1b[" in val:
++            frame[key] = strip_ansi(val)
++    return frame
++
++
+ class _WSAdapter:
+     """T-047 (R-604): بوابة النقل الوحيدة — **موقع ws.send الأوحد**.
+ 
+@@ -368,6 +395,9 @@ class _WSAdapter:
+ 
+     def _send(self, frame: dict) -> None:
+         try:
++            # TSK-504: تعقيم ANSI قبل النقل — يغطي كل الإطارات
++            # (error / delegate_error / chunk / chain_message …).
++            frame = _strip_ansi_frame(frame)
+             with self._lock:
+                 self._ws.send(json.dumps(frame, ensure_ascii=False))
+         except Exception as _exc:
