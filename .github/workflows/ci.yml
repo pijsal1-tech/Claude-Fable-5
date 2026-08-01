@@ -32,7 +32,11 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: pip install flask flask-sock requests websockets pytest pytest-timeout pytest-cov coverage mypy pyyaml
+        # TSK-CEV-101b: requirements-dev.txt هو مصدر الحقيقة لأدوات الفحص
+        # (يشمل سقف mypy>=1.10,<2 + stubs) — لا قوائم حرة غير مثبَّتة.
+        run: |
+          pip install flask flask-sock requests websockets coverage pyyaml
+          pip install -r requirements-dev.txt
 
       - name: Run quality gates (check.sh)
         run: |

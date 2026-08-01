@@ -10,12 +10,17 @@ cd "$(dirname "$0")/.."
 # T-027 (R-301): sessions/ انضمت للبوابة — وحدة إنتاجية جديدة.
 # TSK-614 (QG-04, ADR-004): routes/ + server.py انضما للبوابة، مع
 # --check-untyped-defs (بدونه أجسام الدوال غير المُعنونة لا تُفحص —
-# النداء المدسوس لا يُلتقط، والقبول يسقط). استبعاد وحيد:
+# النداء المدسوس لا يُلتقط، والقبول يسقط). الاستبعادات:
 # providers/openai_shelby.py — خطأ قائم مسبقًا (:166) وproviders/
 # خارج نطاق البرنامج (§0.8)؛ يُرفع الاستبعاد يوم يُصلح خارجه.
+# TSK-CEV-102 (D-13، نفس سابقة ADR-004): providers/{you_com,perplexity,
+# blackbox}.py — 9 أخطاء module_from_spec على ModuleSpec|None بلا حارس
+# (كود وارد خارج الحوكمة @ c9ab00c، خارج النطاق §0.8)؛ تُرفع
+# الاستبعادات يوم يُصلح النمط خارجيًا (حارس None قبل :30-31).
 echo "== mypy (gate: providers/ + chain/ + core/ + context/ + sessions/ + routes/ + server.py + desktop.py) =="
 mypy --ignore-missing-imports --follow-imports=silent \
-  --check-untyped-defs --exclude 'providers/openai_shelby\.py' \
+  --check-untyped-defs \
+  --exclude 'providers/(openai_shelby|you_com|perplexity|blackbox)\.py' \
   providers/ chain/ core/ context/ sessions/ routes/ server.py desktop.py
 
 # T-026 (R-204): حدود SafeReader — ممنوع أي قراءة خام لمحتوى ملفات داخل

@@ -32,12 +32,14 @@ _EDITOR_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _EDITOR_DIR not in sys.path:
     sys.path.insert(0, _EDITOR_DIR)
 
+# TSK-CEV-103a (CEV-F-005): أزيلت 5 استيرادات ميتة (ProviderMessage/
+# ProviderContextTooLargeError/MalformedProviderResponseError/MockProvider/
+# history_to_messages) — صفر استخدام هنا وصفر مستهلك عبر هذه الوحدة.
 from providers.base import (
-    BaseProvider, ProviderRequest, ProviderResponse, ProviderMessage,
+    BaseProvider, ProviderRequest, ProviderResponse,
     ProviderError, ProviderRateLimitError, ProviderTimeoutError,
-    ProviderTransientError, ProviderContextTooLargeError,
-    ProviderRefusalError, EmptyProviderResponseError, MalformedProviderResponseError,
-    MockProvider, history_to_messages,
+    ProviderTransientError,
+    ProviderRefusalError, EmptyProviderResponseError,
 )
 from .agent_loader import AgentLoader, AgentPrompt
 from core.structured_log import swallowed as _slog_swallowed

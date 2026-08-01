@@ -2,7 +2,11 @@
 pytest>=8.0
 pytest-timeout>=2.3
 pytest-cov>=5.0
-mypy>=1.10
+# TSK-CEV-101 (CEV-F-001): سقف major يمنع انجراف قواعد فحص مستقبلي؛
+# stubs مطلوبة للبيئات النظيفة (requests/yaml مستوردة في النطاق المفحوص).
+mypy>=1.10,<2
+types-requests
+types-PyYAML
 
 # SymbolIndex grammars (T-055 / R-205) — تبعية اختيارية:
 # غيابها لا يكسر التشغيل (SymbolIndex يتدهور إلى "بلا رموز"

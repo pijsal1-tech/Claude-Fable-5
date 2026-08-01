@@ -361,7 +361,7 @@ class DelegateBridge:
         
         # استخراج الملخص والملفات المتغيرة من الرد
         result.summary = self._extract_summary(response)
-        result.touched_files = self._extract_touched_files(response, brief.files_context)
+        result.touched_files = self._extract_touched_files(response)
         
         return result
     
@@ -746,6 +746,12 @@ class DelegateBridge:
             notes_text = m.group(1).strip()
             verdict.rework_notes = [
                 line.lstrip("- ").strip()
+                for line in notes_text.split("\n")
+                if line.strip() and line.strip() != "-"
+            ]
+        
+        return verdict
+p()
                 for line in notes_text.split("\n")
                 if line.strip() and line.strip() != "-"
             ]

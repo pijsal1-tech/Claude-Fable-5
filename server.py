@@ -37,7 +37,7 @@ from actions.command_runner import CommandRunner
 from actions.response_parser import ResponseParser
 from actions.session_manager import SessionManager
 from prompts.templates import build_prompt, fence_attached, get_system_prompt
-from providers.registry import register_provider, get_provider, list_providers
+from providers.registry import register_provider
 from providers.use_ai import UseAIProvider, UseAIConfig
 from providers.genspark import GensparkProvider, GensparkConfig, GENSPARK_MODELS
 from providers.deepseek import DeepSeekProvider, DeepSeekConfig

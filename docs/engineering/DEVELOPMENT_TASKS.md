@@ -3134,3 +3134,41 @@ binary ذاتي = سطح أمني جديد كامل (توقيع/تحقق سلا�
 ## ترتيب التنفيذ (DAG)
 
 728 (بعد تفصيله النهائي) → 729؛ 730 و731 يُفصَّلان لاحقًا.
+
+## BATCH-CEV-G1 — إصلاحات بوابة G1 (قرار مالك D-13 — 2026-08-02)
+
+> نطاق CEV: صفر ميزات — إصلاحات بنية/بوابة فقط. المرجع:
+> NEW_FINDINGS §CEV-F-001/002/005؛ DECISION_LOG D-13.
+
+## TSK-CEV-101 — تصليب سلسلة أدوات mypy (سقف إصدار + stubs) [صغيرة]
+- **101a — requirements-dev.txt**: `mypy>=1.10` ⇒ `mypy>=1.10,<2`
+  (منع انجراف major مستقبلي — CEV-F-001) + إضافة `types-requests` و
+  `types-PyYAML` (stubs ناقصة تظهر عند البيئات النظيفة).
+- **101b — .github/workflows/ci.yml**: سطر التثبيت يستخدم
+  `pip install -r requirements-dev.txt` بدل قائمة yolo غير مثبَّتة
+  (أو على الأقل `mypy>=1.10,<2` حرفيًا) — توحيد مصدر الحقيقة.
+- **معايير القبول**: تثبيت نظيف يمر؛ check.sh مرحلة mypy بلا أخطاء
+  stubs؛ صفر تغيير سلوك.
+
+## TSK-CEV-102 — فك حاصر البوابة: توسيع استثناء mypy (D-13 خيار 2) [صغيرة]
+- **scripts/check.sh**: توسيع `--exclude` من
+  `providers/openai_shelby\.py` إلى نمط يشمل أيضًا
+  `providers/{you_com,perplexity,blackbox}.py` — 9 أخطاء كود مالك
+  خارج الحوكمة/النطاق (§0.8، c9ab00c). تعليق فوق السطر يوثّق D-13
+  و«يُرفع يوم يُصلح النمط خارجيًا» (نفس صيغة سابقة ADR-004).
+- **معايير القبول**: check.sh كامل ⇒ ALL GREEN rc=0؛ التغطية الداخلية
+  (chain/core/context/sessions/routes/server/desktop) لم تنقص ملفًا.
+
+## TSK-CEV-103 — إزالة الميت المؤكد (CEV-F-005) [صغيرة]
+- **103a — chain/executor.py:35**: حذف 5 استيرادات
+  (history_to_messages, MalformedProviderResponseError, MockProvider,
+  ProviderContextTooLargeError, ProviderMessage) — صفر مستهلك عبر
+  executor (grep شامل S106).
+- **103b — server.py**: حذف `import queue` (:16) و
+  `get_provider, list_providers` من سطر الاستيراد (:40).
+- **103c — chain/delegate.py:660**: إزالة معامل `original_files` من
+  `_extract_touched_files` + تحديث المستدعي الوحيد (:364).
+- **معايير القبول**: check.sh ALL GREEN rc=0 عند كل شريحة؛
+  `import server` يعمل؛ خط الأساس 2189P/34S لا يتراجع.
+
+**DAG**: 101 → 102 → 103 (كل شريحة تُقفل ببوابة مستقلة).
