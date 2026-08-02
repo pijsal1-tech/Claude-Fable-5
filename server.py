@@ -1837,8 +1837,9 @@ def _handle_ws_message(ctx, sctx, msg):
     """T-048 (R-701): معالجة رسالة WS واحدة — كل حالة المحادثة عبر sctx.
 
     TSK-611 (QG-01، ADR-001): التوجيه صار جدول dispatch (WS_HANDLERS
-    أعلاه + core/ws_router.py)؛ المقابض ``_ws_*`` أدناه/أعلاه تبقى
-    مؤقتًا في server.py (نقلها موضوع QG-02..04). نوع مجهول = no-op
+    أعلاه + core/ws_router.py)؛ المقابض ``_ws_*`` أدناه/أعلاه باقية
+    في server.py — QG-02..04 (TSK-612..614 ✅) لم تشمل نقلها؛ النقل
+    المتبقي backlog مُسعَّر FI-02 (قرار مالك). نوع مجهول = no-op
     صامت (سلوك السلسلة الأصلية محفوظ). ممنوع ``global`` وأي كتابة
     حالة محادثة وحدوية في المقابض — تفرضه بوابة
     scripts/lint_handler_state.py في check.sh.
