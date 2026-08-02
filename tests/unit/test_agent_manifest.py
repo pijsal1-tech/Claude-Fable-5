@@ -405,3 +405,138 @@ class TestPromptFileHotEdit:
         prompt = loader.load_by_stage("review")
         assert prompt.source == "base"
         assert prompt.content == "راجع"
+
+
+# ═══════════════════════════════════════════════════════
+#   ADR-007 (AIA-4) — حقول التوجيه الاختيارية
+#   قديم يمر / جديد يمر / مجهول يُرفض / مرجع ميت يُرفض /
+#   نوع خاطئ يُرفض / التحقق المرجعي
+# ═══════════════════════════════════════════════════════
+
+ADR007_FULL_MANIFEST = """\
+version: 1
+agents:
+  analyzer:
+    file: a.md
+    stage: analyze
+  executor:
+    file: worker.md
+    stage: execute
+    when_to_use: تنفيذ خطوة كود واحدة
+    when_not_to_use: التخطيط أو المراجعة
+    languages: [ar, ar-EG, en, mixed]
+    domains: [web, cli, any]
+    model_notes: يحتاج نافذة سياق متوسطة
+    depends_on: [analyzer]
+    conflicts_with: [analyzer]
+    last_reviewed: "2026-08-02"
+"""
+
+
+class TestADR007RoutingFields:
+    """توسيع schema v1 بحقول التوجيه الاختيارية — رجعي التوافق."""
+
+    def test_old_manifest_without_new_fields_still_passes(self, tmp_path):
+        """توافق رجعي: manifest بلا الحقول الجديدة يمر بقيم محايدة."""
+        agents = _write_agents_dir(tmp_path, MINIMAL_MANIFEST,
+                                   files={"worker.md": "نفّذ"})
+        loader = AgentLoader(agents_dir=agents)
+        d = loader.definition("executor")
+        assert d.when_to_use == ""
+        assert d.when_not_to_use == ""
+        assert d.languages == ()
+        assert d.domains == ()
+        assert d.model_notes == ""
+        assert d.depends_on == ()
+        assert d.conflicts_with == ()
+        assert d.last_reviewed == ""
+
+    def test_new_fields_parsed_into_definition(self, tmp_path):
+        agents = _write_agents_dir(tmp_path, ADR007_FULL_MANIFEST,
+                                   files={"a.md": "حلّل",
+                                          "worker.md": "نفّذ"})
+        loader = AgentLoader(agents_dir=agents)
+        d = loader.definition("executor")
+        assert d.when_to_use == "تنفيذ خطوة كود واحدة"
+        assert d.when_not_to_use == "التخطيط أو المراجعة"
+        assert d.languages == ("ar", "ar-EG", "en", "mixed")
+        assert d.domains == ("web", "cli", "any")
+        assert d.model_notes == "يحتاج نافذة سياق متوسطة"
+        assert d.depends_on == ("analyzer",)
+        assert d.conflicts_with == ("analyzer",)
+        assert d.last_reviewed == "2026-08-02"
+
+    def test_real_manifest_still_valid_after_extension(self):
+        """الـ manifest الحقيقي يمر عبر schema الموسَّع دون تعديل."""
+        loader = AgentLoader(agents_dir=REPO_ROOT / "agents_rules")
+        assert set(LEGACY_ROLE_MAP) <= set(loader.roles())
+
+    def test_unknown_key_still_rejected_with_line(self, tmp_path):
+        """التوسيع لا يفتح الباب: مفتاح خارج القائمة يُرفض كالمعتاد."""
+        agents = _write_agents_dir(
+            tmp_path,
+            "version: 1\nagents:\n  a:\n    file: f.md\n    stage: plan\n"
+            "    priority: high\n",
+            files={"f.md": "x"})
+        with pytest.raises(ManifestError,
+                           match=r"manifest\.yaml:6: .+مفتاح غير معروف: 'priority'"):
+            AgentLoader(agents_dir=agents)
+
+    def test_list_field_wrong_type_rejected(self, tmp_path):
+        agents = _write_agents_dir(
+            tmp_path,
+            "version: 1\nagents:\n  a:\n    file: f.md\n    stage: plan\n"
+            "    domains: web\n",
+            files={"f.md": "x"})
+        with pytest.raises(ManifestError,
+                           match="domains يجب أن تكون قائمة نصوص"):
+            AgentLoader(agents_dir=agents)
+
+    def test_scalar_field_empty_rejected(self, tmp_path):
+        agents = _write_agents_dir(
+            tmp_path,
+            "version: 1\nagents:\n  a:\n    file: f.md\n    stage: plan\n"
+            "    when_to_use: \"\"\n",
+            files={"f.md": "x"})
+        with pytest.raises(ManifestError,
+                           match="'when_to_use' يجب أن يكون نصًا غير فارغ"):
+            AgentLoader(agents_dir=agents)
+
+    def test_dead_depends_on_reference_rejected(self, tmp_path):
+        agents = _write_agents_dir(
+            tmp_path,
+            "version: 1\nagents:\n  a:\n    file: f.md\n    stage: plan\n"
+            "    depends_on: [ghost]\n",
+            files={"f.md": "x"})
+        with pytest.raises(ManifestError,
+                           match="depends_on يشير لدور غير معرَّف: 'ghost'"):
+            AgentLoader(agents_dir=agents)
+
+    def test_dead_conflicts_with_reference_rejected(self, tmp_path):
+        agents = _write_agents_dir(
+            tmp_path,
+            "version: 1\nagents:\n  a:\n    file: f.md\n    stage: plan\n"
+            "    conflicts_with: [phantom]\n",
+            files={"f.md": "x"})
+        with pytest.raises(ManifestError,
+                           match="conflicts_with يشير لدور غير معرَّف: 'phantom'"):
+            AgentLoader(agents_dir=agents)
+
+    def test_self_reference_rejected(self, tmp_path):
+        agents = _write_agents_dir(
+            tmp_path,
+            "version: 1\nagents:\n  a:\n    file: f.md\n    stage: plan\n"
+            "    depends_on: [a]\n",
+            files={"f.md": "x"})
+        with pytest.raises(ManifestError,
+                           match="depends_on يشير للدور نفسه"):
+            AgentLoader(agents_dir=agents)
+
+    def test_valid_cross_reference_passes(self, tmp_path):
+        agents = _write_agents_dir(
+            tmp_path,
+            "version: 1\nagents:\n  a:\n    file: f.md\n    stage: plan\n"
+            "  b:\n    file: g.md\n    stage: review\n    depends_on: [a]\n",
+            files={"f.md": "x", "g.md": "y"})
+        loader = AgentLoader(agents_dir=agents)
+        assert loader.definition("b").depends_on == ("a",)

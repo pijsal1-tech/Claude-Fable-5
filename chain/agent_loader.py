@@ -37,8 +37,15 @@ MANIFEST_FILENAME = "manifest.yaml"
 MANIFEST_VERSION = 1
 VALID_STAGES = ("analyze", "plan", "execute", "review", "meta")
 VALID_AGENT_KEYS = frozenset(
-    {"file", "stage", "name", "description", "capabilities", "tier", "fallback"}
+    {"file", "stage", "name", "description", "capabilities", "tier", "fallback",
+     # ── ADR-007 (AIA-4): حقول توجيه اختيارية — رجعية التوافق:
+     #    غيابها = قيم افتراضية محايدة، يستهلكها router لاحقًا (AIA-6)
+     "when_to_use", "when_not_to_use", "languages", "domains",
+     "model_notes", "depends_on", "conflicts_with", "last_reviewed"}
 )
+
+# حقول ADR-007 المرجعية — تخضع للتحقق المرجعي بعد بناء السجل
+_ROLE_REF_KEYS = ("depends_on", "conflicts_with")
 
 
 class ManifestError(Exception):
@@ -68,6 +75,15 @@ class AgentDefinition:
     tier: str
     fallback: str | None      # None أو "base"
     line: int                 # رقم سطر التعريف في الـ manifest
+    # ── ADR-007 (AIA-4): حقول توجيه اختيارية — افتراضات محايدة ──
+    when_to_use: str = ""
+    when_not_to_use: str = ""
+    languages: tuple[str, ...] = ()
+    domains: tuple[str, ...] = ()
+    model_notes: str = ""
+    depends_on: tuple[str, ...] = ()
+    conflicts_with: tuple[str, ...] = ()
+    last_reviewed: str = ""
 
 
 @dataclass(frozen=True)
@@ -215,6 +231,25 @@ class AgentLoader:
         if prompt is not None:
             return prompt
         return self._make_fallback(f"base_{stage}", stage)
+
+    def definition(self, role: str) -> AgentDefinition:
+        """
+        تعريف الدور كاملًا كما ورد في الـ manifest (ADR-007 / AIA-4).
+
+        يمنح المستهلكين (router في AIA-6) وصولًا قراءةً فقط لحقول
+        التوجيه (when_to_use/languages/domains/depends_on/…) —
+        frozen dataclass، ونفس دلالات hot-reload الخاصة بـ load().
+        دور غير معروف ⇒ UnknownAgentRoleError.
+        """
+        registry = self._current_registry()
+        d = registry.get(role)
+        if d is None:
+            available = ", ".join(sorted(registry))
+            raise UnknownAgentRoleError(
+                f"دور غير معرّف في الـ manifest: {role!r} — "
+                f"الأدوار المتاحة: {available}"
+            )
+        return d
 
     def get_available_roles(self) -> list[str]:
         """الأدوار المعرّفة في الـ manifest وملفاتها موجودة فعلًا."""
@@ -378,6 +413,25 @@ class AgentLoader:
         if errors:
             raise ManifestError(errors)
 
+        # ── ADR-007 (AIA-4): تحقق مرجعي لـ depends_on/conflicts_with ──
+        # كل role_id مذكور يجب أن يكون دورًا معرَّفًا في الـ manifest نفسه
+        # (مرجع ميت = رفض صاخب)؛ دور لا يعتمد/يتعارض مع نفسه.
+        for role, definition in registry.items():
+            for ref_key in _ROLE_REF_KEYS:
+                for ref in getattr(definition, ref_key):
+                    if ref == role:
+                        errors.append(
+                            f"{name}:{definition.line}: الدور {role!r} — "
+                            f"{ref_key} يشير للدور نفسه"
+                        )
+                    elif ref not in registry:
+                        errors.append(
+                            f"{name}:{definition.line}: الدور {role!r} — "
+                            f"{ref_key} يشير لدور غير معرَّف: {ref!r}"
+                        )
+        if errors:
+            raise ManifestError(errors)
+
         # ── تحقق الحلّ الشامل: كل ملف يُحلّ داخل agents_dir ──
         for role, definition in registry.items():
             full_path = self._resolve_inside_agents_dir(definition.file)
@@ -461,6 +515,31 @@ class AgentLoader:
             )
             ok = False
 
+        def _str_list(key: str) -> tuple[str, ...]:
+            """قائمة نصوص اختيارية — نفس عقد capabilities (ADR-007)."""
+            nonlocal ok
+            node = fields.get(key)
+            if node is None:
+                return ()
+            if not isinstance(node, yaml.SequenceNode):
+                errors.append(
+                    f"{name}:{node.start_mark.line + 1}: الدور {role!r} — "
+                    f"{key} يجب أن تكون قائمة نصوص"
+                )
+                ok = False
+                return ()
+            items: list[str] = []
+            for item in node.value:
+                if not isinstance(item, yaml.ScalarNode):
+                    errors.append(
+                        f"{name}:{item.start_mark.line + 1}: الدور "
+                        f"{role!r} — عنصر {key} يجب أن يكون نصًا"
+                    )
+                    ok = False
+                else:
+                    items.append(str(item.value))
+            return tuple(items)
+
         capabilities: tuple[str, ...] = ()
         caps_node = fields.get("capabilities")
         if caps_node is not None:
@@ -483,6 +562,16 @@ class AgentLoader:
                         caps.append(str(item.value))
                 capabilities = tuple(caps)
 
+        # ── ADR-007 (AIA-4): حقول التوجيه الاختيارية ──
+        when_to_use_val = _scalar("when_to_use") or ""
+        when_not_to_use_val = _scalar("when_not_to_use") or ""
+        model_notes_val = _scalar("model_notes") or ""
+        last_reviewed_val = _scalar("last_reviewed") or ""
+        languages_val = _str_list("languages")
+        domains_val = _str_list("domains")
+        depends_on_val = _str_list("depends_on")
+        conflicts_with_val = _str_list("conflicts_with")
+
         if not ok or file_val is None or stage_val is None:
             return None
 
@@ -496,6 +585,14 @@ class AgentLoader:
             tier=tier_val,
             fallback=fallback_val,
             line=role_line,
+            when_to_use=when_to_use_val,
+            when_not_to_use=when_not_to_use_val,
+            languages=languages_val,
+            domains=domains_val,
+            model_notes=model_notes_val,
+            depends_on=depends_on_val,
+            conflicts_with=conflicts_with_val,
+            last_reviewed=last_reviewed_val,
         )
 
     # ═══════════════════════════════════════════════════
