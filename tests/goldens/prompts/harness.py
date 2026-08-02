@@ -81,18 +81,18 @@ SCENARIOS: dict[str, dict] = {
             for i in range(5)
         },
     },
-    # مخاطر عالية (auth/DB/security) + طلب مركب → full_chain/pipeline
+    # مخاطر عالية (auth/DB/migrate) + 3+ أنماط تعقيد + ملف كبير
+    # ⇒ score=10.0 > 7.0 ⇒ pipeline (يُثبت الأدوار الأربعة:
+    # deep_debugger/architect/executor/code_reviewer) — مقيس حيًا S108.
     "risky_auth_pipeline": {
-        "request": ("أعد تصميم نظام المصادقة كاملًا: بدّل تخزين كلمات "
-                    "المرور من MD5 إلى bcrypt، أضف جلسات آمنة مع "
-                    "انتهاء صلاحية، وعدّل جداول قاعدة البيانات مع "
-                    "migration آمن، ثم راجع الأمان كاملًا"),
-        "file_content": ("import hashlib\n\n"
-                         "def hash_password(pw):\n"
-                         "    return hashlib.md5(pw.encode()).hexdigest()\n\n"
-                         "def login(db, user, pw):\n"
-                         "    row = db.execute('SELECT * FROM users WHERE name=\\'' + user + '\\'')\n"
-                         "    return row and row['pw'] == hash_password(pw)\n"),
+        "request": ("Refactor the entire auth module and migrate "
+                    "password hashing from MD5 to bcrypt, redesign "
+                    "the database schema with a safe migration, "
+                    "integrate secure session tokens, and add tests "
+                    "plus a full security review"),
+        "file_content": ("def authenticate(user, password):\n"
+                         "    query = \"SELECT * FROM users WHERE name=\" + user\n"
+                         "    return db.execute(query)\n\n") * 300,
         "file_path": "auth/security.py",
     },
     # التجاوز اليدوي الصريح → delegate (المسار المفوَّض بلا history)
