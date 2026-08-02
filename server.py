@@ -13,7 +13,6 @@ import signal  # TSK-705 (FI-03): الإيقاف الرشيق — يُربط ف�
 import argparse
 import pathlib
 import threading
-import queue
 import time
 import uuid
 from types import SimpleNamespace  # TSK-612 (ADR-002)

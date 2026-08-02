@@ -657,8 +657,11 @@ class DelegateBridge:
         summary_lines = [l.strip() for l in lines if l.strip()][:3]
         return " ".join(summary_lines)[:500]
     
-    def _extract_touched_files(self, response: str, original_files: dict) -> list[str]:
-        """استخراج الملفات المعدلة من الرد"""
+    def _extract_touched_files(self, response: str) -> list[str]:
+        """استخراج الملفات المعدلة من الرد.
+
+        TSK-CEV-103c (CEV-F-005): أزيل معامل original_files الميت —
+        الجسم regex على response فقط ولم يلمسه قط."""
         import re
         touched = []
         
@@ -746,12 +749,6 @@ class DelegateBridge:
             notes_text = m.group(1).strip()
             verdict.rework_notes = [
                 line.lstrip("- ").strip()
-                for line in notes_text.split("\n")
-                if line.strip() and line.strip() != "-"
-            ]
-        
-        return verdict
-p()
                 for line in notes_text.split("\n")
                 if line.strip() and line.strip() != "-"
             ]

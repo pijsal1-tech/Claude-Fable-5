@@ -381,3 +381,24 @@ server/routes/tests).
 (`:195/:246/:325/:372`) — يبقى. المعالجة: BATCH-CEV-G1 (إزالة
 الاستيرادات الميتة + سقف mypy + stubs في requirements-dev) — تنتظر
 فك حاصر CEV-F-002.
+
+### CEV-F-002 — تحديث الإغلاق (S106د): الحاصر انفكّ بقرار D-13
+**مُغلق.** أمر المالك «أفتح BATCH-CEV-G1 وأتابع بوابات CEV» + تحقق حي
+أن الخيار 1 لم يُنفَّذ (providers بلا حارس None @ e6c9100) ⇒ تفويض
+الخيار 2. نُفِّذ TSK-CEV-102: توسيع استثناء mypy في check.sh إلى
+`providers/(openai_shelby|you_com|perplexity|blackbox)\.py` بسابقة
+ADR-004 + تحديث الحارس test_mypy_gate_614 (يثبّت الاستثناءات الموثقة
+حصريًا + `--exclude` واحد + لا استثناء داخلي). **البوابة الكاملة:
+check.sh ALL GREEN RC=0 — 2189P/34S/0F.** يُرفع الاستثناء يوم يُصلح
+المالك نمط module_from_spec (حارس None قبل :30-31 في الملفات الثلاثة).
+
+### CEV-F-006 — اختباران flaky حمل-بيئي موثَّقان (ليسا انحدارًا)
+**C3 / S4.** أثناء بوابات إقفال BATCH-CEV-G1 (S106د) فشل — كلٌّ مرة
+واحدة غير متكررة — (1) `test_index_snapshot_wiring.py::
+test_no_save_churn_when_list_unchanged` (فرق mtime_ns 4ms تحت حمل
+الحزمة الكاملة؛ دقة mtime على tmpfs الساندبوكس تسمح دلتا-صفر بين
+كتابتين متتاليتين — probe موثَّق) و(2) `test_search_perf.py::
+TestPerf5k::test_tool_search_code_path_under_1s` (سابقة S84 الموثقة:
+عتبة 1s على عتاد متغير). كلاهما يمر معزولًا ×3 ومعًا وفي التشغيلة
+النظيفة (ALL GREEN ×2 هذه الجلسة). لا فعل الآن؛ مرشحان لتقسية عتبات
+في بوابة لاحقة (G7 اختبارات) إن تكررا.

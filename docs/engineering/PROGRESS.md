@@ -486,6 +486,29 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-08-02 — Session 106د — قرار مالك D-13 ⇒ BATCH-CEV-G1 مُقفلة 🏁 3/3 — check.sh ALL GREEN لأول مرة في CEV**:
+  أمر مالك حرفي «أفتح BATCH-CEV-G1 (سقف mypy + stubs + إزالة الميت
+  F-005) وأتابع بوابات CEV» ⇒ D-13 (تفسير موثَّق: الخيار 1 لم يُنفَّذ —
+  providers بلا حارس None @ e6c9100 — فالأمر بالمتابعة = تفويض الخيار
+  2). الخطة أُلحقت بـ DEVELOPMENT_TASKS §BATCH-CEV-G1 قبل التنفيذ
+  (D-7). **الجلسة عبرت تصفيرَي بيئة (#11/#12؛ §3.1 ×2:
+  TOKEN_SCRUB_DONE)**؛ البوت أنقذ 9 ملفات @ 8e4def3 لكنه التقط حالة
+  ممزقة: مستدعي delegate محدَّث بلا توقيعه (TypeError كامن) + شظية
+  6 أسطر تالفة بذيل delegate.py (`p()`… syntax error) — أُصلحا فور
+  الجرد. **الإقفالات:** TSK-CEV-101 ✅ (requirements-dev: mypy>=1.10,<2
+  + types-requests/types-PyYAML؛ ci.yml يثبّت من requirements-dev —
+  مصدر حقيقة واحد)؛ TSK-CEV-102 ✅ (check.sh استثناء موسَّع
+  `providers/(openai_shelby|you_com|perplexity|blackbox)\.py` بسابقة
+  ADR-004 + حارس test_mypy_gate_614 محدَّث: استثناءات موثقة حصرًا،
+  `--exclude` واحد، لا استثناء داخلي — CEV-F-002 مُغلق)؛ TSK-CEV-103 ✅
+  (حذف الميت المؤكد F-005: executor.py ×5 استيرادات + server.py
+  `queue`/`get_provider,list_providers` + delegate.py معامل
+  `original_files` من التوقيع والمستدعي معًا). **البوابة النهائية:
+  check.sh ALL GREEN RC=0 — 2189P/34S/0F** (mypy: 89 ملفًا Success؛
+  فشلان عابران أثناء المحاولات وُثِّقا CEV-F-006: snapshot-mtime
+  وsearch-perf — flaky حمل بيئي، يمران معزولين وفي التشغيلة النظيفة).
+  **الموقع: G1 REVIEW تستكمل بقية محاورها (تكرار/فصل اهتمامات/تدقيق
+  server.py +92 يُحال G6/G8) ثم تقرير بوابة G1 في MASTER_REVIEW.**
 - **2026-08-01/02 — Session 106 — فتح برنامج CEV (قرار مالك D-12) — البوابة G1 مفتوحة؛ 5 اكتشافات + استعادة fixture**:
   تفويض مالك صريح (وثيقة CEV الكاملة + «ابدأ التدقيق») ⇒ D-12 في
   DECISION_LOG + مرجع `CEV_PROGRAM_PROMPT.md` (253 سطرًا) + إصلاح
