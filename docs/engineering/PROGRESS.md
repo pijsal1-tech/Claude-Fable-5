@@ -12,8 +12,8 @@
 |---|---|
 | last-updated | 2026-08-02 (Session 106ي — **سدّ فجوة اتساق**: تقرير CEV-G6 🏁 PASS كان مؤرخًا في MASTER_REVIEW (S106ط @ 5e77751) دون تحديث PROGRESS — سُدّت الفجوة بأمر مالك؛ خط الأساس أُعيد تثبيته حيًّا: check.sh ALL GREEN rc=0 = **2189P/34S/0F**؛ `.env` fixture أُعيدت (×7 — F-003 نمط مستمر، قرار المالك أ/ب ما زال معلَّقًا)) |
 | stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
-| current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) بالترتيب — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1 🏁 + G2 🏁 + G3 🏁 + G4 🏁 + G5 🏁 + G6 🏁 PASS** (ستة تقارير مؤرخة في MASTER_REVIEW)؛ البوابة التالية: **G7 (الأمان)** — لم تُفتح بعد (بانتظار توجيه المالك) |
-| current-task | **CEV-G6 🏁 مُقفلة** (تقرير PASS في MASTER_REVIEW — S106ط: سطح مجمد 31 قاعدة محروسة، fail-closed في كل المجسات، ذرّية NF-19 صمدت SIGKILL ×5، 268/268 حارس خلفية؛ الاكتشاف الوحيد F-009 تجميلي C4)؛ التالي بالترتيب: **CEV-G7 (الأمان — Red Team داخل عقد localhost)** بانتظار أمر فتح؛ خط الأساس (حي S106ي): **2189P/34S/0F ALL GREEN rc=0**؛ قرار مالك معلَّق: F-003 (خيار أ/ب)؛ معلَّق خارجي: OWNER_CHECKLIST (727) + رفع استثناء providers |
+| current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1→G6 كلها 🏁 PASS** (ستة تقارير مؤرخة في MASTER_REVIEW)؛ **G7 (الأمان/Red Team) مؤجلة DEFERRED بقرار مالك D-14** (تُستأنف بأمر لاحق — تسبق G12 وجوبًا)؛ البوابة المفتوحة: **G8 (طبقة تنفيذ AI)** |
+| current-task | **CEV-G8 OPEN (طبقة تنفيذ AI — قرار D-14)**: chain/ — agent loop، tools، context builder، ميزانية السياق، الإلغاء، المقاطعة، البث؛ **providers/ مستثناة كليًا، كل الفحص بـ Stubs (P-11)**؛ أصول التعليمات نفسها تُدقق في G8.5 التالية (CEV_PROGRAM_PROMPT.md:128-132)؛ خط الأساس (حي S106ي): **2189P/34S/0F ALL GREEN rc=0**؛ قرار مالك معلَّق: F-003 (خيار أ/ب — الحذف وصل ×8)؛ معلَّق خارجي: OWNER_CHECKLIST (727) + رفع استثناء providers |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -41,7 +41,7 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 (D-11) + EOP-1 🏁 — برنامج D-8-ج مكتمل؛ التعريفات: DEVELOPMENT_TASKS
 
 ### Current Position
-- Stage: **CEV (D-12) — G1→G6 كلها 🏁 PASS (ستة تقارير مؤرخة في MASTER_REVIEW)؛ التالية بالترتيب G7 (الأمان) — لم تُفتح بعد (بانتظار توجيه المالك)** — Stage 1 REVIEW؛ الاكتشافات → NEW_FINDINGS (المفتوحة: F-003 قرار مالك؛ F-006/F-007/F-008/F-009 لا فعل الآن)؛ سوابق مُقفلة كلها: P0→P3 🏁 + EOP-1 🏁
+- Stage: **CEV (D-12) — G1→G6 كلها 🏁 PASS؛ G7 مؤجلة DEFERRED (قرار مالك D-14)؛ المفتوحة: G8 (طبقة تنفيذ AI)** — Stage 1 REVIEW؛ الاكتشافات → NEW_FINDINGS (المفتوحة: F-003 قرار مالك — الحذف ×8؛ F-006/F-007/F-008/F-009 لا فعل الآن)؛ سوابق مُقفلة كلها: P0→P3 🏁 + EOP-1 🏁
 - خط أساس البرنامج (أُعيد تثبيته حيًّا S106ي @ 5e77751): **2189P/34S/0F** + check.sh ALL GREEN rc=0
 - [أرشيف] خط أساس فتح CEV (موثَّق S105): 2168P/34S + check.sh ALL GREEN rc=0
 - [أرشيف موضع BATCH-P2 عند فتحها] خط أساسها (حي @ 9a3aed0): 1911P/34S + check.sh ALL GREEN rc=0
