@@ -10,6 +10,10 @@ C8 سلامة الحقن (AIA-R6) | C9 أمثلة | C10 إعلان قدرات (A
 
 Usage: python3 scripts/prompt_quality_score.py
 """
+import pathlib
+import re
+
+import yaml
 
 root = pathlib.Path('agents_rules')
 m = yaml.safe_load(open(root/'manifest.yaml'))
