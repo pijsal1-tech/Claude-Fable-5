@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-02 (Session 106 — CEV G1: 5 اكتشافات مسجَّلة + fixture ‎`.env`‎ مستعادة + **خط الأساس الحي 2189P/34S/0F RC=0** (pytest كامل ×2 بيئتين؛ check.sh محجوز عند mypy بكود مزودات المالك — CEV-F-002 بانتظار قراره) + تدوير §6.4 (S84–S99 ⇒ ARCHIVE_2)) |
+| last-updated | 2026-08-02 (Session 106د — **D-13 ⇒ BATCH-CEV-G1 مُقفلة 🏁 3/3**: سقف mypy+stubs (101) + فك حاصر CEV-F-002 بتوسيع الاستثناء (102) + إزالة الميت F-005 (103) — **check.sh ALL GREEN RC=0 — 2189P/34S/0F** لأول مرة في CEV) |
 | stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
 | current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) بالترتيب — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ البوابة المفتوحة: **G1 (البنية)** — Stage 1 REVIEW |
-| current-task | CEV-G1 OPEN: جرد بنيوي بالدليل — F-005 (ميت مؤكد) موثَّق؛ خط الأساس الحي: **2189P/34S/0F**؛ **حاصر قرار مالك (CEV-F-002)**: 9 أخطاء mypy في providers الجدد (خارج نطاق §0.8) تُبقي check.sh أحمر — خيار 1 يصلحها المالك / خيار 2 يأذن بتوسيع استثناء mypy؛ معلَّق خارجي آخر (غير حاجز): OWNER_CHECKLIST (727) |
+| current-task | CEV-G1 REVIEW مستمرة بعد إقفال BATCH-CEV-G1 🏁 (D-13): المتبقي — محاور التكرار/فصل الاهتمامات + تقرير بوابة G1 في MASTER_REVIEW ثم G2؛ خط الأساس: **2189P/34S/0F ALL GREEN**؛ تدقيق server.py +92 (8dd9e8a) مُحال G6/G8؛ معلَّق خارجي (غير حاجز): OWNER_CHECKLIST (727) + رفع استثناء providers يوم يصلح المالك module_from_spec |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
