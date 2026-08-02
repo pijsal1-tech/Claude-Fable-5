@@ -177,24 +177,30 @@ class TestIntentAmbiguousMultiIntent:
     REQ = ("الموقع بطيء وفي bug في تسجيل الدخول وكمان عايز أضيف "
            "صفحة جديدة")
 
-    def test_text_only_direct_zero_signals(self, router):
-        """الغموض النصي وحده لا يرفع الدرجة — «تسجيل الدخول» ليست ضمن
-        أنماط المخاطر العربية (مصادقة/أمان/تشفير... فقط)."""
+    def test_text_only_direct_low_risk_signal(self, router):
+        """الغموض النصي وحده لا يغيّر الاستراتيجية — تبقى direct.
+
+        تاريخيًا كان هذا الاختبار يثبّت أن «تسجيل الدخول» غير مغطاة
+        (درجة 0.0)؛ TSK-CEV-104 (F-015، بموجب D-15) أضافتها إلى
+        _HIGH_RISK_PATTERNS فصارت إشارة خطر واحدة = 0.5 — دون أي
+        تغيير في القرار النهائي (direct)."""
         d = router.route(self.REQ, mode="build")
         assert d.strategy == "direct"
-        assert d.complexity_score == 0.0
+        assert d.complexity_score == 0.5
+        assert d.record.matched_signals.get("risk")  # الإشارة موثقة
 
     def test_project_context_justified_delegate(self, router):
         """مع مشروع 7 ملفات: قرار مبرر لا تخمين — RoutingRecord يوثق
-        أن الدرجة كلها بنيوية (حجم+عدد) لا نمطية."""
+        أن الدرجة بنيوية في أساسها (حجم+عدد = 9.0) مع إشارة خطر
+        نصية واحدة (0.5) أضافتها TSK-CEV-104 («تسجيل الدخول»)."""
         files = {f"src/p{i}.py": _lines(900) for i in range(7)}
         d = router.route(self.REQ, mode="build", files=files)
         assert d.strategy == "delegate"
-        assert d.complexity_score == 9.0
+        assert d.complexity_score == 9.5
         r = d.record
         assert r.scores["size_score"] == 5.0
         assert r.scores["file_count_score"] == 4.0
-        assert r.matched_signals == {}          # صفر أنماط — بنيوي بحت
+        assert list(r.matched_signals) == ["risk"]  # نمط 104 فقط
         assert r.ideal == "delegate" and r.downgrade_path == []
 
 
@@ -239,26 +245,28 @@ class TestTriplePhrasingConsistency:
 # ═══════════════ CEV-F-015: فجوة المعجم — مثبتة كما هي ═══════════════
 
 class TestLexiconGapF015:
-    """نفس نية إعادة الهيكلة بصيغ خارج المعجم تصل طبقة أدنى.
+    """نفس نية إعادة الهيكلة بكل صيغها تصل الطبقة نفسها (F-015 مُغلقة).
 
-    توثيق حي (S108) — ليس موافقة: «أعد هيكلة» (فعل أمر بلا مصدر) و
-    «ريفاكتور» (معرَّبة صوتيًا) لا تطابقان r\"إعادة.*هيكلة\"/r\"refactor\"
-    فتفقد النية 1.5-2.0 نقطة وتهبط auto_chain بدل full_chain.
-    الحسم: TSK-CEV-104 (توسيع المعجم) — عندها تُعكس التأكيدات.
+    تاريخ الفجوة (S108، قياس حي): «أعد هيكلة» (فعل أمر بلا مصدر) و
+    «ريفاكتور» (معرَّبة صوتيًا) لم تكونا تطابقان
+    r\"إعادة.*هيكلة\"/r\"refactor\" ففقدت النية 1.5-2.0 نقطة وهبطت
+    auto_chain بدل full_chain. الحسم: TSK-CEV-104 وسّع المعجم
+    (D-15) — التأكيدات أدناه هي الاختبارات المثبتة نفسها **معكوسة**
+    كما نصّت المهمة (104b: هما معيار القبول الجاهز).
     """
 
-    def test_imperative_msa_misses_pattern(self, router):
+    def test_imperative_msa_catches_pattern(self, router):
         d = router.route("أعد هيكلة هذا الكود بالكامل وقسّمه إلى وحدات",
                          mode="build", file_content=_lines(2500))
-        # الفجوة كما قيست حيًّا: score=4.0 (حجم فقط) → auto_chain
-        assert d.strategy == "auto_chain"
-        assert d.record.matched_signals == {}
+        # بعد TSK-CEV-104: فعل الأمر يلتقط ⇒ نفس طبقة صيغة المصدر
+        assert d.strategy == "full_chain"
+        assert d.record.matched_signals.get("request_complexity")
 
-    def test_transliterated_refactor_misses_pattern(self, router):
+    def test_transliterated_refactor_catches_pattern(self, router):
         d = router.route("اعمل ريفاكتور شامل للكود ده كله",
                          mode="build", file_content=_lines(2500))
-        assert d.strategy == "auto_chain"
-        assert d.record.matched_signals == {}
+        assert d.strategy == "full_chain"
+        assert d.record.matched_signals.get("request_complexity")
 
     def test_masdar_form_catches_pattern_baseline(self, router):
         """الخط المرجعي المقابل: صيغة المصدر «إعادة هيكلة» تُلتقط —
