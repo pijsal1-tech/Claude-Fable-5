@@ -1,0 +1,201 @@
+AGENT.md
+AGENTS.md
+ANTIGRAVITY_SESSION_STARTER.md
+EXAMPLES.md
+GEMINI.md
+HELP.md
+MICRO_WORKER_SYSTEM_PROMPT.md
+SYSTEM_README.md
+manifest.yaml
+memory/00-EXAMPLES.md
+memory/AGENT_RULES.md
+memory/AGENT_SYNC.md
+memory/AUTO_APMS_SYNC_RULES.md
+memory/CHANGELOG_DECISIONS.md
+memory/CHATGAI_POST_MORTEM.md
+memory/CODE_QUALITY_KEYWORDS.md
+memory/DOMAIN_NOTES.md
+memory/HANDOVER_COLAB.md
+memory/LOG.md
+memory/PROJECT_VISION.md
+memory/README.md
+memory/SYNC_DESK.md
+memory/WAF_BOT_DIAGNOSTIC_MASTER_PROMPT.md
+memory/ai_state.json
+memory/automation_patterns.md
+memory/decisions_log.md
+memory/genspark_500_error_fix.md
+memory/genspark_chat_lessons.md
+memory/genspark_continue_conv_fix.md
+memory/genspark_fusion_report.md
+memory/genspark_problems_solutions.md
+memory/handoff_templates.md
+memory/planning_prompt_master.md
+memory/project-assumptions.md
+memory/promptcowboy_knowledge.md
+memory/provider_knowledge.md
+memory/sessions/handshake_b.txt
+memory/style_prefs.md
+memory/vibe_5whys_chaos_guide.md
+memory/أنت مفتش التوافق.md
+rules/00-RULES.md
+rules/00-project-vision.md
+rules/01-double-check.md
+rules/01-double-review.md
+rules/01-user-context.md
+rules/02-agents-index.md
+rules/02-vibe-coding-mode-v3.md
+rules/02-vibe-coding-mode.md
+rules/03-vibe-coder-master-prompt.md
+rules/04-naming-conventions.md
+rules/REVIEW_CHECKLIST.md
+rules/brainsyncory.md
+rules/failure-policy.md
+rules/scope-boundaries.md
+rules/test-and-verify.md
+skills/00-SKILLS.md
+skills/00-evidence-inspector/SKILL.md
+skills/00-provider-index.md
+skills/01-logical-deduction.md
+skills/01-micro-tasker/SKILL.md
+skills/02-har-analysis.md
+skills/02-planning-system/SKILL.md
+skills/03-provider-checklist.md
+skills/04-provider-requests.md
+skills/05-provider-hybrid.md
+skills/06-live-rules.md
+skills/07-refresh-pattern.md
+skills/24-prompt-engine.md
+skills/api-analyzer/SKILL.md
+skills/api-tester/SKILL.md
+skills/architect/SKILL.md
+skills/auto/config/SKILL.md
+skills/auto/convention/SKILL.md
+skills/auto/project/SKILL.md
+skills/auto/python/SKILL.md
+skills/auto/root-updater/SKILL.md
+skills/auto/skills-manifest.json
+skills/auto/tool-pattern/SKILL.md
+skills/bug-reviewer/SKILL.md
+skills/burp-expert/SKILL.md
+skills/compatibility-reviewer/SKILL.md
+skills/compliance-inspector/SKILL.md
+skills/deep-debugger/SKILL.md
+skills/engine-expert/SKILL.md
+skills/expert-v2/SKILL.md
+skills/micro-tasker/SKILL.md
+skills/monitor-agent/SKILL.md
+skills/orchestrator/SKILL.md
+skills/performance-analyzer/SKILL.md
+skills/planner/SKILL.md
+skills/project-coordinator/SKILL.md
+skills/prompt-writer/SKILL.md
+skills/protection-expert/SKILL.md
+skills/quality-analyzer/SKILL.md
+skills/quality-guard/SKILL.md
+skills/request-analyzer/SKILL.md
+skills/review-manager/SKILL.md
+skills/security-engineer/SKILL.md
+skills/skills/00-INDEX.md
+skills/skills/01-new-provider-checklist.md
+skills/skills/02-requests-level1.md
+skills/skills/03-hybrid-level2.md
+skills/skills/04-code-patterns.md
+skills/skills/05-email-providers.md
+skills/skills/06-terminal-output.md
+skills/skills/07-after-task.md
+skills/skills/08-debug-you-com.md
+skills/skills/09-debug-mistral.md
+skills/skills/10-debug-perplexity.md
+skills/skills/11-debug-deepseek.md
+skills/skills/12-debug-genspark-uncensored.md
+skills/skills/13-anti-patterns.md
+skills/skills/14-doc-template.md
+skills/skills/15-live-rules-full.md
+skills/skills/16-input-formats.md
+skills/skills/17-philosophy.md
+skills/skills/18-advanced-lessons.md
+skills/skills/19-debug-ernie-grok.md
+skills/skills/20-debug-arena-cohere-zo-ai21.md
+skills/skills/21-captcha-solving.md
+skills/skills/22-shared-monitor.md
+skills/skills/23-chat-template.md
+skills/skills/23-debug-cursor.md
+skills/skills/SKILL.md
+skills/team-manager/SKILL.md
+skills/tech-writer/SKILL.md
+skills/vibe-reviewer/SKILL.md
+tools/factory_rules.yaml
+tools/init_root.py
+tools/vibe_bridge.py
+workflows/00-CODE_QUALITY_KEYWORDS.md
+workflows/00-ask-council.md
+workflows/00-micro-tasking.md
+workflows/00-planning.md
+workflows/00-sequential-requests.md
+workflows/00-speckit.md
+workflows/00-vibe_5whys_chaos_guide.md
+workflows/activate.md
+workflows/add-chat.md
+workflows/add-provider.md
+workflows/add-refresh.md
+workflows/add-to-monitor.md
+workflows/debug-provider.md
+workflows/new-provider.md
+workflows/update-docs.md
+اراء/تاسك
+بحث/أنت باحث أكاديمي.md
+بحث/أنت باحث بيانات.md
+بناء/أنت بناء MCP Server.md
+تخطيط/أنت مخطط احترافي شامل.md
+تخطيط/أنت مخطط احترافي شامل.md.bak
+تسويق/أنت استراتيجي المبيعات.md
+تسويق/أنت باحث السوق.md
+تسويق/أنت خبير نمو.md
+تسويق/أنت صانع محتوى.md
+تصميم/أنت باحث UX.md
+تصميم/أنت كاتب برومبتات صور.md
+تصميم/أنت مصمم واجهات.md
+تطوير-ألعاب/أنت مصمم ألعاب.md
+تطوير-ألعاب/أنت مطور Unity.md
+سيستم/PLANNING_TEMPLATES.md
+سيستم/PLANNING_TRACKER.md
+سيستم/PROMPT_ENGINE_PRO.md
+سيستم/PROMPT_ENGINE_PRO.md.bak
+سيستم/USER_PROFILE.md
+سيستم/implementation_plan.md.resolved
+سيستم/أنت حارس الجودة.md
+سيستم/أنت خبير Burp.md
+سيستم/أنت خبير v2.md
+سيستم/أنت خبير المحرك.md
+سيستم/أنت خبير حماية.md
+سيستم/أنت فاحص بأدلة.md
+سيستم/أنت كاتب برومبت.md
+سيستم/أنت كاتب تقني.md
+سيستم/أنت محقق أخطاء عميق.md
+سيستم/أنت محلل API Flow.md
+سيستم/أنت محلل أداء.md
+سيستم/أنت محلل جودة.md
+سيستم/أنت محلل طلبات.md
+سيستم/أنت مختبر API.md
+سيستم/أنت مخطط.md
+سيستم/أنت مدير الأوركسترا.md
+سيستم/أنت مدير المراجعة.md
+سيستم/أنت مدير فريق.md
+سيستم/أنت مراجع Vibe.md
+سيستم/أنت مراجع أخطاء.md
+سيستم/أنت مراجع توافق.md
+سيستم/أنت مراقب.md
+سيستم/أنت مفتش التوافق.md
+سيستم/أنت منسق المشاريع.md
+سيستم/أنت مهندس أمان.md
+سيستم/أنت مهندس معماري.md
+سيستم/تشغيل ملف
+سيستم/من جينيص
+هندسة-تطبيقات/أنت مراجع الكود الآمن.md
+هندسة-تطبيقات/أنت مطور Blockchain.md
+هندسة-تطبيقات/أنت مطور Frontend.md
+هندسة-تطبيقات/أنت مهندس Backend.md
+هندسة-تطبيقات/أنت مهندس DevOps.md
+هندسة-تطبيقات/أنت مهندس SRE.md
+هندسة-تطبيقات/أنت مهندس بيانات.md

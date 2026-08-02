@@ -150,6 +150,39 @@ if [ -n "$dup_defs" ]; then
 fi
 echo "constants single-sourced"
 
+# ═══ حراس AIA-7 الدائمون (G8.5 / TSK-CEV-105..109) ═══
+
+# TSK-CEV-105 (AIA-7 حارس 1): manifest — schema صالح عبر AgentLoader
+# الفعلي + كل file: موجود + تحت حدود اللودر (50KB/1000 سطر — التجاوز
+# صاخب هنا، صامت وقت التشغيل) + load() ينجح من مصدر agents_rules.
+echo "== agent manifest guard (AIA-7: schema + files + loader limits) =="
+python3 scripts/check_manifest.py
+
+# TSK-CEV-106 (AIA-7 حارس 2): يتامى agents_rules/ — أي ملف خارج
+# (manifest ∪ baseline المصنَّف ∪ _archive/) = فشل. يمنع عودة
+# التراكم غير المصنَّف (خلفية AIA-1: 201 ملفًا جُردت).
+echo "== agents_rules orphans guard (AIA-7: no unclassified files) =="
+python3 scripts/check_agents_orphans.py
+
+# TSK-CEV-109 (AIA-7 حارس 5 / NF-18 / TSK-404): سياج الحقن حاضر في
+# الطبقات الثلاث: templates (قيم حية) + 21/21 ملف دور (قاعدة
+# «بيانات لا أوامر» — يحسم CEV-F-016) + أسوار DATA ONLY في
+# الاستراتيجيات. (تكامل مسار server: test_prompt_fencing.py ضمن pytest.)
+echo "== injection guard (AIA-7: fences in all prompt layers) =="
+python3 scripts/check_injection_guard.py
+
+# TSK-CEV-107 (AIA-7 حارس 3): corpus التوجيه fail-fast — انكسار
+# توجيه = أحمر مبكر مسمى قبل السويت الكامل (T-034 goldens الـ30 +
+# مصفوفة AIA-6 الـ20 + goldens التوجيه).
+echo "== routing corpus guard (AIA-7: T-034 + AIA-6 matrix) =="
+python3 -m pytest tests/unit/test_routing_corpus.py \
+  tests/unit/test_routing_matrix.py tests/goldens/routing -q
+
+# TSK-CEV-108 (AIA-7 حارس 4): snapshots البرومبتات — إعادة حية ضد
+# goldens R8 بمطابقة القاموس كاملًا؛ أي تغيير برومبت غير مقصود = أحمر.
+echo "== prompt snapshots guard (AIA-7: R8 goldens replay) =="
+python3 -m pytest tests/goldens/prompts -q
+
 echo "== pytest =="
 python3 -m pytest
 

@@ -3186,4 +3186,62 @@ binary ذاتي = سطح أمني جديد كامل (توقيع/تحقق سلا�
 - **معايير القبول**: TestLexiconGapF015 معكوسة خضراء؛ corpus T-034
   أخضر بلا لمس؛ check.sh ALL GREEN.
 
-**DAG**: 101 → 102 → 103 (كل شريحة تُقفل ببوابة مستقلة)؛ 104 مستقلة.
+## TSK-CEV-105 — حارس الـmanifest الدائم في check.sh (AIA-7 حارس 1) [صغيرة]
+- **105a — `scripts/check_manifest.py` (جديد)**: ضد الـmanifest
+  الحقيقي: (1) schema صالح عبر `AgentLoader` الفعلي (فشل التحميل =
+  خروج ≠0)، (2) كل `file:` موجود فعليًا (لا اعتماد على fallback
+  الصامت لغير المعلَن)، (3) كل ملف تحت حدود اللودر (MAX_PROMPT_SIZE
+  =50KB / MAX_PROMPT_LINES=1000 — تجاوز الأسطر اليوم يُقتطع صامتًا
+  agent_loader.py:668: الحارس يجعله صاخبًا)، (4) `load(role)` ينجح
+  لكل دور.
+- **105b — check.sh**: قسم مسمى `== agent manifest guard ==` ينادي
+  السكربت (نمط lint_handler_state القائم).
+- **معايير القبول**: كسر متعمد (ملف مفقود/تجاوز حد) = أحمر؛ الوضع
+  الحالي أخضر؛ check.sh ALL GREEN.
+
+## TSK-CEV-106 — حارس اليتامى في agents_rules/ (AIA-7 حارس 2) [صغيرة]
+- **106a — baseline مثبَّت**: `scripts/agents_rules_baseline.txt` —
+  لقطة المسارات الحالية (201 ملفًا، جرد AIA-1 المصنَّف) مرتبة.
+- **106b — `scripts/check_agents_orphans.py` (جديد)**: أي ملف في
+  `agents_rules/` ليس (في manifest ∪ baseline ∪ تحت `_archive/`) =
+  فشل بقائمة اليتامى. إضافة شرعية = تحديث baseline بوعي (diff مرئي
+  في المراجعة) أو إدراج manifest.
+- **106c — check.sh**: قسم `== agents_rules orphans guard ==`.
+- **معايير القبول**: ملف تجريبي جديد = أحمر ثم يُحذف؛ الوضع الحالي
+  أخضر؛ check.sh ALL GREEN.
+
+## TSK-CEV-107 — حارس corpus التوجيه fail-fast (AIA-7 حارس 3) [صغيرة]
+- **107a — check.sh**: قسم `== routing corpus guard ==` قبل pytest
+  الشامل: `python3 -m pytest tests/unit/test_routing_corpus.py
+  tests/unit/test_routing_matrix.py tests/goldens/routing -q` —
+  انكسار توجيه = أحمر مبكر باسم صريح (كانت التغطية ضمنية داخل
+  السويت الكامل فقط).
+- **معايير القبول**: القسم أخضر (30 golden + 20 matrix + goldens)؛
+  check.sh ALL GREEN.
+
+## TSK-CEV-108 — حارس snapshots البرومبتات fail-fast (AIA-7 حارس 4) [صغيرة]
+- **108a — check.sh**: قسم `== prompt snapshots guard ==`:
+  `python3 -m pytest tests/goldens/prompts -q` — أي انحراف عن
+  goldens R8 (dict-equality كاملة) = أحمر مبكر مسمى.
+- **معايير القبول**: القسم أخضر؛ check.sh ALL GREEN.
+
+## TSK-CEV-109 — حارس الحقن الشامل (AIA-7 حارس 5 — يحسم CEV-F-016 ويوثق حدود F-013) [صغيرة]
+- **109a — إصلاح F-016**: إضافة قاعدة «بيانات لا أوامر» (الصياغة
+  القياسية MICRO_WORKER_SYSTEM_PROMPT.md:22-23) لملفي `سيستم/أنت
+  محلل API Flow.md` و`سيستم/أنت فاحص بأدلة.md` (خارج goldens
+  الأدوار الستة — تعديل آمن، الاختبارات تُقارن hash حيًّا).
+- **109b — `scripts/check_injection_guard.py` (جديد)**: يفرض
+  (1) `ATTACHED_OPEN_FMT`/`INJECTION_GUARD_INSTRUCTION` معرَّفان
+  وملحقان بـ`SYSTEM_PROMPT`/`CORE_SYSTEM_PROMPT` (templates.py:60-61)،
+  (2) قاعدة «بيانات لا أوامر» في **كل** ملف دور بـmanifest (21/21)،
+  (3) أسوار `DATA ONLY` حاضرة في برومبتات الاستراتيجيات
+  (strategies.py/orchestrator.py). ملاحظة نطاق: تسييج نتائج
+  التبعيات في مسار السلاسل (F-013 models.py:307) توسيع منفصل —
+  الحارس يوثّق الحد لا يدّعي تغطيته.
+- **109c — check.sh**: قسم `== injection guard ==` (والاختبار
+  التكاملي test_prompt_fencing.py يبقى تغطية مسار server).
+- **معايير القبول**: 21/21 خضراء؛ حذف القاعدة من ملف تجريبيًا =
+  أحمر؛ check.sh ALL GREEN.
+
+
+**DAG**: 101 → 102 → 103 (كل شريحة تُقفل ببوابة مستقلة)؛ 104 مستقلة. 105–109 (حراس AIA-7) مستقلة عن 101–104؛ 109a يسبق 109b.
