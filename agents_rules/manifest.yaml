@@ -24,6 +24,19 @@
 #                                  #   بدون هذا الإعلان: ملف مفقود =
 #                                  #   خطأ صاخب (لا fallback صامت).
 #
+#   ── حقول توجيه اختيارية (ADR-007 / AIA-4 — رجعية التوافق) ──
+#   يستهلكها router كإشارات توجيه (AIA-6)؛ غيابها = محايد:
+#       when_to_use: <str>         # اختياري — متى يُختار هذا الدور
+#       when_not_to_use: <str>     # اختياري — متى لا يُختار
+#       languages: [<str>, …]      # اختياري — مثل [ar, ar-EG, en, mixed]
+#       domains: [<str>, …]        # اختياري — مثل [web, cli, data, docs,
+#                                  #   security, any]
+#       model_notes: <str>         # اختياري — ملاحظات حيادية عن النموذج
+#       depends_on: [<role_id>, …] # اختياري — تحقق مرجعي: كل معرف
+#                                  #   يجب أن يكون دورًا معرَّفًا هنا
+#       conflicts_with: [<role_id>, …] # اختياري — نفس التحقق المرجعي
+#       last_reviewed: <str>       # اختياري — تاريخ ISO لآخر مراجعة
+#
 #   Hot-reload: اللودر يعيد بناء السجل تلقائيًا عند تغيّر
 #   mtime لهذا الملف (تبديل ذرّي — تعديل مكسور أثناء التشغيل
 #   يُبقي السجل القديم ويسجّل الخطأ). ملفات الـ prompts نفسها
@@ -40,6 +53,11 @@ agents:
     description: يحلل الكود ويستخرج الرموز والعلاقات والمشاكل المحتملة.
     capabilities: [static-analysis, symbols, smells]
     tier: core
+    when_to_use: فهم بنية كود قائم أو استخراج رموزه وعلاقاته قبل تعديل أو مراجعة
+    when_not_to_use: تنفيذ تعديلات أو كتابة كود جديد
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   bug_analyzer:
     file: سيستم/أنت مراجع أخطاء.md
     stage: analyze
@@ -47,6 +65,11 @@ agents:
     description: يتتبع الأخطاء المنطقية ومصادر الأعطال.
     capabilities: [bug-hunting, root-cause]
     tier: specialist
+    when_to_use: تتبع خطأ منطقي أو عطل مُبلَّغ عنه إلى جذره
+    when_not_to_use: مراجعة عامة بلا عطل محدد أو مهام تنفيذ
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   api_analyzer:
     file: سيستم/أنت محلل API Flow.md
     stage: analyze
@@ -54,6 +77,11 @@ agents:
     description: يحلل تدفقات الـ API والعقود بين الخدمات.
     capabilities: [api-flow, contracts]
     tier: specialist
+    when_to_use: فحص تدفقات API وعقود بين خدمات أو نقاط نهاية
+    when_not_to_use: كود لا يحوي واجهات API أو تكاملات
+    languages: [ar, ar-EG, en, mixed]
+    domains: [web, data]
+    last_reviewed: "2026-08-02"
   security_analyzer:
     file: سيستم/أنت مهندس أمان.md
     stage: analyze
@@ -61,6 +89,11 @@ agents:
     description: يفحص الثغرات وأسطح الهجوم وممارسات الأمان.
     capabilities: [security, threat-modeling]
     tier: specialist
+    when_to_use: فحص دفاعي للثغرات والأسرار ومدخلات المستخدم
+    when_not_to_use: مهام لا تمس الأمان أو طلبات هجومية (خارج النطاق)
+    languages: [ar, ar-EG, en, mixed]
+    domains: [security, web, any]
+    last_reviewed: "2026-08-02"
   perf_analyzer:
     file: سيستم/أنت محلل أداء.md
     stage: analyze
@@ -68,6 +101,11 @@ agents:
     description: يرصد الاختناقات وتكاليف الزمن والذاكرة.
     capabilities: [profiling, complexity]
     tier: specialist
+    when_to_use: رصد اختناقات أداء أو تعقيد زمني/ذاكرة مشتبه به
+    when_not_to_use: مهام لا علاقة لها بالأداء أو قياسات تتطلب تشغيلًا فعليًا
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   deep_debugger:
     file: سيستم/أنت محقق أخطاء عميق.md
     stage: analyze
@@ -75,6 +113,11 @@ agents:
     description: تحقيق جنائي في الأعطال الغامضة متعددة الطبقات.
     capabilities: [forensics, tracing]
     tier: specialist
+    when_to_use: عطل غامض متعدد الطبقات فشلت المعالجة المباشرة في تفسيره
+    when_not_to_use: أخطاء بسيطة واضحة الجذر — bug_analyzer أنسب وأرخص
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   request_analyzer:
     file: سيستم/أنت محلل طلبات.md
     stage: analyze
@@ -82,6 +125,11 @@ agents:
     description: يفكك طلب المستخدم إلى متطلبات قابلة للتنفيذ.
     capabilities: [requirements, scoping]
     tier: core
+    when_to_use: تفكيك طلب مستخدم غامض أو مركّب إلى متطلبات مرقّمة
+    when_not_to_use: طلبات ذرية واضحة لا تحتاج تفكيكًا
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   quality_guard:
     file: سيستم/أنت حارس الجودة.md
     stage: analyze
@@ -89,6 +137,11 @@ agents:
     description: بوابة جودة تمنع مرور الشيفرة دون المعايير.
     capabilities: [quality-gate, standards]
     tier: core
+    when_to_use: بوابة جودة قبل اعتماد مخرجات دورة تطوير
+    when_not_to_use: التحليل الاستكشافي المبكر قبل وجود مخرج يُفحص
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
 
   # ── Planners (stage: plan) ──
   planner:
@@ -98,6 +151,11 @@ agents:
     description: يحوّل التحليل إلى خطة تعديل محددة الملفات والأسطر.
     capabilities: [planning, decomposition]
     tier: core
+    when_to_use: تحويل تحليل مكتمل إلى خطة تعديل محددة الملفات والخطوات
+    when_not_to_use: التنفيذ المباشر أو طلبات لا تحتاج خطة متعددة الخطوات
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   architect:
     file: سيستم/أنت مهندس معماري.md
     stage: plan
@@ -105,6 +163,11 @@ agents:
     description: قرارات بنيوية وتصميم واجهات بين الوحدات.
     capabilities: [architecture, interfaces]
     tier: specialist
+    when_to_use: قرار بنيوي أو تصميم واجهات بين وحدات مع موازنة بدائل
+    when_not_to_use: تعديلات موضعية لا تمس البنية
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
 
   # ── Executors (stage: execute) ──
   executor:
@@ -114,6 +177,11 @@ agents:
     description: ينفّذ خطوة واحدة ويعيد الكود بصيغة EDIT blocks.
     capabilities: [code-edit, micro-tasks]
     tier: core
+    when_to_use: تنفيذ خطوة كود واحدة محددة من خطة معتمدة
+    when_not_to_use: التخطيط أو التحليل أو المراجعة
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   backend_dev:
     file: هندسة-تطبيقات/أنت مهندس Backend.md
     stage: execute
@@ -121,6 +189,11 @@ agents:
     description: تنفيذ متخصص لمنطق الخادم وقواعد البيانات.
     capabilities: [backend, apis, db]
     tier: specialist
+    when_to_use: تنفيذ متخصص لمنطق خادم أو قواعد بيانات أو APIs
+    when_not_to_use: واجهات مستخدم أو مهام لا تمس الخادم
+    languages: [ar, ar-EG, en, mixed]
+    domains: [web, data, cli]
+    last_reviewed: "2026-08-02"
   frontend_dev:
     file: هندسة-تطبيقات/أنت مطور Frontend.md
     stage: execute
@@ -128,6 +201,11 @@ agents:
     description: تنفيذ متخصص للواجهات والتفاعل.
     capabilities: [frontend, ui]
     tier: specialist
+    when_to_use: تنفيذ متخصص لواجهات وتفاعل مستخدم
+    when_not_to_use: منطق خادم أو قواعد بيانات
+    languages: [ar, ar-EG, en, mixed]
+    domains: [web]
+    last_reviewed: "2026-08-02"
 
   # ── Reviewers (stage: review) ──
   code_reviewer:
@@ -137,6 +215,11 @@ agents:
     description: مراجعة أمنية وجودة بصيغة verdict منظمة.
     capabilities: [code-review, security-review]
     tier: core
+    when_to_use: مراجعة أمنية وجودة لكود مكتوب قبل اعتماده
+    when_not_to_use: كتابة كود جديد أو تحليل استكشافي
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any, security]
+    last_reviewed: "2026-08-02"
   quality_reviewer:
     file: سيستم/أنت محلل جودة.md
     stage: review
@@ -144,6 +227,11 @@ agents:
     description: مراجعة جودة نهائية (يشارك ملف محلل الجودة).
     capabilities: [quality-review]
     tier: core
+    when_to_use: مراجعة جودة نهائية لمخرج مكتمل
+    when_not_to_use: مراحل التحليل والتنفيذ المبكرة
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   vibe_reviewer:
     file: سيستم/أنت مراجع Vibe.md
     stage: review
@@ -151,6 +239,11 @@ agents:
     description: مراجعة اتساق الأسلوب والروح العامة للكود.
     capabilities: [style, consistency]
     tier: specialist
+    when_to_use: فحص اتساق الأسلوب مع روح الكود القائم بعد تعديل
+    when_not_to_use: مراجعة الصحة المنطقية أو الأمنية — أدوار أخرى أنسب
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   evidence_reviewer:
     file: سيستم/أنت فاحص بأدلة.md
     stage: review
@@ -158,6 +251,11 @@ agents:
     description: كل ملاحظة مراجعة يجب أن تحمل دليلًا قابلًا للتحقق.
     capabilities: [evidence, verification]
     tier: specialist
+    when_to_use: مراجعة تتطلب دليلًا قابلًا للتحقق لكل ملاحظة
+    when_not_to_use: مراجعات سريعة لا تحتمل كلفة التدليل الكامل
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   compat_reviewer:
     file: سيستم/أنت مراجع توافق.md
     stage: review
@@ -165,6 +263,11 @@ agents:
     description: يفحص كسر التوافق الخلفي وواجهات الاستهلاك.
     capabilities: [compatibility, breaking-changes]
     tier: specialist
+    when_to_use: فحص كسر التوافق الخلفي بعد تعديل واجهات أو عقود
+    when_not_to_use: كود جديد كليًا بلا مستهلكين قائمين
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
 
   # ── Meta ──
   orchestrator:
@@ -174,6 +277,11 @@ agents:
     description: ينسّق السلاسل ويوزّع الخطوات على الأدوار.
     capabilities: [orchestration]
     tier: core
+    when_to_use: تنسيق مهمة مركّبة تحتاج أكثر من دور عبر موجات
+    when_not_to_use: مهمة بسيطة يكفيها دور واحد مباشر
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   review_manager:
     file: سيستم/أنت مدير المراجعة.md
     stage: meta
@@ -181,6 +289,11 @@ agents:
     description: يدير جولات المراجعة ويجمّع الأحكام.
     capabilities: [review-management]
     tier: core
+    when_to_use: إدارة جولة مراجعة متعددة المراجعين ودمج أحكامها
+    when_not_to_use: مراجعة فردية لا تحتاج تجميعًا
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"
   team_manager:
     file: سيستم/أنت مدير فريق.md
     stage: meta
@@ -188,3 +301,8 @@ agents:
     description: قرارات تفويض وتوزيع مهام على الفريق.
     capabilities: [delegation, coordination]
     tier: core
+    when_to_use: توجيه طلب إلى الدور الأنسب أو تسلسل أدوار لمهمة مركّبة
+    when_not_to_use: التنفيذ المباشر للمهام بنفسه
+    languages: [ar, ar-EG, en, mixed]
+    domains: [any]
+    last_reviewed: "2026-08-02"

@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-02 (Session 108 تكملة — **CEV-G8.5 قيد التنفيذ**: AIA-0 ✅ + AIA-1 ✅ + AIA-2 ✅ + **AIA-3 ✅ مقفلة**: 27/27 برومبتًا ≥70 (22×100/100، `AIA_PROMPT_SCORES.md`) + شق web_system → core+overlay عبر templates.py + corpus R8 replay 12/12؛ التالي AIA-4) |
+| last-updated | 2026-08-02 (Session 108 تكملة 2 — **CEV-G8.5 قيد التنفيذ**: AIA-0..4 ✅ كلها (آخرها AIA-4: schema موسَّع ADR-007 + 21/21 دورًا مملوءًا + check.sh ALL GREEN 2211P/34S/0F)؛ التالي AIA-5) |
 | stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
 | current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1→G6 + G8 كلها 🏁 PASS** (سبعة تقارير مؤرخة في MASTER_REVIEW)؛ **G7 (الأمان/Red Team) مؤجلة DEFERRED بقرار مالك D-14** (تُستأنف بأمر لاحق — تسبق G12 وجوبًا)؛ البوابة المفتوحة: **G8.5 (AIA — حوكمة طبقة الذكاء)** |
-| current-task | **CEV-G8.5 IN-PROGRESS (AIA §4-B)**: AIA-0 ✅ + AIA-1 ✅ (226 = 29A/17R/175S/5D) + AIA-2 ✅ (تدقيق تعارض القواعد) + **AIA-3 ✅ مقفلة** (27/27 برومبتًا ≥70 — معيار AIA-C للبرومبتات مُحقَّق؛ corpus R8 قُيِّد قبل أول إعادة كتابة ثم أُعيد تقييده عمدًا مع كل دفعة — 12/12؛ شق web_system → core_system+web_overlay عبر templates.py)؛ **التالي: AIA-4 توسيع schema الـmanifest (ADR أولًا)** ثم AIA-5..7 ثم AIA-C؛ خط الأساس (حي S107): 2189P/34S/0F ALL GREEN rc=0؛ قرارات مالك معلَّقة: F-003 (الحذف **×19**) + F-010 (hh.har) + مصير كتل STALE (175) + F-014 (أدوار بلا إسناد) | 
+| current-task | **CEV-G8.5 IN-PROGRESS (AIA §4-B)**: AIA-0 ✅ + AIA-1 ✅ + AIA-2 ✅ + AIA-3 ✅ (27/27 ≥70) + **AIA-4 ✅ مقفلة** (ADR-007: ثمانية حقول توجيه اختيارية رجعية التوافق + تحقق مرجعي + definition() accessor + 21/21 دورًا مملوءًا + بوابة الإغلاق كلها خضراء: 58/58 مانيفست + mypy نظيف + check.sh ALL GREEN 2211P/34S/0F)؛ **التالي: AIA-5 بطاقات newskells ودورة الحياة (17 ملفًا)** ثم AIA-6/7 ثم AIA-C؛ قرارات مالك معلَّقة: F-003 (الحذف **×21**) + F-010 (hh.har) + مصير كتل STALE (175) + F-014 (أدوار بلا إسناد) | 
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -487,6 +487,36 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-08-02 — Session 108 (تكملة 2) — AIA-4 ✅ مقفلة: schema الـmanifest موسَّع بثمانية حقول توجيه (ADR-007) + 21/21 دورًا مملوء الحقول + check.sh ALL GREEN 2211P/34S/0F**:
+  تصفيرات بيئة #36/#37 (§3.1: استنساخ + TOKEN_SCRUB_DONE + جرد نجاة
+  — البوت التقط كل شيء في fc5b7b8/950b898؛ الإصلاح الوحيد المفقود:
+  loader.roles()→get_available_roles() بالاختبار المقاطَع)؛ `.env`
+  أُعيدت ×20/×21 (F-003 بلا قرار). **AIA-4 بترتيب المواصفة الحرفي**:
+  (1) **ADR-007 + سطر DECISION_LOG قبل أي سطر كود** — توسيع schema
+  v1 نفسه (لا version bump — إضافي بحت) بثمانية حقول اختيارية:
+  when_to_use/when_not_to_use/languages/domains/model_notes/
+  depends_on/conflicts_with/last_reviewed؛ البدائل المرفوضة مدلَّلة
+  (v2 bump / routing.yaml موازٍ / حشو description). (2) **التنفيذ
+  في chain/agent_loader.py**: VALID_AGENT_KEYS موسَّعة؛
+  AgentDefinition موسَّعة بقيم افتراضية محايدة (grep: صفر إنشاء
+  خارج اللودر)؛ _str_list موحّدة بعقد capabilities؛ **تحقق مرجعي**
+  لـdepends_on/conflicts_with بعد بناء السجل (مرجع ميت/مرجع ذاتي =
+  ManifestError مرقّم السطر)؛ accessor عام جديد definition(role)
+  (يحتاجه router في AIA-6). (3) **الاختبارات** (صنف
+  TestADR007RoutingFields — 10 اختبارات): قديم يمر بقيم محايدة /
+  جديد كامل الحقول يمر / الـmanifest الحقيقي يمر دون تعديل /
+  مفتاح مجهول يُرفض مرقّمًا / قائمة بنوع خاطئ تُرفض / scalar فارغ
+  يُرفض / مرجع ميت depends_on+conflicts_with يُرفض / مرجع ذاتي
+  يُرفض / مرجع صالح يمر. (4) **ملء تدريجي**: 21/21 دورًا مُلئت
+  حقوله (when_to_use/when_not_to_use/languages/domains/
+  last_reviewed) — depends_on/conflicts_with أُرجئت عمدًا لأدلة
+  AIA-6 (لا اختراع قيود بلا دليل) + توثيق schema الموسَّع برأس
+  manifest.yaml. **بوابة الإغلاق كلها خضراء**: test_agent_manifest
+  58/58 + mypy نظيف (دون إضعاف) + goldens/routing 79/79 +
+  **check.sh ALL GREEN rc=0: 2211P/34S/0F** (خط الأساس 2189 + 22
+  جديدة). الموقع: AIA-4 مقفلة؛ التالي **AIA-5** (بطاقات newskells
+  ودورة الحياة — 17 ملفًا). قرارات مالك معلَّقة: F-003 (×21) +
+  F-010 + STALE-175 + F-014.
 - **2026-08-02 — Session 108 (تكملة) — AIA-2 ✅ + AIA-3 ✅ مقفلتان: 27/27 برومبتًا ≥70 (22 منها = 100/100) + شق web_system إلى نواة+overlay — معيار AIA-C للبرومبتات مُحقَّق**:
   تصفيرات بيئة #28→#35 (§3.1 في كل مرة: استنساخ + TOKEN_SCRUB_DONE +
   جرد نجاة مقابل آخر commit للبوت — تذكير التدوير §3.2 قائم، اللصق

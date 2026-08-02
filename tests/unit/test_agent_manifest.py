@@ -469,7 +469,7 @@ class TestADR007RoutingFields:
     def test_real_manifest_still_valid_after_extension(self):
         """الـ manifest الحقيقي يمر عبر schema الموسَّع دون تعديل."""
         loader = AgentLoader(agents_dir=REPO_ROOT / "agents_rules")
-        assert set(LEGACY_ROLE_MAP) <= set(loader.roles())
+        assert set(LEGACY_ROLE_MAP) <= set(loader.get_available_roles())
 
     def test_unknown_key_still_rejected_with_line(self, tmp_path):
         """التوسيع لا يفتح الباب: مفتاح خارج القائمة يُرفض كالمعتاد."""
@@ -509,7 +509,7 @@ class TestADR007RoutingFields:
             "    depends_on: [ghost]\n",
             files={"f.md": "x"})
         with pytest.raises(ManifestError,
-                           match="depends_on يشير لدور غير معرَّف: 'ghost'"):
+                           match=r"depends_on يشير لدور غير معر.*'ghost'"):
             AgentLoader(agents_dir=agents)
 
     def test_dead_conflicts_with_reference_rejected(self, tmp_path):
@@ -519,7 +519,7 @@ class TestADR007RoutingFields:
             "    conflicts_with: [phantom]\n",
             files={"f.md": "x"})
         with pytest.raises(ManifestError,
-                           match="conflicts_with يشير لدور غير معرَّف: 'phantom'"):
+                           match=r"conflicts_with يشير لدور غير معر.*'phantom'"):
             AgentLoader(agents_dir=agents)
 
     def test_self_reference_rejected(self, tmp_path):
