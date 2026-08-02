@@ -810,3 +810,38 @@ UXF-01..05 · TF-01..05 + TD-01..04 — مع الأحكام الاستراتيج
 | D-2 | TF-04: tokenization كاملة لألوان v25 أم baseline مؤقت؟ | baseline مؤرَّخ الآن + مهمة tokenization P3 | TSK-605 |
 | D-3 | QF-01: نقل/حذف improvements/ (892KB) من الشجرة | نقل إلى أرشيف خارج جذر الفحص | TSK-623 |
 | D-4 | TD-03: إعادة تصويت RRR بعد M6 | إجراؤها تلقائيًا كوثيقة | TSK-622 |
+
+## CEV-G1 — تقرير بوابة البنية 🏁 PASS (2026-08-02 — S106د؛ برنامج CEV/D-12، دفعة D-13)
+
+> أول بوابة CEV. المنهج: أدلة `file:line @ commit` حصرًا؛ الاكتشافات
+> التفصيلية في NEW_FINDINGS §CEV-F-001..006؛ الحالة في PROGRESS.md.
+
+**1. سلامة سلسلة الأدوات (كانت حمراء — أُصلحت):**
+- الجذر الحقيقي لانكسار البوابة = كود مالك وارد خارج الحوكمة
+  (c9ab00c: مزودات you_com/perplexity/blackbox — 9 أخطاء
+  module_from_spec على `ModuleSpec|None`)؛ فرضية «انجراف إصدار mypy»
+  **فُنِّدت تجريبيًا** (mypy 1.10.0 = نفس الأخطاء) — CEV-F-001.
+- المعالجة (BATCH-CEV-G1، قرار D-13): سقف `mypy>=1.10,<2` + stubs +
+  CI من requirements-dev (TSK-CEV-101)؛ استثناء موسَّع بسابقة ADR-004
+  (TSK-CEV-102) — **قابل للرفع** يوم يُصلح المالك النمط.
+**2. dead code:** إزالة الميت المؤكد (TSK-CEV-103): executor.py ×5
+استيرادات، server.py ×2، delegate.py معامل ميت — بعد فرز vulture يدوي
+شامل (إيجابية كاذبة مستبعدة: BudgetSnapshot تحت TYPE_CHECKING).
+**3. دورات الاستيراد:** صفر (حارس NF-24 AST-based أخضر).
+**4. تضخم الملفات:** app.js=712<800 (FI-07 صامد بحارس test_app_split)؛
+أكبر وحدات النطاق: server.py 2357 (منها +92 وارد مالك 8dd9e8a —
+تدقيقه محال G6/G8)، agent_tools 897، bridge 789 — كلها دون عتبة
+انفجار، ولا melting-pot جديد.
+**5. التكرار:** مسح AST ×58 تصادم اسم عبر الملفات — الغالب تعددية
+أشكال مشروعة (واجهة backends/backends_redis/events؛ نمط register
+للـ blueprints؛ to_dict على dataclasses). المؤكد: `_search_service`
+ازدواج **مقصود موثَّق** (TSK-501/NF-20/NF-21 — كلاهما يفوّض
+`shared_search`)؛ `_now_iso` سطران ×3 ملفات (تافه — لا يبرر اقترانًا
+جديدًا بين طبقات context/sessions؛ يُلمّ إن فُتح ملف utils يومًا).
+**6. فصل الاهتمامات:** server.py يحوي 3 routes فقط (`/`,
+`/api/models`, `/api/switch-model`) — بقية الـ REST في routes/ (7
+blueprints، ADR-003)؛ WS في core/ws_router؛ dispatch في
+core/chat_dispatch — القرار القائم «مقبول موثَّق» يصمد.
+**الحكم: G1 PASS** — بوابة الإقفال: **check.sh ALL GREEN RC=0 —
+2189P/34S/0F** (مؤكدة ×2 بيئتين؛ flaky بيئي موثَّق CEV-F-006).
+**التالي: G2.**
