@@ -9,12 +9,21 @@ import pathlib
 
 _PROMPTS_DIR = pathlib.Path(__file__).resolve().parent
 
-# ── تحميل System Prompt ──
-def _load_system_prompt() -> str:
-    path = _PROMPTS_DIR / "web_system.md"
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    return "أنت مطور ويب خبير."
+# ── تحميل System Prompt (AIA-3 / G8.5: نواة عامة + overlay ويب) ──
+# كان web_system.md ملفًا واحدًا يفتتح بـ"أنت مطور ويب خبير" — شُقّ إلى:
+#   core_system.md  → نواة عامة محايدة (هوية editor_v4 + قواعد + صيغ FILE/CMD/EDIT + أدوات)
+#   web_overlay.md  → طبقة تخصص الويب تُركَّب فقط عند سياق ويب
+# التركيب يمر هنا عبر templates.py — لا ملف تجميع جديد.
+
+def _load_system_prompt(web: bool = True) -> str:
+    core_path = _PROMPTS_DIR / "core_system.md"
+    core = (core_path.read_text(encoding="utf-8").strip()
+            if core_path.exists() else "أنت مهندس برمجيات خبير داخل editor_v4.")
+    if web:
+        overlay_path = _PROMPTS_DIR / "web_overlay.md"
+        if overlay_path.exists():
+            core += "\n\n" + overlay_path.read_text(encoding="utf-8").strip()
+    return core
 
 
 # ── TSK-404 (NF-18): تسييج المحتوى المحقون ──
@@ -48,7 +57,8 @@ def fence_attached(source: str, text: str) -> str:
             + "\n" + body + "\n" + ATTACHED_CLOSE)
 
 
-SYSTEM_PROMPT = _load_system_prompt() + "\n\n" + INJECTION_GUARD_INSTRUCTION
+SYSTEM_PROMPT = _load_system_prompt(web=True) + "\n\n" + INJECTION_GUARD_INSTRUCTION
+CORE_SYSTEM_PROMPT = _load_system_prompt(web=False) + "\n\n" + INJECTION_GUARD_INSTRUCTION
 
 
 # ════════════════════════════════════════════════════

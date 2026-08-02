@@ -67,8 +67,17 @@ for rid, spec in m['agents'].items():
     total = sum(s.values())
     rows.append((total, spec['file'], s, legacy, lines))
 
-# base prompts + web_system
-for extra in list(pathlib.Path('chain/prompts').glob('*.md')) + [pathlib.Path('prompts/web_system.md')]:
+# base prompts + system prompt (AIA-3: web_system.md شُقّ إلى نواة + overlay
+# يُركّبان عبر templates.py — نقيس المركّب النهائي كما يصل للموديل فعليًا)
+import sys
+sys.path.insert(0, '.')
+from prompts.templates import _load_system_prompt  # noqa: E402
+_composed = pathlib.Path('prompts/core_system.md')  # للعرض فقط
+_composed_txt = _load_system_prompt(web=True)
+s, legacy, lines = score(_composed, _composed_txt)
+rows.append((sum(s.values()), 'prompts/core_system.md + web_overlay.md (مركّب)', s, legacy, lines))
+
+for extra in list(pathlib.Path('chain/prompts').glob('*.md')):
     txt = extra.read_text(encoding='utf-8')
     s, legacy, lines = score(extra, txt)
     rows.append((sum(s.values()), str(extra), s, legacy, lines))

@@ -380,8 +380,9 @@ npm install express
 │   └── session_manager.py           # إدارة الجلسات
 │
 ├── 📝  prompts/                     # قوالب البرومبتات
-│   ├── web_system.md                # System Prompt
-│   └── templates.py                 # قوالب Plan/Build/Edit/Chat
+│   ├── core_system.md               # System Prompt — نواة عامة
+│   ├── web_overlay.md               # طبقة تخصص الويب (تُركَّب فوق النواة)
+│   └── templates.py                 # قوالب Plan/Build/Edit/Chat + التركيب
 │
 ├── 🔗  chain/                       # نظام السلاسل الذكية
 │   ├── models.py                    # ChainStep, ChainRun, Budget, Cancel
