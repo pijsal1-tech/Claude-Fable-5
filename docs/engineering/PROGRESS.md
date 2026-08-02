@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-02 (Session 106د — **D-13 ⇒ BATCH-CEV-G1 مُقفلة 🏁 3/3**: سقف mypy+stubs (101) + فك حاصر CEV-F-002 بتوسيع الاستثناء (102) + إزالة الميت F-005 (103) — **check.sh ALL GREEN RC=0 — 2189P/34S/0F** لأول مرة في CEV) |
+| last-updated | 2026-08-02 (Session 106و — **CEV-G3 🏁 PASS**: تمشية مستخدم أول مرة 17/17 خطوة خضراء على خادم حي (Trust fail-closed + عزل لكل مشروع، WS pong ctx:true، طزاجة البحث write-through، desktop.py headless OK)؛ تقرير مؤرخ في MASTER_REVIEW؛ حادثة متكررة: البوت حذف `.env` fixture ثانيةً @ 37a371f — F-003 تحديث تكرار + خيارا مالك أ/ب) |
 | stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
-| current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) بالترتيب — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1 🏁 + G2 🏁 PASS** (تقريران مؤرخان في MASTER_REVIEW)؛ البوابة المفتوحة: **G3 (تجربة الاستخدام)** |
-| current-task | CEV-G3 OPEN (تجربة الاستخدام): تمشية مستخدم أول مرة — فتح مجلد+Trust، فتح/حفظ ملف، Ctrl+K، لوحة الأوامر، دردشة/خطة/موافقات، الجلسات، الذاكرة، desktop.py؛ خط الأساس: **2189P/34S/0F ALL GREEN**؛ معلَّق خارجي (غير حاجز): OWNER_CHECKLIST (727) + رفع استثناء providers |
+| current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) بالترتيب — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1 🏁 + G2 🏁 + G3 🏁 PASS** (ثلاثة تقارير مؤرخة في MASTER_REVIEW)؛ البوابة المفتوحة: **G4 (البصريات)** |
+| current-task | CEV-G4 OPEN (البصريات): padding/margins/ألوان/radius/ظلال/hover/transitions عبر style.css والثيمات الأربعة (105 توكن) — التعريف الكامل: CEV_PROGRAM_PROMPT.md:115؛ خط الأساس: **2189P/34S/0F ALL GREEN**؛ قرار مالك معلَّق: F-003 نمط حذف البوت لـ `.env` (خيار أ: استثناء المسار من البوت / خيار ب: تفويض إعادة تسمية fixture)؛ معلَّق خارجي (غير حاجز): OWNER_CHECKLIST (727) + رفع استثناء providers |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
