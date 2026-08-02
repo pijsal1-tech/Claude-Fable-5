@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-02 (Session 106و — **CEV-G3 🏁 PASS**: تمشية مستخدم أول مرة 17/17 خطوة خضراء على خادم حي (Trust fail-closed + عزل لكل مشروع، WS pong ctx:true، طزاجة البحث write-through، desktop.py headless OK)؛ تقرير مؤرخ في MASTER_REVIEW؛ حادثة متكررة: البوت حذف `.env` fixture ثانيةً @ 37a371f — F-003 تحديث تكرار + خيارا مالك أ/ب) |
+| last-updated | 2026-08-02 (Session 106ز — **CEV-G4 🏁 PASS (البصريات)**: عقد الألوان T-060 سليم 100% (صفر خام خارج themes، بوابة CI، 28/28 حارس WCAG/تكافؤ)، أيقونات توكنية بالكامل؛ انحرافات radius/مدد اتساقية ⇒ CEV-F-008 (C3، TSK اختياري)؛ تقرير مؤرخ في MASTER_REVIEW) |
 | stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
-| current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) بالترتيب — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1 🏁 + G2 🏁 + G3 🏁 PASS** (ثلاثة تقارير مؤرخة في MASTER_REVIEW)؛ البوابة المفتوحة: **G4 (البصريات)** |
-| current-task | CEV-G4 OPEN (البصريات): padding/margins/ألوان/radius/ظلال/hover/transitions عبر style.css والثيمات الأربعة (105 توكن) — التعريف الكامل: CEV_PROGRAM_PROMPT.md:115؛ خط الأساس: **2189P/34S/0F ALL GREEN**؛ قرار مالك معلَّق: F-003 نمط حذف البوت لـ `.env` (خيار أ: استثناء المسار من البوت / خيار ب: تفويض إعادة تسمية fixture)؛ معلَّق خارجي (غير حاجز): OWNER_CHECKLIST (727) + رفع استثناء providers |
+| current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) بالترتيب — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1 🏁 + G2 🏁 + G3 🏁 + G4 🏁 PASS** (أربعة تقارير مؤرخة في MASTER_REVIEW)؛ البوابة المفتوحة: **G5 (الأداء)** |
+| current-task | CEV-G5 OPEN (الأداء): إقلاع، ذاكرة، DOM (نافذة TSK-724 تحت حمل 1000+ رسالة)، بث 100KB بلا تجمد، بحث 5k ملف <1s (QA-T13)، ProjectIndex persistence — **أرقام قبل/بعد إلزامية** (CEV_PROGRAM_PROMPT.md:117-119)؛ خط الأساس: **2189P/34S/0F ALL GREEN**؛ قرار مالك معلَّق: F-003 (خيار أ/ب)؛ معلَّق خارجي: OWNER_CHECKLIST (727) + رفع استثناء providers |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -486,6 +486,41 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-08-02 — Session 106ز — بوابة CEV G4 🏁 PASS (البصريات) — G5 (الأداء) مفتوحة**:
+  تصفير بيئة #18 (§3.1: استنساخ + TOKEN_SCRUB_DONE)؛ البوت التقط
+  عمل S106و @ 2e1d273 (تقرير G3 + تحديث F-003 + ترويسة)؛ `.env`
+  fixture أُعيدت استعادته (×4) والحارس يمر. **تنفيذ G4** (مسح ثابت
+  كمّي 4557 سطر CSS + حراس + تحميل حي): عقد الألوان T-060/R-905
+  **مثالي** — صفر خام خارج themes (بوابة check.sh:106-118)، ظلال
+  color-mix توكنية، 28/28 حارس تكافؤ/WCAG يمر؛ أيقونات R-903 توكنية
+  بالكامل (file_icons.js colorToken + sprite)؛ radius: 19 إعلانًا
+  خام يكرر --radius/--radius-lg حرفيًا + 9×0.15s مدة بلا توكن ⇒
+  **CEV-F-008 (C3)** مع TSK اختياري (استبدال + --transition-fast)؛
+  ثانويات C4 (bold×2، أحجام 11.5/12.5px، !important قلب ×36)؛ تحميل
+  حي: كل CSS 200 + صفر أخطاء JS (404 الوحيد = favicon F-007) ⇒
+  **تقرير CEV-G4 PASS مؤرخ في MASTER_REVIEW**. **الموقع: G5 (الأداء
+  — أرقام قبل/بعد إلزامية) مفتوحة؛ خط الأساس 2189P/34S/0F بلا
+  تغيير كود.**
+- **2026-08-02 — Session 106و — بوابة CEV G3 🏁 PASS (تجربة الاستخدام) — G4 (البصريات) مفتوحة**:
+  استئناف عبر تصفيرات بيئة (#16/#17/#18؛ §3.1: TOKEN_SCRUB_DONE في
+  كلٍّ منها). **حادثة متكررة**: Auto-Uploader حذف
+  `tests/fixtures/sample_project/.env` مرة **ثانية** @ 37a371f (بعد
+  استعادة S106ب) — أُعيدت الاستعادة من a9f52b5 (×4 إجمالًا) والاختبار
+  الحارس `test_sample_project_fixture_isolated` يمر؛ ⇒ **تحديث تكرار
+  CEV-F-003** في NEW_FINDINGS مع خياري مالك (أ: استثناء
+  `tests/fixtures/` من تنظيف البوت — خارج المستودع؛ ب: تفويض إعادة
+  تسمية الـfixture إلى `env.fixture` + تحديث المستهلكين — TSK صغير
+  يقفل الثغرة نهائيًا). **قرار مالك مطلوب — التكرار سيستمر بدونه.**
+  **إقفال G3**: تمشية مستخدم أول مرة على خادم حي (127.0.0.1:5000)
+  — **17/17 خطوة خضراء**: Trust fail-closed (تشغيل قبل الثقة يُرفض
+  «رفض المستخدم»)، عزل الثقة لكل مشروع (decided_at/decided_by)،
+  فتح/حفظ ملف، Ctrl+K، لوحة الأوامر، دردشة/خطة/موافقات، الجلسات،
+  الذاكرة، WS pong ctx:true، طزاجة البحث write-through، desktop.py
+  استيراد headless سليم، صفر احتكاك ⇒ **تقرير CEV-G3 PASS مؤرخ في
+  MASTER_REVIEW** (التقطه البوت @ 2e1d273 مع تحديث F-003 وترويسة
+  PROGRESS). **الموقع: G4 (البصريات —
+  padding/margins/ألوان/radius/ظلال/hover/transitions) مفتوحة؛ خط
+  الأساس 2189P/34S/0F ALL GREEN بلا تغيير كود منذ BATCH-CEV-G1.**
 - **2026-08-02 — Session 106هـ — بوابتا CEV G1 🏁 وG2 🏁 PASS — تقريران مؤرخان في MASTER_REVIEW**:
   استئناف عبر تصفيرَي بيئة (#14/#15؛ §3.1 ×2: TOKEN_SCRUB_DONE؛ عمل
   106د كله مؤكد على origin @ 3618920/5e168a2). **إقفال G1** بعد
