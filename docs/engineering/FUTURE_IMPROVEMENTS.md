@@ -156,6 +156,45 @@ that layer, and none may be reinterpreted to do so.
   test asserting the criteria text survives prompt edits.
 - **Prerequisite**: owner promotion REFERENCE→ACTIVE (V3: owner-exclusive).
 
+## Competitive gaps (CEV-G10 verdicts — owner decision required)
+
+### FI-15 — Background delegated task (governed) [MID]
+- **Source**: CEV-G10 CP-11 — VS Code v1.110 background agents
+  (code.visualstudio.com/updates/v1_110 + docs/agents/agent-types/copilot-cli);
+  our only delegate path (`chain/delegate.py` DelegateBridge) runs
+  synchronously with the session — no hand-off-and-track.
+- **Benefit**: user hands a self-contained task to the delegate runner and
+  keeps working; a status indicator tracks the background run; the task
+  always terminates at the existing land gate (review + explicit approval).
+  Matches Pillar 3 (governed autonomy) and the CP-8/UXF-05 narrative
+  direction without any cloud pivot.
+- **Cost**: medium — background execution wrapper around DelegateBridge +
+  WS status events + reconnect-safe state + UI indicator; hard invariant:
+  every write stays behind ApprovalGate (a background path that writes
+  without the gate = YOLO mode, rejected by Non-Goal §15.1). Deterministic
+  tests (P-11: no real model).
+- **Prerequisite**: FI-13 (queues) decided first — background without
+  sequencing discipline reintroduces the pile-up-diffs risk
+  (multi-task-queues.md:9–25); owner decision (CEV-G10: execution is the
+  owner's call, not the agent's).
+
+### FI-16 — Evidence-driven debugging loop for deep_debugger [SHORT]
+- **Source**: CEV-G10 CP-16 — JetBrains Junie debugs with a real debugger
+  (blog.jetbrains.com/junie/2026/06); our `deep_debugger` role
+  (`agents_rules/manifest.yaml:109`, invoked at `chain/strategies.py:343`)
+  reasons statically over source only.
+- **Benefit**: the role's prompt instructs it to *gather runtime evidence*
+  through the existing governed tools (run a targeted failing test, add
+  temporary trace output, read actual error output) before concluding —
+  glass-box diagnosis (Pillar 2) instead of dry inference. No new
+  capability surface: run_command/read_file already exist under the SAFE
+  set + ApprovalGate.
+- **Cost**: low — prompt upgrade for one role + golden snapshot update
+  (conscious baseline change per AIA-7 guard 4) + one corpus case; full
+  DAP/debugger integration explicitly rejected (CEV-G10 §G10.4 — weight
+  disproportionate to a lightweight editor).
+- **Prerequisite**: none technical; owner decision (CEV-G10).
+
 ---
 
 ## Definition of Done (P7)
@@ -165,6 +204,7 @@ that layer, and none may be reinterpreted to do so.
 - [x] Maintainability covered (FI-06, FI-07, FI-08 — from NF-14/NF-23/NF-24)
 - [x] DX/Frontend covered (FI-09, FI-10 — from NF-10 + renderMarkdown finding)
 - [x] Documentation covered (FI-11, FI-12)
+- [x] Delegation covered (FI-13, FI-14 — from AIA-5) · Competitive covered (FI-15, FI-16 — from CEV-G10)
 - [x] Every item has benefit / cost / prerequisite + horizon tag
 - [x] Provider abstraction explicitly excluded per SECTION 0.8
 - [x] No status fields here — status lives only in PROGRESS.md

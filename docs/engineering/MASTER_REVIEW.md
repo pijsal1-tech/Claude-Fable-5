@@ -1212,3 +1212,77 @@ C3 بلا أثر سلوكي.
   بالقياس ومقيَّدة قبل هذه البوابة.
 
 **الحكم: G9 PASS. التالي بالترتيب المعدل (D-14): G10 (المنافسون).**
+
+## CEV-G10 — تقرير بوابة المنافسين 🏁 PASS
+(2026-08-02 — S108 تكملة 8؛ CEV/D-12؛ المواصفة: cont22.md:134–137)
+
+**المطلوب نصًا**: «جدول مقارنة بالدليل (Cursor/VSCode/Windsurf/Zed/JetBrains):
+الميزة | عندنا؟ | تستحق ضمن رؤية المنتج؟ — المستحق يتحول بند FI بكلفة/عائد في
+FUTURE_IMPROVEMENTS (قرار التنفيذ للمالك — ليس لك)، وغير المستحق يُوثَّق لماذا.»
+
+### G10.0 — منهجية: بناء على المقارنة السابقة لا تكرارها
+
+توجد مقارنة تنافسية سابقة بمصادر رسمية داخل هذا الملف نفسه:
+- **R0.2** (فُحصت 2026-07-28): جدول CP-1..CP-9 يغطي **Cursor** (CP-1/2/3)،
+  **Claude Code** (CP-4/5/6)، **Zed** (CP-7)، **GitHub Copilot** (CP-8)،
+  **Windsurf Cascade** (CP-9) — بمصادر رسمية مذكورة في كل صف.
+- **R9.1**: استهلاك الأحكام التسعة مقابل الواقع الكودي المؤكد — 4 مُغلقة
+  (CP-2/3/7/9)، 2 ADOPT (CP-1 خطة-كـartifact ⇒ UXF-01، CP-8 سرد الجلسة ⇒
+  UXF-05)، CP-4 ADOPT-CANDIDATE ليست P0/P1، CP-6 محسومة بإصلاح RP-01
+  (أُغلق لاحقًا TSK-601 ✅ — PROGRESS:220)، CP-5 ⇒ UXF-04.
+
+هذه الأحكام **تبقى سارية ولا يُعاد فتحها هنا** — أُعيد التحقق أن الواقع لم
+ينقلب (RP-01 مُصلَح؛ بطاقة الخطة لا تزال قراءة-فقط `static/app.js:3099–3128`؛
+لا Permissions UI بعد). فجوتا المواصفة الوحيدتان مقابل R0.2 هما
+**VS Code** و**JetBrains** — وهما موضوع الأدلة الجديدة أدناه (فُحصت
+2026-08-02، مصادر رسمية فقط).
+
+### G10.1 — أدلة جديدة: VS Code (GitHub Copilot agent mode)
+
+| # | الميزة (المصدر الرسمي) | عندنا؟ (مرساة كودية) | تستحق ضمن رؤية المنتج؟ | الحكم |
+|---|---|---|---|---|
+| CP-10 | **Agent mode / أوضاع منفصلة** (chat / edit / agent) — code.visualstudio.com/docs/agents/overview + blogs/2025/02/24 | ✅ **نعم** — فصل أوضاع chat/agent/chain في `core/chat_dispatch.py:496,609` (chat = صفر actions؛ agent = حلقة governed؛ chain = أدوار متسلسلة)؛ الافتراضي chat (`server.py:1415`, `static/app.js:12`) | — | **ALREADY-HAVE** — لا فجوة |
+| CP-11 | **Background agents** — تسليم مهمة لوكيل يعمل بالخلفية (Copilot CLI) مع تتبعها من المحرر — code.visualstudio.com/updates/v1_110 (v1.110، فبراير 2026) + docs/agents/agent-types/copilot-cli | ⚠️ **جزئي** — مسار delegate الوحيد (`chain/delegate.py`، DelegateBridge) يشغّل runner بسياق مستقل مع بوابة land، لكنه متزامن مع الجلسة: لا تشغيل بالخلفية مع متابعة، ولا طوابير (غياب queue مقيس — FI-13) | **جزئيًا** — التشغيل الخلفي المتتبَّع يوافق Pillar 3 (governed autonomy) **بشرط** بقاء كل كتابة خلف ApprovalGate؛ أي «خلفية بلا بوابة» = YOLO mode مرفوض (Non-Goal §15.1) | **ADOPT-CANDIDATE مشروط** → **FI-15** (كلفة/عائد أدناه؛ قرار التنفيذ للمالك) |
+| CP-12 | **Agent Sessions view** — لوحة واحدة تجمع كل جلسات الوكلاء (محلي/خلفي/سحابي) — blogs/2026/02/05/multi-agent-development + docs/agents/agents-window | ❌ **لا** — عندنا RunHistory (قائمة rollback لكل run، `static/app.js:3391–3420`) لا لوحة جلسات؛ لكن عندنا **جلسة واحدة نشطة** أصلًا (SessionContext لكل WS) فلا معنى للوحة multi-session قبل وجود multi-session | **لا حاليًا** — لوحة جلسات متعددة تفترض بنية multi-agent متوازية لا نملكها ولا تطلبها الرؤية (R0.1: العمق في الثقة لا في التوازي)؛ إن قُبل FI-15 مستقبلًا فمؤشر «مهمة خلفية جارية» يُضمَّن فيه — لا لوحة مستقلة | **REJECT الآن، يُعاد التقييم فقط بعد FI-15** |
+| CP-13 | **Third-party agents** (Claude Agent / Codex داخل VS Code) — docs/agents/agent-types/third-party-agents | ❌ **لا** — مزودونا عبر config (`chain/planner`, providers stubs) لا وكلاء خارجيون مستضافون | انظر CP-15 (نفس السؤال من جهة المعيار ACP) | يُحسم مع CP-15 أدناه |
+
+### G10.2 — أدلة جديدة: JetBrains (Junie + ACP)
+
+| # | الميزة (المصدر الرسمي) | عندنا؟ (مرساة كودية) | تستحق ضمن رؤية المنتج؟ | الحكم |
+|---|---|---|---|---|
+| CP-14 | **Junie plans-before-codes** — الوكيل يعرض خطة قبل التنفيذ + وضعا code/ask — jetbrains.com/junie/ + blog.jetbrains.com/junie/2026/06 (خروج من beta) + help/ai-assistant/junie-agent.html | ✅ **نعم آليًا / ⚠️ جزئي إظهارًا** — planner (heuristic/llm/hybrid، `server.py:2148–2158`) + بث إطار `plan` + بطاقة `showPlanCard`؛ الفجوة الوحيدة = التفاعلية (قراءة-فقط) وهي **مقيَّدة سلفًا UXF-01/حكم CP-1 ADOPT** | نعم — لكنها ليست فجوة جديدة | **مُستهلَك سلفًا في CP-1** — تأكيد خارجي ثانٍ (بعد Cursor) أن plan-first هو المعيار؛ لا بند جديد |
+| CP-15 | **ACP (Agent Client Protocol)** — معيار مفتوح لتوصيل أي وكيل بأي محرر (Claude/Codex/Gemini داخل IDEs JetBrains) + سجل وكلاء — jetbrains.com/acp/ + help/ai-assistant/acp.html + blog.jetbrains.com/ai/2026/01/acp-agent-registry | ❌ **لا** — لا خادم ولا عميل ACP في الشجرة (لا ذكر للبروتوكول خارج هذا التقرير) | **اتجاهيًا نعم، تنفيذيًا ليس الآن** — يلامس رهان source-sovereign (R0.1 بند 4: تفعيل مزودي API-key) لكن من **طبقة providers المستثناة نصًا** (FUTURE_IMPROVEMENTS §Scope exclusion / SECTION 0.8)؛ كما أن وكيلًا خارجيًا يدخل عبر ACP يتجاوز أسطولنا governed (manifest allowlist + حراس AIA-7) ما لم يُغلَّف خلف ApprovalGate نفسها — كلفة تغليف عالية بلا طلب مستخدم | **REJECT ضمن النطاق الحالي** (يُغطي CP-13 أيضًا) — يُوثَّق كرهان مراقبة: إن أصبح ACP معيار الصناعة الفعلي (كما LSP) يرفعه المالك كقرار نطاق جديد يعدّل SECTION 0.8 — ليس بند FI لأن FI لا يجوز أن يمس الطبقة المستثناة |
+| CP-16 | **Junie debugs with real debugger** — الوكيل يشغّل مصححًا حقيقيًا (breakpoints/تفتيش) أثناء حل المشكلة — blog.jetbrains.com/junie/2026/06 | ❌ **لا** — عندنا دور `deep_debugger` (prompt-role، `agents_rules/manifest.yaml:109` يُستدعى في `chain/strategies.py:343`) يحلّل استدلاليًا؛ لا تكامل debugger فعلي (صفر ذكر لـ debugpy/pdb تشغيليًا) | **جزئيًا** — «تشخيص بأدلة تشغيل حقيقية» يوافق glass-box (Pillar 2) وأداتا run_command/read_file تسمحان اليوم بإدراج prints وتشغيل اختبار مستهدف داخل الحوكمة؛ أما تكامل debugger تفاعلي كامل فوزنه الهندسي (بروتوكول DAP + UI جلسة تصحيح) لا يتناسب مع محرر خفيف segment-نا | **ADOPT الجزء الخفيف فقط** → **FI-16** (تحسين دور deep_debugger بحلقة أدلة تشغيلية governed؛ كلفة/عائد أدناه)؛ تكامل DAP الكامل **REJECT** موثَّق |
+| CP-17 | **Junie PR review بسياق مشروع** — مراجعة PR داخل IDE — blog.jetbrains.com/junie/2026/06 | ⚠️ **مكافئ محلي** — بوابة delegate review (`chain/prompts/delegate_review.md` + FI-14 المقترَح لحراسة العبث بالاختبارات) تراجع diffs المهام المفوَّضة بسياق المشروع قبل land | **لا كميزة PR** — تدفق PR/remote هو cloud-pivot صريح (Non-Goal §15.2)؛ جوهر القيمة (مراجعة تغييرات بسياق قبل القبول) عندنا أصلًا في مسار delegate | **REJECT الشكل / ALREADY-HAVE الجوهر** — لا بند |
+
+### G10.3 — المستحق ⇒ بنود FI (قرار التنفيذ للمالك — ليس لي)
+
+أُضيف بندان إلى FUTURE_IMPROVEMENTS.md بكلفة/عائد (نصهما الكامل هناك):
+- **FI-15 — Background delegated task (governed) [MID]**: من CP-11؛ يبني فوق
+  DelegateBridge وFI-13 (طوابير)؛ الشرط الصلب: كل كتابة تبقى خلف ApprovalGate
+  (لا YOLO — Non-Goal §15.1) والمهمة الخلفية تُنهي دائمًا عند بوابة land.
+- **FI-16 — Evidence-driven debugging loop for deep_debugger [SHORT]**: من
+  CP-16؛ ترقية prompt الدور ليطلب تشغيل اختبار مستهدف/إدراج تتبّع عبر
+  الأدوات القائمة (SAFE set) بدل الاستدلال الجاف — بلا تكامل DAP.
+
+### G10.4 — غير المستحق ⇒ لماذا (توثيق ملزم بالمواصفة)
+
+| البند | لماذا لا يستحق |
+|---|---|
+| CP-12 لوحة جلسات متعددة | تفترض multi-session لا نملكه؛ الرؤية (R0.1) تستثمر في عمق الثقة لجلسة واحدة لا في توازي الجلسات؛ يُعاد التقييم فقط إن قُبل FI-15 |
+| CP-13/CP-15 وكلاء خارجيون/ACP | يمس طبقة providers المستثناة نصًا (SECTION 0.8) ويكسر governed-fleet (manifest allowlist + حراس AIA-7) ما لم يُغلَّف بكلفة عالية؛ رهان مراقبة بقرار مالك يعدّل النطاق — ليس FI |
+| CP-16 تكامل DAP كامل | وزن هندسي (بروتوكول + UI تصحيح) خارج تناسب محرر خفيف؛ الجزء القيّم (أدلة تشغيلية) يُلتقط بـ FI-16 الخفيف |
+| CP-17 تدفق PR | cloud-pivot صريح (Non-Goal §15.2)؛ الجوهر (مراجعة بسياق قبل قبول) موجود في بوابة delegate review |
+
+### G10.5 — الحكم
+
+- المواصفة استُوفيت حرفيًا: جدول بالدليل يغطي **المنصات الخمس** —
+  Cursor/Windsurf/Zed (+Claude Code/Copilot) عبر R0.2/R9.1 المستهلَكة
+  بالإحالة، وVS Code وJetBrains بأدلة رسمية جديدة (8 صفوف CP-10..17).
+- المستحق تحوّل بنود FI بكلفة/عائد (FI-15/FI-16 — **قرار التنفيذ للمالك**)،
+  وغير المستحق موثَّق لماذا (G10.4).
+- خلاصة R0.2 تصمد بعد توسيع العينة: **لا حاجة لأي انعطاف معماري** — كل
+  الجدير امتدادات (Extend) لآليات قائمة، والمرفوض يرفضه مبدأ معلن
+  (Non-Goals / SECTION 0.8) لا ذوق.
+
+**الحكم: G10 PASS. التالي بالترتيب المعدل (D-14): G11 (الدين التقني).**
