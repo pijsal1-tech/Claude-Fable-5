@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-02 (Session 106ز — **CEV-G4 🏁 PASS (البصريات)**: عقد الألوان T-060 سليم 100% (صفر خام خارج themes، بوابة CI، 28/28 حارس WCAG/تكافؤ)، أيقونات توكنية بالكامل؛ انحرافات radius/مدد اتساقية ⇒ CEV-F-008 (C3، TSK اختياري)؛ تقرير مؤرخ في MASTER_REVIEW) |
+| last-updated | 2026-08-02 (Session 106ح — **CEV-G5 🏁 PASS (الأداء)**: أرقام موحدة @ 0e959cd — إقلاع 635ms، RSS 52.4→52.7MiB بعد 200 طلب (لا تسريب)، بحث 5k = 156/129ms (سقف 1000)، windowing 0.036ms/نداء يصيّر 18/5000، snapshot 164→125ms rebuilds 1→0؛ 71/71 حارس؛ + تدوير §6.4 دفعة ثالثة S102–S103 → ARCHIVE_2، السجل 280/400) |
 | stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
-| current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) بالترتيب — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1 🏁 + G2 🏁 + G3 🏁 + G4 🏁 PASS** (أربعة تقارير مؤرخة في MASTER_REVIEW)؛ البوابة المفتوحة: **G5 (الأداء)** |
-| current-task | CEV-G5 OPEN (الأداء): إقلاع، ذاكرة، DOM (نافذة TSK-724 تحت حمل 1000+ رسالة)، بث 100KB بلا تجمد، بحث 5k ملف <1s (QA-T13)، ProjectIndex persistence — **أرقام قبل/بعد إلزامية** (CEV_PROGRAM_PROMPT.md:117-119)؛ خط الأساس: **2189P/34S/0F ALL GREEN**؛ قرار مالك معلَّق: F-003 (خيار أ/ب)؛ معلَّق خارجي: OWNER_CHECKLIST (727) + رفع استثناء providers |
+| current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) بالترتيب — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1 🏁 + G2 🏁 + G3 🏁 + G4 🏁 + G5 🏁 PASS** (خمسة تقارير مؤرخة في MASTER_REVIEW)؛ البوابة المفتوحة: **G6 (الخلفية)** |
+| current-task | CEV-G6 OPEN (الخلفية): blueprints السبعة + server.py + worker seam — validation، معالجة أخطاء، تزامن (invariants سجل التنفيذ)، أقفال، ذرّية الكتابة (نمط NF-19)، السطح المجمد لا يتوسع إلا موثقًا (CEV_PROGRAM_PROMPT.md:120-122)؛ خط الأساس: **2189P/34S/0F ALL GREEN**؛ قرار مالك معلَّق: F-003 (خيار أ/ب)؛ معلَّق خارجي: OWNER_CHECKLIST (727) + رفع استثناء providers |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -486,6 +486,23 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-08-02 — Session 106ح — بوابة CEV G5 🏁 PASS (الأداء) — G6 (الخلفية) مفتوحة + تدوير §6.4 (دفعة 3)**:
+  تصفيرا بيئة #19/#20 (§3.1 ×2: TOKEN_SCRUB_DONE؛ البوت التقط عمل
+  S106ز @ 0e959cd — تقرير G4 + F-008 كاملان على origin)؛ `.env`
+  fixture أُعيد (×5/×6) والحارس يمر. **تدوير §6.4 دفعة ثالثة**:
+  مدخلات S102–S103 المؤرخة (107 أسطر) → PROGRESS_ARCHIVE_2 —
+  السجل 280/400. **تنفيذ G5 بأرقام موحدة في بيئة واحدة @ 0e959cd**:
+  استيراد بارد 357ms؛ إقلاع→200 = 635ms؛ RSS خامل 52.4MiB → بعد
+  200 طلب 52.7MiB (Δ+0.3 — لا تسريب، 3.2ms/طلب)؛ TSK-724
+  computeWindow 0.036ms/نداء ويصيّر 18 من 5000 عنصر (ثابت المجموع
+  محروس)؛ بث 100KB (1600 chunk بأُطر 16ms) حارس يمر؛ بحث 5k
+  QA-T13: api 156ms / tool 129ms (سقف 1000ms — هامش ×6-7)؛
+  ProjectIndex snapshot (TSK-719): بارد 164ms → دافئ 125ms،
+  rebuilds 1→0، snapshot 97KB. **71/71 حارس أداء يمر** في تشغيل
+  نظيف (المتقلب F-006 ظهر مرة في أول تشغيل ثم مرّ ×3 معزولًا —
+  مطابق للتوثيق). ⇒ **تقرير CEV-G5 PASS مؤرخ في MASTER_REVIEW**.
+  **الموقع: G6 (الخلفية — blueprints + server.py + worker seam)
+  مفتوحة؛ صفر تغيير كود.**
 - **2026-08-02 — Session 106ز — بوابة CEV G4 🏁 PASS (البصريات) — G5 (الأداء) مفتوحة**:
   تصفير بيئة #18 (§3.1: استنساخ + TOKEN_SCRUB_DONE)؛ البوت التقط
   عمل S106و @ 2e1d273 (تقرير G3 + تحديث F-003 + ترويسة)؛ `.env`
@@ -593,113 +610,6 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
   يصلح نمط الحارس بنفسه ×3 ملفات؛ خيار 2: يأذن بتوسيع استثناء mypy في
   check.sh بسابقة ADR-004) ⇒ بعده BATCH-CEV-G1 (سقف mypy + stubs +
   إزالة الميت F-005).**
-- **2026-07-30 — Session 102 — التفصيل النهائي لـ TSK-725 (Workspace Trust) — جرد الإنفاذ مكتمل (D-7)**:
-  استئناف بعد تصفير بيئة (السابع؛ طقس §3.1: clone @ 81d28b1 — إقفال
-  TSK-724 مؤكد على origin). جرد نقاط الإنفاذ:
-  `_force_command_approval` @ server.py:190 (مستهلَكة في run.py:59/:96
-  وserver.py:1837)؛ ApprovalGate يُبنى مرة عند الإقلاع @ :1983 من
-  auto_execute ⇒ الإنفاذ ديناميكي وقت request() عبر معامل اختياري
-  `interactive_override` (تغيير core صغير قابل للاختبار)؛ الذرية
-  بسابقة NF-19 (os.replace)؛ .ai_runs ضمن IGNORED_DIRS. **التفصيل
-  النهائي أُلحق بـ DEVELOPMENT_TASKS §TSK-725**: شرائح 725a (وحدة
-  تخزين نقية fail-closed لا-ترمي) → 725b (إنفاذ + `/api/trust`
-  GET/POST — توسيع رابع موثَّق 33→34) → 725c (شريط + شارة، glue
-  فقط). هذا القيد يسبق التنفيذ (D-7).
-  **TSK-725a ✅ (نفس الجلسة)**: `core/workspace_trust.py` — trust_path
-  (`<root>/.ai_runs/trust.json`)، read_trust_record (isinstance صارم
-  على bool)، is_trusted (**fail-closed: أي غياب/عطب/نوع خاطئ/استثناء
-  ⇒ False بلا رفع**)، set_trust (سجل version/trusted/decided_at ISO
-  UTC/decided_by؛ ذرية NF-19 tmp+fsync+os.replace + mkdir). 16
-  اختبارًا (test_workspace_trust.py): fail-closed ×6 + دورة القرار ×4
-  + ذرية/موقع/فشل-كتابة-بلا-رفع ×3 (+ معلمات). **البوابة: 2012P/34S
-  ALL GREEN rc=0** (من 1996). 725a 🏁 — التالي 725b (الإنفاذ +
-  /api/trust).
-- **2026-07-30 — Session 103 — إقفال TSK-725b 🏁 — إنفاذ Workspace Trust + /api/trust (33→34)**:
-  استئناف بعد تصفيرَي بيئة (الثامن والتاسع؛ طقس §3.1 ×2؛ Auto-Uploader
-  أنقذ تغييرات النواة @ 3742325 وملف الاختبارات @ f8c17d2 — تحقّق كامل
-  من المحتوى قبل المتابعة). التسليم: (1) `ApprovalGate` معلمة جديدة
-  `interactive_override: Callable[[], bool] | None` — تقييم **ديناميكي
-  عند الطلب** لا عند الإقلاع؛ استثناء المُستدعى ⇒ فرض تفاعلي
-  (fail-closed)؛ deny يبقى deny؛ توافق خلفي كامل عند None.
-  (2) `server._workspace_trusted()` (fm=None أو استثناء ⇒ False) +
-  `_force_command_approval()` يعيد True عند عدم الثقة **قبل** قراءة
-  config (يتجاوز false الصريح) + تمرير lambda للبوابة. (3) `/api/trust`
-  GET (بلا مسارات — عقد التطهير) + POST {trusted: bool} (قرار مستخدم
-  صريح، NF-19) في routes/meta.py = **التوسيع الرابع الموثَّق للسطح
-  المجمّد 33→34** (test_rest_blueprints مُحدَّث). (4) ترحيل 3 اختبارات
-  تاريخية بتثبيت `_workspace_trusted→True` (monkeypatch) + اختبار جديد
-  يقنّن السلوك fail-closed (untrusted يتجاوز false الصريح). (5) حزمة
-  إنفاذ جديدة test_workspace_trust_enforcement.py — 17 اختبارًا:
-  override ×5 (فرض تفاعلي رغم auto+whitelist، ثقة تمرّر auto، توافق
-  خلفي، استثناء fail-closed، deny ثابت) + force ×5 + endpoint ×7
-  (GET fail-closed + لا-مسارات، دورة POST→GET + إبطال + ثبات على
-  القرص، 400 ×4 معلمات، 503 بلا fm). إصلاح mypy (تعليق نوع dict).
-  **البوابة: 2030P/34S ALL GREEN rc=0** (من 2012). 725b 🏁 — التالي
-  725c (لافتة/شارة الثقة UI ثم إقفال TSK-725 الكامل + CHANGELOG).
-- **2026-07-30 — Session 103 — إقفال TSK-725c 🏁 ⇒ TSK-725 كاملة 🏁 — واجهة Workspace Trust**:
-  استئناف بعد تصفير بيئة (العاشر؛ طقس §3.1؛ Auto-Uploader أنقذ ترميز
-  CSS الجزئي @ e00b993 — أُكمل التحقق ثم الإصلاح). التسليم:
-  (1) وحدة نقية `static/js/trust_banner.js` (UMD-lite): parseTrust
-  **fail-closed** (أي شكل غير متوقع ⇒ غير موثوق بلا قرار؛ trusted
-  يستلزم decided؛ decided عبر decided_at/decided_by) + renderBanner
-  (زرّا data-trust-action=trust|keep — تفويض، لا onclick) +
-  renderBadge (موثوق/غير موثوق؛ غير-bool ⇒ غير موثوق حتى في العرض).
-  (2) غراء app.js (fetch/DOM فقط — **لا منطق قرار في المتصفح**):
-  applyTrustUI (اللافتة فقط عند «غير موثوق ولا قرار مسجَّل») +
-  refreshTrustUI (GET /api/trust؛ فشل الشبكة ⇒ عرض fail-closed) +
-  decideTrust (POST {trusted} حرفي) + تفويض نقر + نداء عند
-  DOMContentLoaded وعند نجاح switch-project. (3) index.html: الوحدة
-  قبل app.js + #trust-banner (hidden افتراضيًا) + #trust-badge بجوار
-  project-crumb؛ style.css بتوكنز الثيم فقط (surface-1/green-soft/
-  red-soft — أصلح lint الألوان بعد ضبطة أولى بألوان خام). (4) صفر
-  endpoints جديدة — /api/trust من 725b؛ السطح يبقى 34. 13 اختبارًا
-  (test_trust_banner.py): node fail-closed ×5 + نقاء ×2 + wiring ×6
-  (بينها «لا منطق قرار» و«كل fetch يستهدف /api/trust حصرًا») +
-  سيناريو يدوي موثَّق. **البوابة: 2043P/34S ALL GREEN rc=0** (من
-  2030). **TSK-725 كاملة 🏁 (a+b+c)** — التالي حسب DAG D-10:
-  تفصيل TSK-726 (FI-07: جرد ~150 دالة في app.js) ثم تنفيذه شرائحيًا.
-- **2026-07-30 — Session 103 — تفصيل TSK-726 نهائيًا (D-7 — الجرد يسبق التنفيذ)**:
-  الجرد: app.js = 4204 سطرًا / **162 دالة** / state مركزي + ثوابت
-  مجالية / **24 دالة onclick عمومية** في index.html. **قرار معماري
-  موثَّق (يعدّل FI-07)**: لا ES modules الآن (تكسر onclick الـ 24 ولا
-  bundler) — بل **تقسيم-تسلسلي محافظ** إلى static/js/app/NN_*.js
-  بنطاق عمومي مشترك = صفر تغيير سلوكي؛ المنطق النقي مستخرج فعلًا
-  (14 وحدة UMD-lite). الشرائح: 726a (بنية + حارس test_app_split +
-  نقل theme/quick-open/palette/غراء VL+Trust) → 726b (محرر/ملفات/
-  تيرمنال) → 726c (جلسات/نماذج/مرفقات) → 726d (لوحات) → 726e (قلب
-  الدردشة/البث/WS — الأخطر آخرًا؛ هدف app.js < 800 سطر). قبول: حارس
-  الترتيب/العمومية/اللاازدواج بعد كل شريحة + wiring القائمة + سطح 34.
-- **2026-07-30 — Session 103 — إقفال TSK-726a 🏁 — بنية التقسيم + الحارس + أول نقل**:
-  استئناف بعد تصفير بيئة (الحادي عشر؛ §3.1؛ Auto-Uploader أنقذ ملفات
-  التقسيم @ 6f422aa — تحقّق node --check قبل المتابعة؛ ربط index.html
-  كان مفقودًا فأُكمل). التسليم: (1) استخراج حرفي لذيل app.js:
-  Quick Open + Command Palette ⇒ `static/js/app/90_search_palette.js`
-  (230 سطرًا) وغراء VL + Trust ⇒ `91_vl_trust.js` (166) — app.js
-  4204→3815 سطرًا؛ diff = حذف+إضافة متطابقان. (2) index.html يحمّل
-  المقاطع **بعد** app.js بالترتيب الرقمي (عقد eval-time — CP_ACTIONS
-  تقيّم مراجع دوال app.js عند التحميل). (3) الحارس الدائم
-  test_app_split.py — 7 اختبارات: ترتيب UMD→app→مقاطع + لا-يتيم +
-  onclick الـ 24 معرَّفة في الحزمة + لا-ازدواج تعريف + لا-إعادة-state
-  + node --check للحزمة كاملة. (4) ترحيل اختبارات wiring الثلاثة
-  (palette/vl/trust) إلى قارئ الحزمة `_app_bundle()` — التأكيدات
-  الجوهرية بلا تغيير (تغيّر مصدر القراءة فقط). **البوابة: 2050P/34S
-  ALL GREEN rc=0** (من 2043). 726a 🏁 — التالي 726b (المحرر/الملفات/
-  التيرمنال).
-- **2026-07-30 — Session 103 — إقفال TSK-726b 🏁 — نقل مجال المحرر/الملفات/التيرمنال**:
-  استئناف بعد تصفير بيئة (الثاني عشر؛ §3.1 — النقل ذاته كان على origin
-  @ b7e7234؛ ترحيل اختبارات wiring الثلاثة الإضافية أُعيد محليًا).
-  التسليم: (1) نقل حرفي لمقطع File Explorer→المحرر→التبويبات→diff
-  panel→التيرمنال (loadFiles/openFile/saveFile/renderDiffPanel/
-  initTerminal/runCommand/diagnoseTerminal — 684 سطرًا) ⇒
-  `static/js/app/20_editor_files_terminal.js`؛ app.js 3815→3131.
-  (2) الربط قبل 90/91 بالترتيب الرقمي بعد app.js (الاستدعاءات
-  التمهيدية كلها داخل DOMContentLoaded — آمنة). (3) حارس
-  test_app_split اجتاز بلا تعديل. (4) ترحيل test_code_highlight/
-  test_diff_panel/test_icon_consumption إلى `_app_bundle()` —
-  التأكيدات الجوهرية بلا تغيير. **البوابة: 2050P/34S ALL GREEN rc=0**
-  (ثابتة — الترحيل لا يضيف اختبارات). 726b 🏁 — التالي 726c
-  (الجلسات/النماذج/المرفقات/drag-drop).
-
 ### إقفال TSK-726c — نقل الجلسات/النماذج/المرفقات/drag-drop ⇒ app/30 🏁
 - **ما نُفِّذ:** نقل حرفي (verbatim) لـ 496 سطرًا من app.js (الأسطر 1953–2448) إلى
   `static/js/app/30_sessions_models_attachments.js`: إدارة الجلسات
@@ -869,7 +779,7 @@ app.js 4204 ⇒ 712 سطرًا + 6 مقاطع مجالية (10/20/30/40/90/91 = 
 
 ---
 - **[مؤشر أرشيف — تدوير §6.4 (2026-08-02, S106/CEV + دفعة ثانية S106هـ)]** قيود Sessions
-  84–101 رُحِّلت إلى `docs/engineering/PROGRESS_ARCHIVE_2.md`
+  84–103 رُحِّلت (ثلاث دفعات؛ الثالثة S106ح: مدخلات S102–S103 المؤرخة) إلى `docs/engineering/PROGRESS_ARCHIVE_2.md`
   (append-only، لا يُعدَّل).
 - **[مؤشر أرشيف]** كل ما قبل S84 (بما فيه برنامج v4.1 Sessions 1–23):
   انظر `docs/engineering/PROGRESS_ARCHIVE_1.md` (append-only، لا يُعدَّل).

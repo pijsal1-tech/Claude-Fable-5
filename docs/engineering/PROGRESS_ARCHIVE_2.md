@@ -478,3 +478,113 @@
   Auto-Uploader أنقذ الوحدة @ c862331 والغراء أُعيدت كتابته ثم دُفع
   فورًا @ 9b3c955 (درس: دفع الغراء قبل الاختبارات). TSK-723 🏁.
   **التالي: TSK-724 (FI-09 — computeWindow)** حسب DAG D-10.
+
+<!-- تدوير §6.4 — دفعة ثالثة (2026-08-02, S106ح): Sessions 102–103 (المدخلات المؤرخة) -->
+
+- **2026-07-30 — Session 102 — التفصيل النهائي لـ TSK-725 (Workspace Trust) — جرد الإنفاذ مكتمل (D-7)**:
+  استئناف بعد تصفير بيئة (السابع؛ طقس §3.1: clone @ 81d28b1 — إقفال
+  TSK-724 مؤكد على origin). جرد نقاط الإنفاذ:
+  `_force_command_approval` @ server.py:190 (مستهلَكة في run.py:59/:96
+  وserver.py:1837)؛ ApprovalGate يُبنى مرة عند الإقلاع @ :1983 من
+  auto_execute ⇒ الإنفاذ ديناميكي وقت request() عبر معامل اختياري
+  `interactive_override` (تغيير core صغير قابل للاختبار)؛ الذرية
+  بسابقة NF-19 (os.replace)؛ .ai_runs ضمن IGNORED_DIRS. **التفصيل
+  النهائي أُلحق بـ DEVELOPMENT_TASKS §TSK-725**: شرائح 725a (وحدة
+  تخزين نقية fail-closed لا-ترمي) → 725b (إنفاذ + `/api/trust`
+  GET/POST — توسيع رابع موثَّق 33→34) → 725c (شريط + شارة، glue
+  فقط). هذا القيد يسبق التنفيذ (D-7).
+  **TSK-725a ✅ (نفس الجلسة)**: `core/workspace_trust.py` — trust_path
+  (`<root>/.ai_runs/trust.json`)، read_trust_record (isinstance صارم
+  على bool)، is_trusted (**fail-closed: أي غياب/عطب/نوع خاطئ/استثناء
+  ⇒ False بلا رفع**)، set_trust (سجل version/trusted/decided_at ISO
+  UTC/decided_by؛ ذرية NF-19 tmp+fsync+os.replace + mkdir). 16
+  اختبارًا (test_workspace_trust.py): fail-closed ×6 + دورة القرار ×4
+  + ذرية/موقع/فشل-كتابة-بلا-رفع ×3 (+ معلمات). **البوابة: 2012P/34S
+  ALL GREEN rc=0** (من 1996). 725a 🏁 — التالي 725b (الإنفاذ +
+  /api/trust).
+- **2026-07-30 — Session 103 — إقفال TSK-725b 🏁 — إنفاذ Workspace Trust + /api/trust (33→34)**:
+  استئناف بعد تصفيرَي بيئة (الثامن والتاسع؛ طقس §3.1 ×2؛ Auto-Uploader
+  أنقذ تغييرات النواة @ 3742325 وملف الاختبارات @ f8c17d2 — تحقّق كامل
+  من المحتوى قبل المتابعة). التسليم: (1) `ApprovalGate` معلمة جديدة
+  `interactive_override: Callable[[], bool] | None` — تقييم **ديناميكي
+  عند الطلب** لا عند الإقلاع؛ استثناء المُستدعى ⇒ فرض تفاعلي
+  (fail-closed)؛ deny يبقى deny؛ توافق خلفي كامل عند None.
+  (2) `server._workspace_trusted()` (fm=None أو استثناء ⇒ False) +
+  `_force_command_approval()` يعيد True عند عدم الثقة **قبل** قراءة
+  config (يتجاوز false الصريح) + تمرير lambda للبوابة. (3) `/api/trust`
+  GET (بلا مسارات — عقد التطهير) + POST {trusted: bool} (قرار مستخدم
+  صريح، NF-19) في routes/meta.py = **التوسيع الرابع الموثَّق للسطح
+  المجمّد 33→34** (test_rest_blueprints مُحدَّث). (4) ترحيل 3 اختبارات
+  تاريخية بتثبيت `_workspace_trusted→True` (monkeypatch) + اختبار جديد
+  يقنّن السلوك fail-closed (untrusted يتجاوز false الصريح). (5) حزمة
+  إنفاذ جديدة test_workspace_trust_enforcement.py — 17 اختبارًا:
+  override ×5 (فرض تفاعلي رغم auto+whitelist، ثقة تمرّر auto، توافق
+  خلفي، استثناء fail-closed، deny ثابت) + force ×5 + endpoint ×7
+  (GET fail-closed + لا-مسارات، دورة POST→GET + إبطال + ثبات على
+  القرص، 400 ×4 معلمات، 503 بلا fm). إصلاح mypy (تعليق نوع dict).
+  **البوابة: 2030P/34S ALL GREEN rc=0** (من 2012). 725b 🏁 — التالي
+  725c (لافتة/شارة الثقة UI ثم إقفال TSK-725 الكامل + CHANGELOG).
+- **2026-07-30 — Session 103 — إقفال TSK-725c 🏁 ⇒ TSK-725 كاملة 🏁 — واجهة Workspace Trust**:
+  استئناف بعد تصفير بيئة (العاشر؛ طقس §3.1؛ Auto-Uploader أنقذ ترميز
+  CSS الجزئي @ e00b993 — أُكمل التحقق ثم الإصلاح). التسليم:
+  (1) وحدة نقية `static/js/trust_banner.js` (UMD-lite): parseTrust
+  **fail-closed** (أي شكل غير متوقع ⇒ غير موثوق بلا قرار؛ trusted
+  يستلزم decided؛ decided عبر decided_at/decided_by) + renderBanner
+  (زرّا data-trust-action=trust|keep — تفويض، لا onclick) +
+  renderBadge (موثوق/غير موثوق؛ غير-bool ⇒ غير موثوق حتى في العرض).
+  (2) غراء app.js (fetch/DOM فقط — **لا منطق قرار في المتصفح**):
+  applyTrustUI (اللافتة فقط عند «غير موثوق ولا قرار مسجَّل») +
+  refreshTrustUI (GET /api/trust؛ فشل الشبكة ⇒ عرض fail-closed) +
+  decideTrust (POST {trusted} حرفي) + تفويض نقر + نداء عند
+  DOMContentLoaded وعند نجاح switch-project. (3) index.html: الوحدة
+  قبل app.js + #trust-banner (hidden افتراضيًا) + #trust-badge بجوار
+  project-crumb؛ style.css بتوكنز الثيم فقط (surface-1/green-soft/
+  red-soft — أصلح lint الألوان بعد ضبطة أولى بألوان خام). (4) صفر
+  endpoints جديدة — /api/trust من 725b؛ السطح يبقى 34. 13 اختبارًا
+  (test_trust_banner.py): node fail-closed ×5 + نقاء ×2 + wiring ×6
+  (بينها «لا منطق قرار» و«كل fetch يستهدف /api/trust حصرًا») +
+  سيناريو يدوي موثَّق. **البوابة: 2043P/34S ALL GREEN rc=0** (من
+  2030). **TSK-725 كاملة 🏁 (a+b+c)** — التالي حسب DAG D-10:
+  تفصيل TSK-726 (FI-07: جرد ~150 دالة في app.js) ثم تنفيذه شرائحيًا.
+- **2026-07-30 — Session 103 — تفصيل TSK-726 نهائيًا (D-7 — الجرد يسبق التنفيذ)**:
+  الجرد: app.js = 4204 سطرًا / **162 دالة** / state مركزي + ثوابت
+  مجالية / **24 دالة onclick عمومية** في index.html. **قرار معماري
+  موثَّق (يعدّل FI-07)**: لا ES modules الآن (تكسر onclick الـ 24 ولا
+  bundler) — بل **تقسيم-تسلسلي محافظ** إلى static/js/app/NN_*.js
+  بنطاق عمومي مشترك = صفر تغيير سلوكي؛ المنطق النقي مستخرج فعلًا
+  (14 وحدة UMD-lite). الشرائح: 726a (بنية + حارس test_app_split +
+  نقل theme/quick-open/palette/غراء VL+Trust) → 726b (محرر/ملفات/
+  تيرمنال) → 726c (جلسات/نماذج/مرفقات) → 726d (لوحات) → 726e (قلب
+  الدردشة/البث/WS — الأخطر آخرًا؛ هدف app.js < 800 سطر). قبول: حارس
+  الترتيب/العمومية/اللاازدواج بعد كل شريحة + wiring القائمة + سطح 34.
+- **2026-07-30 — Session 103 — إقفال TSK-726a 🏁 — بنية التقسيم + الحارس + أول نقل**:
+  استئناف بعد تصفير بيئة (الحادي عشر؛ §3.1؛ Auto-Uploader أنقذ ملفات
+  التقسيم @ 6f422aa — تحقّق node --check قبل المتابعة؛ ربط index.html
+  كان مفقودًا فأُكمل). التسليم: (1) استخراج حرفي لذيل app.js:
+  Quick Open + Command Palette ⇒ `static/js/app/90_search_palette.js`
+  (230 سطرًا) وغراء VL + Trust ⇒ `91_vl_trust.js` (166) — app.js
+  4204→3815 سطرًا؛ diff = حذف+إضافة متطابقان. (2) index.html يحمّل
+  المقاطع **بعد** app.js بالترتيب الرقمي (عقد eval-time — CP_ACTIONS
+  تقيّم مراجع دوال app.js عند التحميل). (3) الحارس الدائم
+  test_app_split.py — 7 اختبارات: ترتيب UMD→app→مقاطع + لا-يتيم +
+  onclick الـ 24 معرَّفة في الحزمة + لا-ازدواج تعريف + لا-إعادة-state
+  + node --check للحزمة كاملة. (4) ترحيل اختبارات wiring الثلاثة
+  (palette/vl/trust) إلى قارئ الحزمة `_app_bundle()` — التأكيدات
+  الجوهرية بلا تغيير (تغيّر مصدر القراءة فقط). **البوابة: 2050P/34S
+  ALL GREEN rc=0** (من 2043). 726a 🏁 — التالي 726b (المحرر/الملفات/
+  التيرمنال).
+- **2026-07-30 — Session 103 — إقفال TSK-726b 🏁 — نقل مجال المحرر/الملفات/التيرمنال**:
+  استئناف بعد تصفير بيئة (الثاني عشر؛ §3.1 — النقل ذاته كان على origin
+  @ b7e7234؛ ترحيل اختبارات wiring الثلاثة الإضافية أُعيد محليًا).
+  التسليم: (1) نقل حرفي لمقطع File Explorer→المحرر→التبويبات→diff
+  panel→التيرمنال (loadFiles/openFile/saveFile/renderDiffPanel/
+  initTerminal/runCommand/diagnoseTerminal — 684 سطرًا) ⇒
+  `static/js/app/20_editor_files_terminal.js`؛ app.js 3815→3131.
+  (2) الربط قبل 90/91 بالترتيب الرقمي بعد app.js (الاستدعاءات
+  التمهيدية كلها داخل DOMContentLoaded — آمنة). (3) حارس
+  test_app_split اجتاز بلا تعديل. (4) ترحيل test_code_highlight/
+  test_diff_panel/test_icon_consumption إلى `_app_bundle()` —
+  التأكيدات الجوهرية بلا تغيير. **البوابة: 2050P/34S ALL GREEN rc=0**
+  (ثابتة — الترحيل لا يضيف اختبارات). 726b 🏁 — التالي 726c
+  (الجلسات/النماذج/المرفقات/drag-drop).
+
