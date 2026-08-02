@@ -979,3 +979,49 @@ switch-project — الواجهة تستخدم الصحيح؛ لا احتكاك 
 تسريب، النافذة الافتراضية تحدّ DOM عند ~18 عنصرًا مهما بلغ الحمل)،
 والسقف الوحيد المُقانَن (QA-T13 <1s) محروس باختبار دائم.
 **الحكم: G5 PASS. التالي: G6 (الخلفية — blueprints السبعة + server.py + worker seam).**
+
+---
+
+## CEV-G6 — تقرير بوابة الخلفية 🏁 PASS
+**التاريخ: 2026-08-02 (S106ط) — الشجرة: 7365752 — المنهج: جرد ثابت + 268 حارس + تحقيق حي (مجسات REST خبيثة + ذرّية تحت SIGKILL)**
+
+### 1) السطح المجمد
+- 7 blueprints (backups 2، files 8، meta 8، project 1، rollback 2،
+  run 3، sessions 6) + 3 مسارات في server.py (ADR-003) —
+  **حارس FROZEN_RULES يثبّت 31 قاعدة url_map حرفيًا**
+  (test_rest_blueprints.py:35 — أي توسّع = فشل بوابة). 21/21 يمر.
+
+### 2) validation ومعالجة الأخطاء (تحقيق حي)
+- JSON فاسد ⇒ 400؛ حمولة ناقصة ⇒ 400 برسالة عربية واضحة.
+- اجتياز مسار قراءةً (`..%2f` مرمّز وخام) ⇒ **رفض fail-closed**
+  «Access denied … outside project root» [404].
+- اجتياز كتابةً (POST `..%2fpwned.txt`) ⇒ **رفض fail-closed مؤكد**
+  (لا ملف كُتب خارج الجذر) لكن بالرمز 500 ⇒ **CEV-F-009 (C4)** —
+  تفاوت عقد رقمي لا ثغرة.
+
+### 3) ذرّية الكتابة (NF-19)
+- النمط الحرفي (tmp بجوار الملف → fsync → os.replace) في:
+  index_snapshot.py:82، workspace_trust.py:74، project_memory.py:367،
+  checkpoint.py:285/404/556، run_metrics.py:85 (تدوير).
+- استثناء موثَّق بالتصميم: sessions/store.py meta بلا fsync
+  (مشتق ورخيص — store.py:43) + إصلاح السطر الممزق wb مع fsync
+  (project_memory.py:411-415) — كلاهما سليم.
+- **اختبار حي**: عملية تكتب snapshots في حلقة قُتلت SIGKILL ×5 في
+  توقيتات مختلفة ⇒ **5/5 الملف سليم كامل، صفر تمزّق**.
+
+### 4) التزامن والأقفال
+- 31 قفل/RLock عبر server.py وcore/ (approval، app_context،
+  backends_redis لكل-run، chat_dispatch WS، pending_path).
+- invariants سجل التنفيذ + الموافقات المتزامنة محروسة:
+  test_execution + test_checkpoint + test_approval(+concurrent) +
+  test_parallel_execution + test_force_approval — ضمن **268/268
+  حارس خلفية يمر** في تشغيل واحد (rest_blueprints، ws_router،
+  retention، run_metrics(+rotation)، workspace_trust(+enforcement)،
+  rest_ws_state_parity، ws_run_control، agent_gated_approvals،
+  ws_backoff، trust_banner).
+
+### الحكم
+السطح مجمّد ومحروس آليًا؛ الرفض fail-closed في كل المجسات الخبيثة؛
+الذرّية صمدت تحت SIGKILL فعليًا؛ التزامن محروس بطبقة اختبارات كثيفة.
+الاكتشاف الوحيد (F-009) تجميلي C4 بلا أثر أمني.
+**الحكم: G6 PASS. التالي: G7 (الأمان — Red Team داخل عقد localhost).**
