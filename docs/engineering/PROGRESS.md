@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-02 (Session 107 — **CEV-G8 🏁 PASS (طبقة تنفيذ AI)** @ 5d083d5: عزل providers تام (عقد base فقط)، سقف حلقة صلب 8، إلغاء ثنائي المصدر مفحوص عند كل حد، retry بميزانية، بث أحادي المسار، ابتلاع منضبط ×29؛ 394/394 حارس مركّز + check.sh ALL GREEN؛ اكتشافان: F-010 (hh.har دخيل 7.2MB) + F-011 (42 استيرادًا ميتًا + تصحيح دليل pyflakes)؛ G7 مؤجلة D-14) |
+| last-updated | 2026-08-02 (Session 108 — **CEV-G8.5 قيد التنفيذ**: AIA-0 مراسٍ مثبتة حيًا @ cd7260f + **AIA-1 جرد مقفل** (`AIA_INVENTORY.md`): 226 ملفًا = ACTIVE 29 / REFERENCE 17 / STALE 175 / DUMP 5 — صفر غير مصنَّف؛ التالي AIA-2) |
 | stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
 | current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1→G6 + G8 كلها 🏁 PASS** (سبعة تقارير مؤرخة في MASTER_REVIEW)؛ **G7 (الأمان/Red Team) مؤجلة DEFERRED بقرار مالك D-14** (تُستأنف بأمر لاحق — تسبق G12 وجوبًا)؛ البوابة المفتوحة: **G8.5 (AIA — حوكمة طبقة الذكاء)** |
-| current-task | **CEV-G8.5 OPEN (AIA — حوكمة طبقة الذكاء، §4-B)**: agents_rules/ + prompts/ + chain/prompts/ + newskells/ ككود إنتاجي — مراسي AIA-0 (manifest.yaml/agent_loader حصريًا، router+routing_config، حارس الحقن NF-18 خط أحمر، newskells غير محمَّل، لا إعادة هيكلة مجلدات) + قواعد AIA-R1..R13 + مراحل AIA-1..7؛ خط الأساس (حي S107): **2189P/34S/0F ALL GREEN rc=0**؛ قرارات مالك معلَّقة: F-003 (أ/ب — الحذف ×9) + F-010 (حذف hh.har)؛ معلَّق خارجي: OWNER_CHECKLIST (727) + رفع استثناء providers |
+| current-task | **CEV-G8.5 IN-PROGRESS (AIA §4-B)**: AIA-0 ✅ (manifest v1=21 دورًا/20 ملفًا؛ NF-18 سليم :29/:51؛ newskells غير محمَّلة؛ desktop.spec يرسّخ المسارات) + **AIA-1 ✅ مقفلة** (جرد برمجي `AIA_INVENTORY.md`: 226 = 29A/17R/175S/5D، صفر غير مصنَّف — الأرشفة قرار مالك AIA-R7)؛ **التالي: AIA-2 تدقيق تعارض القواعد** ثم AIA-3..7؛ خط الأساس (حي S107): 2189P/34S/0F ALL GREEN rc=0؛ قرارات مالك معلَّقة: F-003 (الحذف **×11**) + F-010 (hh.har) + مصير كتل STALE (175) | 
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -487,6 +487,31 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-08-02 — Session 108 — CEV-G8.5 (AIA) التنفيذ يبدأ: AIA-0 مراسٍ مثبتة حيًا + AIA-1 جرد اليتامى مكتمل (226 ملفًا، صفر غير مصنَّف)**:
+  تصفير بيئة #27 (§3.1: استنساخ + TOKEN_SCRUB_DONE؛ اعتماد لُصق في
+  نص التكليف — تذكير التدوير §3.2 قائم). نجاة S107 كاملة: البوت
+  التقط ذيل الإقفال في cd7260f (HEAD الجديد)؛ `.env` محذوفة مجددًا
+  وأُعيدت (**×11** — F-003 بلا قرار بعد). **AIA-0 (تحقق حي لا
+  افتراض)**: manifest v1 = **21 دورًا / 20 ملفًا فريدًا** («أنت محلل
+  جودة.md» مشترك بين code_analyzer وquality_reviewer) يستهلكه
+  agent_loader.py حصريًا (رفض صاخب :46-56، منع path traversal :387)؛
+  router.py+routing_config.py قائمان (RoutingThresholds :41)؛ حارس
+  الحقن NF-18 سليم (templates.py:29,51)؛ newskells غير محمَّلة
+  runtime (grep = تعليقان فقط delegate.py:6/strategies.py:419)؛
+  desktop.spec يحزم agents_rules+chain/prompts (:20-21 — يرسّخ منع
+  إعادة الهيكلة AIA-X). **AIA-1 (جرد برمجي — وثيقة جديدة
+  `AIA_INVENTORY.md`)**: النطاقات الأربعة = 226 ملفًا (agents_rules
+  201 مطابقة للمواصفة + prompts 2 + chain/prompts 6 + newskells 17)؛
+  التصنيف: **ACTIVE 29 / REFERENCE 17 (newskells كلها) / STALE 175 /
+  DUMP 5 — صفر غير مصنَّف** (شرط AIA-C). جوهر STALE: إرث مشاريع
+  سابقة بأدلة رؤوس صريحة — «AI_PROVIDERS / C__cursor»
+  (memory/PROJECT_VISION.md:1، skills/00-SKILLS.md:1، AGENT.md:2)،
+  «AI_MDULE» (GEMINI.md:1 — 135KB)، «.agents عام» (AGENTS.md:2،
+  tools/vibe_bridge.py:4 غير مستورد)؛ + 32 برومبت دور غير مسجل
+  بالمانيفست (مرشّح تسجيل/أرشفة). DUMP = .bak ×2 + .resolved +
+  لصق محادثات ×2 («تشغيل ملف»، «من جينيص»). **الأرشفة/الحذف كلها
+  قرار مالك حصري (AIA-R7/EOP-1) — الجرد لا يحذف شيئًا.** الموقع:
+  AIA-1 مقفلة؛ التالي AIA-2 (تدقيق تعارض القواعد). صفر تغيير كود.
 - **2026-08-02 — Session 107 — قرار مالك D-14 (تأجيل G7/Red Team) ⇒ بوابة CEV G8 🏁 PASS (طبقة تنفيذ AI) — G8.5 (AIA) مفتوحة**:
   تصفيرات بيئة #24/#25 (§3.1: استنساخ + TOKEN_SCRUB_DONE؛ اعتماد
   لُصق بنص التكليف ×2 — تذكير §3.2 مُبلَّغ)؛ انقطاع منتصف S107 الأول:
