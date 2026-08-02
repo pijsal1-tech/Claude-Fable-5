@@ -845,3 +845,30 @@ core/chat_dispatch — القرار القائم «مقبول موثَّق» ي�
 **الحكم: G1 PASS** — بوابة الإقفال: **check.sh ALL GREEN RC=0 —
 2189P/34S/0F** (مؤكدة ×2 بيئتين؛ flaky بيئي موثَّق CEV-F-006).
 **التالي: G2.**
+
+## CEV-G2 — تقرير بوابة الواجهة 🏁 PASS (2026-08-02 — S106هـ؛ CEV/D-12)
+
+**جرد السطح:** 15 وحدة UMD-lite نقية (plan_card/memory_panel/
+run_history/permissions_panel/settings_panel/diff_panel/status_chip/
+trust_banner/command_palette/…) + 6 وحدات غراء app/NN + مودالان
+(quick-open، command-palette) + 4 ثيمات فوق tokens.css.
+**1. الثيمات:** تكافؤ رباعي مثالي — **105 tokens متطابقة بالمجموعة**
+عبر dark/light/high-contrast/monokai (فحص فرق مجموعات: ∅ ناقص،
+∅ زائد)؛ bootstrap قبل أول paint (لا FOUC — T-060)؛ حارس
+test_theme_tokens.py قائم + color-token lint في check.sh أخضر.
+**2. RTL/LTR:** القشرة IDE ثابتة `dir="ltr"` (نمط VSCode المتعمد)
+والمحتوى ديناميكي لكل رسالة (`msg-content[dir]` — app.js:515،
+10_chat_ws_stream:793+) مع أنماط CSS مزدوجة rtl/ltr (style.css:1352+)
+— **سليم بالتصميم**، لا احتكاك مثبت.
+**3. حالات العرض:** empty-state في 6/6 لوحات نقية؛ error عبر toast
+موحَّد (app.js:579) + catch في الغراء (40_panels ×13، app.js ×16،
+10_chat ×5)؛ مؤشرات loading في مسارات الغراء (40_panels ×10،
+10_chat ×11). لا لوحة بلا معالجة.
+**4. فحص حي (Playwright على الخادم الفعلي):** تحميل كامل، صفر أخطاء
+JS؛ 404 وحيد = `favicon.ico` — **تجميلي C4** (لا favicon بالمشروع؛
+يُسجَّل بلا إصلاح فوري — إضافة أصل بصري قرار مالك per CEV-R11).
+**5. Premium (CEV-R11):** بنية palette/quick-open/status-chip/
+trust-banner/virtual-list تضاهي أنماط VSCode/Cursor وظيفيًا؛ لا تقليد
+أعمى — RTL محتوى عربي أصيل.
+**الحكم: G2 PASS** (اكتشاف واحد C4 مؤجَّل: favicon). **التالي: G3
+(تمشية مستخدم أول مرة).**

@@ -12,8 +12,8 @@
 |---|---|
 | last-updated | 2026-08-02 (Session 106د — **D-13 ⇒ BATCH-CEV-G1 مُقفلة 🏁 3/3**: سقف mypy+stubs (101) + فك حاصر CEV-F-002 بتوسيع الاستثناء (102) + إزالة الميت F-005 (103) — **check.sh ALL GREEN RC=0 — 2189P/34S/0F** لأول مرة في CEV) |
 | stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
-| current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) بالترتيب — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1 🏁 PASS** (تقرير مؤرخ في MASTER_REVIEW §CEV-G1)؛ البوابة المفتوحة: **G2 (الواجهة)** |
-| current-task | CEV-G2 OPEN (الواجهة): جرد كل شاشة/لوحة/مودال/حالة (loading/error/empty) عبر الثيمات وRTL/LTR + اختبار Premium (CEV-R11)؛ خط الأساس: **2189P/34S/0F ALL GREEN**؛ معلَّق خارجي (غير حاجز): OWNER_CHECKLIST (727) + رفع استثناء providers يوم يصلح المالك module_from_spec |
+| current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) بالترتيب — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1 🏁 + G2 🏁 PASS** (تقريران مؤرخان في MASTER_REVIEW)؛ البوابة المفتوحة: **G3 (تجربة الاستخدام)** |
+| current-task | CEV-G3 OPEN (تجربة الاستخدام): تمشية مستخدم أول مرة — فتح مجلد+Trust، فتح/حفظ ملف، Ctrl+K، لوحة الأوامر، دردشة/خطة/موافقات، الجلسات، الذاكرة، desktop.py؛ خط الأساس: **2189P/34S/0F ALL GREEN**؛ معلَّق خارجي (غير حاجز): OWNER_CHECKLIST (727) + رفع استثناء providers |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -486,6 +486,23 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-08-02 — Session 106هـ — بوابتا CEV G1 🏁 وG2 🏁 PASS — تقريران مؤرخان في MASTER_REVIEW**:
+  استئناف عبر تصفيرَي بيئة (#14/#15؛ §3.1 ×2: TOKEN_SCRUB_DONE؛ عمل
+  106د كله مؤكد على origin @ 3618920/5e168a2). **إقفال G1** بعد
+  استكمال محوري التكرار/فصل الاهتمامات: مسح AST ×58 تصادم اسم عبر
+  الملفات — الغالب تعددية أشكال مشروعة (backends/events واجهة واحدة؛
+  register نمط blueprints؛ to_dict على dataclasses)؛ `_search_service`
+  ازدواج مقصود موثَّق (TSK-501/NF-20/21 — كلاهما يفوّض shared_search)؛
+  `_now_iso` سطران ×3 (تافه، لا يبرر اقترانًا)؛ server.py يحوي 3
+  routes فقط (ADR-003 يصمد) ⇒ **تقرير G1 PASS** في MASTER_REVIEW.
+  **فتح G2 وإقفالها في الجلسة نفسها**: جرد 15 وحدة UMD + 6 غراء +
+  مودالان + 4 ثيمات؛ تكافؤ tokens رباعي مثالي (105 متطابقة، فرق
+  مجموعات ∅)؛ RTL/LTR سليم بالتصميم (قشرة LTR كـVSCode + dir ديناميكي
+  للرسائل)؛ حالات empty 6/6 لوحات + error/loading في الغراء + toast
+  موحَّد؛ **فحص حي Playwright على خادم فعلي (port 5000): صفر أخطاء
+  JS**، و404 وحيد = favicon.ico ⇒ CEV-F-007 (C4 تجميلي، قرار مالك)
+  ⇒ **تقرير G2 PASS** في MASTER_REVIEW. **الموقع: G3 مفتوحة (تمشية
+  مستخدم أول مرة — الجرد التالي).**
 - **2026-08-02 — Session 106د — قرار مالك D-13 ⇒ BATCH-CEV-G1 مُقفلة 🏁 3/3 — check.sh ALL GREEN لأول مرة في CEV**:
   أمر مالك حرفي «أفتح BATCH-CEV-G1 (سقف mypy + stubs + إزالة الميت
   F-005) وأتابع بوابات CEV» ⇒ D-13 (تفسير موثَّق: الخيار 1 لم يُنفَّذ —
@@ -815,90 +832,9 @@ app.js 4204 ⇒ 712 سطرًا + 6 مقاطع مجالية (10/20/30/40/90/91 = 
   هو الدستور الحاكم الوحيد ولا يتأثر.
 - **البوابة بعد الحذف:** check.sh ALL GREEN (الحذف وثائقي بحت).
 
-- **2026-07-30 — Session 101 — بدء تنفيذ TSK-724 (FI-09) — جرد مسار العرض قبل التنفيذ (D-7)**:
-  استئناف بعد تصفير بيئة (السادس؛ طقس §3.1: clone @ a44d16c، تطهير،
-  الهوية — إقفال TSK-723 مؤكد على origin). **جرد التصميم (يسبق
-  التنفيذ)**: مسار عرض الرسائل في app.js: `addChatMessage(role,
-  content)` @ :909 (يبني العنصر + append + scroll — نقطة الفصل:
-  استخراج `buildChatMessage` يُرجع العنصر بلا append)؛ **حلقتا الرسم
-  الكامل** المستهدفتان بالنافذة: `loadChatHistory` @ :2202
-  (`history.forEach(addChatMessage)`) و`loadSession` @ :2694 (نفس
-  النمط)؛ البث (TSK-401) عبر `currentStreamMsg` append مباشر —
-  **لا يُمس**؛ كروت التيرمنال (`handleRunCommandStep` @ :654) append
-  مباشر — لا تُمس. **خطة الغراء الحافظة للسلوك**: النافذة تُفعَّل فقط
-  عند تحميل تاريخ ≥ عتبة (VL_THRESHOLD)؛ بنية الحاوية في وضع النافذة:
-  [spacer-top][رسائل النافذة][spacer-bottom][إلحاقات حية لاحقة] —
-  الإلحاقات الحية (بث/كروت/رسائل جديدة) تقع بعد spacer-bottom فتبقى
-  آخر القائمة بصريًا والتمرير التلقائي محفوظ؛ إعادة الرسم على scroll
-  (rAF) تستبدل ما بين الـ spacers فقط؛ ارتفاعات مقدَّرة ثم تُقاس بعد
-  الرسم وتُصحَّح. الوحدة النقية: `computeWindow(scrollTop, viewportH,
-  itemHeights, overscan)` ⇒ {start, end, padTop, padBottom} بثبات
-  المجموع. هذا القيد يسبق التنفيذ (D-7).
-  **TSK-724 ✅ (نفس الجلسة)**: FI-09 نافذة عرض افتراضية: وحدة نقية
-  `static/js/virtual_list.js` (`computeWindow` — end حصري، قصّ
-  scrollTop/overscan للحدود، **الثابت الصارم** padTop + Σنافذة +
-  padBottom = Σالكل لكل المدخلات؛ + `totalHeight`). الغراء (app.js):
-  استخراج `buildChatMessage` نقية من `addChatMessage` (التي بقيت
-  append+scroll حرفيًا — مسار الرسائل الحية والجلسات القصيرة)؛
-  `renderChatHistory(history)` موحّدة حلّت محل حلقتي
-  `forEach(addChatMessage)` في loadChatHistory/loadSession — تحت
-  عتبة VL_THRESHOLD=150 المسارُ القديم حرفيًا، وفوقها وضع النافذة:
-  [vl-spacer-top][نافذة][vl-spacer-bottom][إلحاقات حية] — البث
-  (currentStreamMsg) وكروت التيرمنال appendChild كما هي بعد
-  spacer-bottom فتبقى آخر القائمة والتمرير التلقائي محفوظ؛ `vlRender`
-  يستبدل ما بين الـ spacers فقط (rAF throttle على scroll) + قياس
-  الارتفاعات الفعلية بعد الرسم وتصحيح التقدير (VL_EST_HEIGHT=120)؛
-  الفتح على آخر رسالة (scrollTop=scrollHeight ثم إعادة رسم). صفر
-  endpoints. 13 اختبارًا (test_virtual_list.py): node ×7 (فارغة/
-  قصيرة/طويلة 1000 عنصر/overscan مقصوص/ثابت المجموع على شبكة مدخلات
-  تشمل سالبًا وفائضًا/تقاطع جزئي/totalHeight) + wiring ×6 (ترتيب
-  التحميل/الاستهلاك/الحلقة الوحيدة داخل renderChatHistory/مسارا البث
-  والتيرمنال بلا مساس/العتبة/نقاء الوحدة). **البوابة: 1996P/34S ALL
-  GREEN rc=0** (من 1983). TSK-724 🏁. **التالي حسب DAG D-10: تفصيل
-  TSK-725 (Workspace Trust — جرد نقاط الإنفاذ في server.py) ثم
-  تنفيذها؛ يليها تفصيل TSK-726 (جرد دوال app.js)**.
-- **2026-07-30 — Session 100 — تخطيط BATCH-P2 (قرار D-10) — TSK-723..727 موثقة؛ TSK-723 جاهزة**:
-  استئناف بعد تصفير بيئة (طقس §3.1: clone @ b31f47c، تطهير، الهوية؛
-  BATCH-P1 🏁 6/6 مؤكدة على origin). **تخطيط قبل تنفيذ (D-7)** — قراءات
-  تصميمية: FUTURE_IMPROVEMENTS §FI-07 (شرط: لا تفكيك أثناء تعديل
-  المُصيِّر ⇒ بعد FI-09) و§FI-09 (Prerequisite TSK-401 ✅)؛ app.js =
-  3948 سطرًا/~150 دالة؛ نمط Quick Open Ctrl+K قائم (app.js:3821-3900)؛
-  ApprovalGate من auto_execute (server.py:1972-1985). §BATCH-P2 أُلحق
-  بـ DEVELOPMENT_TASKS: TSK-723 (Command Palette — صفر endpoints،
-  سجل أفعال معرَّفة لا eval) → TSK-724 (FI-09 — computeWindow نقية +
-  قيود حافظة: البث/النسخ/التمرير التلقائي لا تُمس) → TSK-726 (FI-07 —
-  placeholder، جرد الدوال أولًا)؛ TSK-725 (Workspace Trust — fail-closed
-  غير موثوق افتراضيًا، trust.json ذري في .ai_runs، يُفصَّل نهائيًا قبل
-  التنفيذ)؛ TSK-727 (غلاف سطح مكتب — placeholder، موازنة تقنية مكتوبة +
-  تحقق Windows بيد المالك D-8-ب). DAG: 723→724→726؛ 725 مستقلة؛ 727
-  آخرًا. قيد D-10 في DECISION_LOG. **جاهزية الأولى (TSK-723)**: نمط
-  قائم + سابقة وحدات نقية + معايير آلية + صفر تبعيات ⇒ التنفيذ مأذون
-  (بروتوكول S98 + D-8-ج). هذا القيد يسبق التنفيذ (D-7).
-  **TSK-723 ✅ (نفس الجلسة — عبر تصفيرَي بيئة إضافيين)**: Command
-  Palette (Ctrl+Shift+P): وحدة نقية `static/js/command_palette.js`
-  (UMD-lite نمط settings_panel): سجل ساكن COMMANDS ×15
-  `{id,label(ar),hint,action}` حيث action = اسم دالة UI قائمة؛
-  `filterCommands` (فارغ⇒نسخة الكل؛ وإلا احتواء label|id غير حساس
-  لحالة الأحرف) + `renderListHTML` (تهريب HTML، مؤشر selected،
-  data-cmd-id/data-index، حالة «لا أوامر مطابقة»). الغراء (app.js):
-  جدول `CP_ACTIONS` = 15 مرجع دالة مباشر — التنفيذ lookup صريح
-  `CP_ACTIONS[cmd.action]` (**لا eval ولا onclick مضمّن**)؛ تفويض
-  نقر عبر `closest("[data-cmd-id]")`؛ لوحة مفاتيح ↑↓ (التفاف) /
-  Enter / Esc؛ modal يعيد استخدام أنماط quick-open. index.html:
-  الوحدة تُحمَّل قبل app.js + بنية command-palette-modal؛ style.css:
-  غلاف الـ modal + .cp-item. **صفر endpoints — السطح المجمّد يبقى
-  33** (test_rest_blueprints بلا تعديل). 12 اختبارًا
-  (test_command_palette.py): node (ترشيح ×3/render حرفي+تحديد+kbd/
-  تهريب/شكل السجل) + سجل-الأفعال (كل action دالة قائمة في app.js +
-  مفتاح في CP_ACTIONS + لا eval) + wiring (ترتيب التحميل/الاستهلاك/
-  الاختصار/التفويض) + نقاء الوحدة. **البوابة: 1983P/34S ALL GREEN
-  rc=0** (من 1971). ملاحظات بيئة: تصفير ×2 أثناء التنفيذ —
-  Auto-Uploader أنقذ الوحدة @ c862331 والغراء أُعيدت كتابته ثم دُفع
-  فورًا @ 9b3c955 (درس: دفع الغراء قبل الاختبارات). TSK-723 🏁.
-  **التالي: TSK-724 (FI-09 — computeWindow)** حسب DAG D-10.
 ---
-- **[مؤشر أرشيف — تدوير §6.4 (2026-08-02, S106/CEV)]** قيود Sessions
-  84–99 رُحِّلت إلى `docs/engineering/PROGRESS_ARCHIVE_2.md`
+- **[مؤشر أرشيف — تدوير §6.4 (2026-08-02, S106/CEV + دفعة ثانية S106هـ)]** قيود Sessions
+  84–101 رُحِّلت إلى `docs/engineering/PROGRESS_ARCHIVE_2.md`
   (append-only، لا يُعدَّل).
 - **[مؤشر أرشيف]** كل ما قبل S84 (بما فيه برنامج v4.1 Sessions 1–23):
   انظر `docs/engineering/PROGRESS_ARCHIVE_1.md` (append-only، لا يُعدَّل).
