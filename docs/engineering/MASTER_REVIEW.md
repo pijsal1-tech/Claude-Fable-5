@@ -1025,3 +1025,75 @@ switch-project — الواجهة تستخدم الصحيح؛ لا احتكاك 
 الذرّية صمدت تحت SIGKILL فعليًا؛ التزامن محروس بطبقة اختبارات كثيفة.
 الاكتشاف الوحيد (F-009) تجميلي C4 بلا أثر أمني.
 **الحكم: G6 PASS. التالي: G7 (الأمان — Red Team داخل عقد localhost).**
+
+---
+
+## CEV-G8 — تقرير بوابة طبقة تنفيذ AI 🏁 PASS
+**التاريخ: 2026-08-02 (S107) — الشجرة: 5d083d5 — المنهج: جرد ثابت (9112 سطر/23 وحدة) + 394 حارس مركّز + فحص عزل providers — كل الفحص بـ Stubs (P-11)؛ G7 مؤجلة بقرار مالك D-14**
+
+### 1) عزل providers (P-11)
+- الاستيرادات من `providers.*` في chain/ محصورة في **العقد المجرد
+  حصريًا** `providers.base` (bridge.py:27 + executor.py:38 +
+  router.py:28 تحت TYPE_CHECKING) — **صفر إشارة لأي مزود ملموس**
+  (grep على openai_shelby/you_com/perplexity/blackbox/use_ai في
+  chain/ = 0).
+
+### 2) agent loop (حدود + إلغاء + fail-safe)
+- سقف صلب مزدوج: `MAX_ITERATIONS = 8` + `min(max_iterations, MAX)`
+  (agent_loop.py:44,64) — لا حلقة مفتوحة ممكنة بالبناء.
+- الإلغاء T-015 (R-105) ثنائي المصدر: علم محلي + تذكرة السجل
+  (`_is_cancelled` :78-83)، يُفحص عند رأس كل iteration (:132) وقبل
+  كل أداة (:192)؛ `cancel()` يفك أي موافقة معلّقة برفضها عبر البوابة
+  (:306-309) — لا انتظار يتيم. حارس حي: test_ticket_cancellation.
+- إنهاء التذكرة مضمون في كل المسارات (try/except/finally :105-115:
+  completed/cancelled/failed).
+- تدهور رشيق: بلوغ الحد ⇒ محاولة إجابة أخيرة بالمعرفة المجمعة؛
+  فشلها ⇒ رد صريح بالنتائج الجزئية (:298-304) — لا انهيار صامت.
+
+### 3) executor (retry + ميزانية + بث)
+- retry محكوم بميزانية: `run.budget.reserve_call(is_retry=…)` قبل
+  كل محاولة (:331-337)؛ فحص إلغاء قبل كل retry (:332-336)؛ تصنيف
+  أخطاء المزود بهرمية ProviderError/RateLimit/Timeout/Transient
+  (:359).
+- البث: ChainEvent موحّد ⇒ callback + events.jsonl معًا (`_emit`
+  :529-530) — مسار حدث واحد لا ازدواج.
+
+### 4) context builder (ميزانية السياق)
+- `ContextBudget.pack` من config هو المسار الوحيد (context_builder
+  :126-148) مع fallback مشتق من model_window — لا بتر اعتباطي؛
+  حارس التقارب test_context_builder_convergence يمر.
+
+### 5) التزامن والابتلاع المنضبط
+- bridge: RLock معلَّل بتعليق (:239) + خيط daemon واحد (:410).
+- 29 موضع ابتلاع في chain/ كلها عبر `structured_log.swallowed`
+  الموحّد (FI-06)؛ الاستثناءان العريضان في agent_loop (:108 يعيد
+  الرفع بعد إنهاء التذكرة؛ :302 تدهور رشيق معلَن) — سليمان.
+
+### 6) الحرّاس الحية والنظافة الثابتة
+- **394/394 يمر** في تشغيل واحد @ 5d083d5 (22.8s): goldens
+  (chain+routing bit-identical) + ticket_cancellation +
+  dispatch_parity + agent_feedback + agent_gated_approvals +
+  chain_gated_apply + crash_resume + parallel_execution +
+  agent_manifest + context_builder_convergence + llm_planner +
+  planner + contracts (113 عقد/تكافؤ).
+- صفر TODO/FIXME/HACK في chain/.
+- الخط الأحمر NF-18 قائم: `INJECTION_GUARD_INSTRUCTION` مضموم
+  للـ SYSTEM_PROMPT (templates.py:29,51) + تسييج attached-content
+  (:26-27) — تدقيقه الكامل موضوع G8.5.
+
+### الاكتشافات
+- **CEV-F-010 (C3)**: `chain/hh.har` — HAR دخيل 7.2MB (رفعة d15deb1
+  قبل الحوكمة)، صفر اعتمادات، صفر مراجع، خارج التغليف — التوصية
+  حذف بقرار مالك.
+- **CEV-F-011 (C3)**: 42 استيرادًا/متغيرًا ميتًا عبر النطاق (21 منها
+  في chain/) — pyflakes خارج بوابة check.sh فلا يلتقطها أحد؛ TSK
+  مقترحة: إزالة + ضم pyflakes للبوابة. لا أثر سلوكي — لا يحجز G8.
+- ملاحظة C4 (لا قيد): حقنة `sys.path.insert` في bridge.py:22-25 —
+  خاملة تحت التشغيل العادي ومغطاة بالبوابات — لا فعل.
+
+### الحكم
+عزل المزودات تام بالبناء، الحلقة محدودة بسقف صلب، الإلغاء مزدوج
+المصدر ومفحوص عند كل حد، retry محكوم بميزانية، البث أحادي المسار،
+والابتلاع منضبط عبر structured_log. الاكتشافان (F-010/F-011) نظافة
+C3 بلا أثر سلوكي.
+**الحكم: G8 PASS. التالي بالترتيب المعدل (D-14): G8.5 (AIA — حوكمة طبقة الذكاء).**

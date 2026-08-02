@@ -470,3 +470,25 @@ ghp_/sk- — لا اعتمادات. **صفر مراجع** في *.py/*.sh/*.yaml 
 ولا يدخل التغليف (desktop.spec datas تضم chain/prompts فقط). الأثر:
 وزن مستودع ميت + ضجيج في مجلد كود إنتاجي. **التوصية: حذف** — قرار
 مالك (V3: لا حذف ملف مالك ذاتيًا؛ سابقة EOP-1/D-8-أ).
+
+### CEV-F-011 — 42 استيرادًا/متغيرًا ميتًا عبر النطاق لا تلتقطها أي بوابة (pyflakes خارج check.sh)
+**C3 / S4.** فحص G8 (S107 @ 5d083d5): `pyflakes` على النطاق الداخلي
+كاملًا (chain/ core/ context/ sessions/ routes/ runners/ actions/
+server.py worker.py desktop.py) = **42 تشخيصًا**: 21 في chain/
+(أثقلها agent_loop: threading/Any/SAFE_TOOLS/APPROVAL_TOOLS؛
+bridge: json/time/ChainStep/ExecutionPolicy؛ executor/models/
+orchestrator/planner/delegate/context_builder) + 21 في البقية
+(server.py: build_prompt/get_system_prompt/CharsPerTokenEstimator/
+RoutingTier…؛ context/engine: BundleEntry/content_hash؛ +2 f-string
+بلا placeholders + متغير over في budget.py:238). **فرز يدوي
+(CEV-R3)**: صفر مستهلكين خارجيين لكل مرشح re-export (grep شامل ×11)
+— ميتة حقًا؛ الاستثناء الوحيد router.py:28 (داخل TYPE_CHECKING —
+إيجابية كاذبة تُستبعد، نفس سابقة BudgetSnapshot في F-005).
+**لماذا لم تُلتقط**: بوابة check.sh = mypy فقط (لا يعلّم unused
+imports افتراضيًا)؛ مسح vulture في F-005 التقط 8+1 بعتبة ≥90% ففاتته
+هذه. **تصحيح دليل ملزم**: قيد سابق هذه الجلسة ادّعى «pyflakes chain/
+= صفر» — كان زائفًا (pyflakes غير مثبتة وstderr مكبوت برمز نجاح).
+**الفعل المقترح**: TSK صغيرة (أ) إزالة الـ42 (تحرير ميكانيكي صفر
+سلوك؛ goldens تثبت التكافؤ) + (ب) ضم `pyflakes` لبوابة check.sh +
+requirements-dev لقفل الباب (نفس نمط حراس T-035/T-060). يُنفَّذ
+ضمن دفعة CEV تالية — لا يحجز G8 (لا أثر سلوكي).
