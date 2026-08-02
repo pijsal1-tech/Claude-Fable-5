@@ -492,3 +492,52 @@ imports افتراضيًا)؛ مسح vulture في F-005 التقط 8+1 بعتب�
 سلوك؛ goldens تثبت التكافؤ) + (ب) ضم `pyflakes` لبوابة check.sh +
 requirements-dev لقفل الباب (نفس نمط حراس T-035/T-060). يُنفَّذ
 ضمن دفعة CEV تالية — لا يحجز G8 (لا أثر سلوكي).
+
+### CEV-F-012 — 15/21 برومبتًا نشطًا في manifest هي إرث AI_PROVIDERS: تصف مشروعًا آخر بالكامل (تعارض هوية مُثبت)
+**C2 / S2.** تدقيق AIA-2 (S108 @ 06db615): مسح legacy-regex على كل
+برومبتات المانيفست الـ21 = **15 برومبتًا** يحمل هوية المشروع القديم
+حرفيًا في نصه الحي الذي يُرسَل system prompt لكل استدعاء: «أنت خبير
+… في مشروع AI_PROVIDERS» (محلل جودة.md:13,17؛ مراجع أخطاء.md:14,18؛
+مخطط.md:13,18 — 25 سطر إرث بينها workflows /add-provider وMemory
+.agents/؛ مهندس معماري.md:13,17 «28 folder | 138+ Python files |
+16 provider»؛ مراجع توافق.md:13,19-20 «register.py + refresh.py +
+accounts_*.json»؛ محلل طلبات.md:14 «HAR/Burp → curl_cffi»؛ مهندس
+أمان/محلل أداء/حارس الجودة/مراجع Vibe/محقق أخطاء/مدير فريق:19
+«Workers = groq, deepseek…»؛ مدير الأوركسترا يحيل على 8 أدوار
+**غير موجودة في المانيفست** أصلًا: خبير المحرك/خبير v2/مراقب/خبير
+حماية…). **الأثر**: النموذج يتلقى سياق مشروع مغاير (stack خاطئ
+curl_cffi/SeleniumBase، أنماط خاطئة accounts_*.json، فحوصات خاطئة
+«هل بيستورد من shared/؟») ⇒ تلوث منهجي لكل مخرجات السلسلة. النظيفان
+نسبيًا: مراجع الكود الآمن.md وMICRO_WORKER (سطران عرضيان).
+**المعالجة**: هذا هو مبرر AIA-3 (إعادة الكتابة على نواة عامة +
+overlay) — يُنفَّذ هناك بعد بناء corpus R8 الذهبي أولًا.
+
+### CEV-F-013 — مسارا Executor/Delegate يرسلان system prompt بلا حارس الحقن NF-18 (تغطية جزئية للخط الأحمر)
+**C2 / S3.** تدقيق AIA-2: حارس الحقن `INJECTION_GUARD_INSTRUCTION`
+يُلحق فقط بـ`SYSTEM_PROMPT` العام (templates.py:51) المستهلَك في
+مسار الدردشة/AgentLoop (chat_dispatch.py:439,546). أما مسار السلاسل:
+executor.py:441 يمرر `agent_prompt.content` **خامًا** كـsystem
+(صفر ذكر للحارس في agent_loader/executor/delegate — grep = فارغ)،
+ومثله delegate.py:318,346,386. والمدخلات غير الموثوقة تصل فعلًا
+لهذه المسارات: نتائج التبعيات تُحقن حرفيًا بلا تسييج (models.py:307
+`[Result from …]` مباشرة) ومحتوى ملفات المشروع عبر
+to_prompt_block (context_builder.py:64 بلا fence_attached — قارن
+knowledge.py:54,204 المسيَّج). **الأثر**: ملف مشروع يحوي تعليمات
+عدائية يمر لخطوات السلسلة بلا تحذير الحارس وبلا أسيجة بيانات-لا-
+أوامر. AIA-R6 (الصلابة تتوسع لا تنكمش) تجعل التوحيد إلزاميًا —
+مرشح TSK في AIA-3/AIA-7 (توسيع لا تعديل للعقد NF-18).
+
+### CEV-F-014 — فجوة تغطية R9 اتجاه ثانٍ: 15/21 دورًا لا يصل إليها أي مسار توجيه + سقف تكرار غير موحد
+**C3 / S4.** تدقيق AIA-2: الاستراتيجيات كلها (strategies.py) تُسند
+**6 أدوار فقط**: executor/code_analyzer/planner/deep_debugger/
+architect/code_reviewer (+ delegate يستخدم planner/executor/
+code_reviewer). الأدوار الـ15 الباقية (bug_analyzer, api_analyzer,
+security_analyzer, perf_analyzer, request_analyzer, quality_guard,
+backend_dev, frontend_dev, quality_reviewer, vibe_reviewer,
+evidence_reviewer, compat_reviewer, orchestrator, review_manager,
+team_manager) **لا يصل إليها أي كود** — قابلة للتحميل يدويًا فقط
+(load(role) API). هذا عكس اتجاه AIA-R9 (كل برومبت ⇒ صنف يصل إليه
+التوجيه) — يُحسم في AIA-6 (مصفوفة التوجيه): إسناد أو شطب بقرار
+مالك. ملحق ثانوي: chat_dispatch.py:440 يُنشئ AgentLoop بـ
+max_iterations=6 تحت السقف الصلب 8 (agent_loop.py:44,64 — min()
+يحكم) — تعمّد غير موثق: سطر توثيق يحسمه.
