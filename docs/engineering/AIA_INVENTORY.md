@@ -15,7 +15,9 @@
   (templates.py:13-16,51 — يشمل INJECTION_GUARD_INSTRUCTION خط NF-18).
 - **REFERENCE** = newskells/ كاملة: مثبت حيًا أنها غير محمَّلة runtime
   (grep -r newskells *.py = تعليقان فقط: chain/delegate.py:6،
-  chain/strategies.py:419 «مستوحى من»). بطاقات دورة الحياة = AIA-5.
+  chain/strategies.py:419 «مستوحى من»). بطاقات دورة الحياة = AIA-5:
+  **مقفلة** — انظر `AIA_SKILLS_LIFECYCLE.md` (17/17 بطاقة؛ 4 ملفات
+  رُقّيت لحالة CANDIDATE ببندي FI-13/FI-14 — الترقية قرار مالك).
 - **STALE** = غير مستهلَك + أدلة إرث مشاريع سابقة في الرؤوس:
   «AI_PROVIDERS / C__cursor» (memory/PROJECT_VISION.md:1،
   skills/00-SKILLS.md:1، AGENT.md:2، سيستم/USER_PROFILE.md:2)،

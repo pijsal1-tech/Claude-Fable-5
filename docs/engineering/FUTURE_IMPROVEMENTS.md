@@ -126,6 +126,36 @@ that layer, and none may be reinterpreted to do so.
 - **Cost**: low — documentation only.
 - **Prerequisite**: TSK-502 merged.
 
+## Delegation (AIA-5 skill-promotion candidates — owner decision required)
+
+### FI-13 — Multi-task delegation queues [MID]
+- **Source**: AIA-5 CANDIDATE — `newskells/skills/{codex,opencode}-delegate/references/multi-task-queues.md`
+  (inventory blocks 215/221); discipline absent from `chain/delegate.py` and
+  `chain/strategies.py` (`grep -in queue` = zero hits).
+- **Benefit**: `DelegateBridge` gains a trustworthy multi-task mode — run
+  sequentially in dependency order, land (review + commit) each task before
+  dispatching the next, and carry decided constraints (helper names, chosen
+  interfaces) forward into later briefs. Prevents pile-up diffs and briefs
+  that assume un-landed work (multi-task-queues.md:9–25).
+- **Cost**: medium — queue state + sequencing in `DelegateBridge`, constraint
+  carry-forward into `delegate_brief.md` injection, WS status events per
+  queued task, deterministic tests (P-11: no real model).
+- **Prerequisite**: owner promotion REFERENCE→ACTIVE (V3: owner-exclusive);
+  AIA-6 routing matrix closed so queued-task routing stays CI-testable.
+
+### FI-14 — Test-tampering guards in delegate review [SHORT]
+- **Source**: AIA-5 CANDIDATE — `references/review-and-land.md` §"Check the
+  tests before trusting the gates" (blocks 216/222); absent from
+  `chain/prompts/delegate_review.md` verdict criteria (L18–35 cover scope/creep
+  only).
+- **Benefit**: reviewer verdict explicitly treats unbriefed edits to existing
+  tests, added skips, and loosened assertions as contract changes → REWORK or
+  REJECT, never silently absorbed (review-and-land.md:8–19). Closes the
+  "green gate with a shortened yardstick" blind spot.
+- **Cost**: low — criteria lines added to `delegate_review.md` + one fencing
+  test asserting the criteria text survives prompt edits.
+- **Prerequisite**: owner promotion REFERENCE→ACTIVE (V3: owner-exclusive).
+
 ---
 
 ## Definition of Done (P7)

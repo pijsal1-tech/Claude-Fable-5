@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-02 (Session 108 تكملة 2 — **CEV-G8.5 قيد التنفيذ**: AIA-0..4 ✅ كلها (آخرها AIA-4: schema موسَّع ADR-007 + 21/21 دورًا مملوءًا + check.sh ALL GREEN 2211P/34S/0F)؛ التالي AIA-5) |
+| last-updated | 2026-08-02 (Session 108 تكملة 3 — **CEV-G8.5 قيد التنفيذ**: AIA-0..5 ✅ كلها (آخرها AIA-5: بطاقات newskells 17/17 + دورة حياة + FI-13/FI-14)؛ التالي AIA-6) |
 | stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
 | current-phase | **CEV (D-12)**: بوابات G1..G12 (+G8.5 AIA) — وثيقة التكليف: `CEV_PROGRAM_PROMPT.md`؛ **G1→G6 + G8 كلها 🏁 PASS** (سبعة تقارير مؤرخة في MASTER_REVIEW)؛ **G7 (الأمان/Red Team) مؤجلة DEFERRED بقرار مالك D-14** (تُستأنف بأمر لاحق — تسبق G12 وجوبًا)؛ البوابة المفتوحة: **G8.5 (AIA — حوكمة طبقة الذكاء)** |
-| current-task | **CEV-G8.5 IN-PROGRESS (AIA §4-B)**: AIA-0 ✅ + AIA-1 ✅ + AIA-2 ✅ + AIA-3 ✅ (27/27 ≥70) + **AIA-4 ✅ مقفلة** (ADR-007: ثمانية حقول توجيه اختيارية رجعية التوافق + تحقق مرجعي + definition() accessor + 21/21 دورًا مملوءًا + بوابة الإغلاق كلها خضراء: 58/58 مانيفست + mypy نظيف + check.sh ALL GREEN 2211P/34S/0F)؛ **التالي: AIA-5 بطاقات newskells ودورة الحياة (17 ملفًا)** ثم AIA-6/7 ثم AIA-C؛ قرارات مالك معلَّقة: F-003 (الحذف **×21**) + F-010 (hh.har) + مصير كتل STALE (175) + F-014 (أدوار بلا إسناد) | 
+| current-task | CEV-G8.5: **AIA-5 ✅ مقفلة** (17/17 بطاقة وحالة في AIA_SKILLS_LIFECYCLE.md؛ 4 ملفات CANDIDATE ببندي FI-13/FI-14 — الترقية قرار مالك)؛ التالي **AIA-6** (مصفوفة التوجيه)؛ F-003 ×22 بلا قرار |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -487,6 +487,35 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-08-02 — Session 108 (تكملة 3) — AIA-5 ✅ مقفلة: بطاقات newskells 17/17 + دورة حياة المهارات + ترشيحان CANDIDATE ببندي FI-13/FI-14 (الترقية قرار مالك حصريًا)**:
+  تصفير بيئة #38 (§3.1: استنساخ + TOKEN_SCRUB_DONE + جرد نجاة — البوت
+  التقط كوميتات AIA-4 الثلاثة كلها في e7d66e2؛ لا شيء مفقود)؛ `.env`
+  أُعيدت ×22 (F-003 بلا قرار). **AIA-5 بترتيب المواصفة**: (1) الدليل
+  الحي أُعيد إثباته: grep -rn newskells على *.py = تعليقا «مستوحى من»
+  فقط (delegate.py:6، strategies.py:419) — صفر import/تحميل. (2) وثيقة
+  جديدة `AIA_SKILLS_LIFECYCLE.md`: دورة الحياة الرباعية
+  REFERENCE→CANDIDATE→ACTIVE→DEPRECATED (الترقيتان الأخيرتان قرار مالك
+  حصريًا)؛ بطاقتا المهارتين codex-delegate/opencode-delegate بالحقول
+  السبعة المطلوبة وكل اقتباس بالاستشهاد المزدوج (مصدر newskells ↔ موقع
+  editor_v4: الـloop في delegate.py:163–168، «العامل بلا سياق» في
+  delegate_brief.md:5، بنية XML، حدود التوسع، أحكام scope/creep في
+  delegate_review.md:18–35، التقرير المهيكل)؛ جدول 17/17 ملفًا بحالة
+  وتسويغ لكل ملف. (3) **4 ملفات CANDIDATE** (توأما multi-task-queues +
+  توأما review-and-land §test-gates) ببندين قياسيين في
+  FUTURE_IMPROVEMENTS.md: **FI-13** (طوابير تفويض متسلسلة — منفعة/كلفة
+  متوسطة/متطلب: قرار مالك + AIA-6) و**FI-14** (حراس العبث بالاختبارات
+  في delegate_review — كلفة منخفضة/متطلب: قرار مالك)؛ relay.mjs
+  وdispatch-and-poll بقيا REFERENCE مدلَّلًا (CLI خارجي يناقض
+  delegate.py:9 «بدون CLI خارجي»). (4) إحالة مرجعية في AIA_INVENTORY.md
+  (منع تضارب السجلّين). **بوابة الإغلاق**: 17/17 بطاقة وحالة ✓؛ FI لكل
+  CANDIDATE ✓؛ صفر تحميل runtime جديد ✓ (تغييرات وثائقية بحتة)؛
+  check.sh: 2210P/34S + فشل وحيد = test_search_perf الـflaky البيئي
+  الموثَّق (سابقة S84 — يمر معزولًا هنا أيضًا؛ التشغيلة الأولى كشفت
+  requirements-dev غير مثبَّتة بعد الـwipe → ثُبِّتت فعاد التوزيع
+  الطبيعي 34S). كوميتات: eb7f48b (البطاقات + FI) ثم إحالة الجرد ثم هذا
+  القيد. **الموقع: AIA-5 مقفلة؛ التالي AIA-6 (مصفوفة التوجيه — 6 فئات
+  نوايا إلزامية + نية ×3 صياغات؛ يحل F-014 ويملأ depends_on/
+  conflicts_with بالأدلة).**
 - **2026-08-02 — Session 108 (تكملة 2) — AIA-4 ✅ مقفلة: schema الـmanifest موسَّع بثمانية حقول توجيه (ADR-007) + 21/21 دورًا مملوء الحقول + check.sh ALL GREEN 2211P/34S/0F**:
   تصفيرات بيئة #36/#37 (§3.1: استنساخ + TOKEN_SCRUB_DONE + جرد نجاة
   — البوت التقط كل شيء في fc5b7b8/950b898؛ الإصلاح الوحيد المفقود:
