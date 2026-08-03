@@ -24,6 +24,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from tests.conftest import write_sample_env  # noqa: E402  (TSK-CEV-111)
 from tests.goldens.context.harness import SCENARIOS, collect_legacy_context  # noqa: E402
 
 GOLDENS_DIR = pathlib.Path(__file__).resolve().parent
@@ -34,6 +35,7 @@ def capture_one(name: str, spec: dict) -> dict:
     with tempfile.TemporaryDirectory() as td:
         project = pathlib.Path(td) / "sample_project"
         shutil.copytree(FIXTURE_PROJECT, project)
+        write_sample_env(project)  # TSK-CEV-111: .env generated, not stored
         if spec["setup"] is not None:
             spec["setup"](project)
         snapshot = collect_legacy_context(project, spec["message"])

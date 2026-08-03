@@ -7,8 +7,9 @@ __pycache__/
 .webdev_backups/
 node_modules/
 .env
-# exception: fixture .env with FAKE keys (T-002, needed by R-204 tests)
-!tests/fixtures/sample_project/.env
+# TSK-CEV-111 (CEV-F-003): fixture .env is now GENERATED at test time
+# (tests/conftest.py:write_sample_env) — the old tracked-file exception
+# was removed because the owner-side uploader bot kept deleting it.
 .venv/
 venv/
 ENV/

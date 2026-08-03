@@ -14,6 +14,7 @@ import shutil
 
 import pytest
 
+from tests.conftest import write_sample_env  # TSK-CEV-111
 from tests.goldens.chain.harness import SCENARIOS, collect_builder_snapshot
 
 GOLDENS_DIR = pathlib.Path(__file__).resolve().parent
@@ -36,6 +37,7 @@ def _replay(name: str, tmp_path: pathlib.Path) -> dict:
     spec = SCENARIOS[name]
     project = tmp_path / "sample_project"
     shutil.copytree(FIXTURE_PROJECT, project)
+    write_sample_env(project)  # TSK-CEV-111: .env generated, not stored
     if spec["setup"] is not None:
         spec["setup"](project)
     return collect_builder_snapshot(project, spec["message"])
