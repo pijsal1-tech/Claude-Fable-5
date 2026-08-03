@@ -33,6 +33,7 @@ from typing import Optional, Callable
 from chain.path_policy import resolve_workspace_path, is_secret_file
 from context.engine import ProjectScan
 from core.structured_log import swallowed as _slog_swallowed
+from prompts.templates import fence_attached
 
 
 # ════════════════════════════════════════════════════
@@ -61,7 +62,11 @@ class ContextItem:
             "tree": "🌳", "info": "ℹ️", "deps": "📦",
         }
         icon = icons.get(self.kind, "📎")
-        return f"{icon} [{self.kind}: {self.source}]:\n{self.content}"
+        # TSK-CEV-110b (CEV-F-013 / NF-18): محتوى ملفات/مجلدات
+        # المشروع محتوى خارجي غير موثوق — يُسيَّج كبيانات لا أوامر
+        # (نفس آلية knowledge.py:204 — العنوان يبقى خارج السياج).
+        fenced = fence_attached(f"{self.kind}:{self.source}", self.content)
+        return f"{icon} [{self.kind}: {self.source}]:\n{fenced}"
 
 
 # ════════════════════════════════════════════════════

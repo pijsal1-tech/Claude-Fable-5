@@ -593,3 +593,25 @@ full_chain + matched_signals غير فارغة) — خضراوان. أثر جا�
 (`git status --porcelain tests/goldens/` فارغ) — لا سيناريو قديم
 تغيّرت درجته. check.sh ALL GREEN rc=0 (2231P/34S). صفوف 5a/7a/7b في
 AIA_ROUTING_MATRIX.md صارت تاريخية (السلوك الحالي يلتقط الأنماط).
+
+### CEV-F-013 — الحسم (S108 تكملة 10): التسييج الدفاعي نُفّذ بـTSK-CEV-110 (بموجب D-15 — هندسة دفاعية لا Red Team)
+**مُقفلة ✅ (بحدّ موثق).** 110a سيّجت نتائج التبعيات في
+`ChainStep.build_prompt` (chain/models.py — الجسم بعد `[Result from
+…]` يُلف بـ`fence_attached("dep_result:{id}", body)`؛ وضعا full/
+summary، وminimal بلا محتوى أصلًا). 110b سيّجت محتوى ملفات السياق في
+`ContextItem.to_prompt_block` (chain/context_builder.py — نفس آلية
+knowledge.py المسيَّجة سلفًا). 110c حدّثت المثبتات وعيًا (بروتوكول
+AIA-R8): goldens test_context_policy الحرفية + إعادة التقاط
+prompt_corpus.golden.json (8 مواضع) وgoldens السلاسل (4 ملفات) مع
+تصنيف الـdiff **برمجيًا لا عينيًا**: إزالة أغلفة السياج من الجديد
+تعيد القديم بايت-ببايت عبر الملفات الخمسة (FENCE_ONLY_VERIFIED) —
+تحسين مقصود، صفر حذف محتوى، صفر تغيير توجيه. حارس الحقن اكتسب طبقة
+رابعة **سلوكية** (check_injection_guard.py: probe عدائي عبر
+build_prompt/to_prompt_block الحيين يجب أن يخرج محصورًا بين وسمي
+`<attached-content>`) — كسر متعمد لأيٍّ من التسييجين = أحمر باسم
+صريح، والقاعدة «بيانات لا أوامر» 21/21 (الضابط التعويضي) صارت ترتبط
+فعليًا بالمحتوى المسيَّج. check.sh ALL GREEN rc=0 (2231P/34S).
+**الحد المتبقي الموثق (لا يُنفَّذ بلا قرار مالك)**: إلحاق
+`INJECTION_GUARD_INSTRUCTION` نصيًا بـsystem مسار السلاسل يغيّر 21
+لقطة sha256 لملفات الأدوار — التوحيد الكامل قرار مالك منفصل؛ الضابط
+التعويضي القائم يغطي الفجوة وظيفيًا.

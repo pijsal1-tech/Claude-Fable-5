@@ -19,6 +19,7 @@ from chain.models import (
     ChainRun, ChainStep, ExecutionPolicy,
     SUMMARY_TOKENS_PER_DEP, canonical_context_policy, summarize_for_context,
 )
+from prompts.templates import fence_attached
 from context.budget import CharsPerTokenEstimator
 from tests.fakes.fake_provider import FakeProvider
 
@@ -66,20 +67,25 @@ class TestModeGoldens:
                  "s2": {"name": "Plan", "status": "success"}}
 
     def test_full_golden(self):
+        # TSK-CEV-110a: الجسم مُسيَّج بيانات-لا-أوامر؛ العنوان خارج السياج
         step = _step("full", deps=["s1", "s2"])
         assert step.build_prompt(self.DEPS_RESULTS, self.DEPS_META) == (
-            "\n\n[Result from s1]:\nalpha result"
-            "\n\n[Result from s2]:\nbeta result"
-            "\n\ndo the work"
+            "\n\n[Result from s1]:\n"
+            + fence_attached("dep_result:s1", "alpha result")
+            + "\n\n[Result from s2]:\n"
+            + fence_attached("dep_result:s2", "beta result")
+            + "\n\ndo the work"
         )
 
     def test_summary_golden_small_results_verbatim(self):
         # ضمن الميزانية ⇒ summary يمرر النص حرفيًّا (لا تشويه مجاني)
         step = _step("summary", deps=["s1", "s2"])
         assert step.build_prompt(self.DEPS_RESULTS, self.DEPS_META) == (
-            "\n\n[Result from s1]:\nalpha result"
-            "\n\n[Result from s2]:\nbeta result"
-            "\n\ndo the work"
+            "\n\n[Result from s1]:\n"
+            + fence_attached("dep_result:s1", "alpha result")
+            + "\n\n[Result from s2]:\n"
+            + fence_attached("dep_result:s2", "beta result")
+            + "\n\ndo the work"
         )
 
     def test_summary_golden_big_result_truncated(self):
@@ -129,17 +135,23 @@ class TestModeGoldens:
 class TestLegacyParity:
 
     def test_selective_default_is_byte_identical_to_legacy(self):
-        """الافتراضي القديم selective ⇒ نفس النص القديم غير المشروط بايت-ببايت."""
+        """الافتراضي القديم selective ⇒ نفس بنية النص القديم غير المشروط
+        بايت-ببايت — مع سياج NF-18 للجسم (TSK-CEV-110a).
+
+        تاريخيًا قارن هذا الاختبار مع بايتات ما قبل T-045 الخام؛ بعد
+        110a التكافؤ المثبَّت صار: نفس السلوك عبر السياسات (المحتوى
+        كامل بلا تلخيص/إسقاط) — لا نفس بايتات ما قبل NF-18."""
         step = ChainStep(id="s3", name="S3", stage="execute",
                          agent_role="executor", prompt_template="run it",
                          depends_on=["s1", "s2"])  # policy الافتراضي
         results = {"s1": BIG_RESULT, "s2": "beta"}
 
-        # السلوك القديم حرفيًّا (المنطق القديم قبل T-045):
+        # السلوك القديم حرفيًّا (منطق ما قبل T-045) + سياج 110a:
         legacy_context = ""
         for dep_id in step.depends_on:
             if dep_id in results:
-                legacy_context += f"\n\n[Result from {dep_id}]:\n{results[dep_id]}"
+                fenced = fence_attached(f"dep_result:{dep_id}", results[dep_id])
+                legacy_context += f"\n\n[Result from {dep_id}]:\n{fenced}"
         legacy = legacy_context + "\n\n" + step.prompt_template
 
         assert step.build_prompt(results) == legacy
