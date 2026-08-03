@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
 
+from prompts.templates import fence_attached
+
 
 # ═══════════════════════════════════════════════════════
 #   Context Policy — T-045 (R-602)
@@ -304,7 +306,11 @@ class ChainStep:
                 body = dependency_results[dep_id]
                 if mode == "summary":
                     body = summarize_for_context(body)
-                context += f"\n\n[Result from {dep_id}]:\n{body}"
+                # TSK-CEV-110a (CEV-F-013 / NF-18): ناتج خطوة سابقة =
+                # مخرج نموذج قد يحمل محتوى مشروع عدائيًا مُعاد بثّه —
+                # يُسيَّج كبيانات لا أوامر (العنوان يبقى خارج السياج).
+                fenced = fence_attached(f"dep_result:{dep_id}", body)
+                context += f"\n\n[Result from {dep_id}]:\n{fenced}"
 
         prompt = self.prompt_template
         if "{previous_context}" in prompt:
