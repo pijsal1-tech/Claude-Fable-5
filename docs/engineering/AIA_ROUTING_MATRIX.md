@@ -54,9 +54,9 @@
 | deep_debugger | pl:343 | 2b/5b (pipeline) |
 | architect | pl:354 | 2b/5b (pipeline) |
 | code_reviewer | pl:381، dlg:490 | 2b/5b + corpus T-034 delegate |
-| **الأدوار الـ15 الباقية** | **لا مسار كود** (bug_analyzer, api_analyzer, security_analyzer, perf_analyzer, request_analyzer, quality_guard, backend_dev, frontend_dev, quality_reviewer, vibe_reviewer, evidence_reviewer, compat_reviewer, orchestrator, review_manager, team_manager) | **CEV-F-014 — قرار مالك: إسناد أو شطب** (لا نخترع إسنادًا بلا أمر) |
+| **الأدوار الـ15 الباقية** | **أدوار مكتبة (manual-load)** — مسار الوصول المعتمد: `AgentLoader.load(role)` (bug_analyzer, api_analyzer, security_analyzer, perf_analyzer, request_analyzer, quality_guard, backend_dev, frontend_dev, quality_reviewer, vibe_reviewer, evidence_reviewer, compat_reviewer, orchestrator, review_manager, team_manager) | **CEV-F-014 محسومة (D-16 البند 3, S109)**: إسنادٌ بصفة مكتبة — مثبَّت بـ`TestLibraryRolesF014` (تجزئة 15+6=21 حصرية + تحميل فعلي لكل دور + حارس غياب عن strategies.py) |
 
-اتجاه R9 الثاني **مكتمل للأدوار الستة المسندة** (اختبار `test_assigned_roles_reachable_via_strategies` يثبته تنفيذيًا). الأدوار الـ15 فجوة **موثقة مُسعَّرة** في F-014 بانتظار قرار المالك — لا ادعاء تغطية زائفة.
+اتجاه R9 الثاني **مكتمل 21/21**: الأدوار الستة تصل عبر الاستراتيجيات (`test_assigned_roles_reachable_via_strategies`)، والأدوار الـ15 مُسندة رسميًا **أدوار مكتبة** يصل إليها `load(role)` API (`TestLibraryRolesF014` — حسم F-014 بموجب D-16 البند 3: الشطب رُفض لأن الملفات ذكاء مالك [سابقة D-8-أ]، والربط الآلي رُفض لأنه اختراع إسناد دلالي بلا حاجة؛ ترقية أي دور مكتبة للتوجيه لاحقًا تكسر حارس `test_library_roles_absent_from_strategies_source` عمدًا فتُحدَّث التجزئة بوعي).
 
 ## 3) إثبات R10 جدوليًا — القدرات المعلنة ↔ corpus
 

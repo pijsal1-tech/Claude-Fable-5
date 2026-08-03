@@ -437,6 +437,10 @@ def dispatch_chat_message(deps, ctx, sctx, user_text: str, mode: str, msg: dict,
                     send_fn=_agent_send_fn,
                     ws_send_fn=frame_sink,
                     system_prompt=get_system_prompt(),
+                    # مقصود (F-014 ملحق): سقف الدردشة التفاعلية 6 دورات —
+                    # أدنى من السقف الصلب MAX_ITERATIONS=8 (agent_loop.py)
+                    # عمدًا لخفض زمن الاستجابة والتكلفة في المسار التفاعلي؛
+                    # min() في AgentLoop يضمن ألا يتجاوز الصلب أبدًا.
                     max_iterations=6,
                     approval_gate=deps.approval_gate,
                 )

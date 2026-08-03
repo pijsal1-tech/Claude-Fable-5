@@ -315,3 +315,51 @@ class TestR10CapabilityCorpusLink:
         roles.update(s.agent_role for s in build_delegate("task").steps)
         assert {"executor", "code_analyzer", "planner", "deep_debugger",
                 "architect", "code_reviewer"} <= roles
+
+
+class TestLibraryRolesF014:
+    """حسم CEV-F-014 (بموجب D-16 طابور البند 3): الأدوار الـ15 غير
+    الموصولة بالاستراتيجيات مُسندة رسميًا بصفة **أدوار مكتبة**
+    (manual-load library) — مسار وصولها المعتمد هو load(role) API
+    الحقيقي، لا التوجيه الآلي. هذا الاختبار يثبّت الإسناد تنفيذيًا:
+    كل دور مكتبة موجود في الـmanifest ويُحمَّل فعليًا ببرومبت غير فارغ.
+    شطبها رُفض (ملفات ذكاء مالك — سابقة D-8-أ) وربطها بالتوجيه رُفض
+    (اختراع إسناد دلالي بلا حاجة — عكس منطق AIA-6)."""
+
+    LIBRARY_ROLES = frozenset({
+        "bug_analyzer", "api_analyzer", "security_analyzer",
+        "perf_analyzer", "request_analyzer", "quality_guard",
+        "backend_dev", "frontend_dev", "quality_reviewer",
+        "vibe_reviewer", "evidence_reviewer", "compat_reviewer",
+        "orchestrator", "review_manager", "team_manager",
+    })
+    STRATEGY_ROLES = frozenset({
+        "executor", "code_analyzer", "planner", "deep_debugger",
+        "architect", "code_reviewer",
+    })
+
+    @pytest.fixture(scope="class")
+    def loader(self):
+        from chain.agent_loader import AgentLoader
+        return AgentLoader(agents_dir=REPO_ROOT / "agents_rules")
+
+    def test_partition_is_exhaustive_and_disjoint(self, loader):
+        """مكتبة (15) + استراتيجيات (6) = كل أدوار الـmanifest (21) بلا تقاطع."""
+        available = set(loader.get_available_roles())
+        assert self.LIBRARY_ROLES | self.STRATEGY_ROLES == available
+        assert not (self.LIBRARY_ROLES & self.STRATEGY_ROLES)
+
+    @pytest.mark.parametrize("role", sorted(LIBRARY_ROLES))
+    def test_library_role_loads_via_public_api(self, loader, role):
+        """مسار الإسناد الرسمي: load(role) يعيد برومبت حقيقيًا غير فارغ."""
+        prompt = loader.load(role)
+        assert prompt.role == role
+        assert prompt.content and prompt.content.strip()
+
+    def test_library_roles_absent_from_strategies_source(self):
+        """الإسناد مكتبةً يعني: صفر ذكر لأي دور مكتبة في strategies.py —
+        ظهور أي منها هناك لاحقًا = ترقية إسناد تتطلب تحديث هذا التثبيت."""
+        src = (REPO_ROOT / "chain" / "strategies.py").read_text(encoding="utf-8")
+        for role in sorted(self.LIBRARY_ROLES):
+            assert role not in src, (
+                f"{role} ظهر في strategies.py — حدّث تصنيف F-014")
