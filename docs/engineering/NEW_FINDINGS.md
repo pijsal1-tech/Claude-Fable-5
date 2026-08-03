@@ -728,3 +728,26 @@ delegate.py:706 لم يُمس). فحص التثبيت المُسبق: الـprom
 benchmark ثم test_index_snapshot_wiring) — كلاهما من نمط sandbox
 الموثق، أخضران solo وفي التشغيل الأخضر النهائي. البوابة: check.sh
 ALL GREEN rc=0 (2268P/34S/0F).
+
+### FI-15 — منفَّذ (S109 تكملة 13، بموجب D-16 طابور البند 7 — TSK-CEV-113)
+**مهمة التفويض الخلفية المحكومة حاضرة.** ترقية REFERENCE→ACTIVE
+لانضباط `dispatch-and-poll.md` §Waiting for completion («background
+and poll… Trust the working tree and the process state over any
+progress display») — الشرط المسبق FI-13 كان مقفلًا. المنفَّذ: وحدة
+جديدة `chain/background_delegate.py` (BackgroundDelegateTask) فوق
+DelegateBridge **بلا أي تعديل عليه ولا على delegate_queue.py**
+(مثبَّت بـtest_delegate_module_not_modified): `start()` يطلق
+run_delegation القائم في خيط daemon ويرجع فورًا (hand-off — كل
+نقاط تفتيش الإلغاء T-015 تُورَث)؛ **الثابت الصلب (Non-Goal §15.1
+— لا YOLO)**: الغلاف لا يملك أي مسار land تلقائي — waiting_approval
+نهائية من منظوره حتى land()/reject() صريحين يغلّفان القائمَين
+(مثبَّت باختبار يفحص غياب delegate_landed من السجل)؛ reconnect-safe:
+`snapshot()` يعيد الحالة + سجل الأحداث كاملين من الكائن الحي تحت
+قفل (نسخ دفاعية — مثبَّت باختبار تلويث)؛ أحداث background_started/
+background_event (تمرير أحداث الجسر)/background_finished بنمط
+_emit القائم (ابتلاع مسجَّل)؛ فشل المزود = failed بلا استثناء هارب.
+12 اختبارًا حتميًا (P-11 — التزامن مضبوط بـthreading.Event لا
+بأزمنة نوم) في test_background_delegate.py. مؤشر الواجهة خارج
+النطاق عمدًا (استهلاك الواجهة قرار منتج لاحق — نص المواصفة).
+إصلاح gate واحد: تلميح نوع `snap: dict[str, object]` لـmypy.
+البوابة: check.sh ALL GREEN rc=0 (2280P/34S/0F).

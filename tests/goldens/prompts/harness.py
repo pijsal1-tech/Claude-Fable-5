@@ -95,6 +95,22 @@ SCENARIOS: dict[str, dict] = {
                          "    return db.execute(query)\n\n") * 300,
         "file_path": "auth/security.py",
     },
+    # TSK-CEV-115 (FI-16): تحقيق عطل عالي الخطورة → pipeline —
+    # يثبت لقطة دور deep_debugger المرقَّى بحلقة الأدلة التشغيلية.
+    "crash_investigation_pipeline": {
+        "request": ("Investigate the intermittent data-corruption crash "
+                    "in the authentication database layer: sessions "
+                    "table rows vanish after concurrent password "
+                    "updates, migrate the session store safely, "
+                    "redesign the locking scheme, and add regression "
+                    "tests plus a security review of the fix"),
+        "file_content": ("def update_password(user, new_hash):\n"
+                         "    row = db.query('SELECT * FROM sessions "
+                         "WHERE user=%s' % user)\n"
+                         "    db.execute('UPDATE users SET hash=%s' "
+                         "% new_hash)\n\n") * 300,
+        "file_path": "auth/session_store.py",
+    },
     # التجاوز اليدوي الصريح → delegate (المسار المفوَّض بلا history)
     "forced_delegate": {
         "request": "نفّذ إضافة أمر تصدير التقارير PDF كما هو موصوف في الـ brief",

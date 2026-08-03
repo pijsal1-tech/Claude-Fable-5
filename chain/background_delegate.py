@@ -183,6 +183,7 @@ class BackgroundDelegateTask:
 
         عميل أعاد الاتصال يستدعيها فيستعيد الحالة وسجل الأحداث
         كاملين بلا اعتماد على ما بثّته الجلسة المقطوعة."""
+        snap: dict[str, object]
         with self._lock:
             snap = {
                 "task_id": self.task_id,
