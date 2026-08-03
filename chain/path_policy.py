@@ -25,30 +25,140 @@ SECRETS_DENYLIST_DIRS: Set[str] = {
     ".aws", ".ssh", ".git", ".gcloud", ".kube"
 }
 
+# TSK-CEV-117 (CEV-F-018): محارف "خفية" لا يعتبرها str.strip() بيضاء
+# لكنها تُطبَّع أو تُتجاهل بصريًا/على مستوى نظام الملفات. تُزال صراحةً
+# قبل المطابقة حتى لا يصير `.env<ZWSP>` مسارَ تجاوزٍ لقائمة الحجب.
+_INVISIBLE_CHARS = (
+    "\u200b"  # ZERO WIDTH SPACE
+    "\u200c"  # ZERO WIDTH NON-JOINER
+    "\u200d"  # ZERO WIDTH JOINER
+    "\u2060"  # WORD JOINER
+    "\ufeff"  # BOM / ZERO WIDTH NO-BREAK SPACE
+    "\u180e"  # MONGOLIAN VOWEL SEPARATOR
+    "\x00"    # NUL (قاطع سلاسل في طبقات C)
+)
+
+
+# محارف تُقلَّم من نهاية الاسم (بيضاء بمعناها الواسع + النقطة).
+# تُستخدم في المسار السريع فقط؛ التقليم الفعلي يستخدم str.strip.
+_TRAILING_TRIGGERS = frozenset(
+    " \t\n\r\x0b\x0c."
+    "\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007"
+    "\u2008\u2009\u200a\u202f\u205f\u3000"
+)
+_INVISIBLE_SET = frozenset(_INVISIBLE_CHARS)
+
+
+def _needs_normalization(name: str) -> bool:
+    """هل يحتمل الاسم محارف تجاوز تستوجب التطبيع الكامل؟ (مسار سريع)
+
+    **متحفظ بالتصميم**: أي شك ⇒ True (نُطبِّع تطبيعًا كاملًا). القيمة
+    False تعني حصرًا أن التطبيع الكامل سيُنتج `name.lower()` نفسه.
+
+    الأداء (TSK-CEV-117): هذا الفحص يجري لكل ملف في الفهرسة/البحث،
+    فاستُخدم `frozenset.isdisjoint` (حلقة بمستوى C) بدل `str.isspace()`
+    و`any(...)` — القياس: 0.36 µs/اسم مقابل 1.90 µs للنسخة الساذجة
+    (أسرع ~5×)، وهو ما يُبقي `test_search_perf` تحت عتبة 1s.
+    """
+    if not name:
+        return False
+    if name[-1] in _TRAILING_TRIGGERS or name[0] in _TRAILING_TRIGGERS:
+        return True
+    if ":" in name:
+        return True
+    return not _INVISIBLE_SET.isdisjoint(name)
+
+
+def normalize_secret_name(name: str) -> str:
+    """تطبيع اسم ملف قبل مطابقته بقوائم حجب الأسرار (TSK-CEV-117).
+
+    الغرض: إغلاق CEV-F-018 — المطابقة الحرفية على `path.name.lower()`
+    كانت تُخترَق بلواحق لا تغيّر الملف الذي يُفتَح فعليًا على Win32.
+
+    خطوات التطبيع (بهذا الترتيب):
+    1. إزالة المحارف الخفية (`_INVISIBLE_CHARS`) من الطرفين والداخل.
+    2. قصّ لاحقة NTFS ADS: `name:stream` / `name::$DATA` → `name`،
+       لأن Win32 يفتح بها **نفس** محتوى الملف الأصلي.
+    3. تقليم المحارف البيضاء (بما فيها NBSP/U+3000 عبر str.strip)
+       والنقاط اللاحقة **بالتناوب** حتى الاستقرار، لأن Win32 يقلّم
+       المسافات والنقاط اللاحقة معًا (`.env . . ` → `.env`).
+    4. توحيد حالة الأحرف (lower) أخيرًا.
+
+    ملاحظة عقد: هذه الدالة **تُشدِّد** الحجب ولا تُرخّيه؛ الاسم المطبَّع
+    يُستخدم للمطابقة فقط ولا يُستخدم إطلاقًا لفتح الملفات.
+    """
+    out = name
+    # مسار سريع (TSK-CEV-117): الغالبية العظمى من الأسماء الحقيقية لا
+    # تحتوي أيًّا من محارف التجاوز. الفحص الرخيص أدناه يمنع دفع ثمن
+    # 7 عمليات replace + حلقة تقليم لكل ملف في المشاريع الكبيرة
+    # (مسار حِسّاس للأداء: tool_search_code/الفهرسة على 5k+ ملف —
+    # راجع tests/integration/test_search_perf.py). القرار لا يتغير:
+    # الاسم بلا محارف تجاوز يكون تطبيعه = lower() فقط.
+    if not (_needs_normalization(out)):
+        return out.lower()
+    for ch in _INVISIBLE_CHARS:
+        out = out.replace(ch, "")
+    # NTFS Alternate Data Stream: نأخذ الجزء قبل أول ':' فقط.
+    # ملاحظة: على POSIX قد يكون ':' محرفًا شرعيًا في الاسم، فالنتيجة
+    # هنا حجب زائد لأسماء غريبة (fail-safe مقصود) لا تسريب.
+    if ":" in out:
+        out = out.split(":", 1)[0]
+    # تقليم بالتناوب حتى الاستقرار: " .env . . " → ".env"
+    prev = None
+    while prev != out:
+        prev = out
+        out = out.strip().rstrip(".").strip()
+    return out.lower()
+
+
 def is_secret_file(path: pathlib.Path) -> bool:
-    """Checks if a path matches any secrets pattern or directory name."""
-    name_lower = path.name.lower()
-    
+    """Checks if a path matches any secrets pattern or directory name.
+
+    TSK-CEV-117 (CEV-F-018): كل مطابقة تجري على الاسم **المطبَّع**
+    (`normalize_secret_name`) لا على `path.name.lower()` الخام.
+    """
+    name_lower = normalize_secret_name(path.name)
+
     # Allow .env.example, but block .env or .env.local, etc.
     if name_lower == ".env.example":
         return False
     if name_lower == ".env" or name_lower.startswith(".env."):
         return True
-        
+
     if name_lower in SECRETS_DENYLIST_NAMES:
         return True
-        
-    if path.suffix.lower() in SECRETS_DENYLIST_EXTENSIONS:
+
+    # الامتداد يُشتق من الاسم المطبَّع (لا من path.suffix الخام) لأن
+    # `cert.pem ` كان يعطي suffix='.pem ' فيفلت من مطابقة المجموعة.
+    suffix = ""
+    dot = name_lower.rfind(".")
+    if dot > 0:  # dot==0 يعني ملفًا مخفيًا بلا امتداد مثل `.env`
+        suffix = name_lower[dot:]
+    if suffix in SECRETS_DENYLIST_EXTENSIONS:
         return True
-        
+
+    # مقاطع المسار: كل المقاطع الحسّاسة تبدأ بنقطة (`.ssh`/`.aws`/…)
+    # فنستبعد الغالبية بفحصٍ رخيص قبل استدعاء التطبيع — التطبيع كان
+    # يُنادى لكل مقطع لكل ملف (4× لكل مسار) وهو أثقل بند في الملف
+    # الحسّاس للأداء (راجع _needs_normalization).
     for part in path.parts:
-        part_lower = part.lower()
+        if not part.startswith("."):
+            # قد يكون المقطع `.ssh ` أو `.ssh<ZWSP>`؛ النقطة أوّلًا في
+            # كل الحالات، لكن قد تتقدّمها مسافة (` .ssh`) ⇒ نُطبِّع
+            # عندئذٍ فقط.
+            if not _needs_normalization(part):
+                continue
+            part_lower = normalize_secret_name(part)
+            if not part_lower.startswith("."):
+                continue
+        else:
+            part_lower = normalize_secret_name(part)
         if part_lower in SECRETS_DENYLIST_DIRS:
             return True
         # also match directories like .ssh or .aws hidden directories
-        if part_lower.startswith(".") and part_lower[1:] in {"aws", "ssh", "git", "gcloud", "kube"}:
+        if part_lower[1:] in {"aws", "ssh", "git", "gcloud", "kube"}:
             return True
-            
+
     return False
 
 def resolve_workspace_path(
