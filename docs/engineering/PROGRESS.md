@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-03 (Session 109 تكملة 13 — طابور D-16: **البنود 1–8 مقفلة**: F-003 ✅ (TSK-CEV-111)، F-010 ✅، F-014 ✅، STALE-175 ✅، FI-13 ✅ (TSK-CEV-112: chain/delegate_queue.py + 17 اختبارًا حتميًا، delegate.py صفر مساس)، FI-14 ✅ (TSK-CEV-114)، FI-15 ✅ (TSK-CEV-113)، FI-16 ✅ (TSK-CEV-115: حلقة الأدلة التشغيلية لدور deep_debugger + إعادة التقاط corpus مصنَّفة + سيناريو تحقيق جديد) — check.sh ALL GREEN 2281P/34S) |
+| last-updated | 2026-08-03 (Session 109 تكملة 13 — طابور D-16: **البنود 1–9 مقفلة كلها ✅**: F-003 ✅ (TSK-CEV-111)، F-010 ✅، F-014 ✅، STALE-175 ✅، FI-13 ✅ (TSK-CEV-112: chain/delegate_queue.py + 17 اختبارًا حتميًا، delegate.py صفر مساس)، FI-14 ✅ (TSK-CEV-114)، FI-15 ✅ (TSK-CEV-113)، FI-16 ✅ (TSK-CEV-115)، توحيد NF-18 ✅ (TSK-CEV-116: guarded_system عند 4 مواقع نداء + ترقية حارس الحقن + إعادة التقاط 28 لقطة بدلتا موحدة 362B + 5 اختبارات سياج) — check.sh ALL GREEN 2286P/34S — **الطابور كامل؛ التالي G7**) |
 | stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
 | current-phase | **CEV (D-12/D-16) — تنفيذ الطابور المعلّق بترتيب المالك**: G1→G6 + G8 + G8.5 + G9 + G10 + G11 كلها 🏁 PASS + G12 ⚙️ PARTIAL (المحور 10 بانتظار G7)؛ G7 مجدولة **آخر مرحلة** بموجب D-16؛ بعدها إكمال G12 وإقرار CEV-R12 |
-| current-task | **طابور D-16 — البند 9: توحيد حارس NF-18 في system السلاسل** (يغيّر 21 لقطة sha256 — إعادة التقاط واعية) — يليه: **G7 (آخر مرحلة مطلقًا)** → إكمال G12 |
+| current-task | **G7 (Red Team) — آخر مرحلة مطلقًا بموجب D-16** (طابور D-16 مُقفل بالكامل 9/9): تُنفَّذ وفق §6 (cont22.md:394-401) — ثم إكمال G12 (المحور 10 → حسم ≥95 → التصويت النهائي → إقرار CEV-R12) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -550,6 +550,21 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
   (pl_scout/deep_debugger sha+len فقط، صفر تغيير توجيه) = تحسين
   مقصود؛ سيناريو crash_investigation_pipeline جديد (10 سيناريوهات/
   28 خطوة). البوابة: check.sh ALL GREEN (2281P/34S/0F).
+  **تنفيذ البند 9 — الأخير (عبر Wipes #61–#62 — البوت التقط كل
+  شيء: 4623344 توثيق FI-16، 22aa68c المواصفة+التوصيل+إعادة
+  الالتقاط؛ صفر عمل ضائع)**: (9) توحيد NF-18 ✅ TSK-CEV-116 —
+  `guarded_system(content)` في templates.py (نفس فاصل
+  SYSTEM_PROMPT) مُوصَّلة عند 4 مواقع نداء (executor._call_provider
+  + delegate الثلاثة planner/executor/code_reviewer — التعديل
+  مأذون ببند المالك؛ نقطة الحقن عند التركيب لا AgentLoader كي
+  يبقى content نقيًّا)؛ ترقية check_injection_guard (فحص سلوكي +
+  مواقع النداء + docstring يغلق الحد الموثق؛ «بيانات لا أوامر»
+  باقية 21/21)؛ harness يقيس النص المركّب؛ إعادة التقاط واعية:
+  28/28 خطوة بدلتا موحدة 362B (فاصل+حارس) وصفر تغيير
+  user_prompt/توجيه ⇒ تحسين مقصود؛ 5 اختبارات سياج
+  (test_injection_guard_unification). البوابة: check.sh ALL GREEN
+  (2286P/34S/0F؛ flake توقيتي أحادي عابر موثق). **طابور D-16
+  مُقفل 9/9 — الانتقال إلى G7 (آخر مرحلة مطلقًا)**.
 - **2026-08-02 — Session 108 (تكملة 12) — CEV-G12 ⚙️ PARTIAL/CONDITIONAL + استنفاد خطة D-15 بالكامل**:
   (Wipe #51: البوت التقط كل عمل TSK-CEV-110 وتكملة 11 في ddd84b4 —
   صفر عمل ضائع؛ TOKEN_SCRUB_DONE؛ fixture .env أُعيد ×34... راجع

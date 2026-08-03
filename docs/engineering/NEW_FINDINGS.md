@@ -771,3 +771,31 @@ risky_auth_pipeline/pl_scout (deep_debugger) في sha256+len فقط —
 deep_debugger — لقطة مثبَّتة (10 سيناريوهات/28 خطوة). تكامل
 DAP/مصحح كامل مرفوض بنص FI-16 (CEV-G10 §G10.4). البوابة: check.sh
 ALL GREEN rc=0 (2281P/34S/0F).
+
+### NF-18 (توحيد حارس system السلاسل) — منفَّذ (S109 تكملة 13، بموجب D-16 طابور البند 9 الأخير — TSK-CEV-116)
+**حارس الحقن INJECTION_GUARD_INSTRUCTION موحَّد الآن في مسار
+السلاسل system.** الحد الموثق في docstring سكربت
+check_injection_guard («التوحيد الكامل يغيّر 21 لقطة sha256 =
+قرار مالك منفصل») حُسم بقرار المالك D-16 البند 9. المنفَّذ:
+(116a) دالة `guarded_system(content)` في prompts/templates.py —
+نفس فاصل SYSTEM_PROMPT/CORE_SYSTEM_PROMPT حرفيًّا؛ نقطة الحقن
+**عند مواقع النداء لا داخل AgentLoader** (كي يبقى
+AgentPrompt.content نقيًّا — test_agent_manifest يثبّته بمساواة
+تامة ومستهلكوه غير مسار المزود). (116b) توصيل 4 مواقع:
+chain/executor.py::_call_provider + chain/delegate.py الثلاثة
+(planner/executor/code_reviewer — تعديل delegate.py مأذون: قيد
+«صفر تعديل» في 112/113 كان حدّ نطاق لا تجميدًا)؛ ترقية
+check_injection_guard: فحص سلوكي للدالة + فحص مواقع النداء
+الأربعة + docstring يوثق إغلاق الحد؛ قاعدة «بيانات لا أوامر»
+باقية 21/21 طبقة دفاع ثانية. (116c) harness يقيس الآن النص
+المركّب الفعلي `guarded_system(content)`؛ إعادة التقاط corpus
+واعية (AIA-R8) بتصنيف برمجي صارم: **كل** الخطوات الـ28 تغيّر
+sha+len بدلتا موحدة = len("\n\n"+الحارس) = 362 بايت بالضبط،
+وصفر تغيير user_prompt/استراتيجية/توجيه/بنية ⇒ تحسين مقصود.
+(116d) سياج سلوكي test_injection_guard_unification.py (5
+اختبارات، FakeProvider يسجّل system_prompt): دورة تفويض كاملة —
+الثلاثة system_prompts تنتهي بالحارس مرة واحدة بالضبط والمحتوى
+النقي يسبقه؛ ومسار executor كذلك. البوابة: check.sh ALL GREEN
+rc=0 (2286P/34S/0F). ملاحظة نزاهة: flake توقيتي أحادي عابر
+(test_search_perf 1.04s>1.0s) في تشغيلة أولى — أخضر منفردًا
+وفي التشغيلة النهائية الخضراء.
