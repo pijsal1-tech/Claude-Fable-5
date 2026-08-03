@@ -195,6 +195,18 @@ that layer, and none may be reinterpreted to do so.
   disproportionate to a lightweight editor).
 - **Prerequisite**: none technical; owner decision (CEV-G10).
 
+### FI-17 — Morphological expansion of Arabic complexity lexicon [SHORT]
+- **Source**: CEV-F-017 (G7 Red Team probe — S109 تكملة 13).
+- **Benefit**: present-tense Arabic forms («تعيد هيكلته»، «يعيد كتابة»)
+  currently miss `_COMPLEX_REQUEST_PATTERNS` (orchestrator.py:110-115),
+  down-routing complex intents to `direct`. Proven fix pattern:
+  `[أات]ع(?:د|يد\w{0,2})\s*.{0,6}هيكل`. Same family as FI resolved by
+  TSK-CEV-104 (CEV-F-015) — one more conjugation axis.
+- **Cost**: small — extend regex set + targeted routing tests +
+  conscious corpus recapture (AIA-R8) if any golden scenario shifts.
+- **Prerequisite**: none; quality-only (no security impact — direct
+  path passes the same ApprovalGate).
+
 ---
 
 ## Definition of Done (P7)
