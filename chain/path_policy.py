@@ -7,6 +7,7 @@
   prevention, and secrets denylist checks.
 ═══════════════════════════════════════════════════════
 """
+import functools
 import logging
 import os
 import pathlib
@@ -69,6 +70,46 @@ def _needs_normalization(name: str) -> bool:
     return not _INVISIBLE_SET.isdisjoint(name)
 
 
+@functools.lru_cache(maxsize=8192)
+def _classify_name(name_lower: str) -> bool:
+    """هل يُصنَّف الاسم (بعد التطبيع) سرًّا بمطابقة الاسم/الامتداد؟
+
+    مُذكَّرة (TSK-CEV-117): في المشاريع الكبيرة تتكرر الامتدادات
+    والأسماء بكثافة، فالتذكير يجعل الكلفة ثابتة تقريبًا بدل خطية.
+    المفتاح هو الاسم **المطبَّع** حصرًا (لا كائن المسار) فالنتيجة
+    دالة نقية منه — آمنة للتذكير.
+    """
+    if name_lower == ".env.example":
+        return False
+    if name_lower == ".env" or name_lower.startswith(".env."):
+        return True
+    if name_lower in SECRETS_DENYLIST_NAMES:
+        return True
+    # الامتداد يُشتق من الاسم المطبَّع (لا من path.suffix الخام) لأن
+    # `cert.pem ` كان يعطي suffix='.pem ' فيفلت من مطابقة المجموعة.
+    dot = name_lower.rfind(".")
+    if dot > 0:  # dot==0 يعني ملفًا مخفيًا بلا امتداد مثل `.env`
+        if name_lower[dot:] in SECRETS_DENYLIST_EXTENSIONS:
+            return True
+    return False
+
+
+@functools.lru_cache(maxsize=4096)
+def _is_secret_dir_part(part: str) -> bool:
+    """هل مقطع المسار مجلدًا سرًّا؟ (مُذكَّر — المقاطع تتكرر بكثافة)"""
+    if not part.startswith("."):
+        if not _needs_normalization(part):
+            return False
+        part = normalize_secret_name(part)
+        if not part.startswith("."):
+            return False
+    else:
+        part = normalize_secret_name(part)
+    if part in SECRETS_DENYLIST_DIRS:
+        return True
+    return part[1:] in {"aws", "ssh", "git", "gcloud", "kube"}
+
+
 def normalize_secret_name(name: str) -> str:
     """تطبيع اسم ملف قبل مطابقته بقوائم حجب الأسرار (TSK-CEV-117).
 
@@ -117,48 +158,32 @@ def is_secret_file(path: pathlib.Path) -> bool:
     TSK-CEV-117 (CEV-F-018): كل مطابقة تجري على الاسم **المطبَّع**
     (`normalize_secret_name`) لا على `path.name.lower()` الخام.
     """
-    name_lower = normalize_secret_name(path.name)
+    # ── مسار سريع مُدمَج سطريًّا (TSK-CEV-117) ─────────────────────
+    # هذه الدالة تُنادى لكل ملف في الفهرسة/البحث (5k+ ملف)، وكلفة
+    # نداء الدوال في بايثون تفوق كلفة المنطق نفسه؛ لذا يُفحص الاسم
+    # الشائع (بلا محارف تجاوز) هنا مباشرةً بلا أي نداء إضافي.
+    # القرار مطابق تمامًا للمسار الكامل — الاختبارات تغطي الفرعين.
+    name = path.name
+    if name and name[-1] not in _TRAILING_TRIGGERS \
+            and name[0] not in _TRAILING_TRIGGERS \
+            and ":" not in name \
+            and _INVISIBLE_SET.isdisjoint(name):
+        name_lower = name.lower()
+    else:
+        name_lower = normalize_secret_name(name)
 
-    # Allow .env.example, but block .env or .env.local, etc.
-    if name_lower == ".env.example":
-        return False
-    if name_lower == ".env" or name_lower.startswith(".env."):
+    # 1) مطابقة الاسم/الامتداد (مُذكَّرة — الأسماء/الامتدادات تتكرر).
+    if _classify_name(name_lower):
         return True
 
-    if name_lower in SECRETS_DENYLIST_NAMES:
-        return True
-
-    # الامتداد يُشتق من الاسم المطبَّع (لا من path.suffix الخام) لأن
-    # `cert.pem ` كان يعطي suffix='.pem ' فيفلت من مطابقة المجموعة.
-    suffix = ""
-    dot = name_lower.rfind(".")
-    if dot > 0:  # dot==0 يعني ملفًا مخفيًا بلا امتداد مثل `.env`
-        suffix = name_lower[dot:]
-    if suffix in SECRETS_DENYLIST_EXTENSIONS:
-        return True
-
-    # مقاطع المسار: كل المقاطع الحسّاسة تبدأ بنقطة (`.ssh`/`.aws`/…)
-    # فنستبعد الغالبية بفحصٍ رخيص قبل استدعاء التطبيع — التطبيع كان
-    # يُنادى لكل مقطع لكل ملف (4× لكل مسار) وهو أثقل بند في الملف
-    # الحسّاس للأداء (راجع _needs_normalization).
+    # 2) مقاطع المسار: مجلد سري يحجب أي ملف داخله — بما فيه
+    #    `.env.example` (الاستثناء يشمل الاسم فقط لا المجلدات).
+    #    الغالبية العظمى من المقاطع لا تبدأ بنقطة، فتُستبعد بفحص
+    #    `startswith` رخيص قبل أي نداء دالة أو بحث في الكاش.
     for part in path.parts:
-        if not part.startswith("."):
-            # قد يكون المقطع `.ssh ` أو `.ssh<ZWSP>`؛ النقطة أوّلًا في
-            # كل الحالات، لكن قد تتقدّمها مسافة (` .ssh`) ⇒ نُطبِّع
-            # عندئذٍ فقط.
-            if not _needs_normalization(part):
-                continue
-            part_lower = normalize_secret_name(part)
-            if not part_lower.startswith("."):
-                continue
-        else:
-            part_lower = normalize_secret_name(part)
-        if part_lower in SECRETS_DENYLIST_DIRS:
-            return True
-        # also match directories like .ssh or .aws hidden directories
-        if part_lower[1:] in {"aws", "ssh", "git", "gcloud", "kube"}:
-            return True
-
+        if part.startswith(".") or _needs_normalization(part):
+            if _is_secret_dir_part(part):
+                return True
     return False
 
 def resolve_workspace_path(
