@@ -706,3 +706,25 @@ task_waiting_approval/task_landed/halted/completed. 17 اختبارًا
 حتميًا (P-11 — FakeProvider مبرمج) في test_delegate_queue.py تغطي
 التتابع والترحيل والإيقاف ودورة الحياة والأحداث. البوابة: check.sh
 ALL GREEN rc=0 (2265P/34S/0F).
+
+### FI-14 — منفَّذ (S109 تكملة 13، بموجب D-16 طابور البند 6 — TSK-CEV-114)
+**حراس التلاعب بالاختبارات في مراجعة التفويض حاضرون.** ترقية
+REFERENCE→ACTIVE لانضباط `review-and-land.md` §«Check the tests
+before trusting the gates» (:8-19). المنفَّذ: قسم فرعي جديد
+«🧪 افحص الاختبارات قبل أن تثق بالبوابات» تحت معايير المراجعة في
+`chain/prompts/delegate_review.md` — ثلاثة معايير تُعامل كلها
+كتغيير عقد ⇒ REWORK أو REJECT، لا تُمتص صامتًا أبدًا: (1) تعديل
+غير مُكلَّف به على اختبارات قائمة (unbriefed edit)، (2) إضافة
+skip/تعطيل/تعليق لاختبار = عامله كفاشل (treat as failing)،
+(3) تليين تأكيدات (exact→contains/truthy، توسيع نوع الخطأ،
+توسيع tolerance). اختبار تسييج `test_delegate_review_prompt.py`
+(3 اختبارات) يثبت بقاء نص المعايير في الـprompt المُحمَّل عبر نفس
+مسار الإنتاج `_load_prompt("delegate_review.md")` + بقاء سطر صيغة
+الحكم `[VERDICT]: APPROVE | REWORK | REJECT` حرفيًا (regex
+delegate.py:706 لم يُمس). فحص التثبيت المُسبق: الـprompt غير مثبَّت
+بايتيًا في أي golden/حارس ⇒ صفر إعادة التقاط. الترقيم: TSK-CEV-114
+(الرقم 113 محجوز لـFI-15 في الـDAG — قرار واعٍ). ملاحظة نزاهة:
+سقطتان توقيتيتان متتاليتان في التشغيل الكامل (test_session_store
+benchmark ثم test_index_snapshot_wiring) — كلاهما من نمط sandbox
+الموثق، أخضران solo وفي التشغيل الأخضر النهائي. البوابة: check.sh
+ALL GREEN rc=0 (2268P/34S/0F).

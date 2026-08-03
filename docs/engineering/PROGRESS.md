@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-03 (Session 109 تكملة 13 — طابور D-16: **البنود 1–4 مقفلة**: F-003 ✅ (توليد .env وقت الاختبار — TSK-CEV-111)، F-010 ✅ (حذف hh.har 7.2MB)، F-014 ✅ (إسناد الأدوار الـ15 مكتبةً + TestLibraryRolesF014 + توثيق max_iterations=6)، STALE-175 ✅ (أرشفة 175 ملفًا إلى _archive/ بـgit mv + تنظيف baseline) — check.sh ALL GREEN 2248P/34S) |
+| last-updated | 2026-08-03 (Session 109 تكملة 13 — طابور D-16: **البنود 1–6 مقفلة**: F-003 ✅ (TSK-CEV-111)، F-010 ✅، F-014 ✅، STALE-175 ✅، FI-13 ✅ (TSK-CEV-112: chain/delegate_queue.py + 17 اختبارًا حتميًا، delegate.py صفر مساس)، FI-14 ✅ (TSK-CEV-114: حراس التلاعب بالاختبارات في delegate_review.md + اختبار تسييج) — check.sh ALL GREEN 2268P/34S) |
 | stage | **V3-STAGE 4 → برنامج CEV مفتوح (D-12)** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 |
 | current-phase | **CEV (D-12/D-16) — تنفيذ الطابور المعلّق بترتيب المالك**: G1→G6 + G8 + G8.5 + G9 + G10 + G11 كلها 🏁 PASS + G12 ⚙️ PARTIAL (المحور 10 بانتظار G7)؛ G7 مجدولة **آخر مرحلة** بموجب D-16؛ بعدها إكمال G12 وإقرار CEV-R12 |
-| current-task | **طابور D-16 — البند 5: FI-13** (طوابير تفويض متعددة المهام [MID]) — يليه: FI-14 → FI-15 → FI-16 → NF-18 → **G7** → إكمال G12 |
+| current-task | **طابور D-16 — البند 7: FI-15** (مهمة تفويض خلفية محكومة [MID] — TSK-CEV-113، الشرط المسبق FI-13 ✅) — يليه: FI-16 → NF-18 → **G7** → إكمال G12 |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -513,6 +513,22 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
   المعتمد)؛ baseline نُظِّف (26 قيدًا باقيًا)؛ الحارس أخضر. كل بند
   أُقفل ببوابة check.sh ALL GREEN (أحدثها 2248P/34S/0F) وحسم موثق
   في NEW_FINDINGS. flakes توقيتية أحادية عابرة موثقة بنزاهة.
+  **تنفيذ البندين 5–6 (عبر Wipes #56–#57 — البوت التقط كل شيء:
+  5066e56، b9f0f8b؛ صفر عمل ضائع)**: (5) FI-13 ✅ TSK-CEV-112 —
+  وحدة جديدة `chain/delegate_queue.py` (DelegateQueue/QueuedTask)
+  فوق DelegateBridge **بلا أي تعديل عليه** (مثبَّت باختبار مصدر):
+  تتابع صارم (لا إرسال قبل land السابقة — بعدّ نداءات المزود)؛
+  بوابة الموافقة سيدة؛ رفض/فشل/إلغاء = halt (stop-and-ask)؛
+  ترحيل القيود `[قيود مقررة من مهام سابقة]` للبريف التالي؛ أحداث
+  WS كاملة؛ 17 اختبارًا حتميًا (P-11). (6) FI-14 ✅ TSK-CEV-114
+  (الرقم 113 محجوز لـFI-15 — قرار ترقيم واعٍ) — قسم «🧪 افحص
+  الاختبارات قبل أن تثق بالبوابات» في delegate_review.md: تعديل
+  غير مُكلَّف به على اختبارات قائمة / إضافة skip-تعطيل / تليين
+  تأكيدات = **تغيير عقد ⇒ REWORK أو REJECT، لا يُمتص صامتًا**
+  (review-and-land.md:8-19)؛ اختبار تسييج (3 اختبارات) عبر مسار
+  الإنتاج `_load_prompt` يحمي المعايير + سطر `[VERDICT]:` حرفيًا؛
+  فحص مُسبق أثبت صفر تثبيت بايتي للـprompt في goldens/حراس ⇒ صفر
+  إعادة التقاط. البوابة: check.sh ALL GREEN rc=0 (2268P/34S/0F).
 - **2026-08-02 — Session 108 (تكملة 12) — CEV-G12 ⚙️ PARTIAL/CONDITIONAL + استنفاد خطة D-15 بالكامل**:
   (Wipe #51: البوت التقط كل عمل TSK-CEV-110 وتكملة 11 في ddd84b4 —
   صفر عمل ضائع؛ TOKEN_SCRUB_DONE؛ fixture .env أُعيد ×34... راجع
