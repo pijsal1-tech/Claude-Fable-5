@@ -7,10 +7,11 @@
      `INJECTION_GUARD_INSTRUCTION` معرَّفان في prompts/templates.py
      والتعليمة ملحقة فعليًا بـ`SYSTEM_PROMPT` و`CORE_SYSTEM_PROMPT`
      (فحص قيم حية عبر import — لا grep نصي قابل للخداع).
-  2. **مسار السلاسل — system**: قاعدة «بيانات لا أوامر» حاضرة في
-     **كل** ملف دور في manifest (21/21) — الضابط التعويضي لغياب
-     INJECTION_GUARD_INSTRUCTION في executor.py:441 (CEV-F-013؛
-     الفجوة المقيسة 2/21 = CEV-F-016، أُصلحت 109a).
+  2. **مسار السلاسل — system**: موحَّد فعليًّا منذ TSK-CEV-116 —
+     `guarded_system` تُلحق INJECTION_GUARD_INSTRUCTION عند مواقع
+     النداء الأربعة (chain/executor.py وchain/delegate.py ×3)؛
+     وقاعدة «بيانات لا أوامر» تبقى طبقة دفاع ثانية في **كل**
+     ملف دور في manifest (21/21 — CEV-F-016 أُصلحت 109a).
   3. **مسار السلاسل — user**: أسوار `DATA ONLY` حاضرة في مصانع
      برومبتات الاستراتيجيات (chain/strategies.py و
      chain/orchestrator.py — المواضع التي تُضمِّن file_content).
@@ -23,11 +24,11 @@
 
 خروج 0 = السياج حاضر في الطبقات الأربع. أي غياب = خروج 1.
 
-الحد المتبقي الموثق (لا يُغطى هنا): إلحاق
-INJECTION_GUARD_INSTRUCTION نصيًّا بـsystem مسار السلاسل — ضابطه
-التعويضي قاعدة «بيانات لا أوامر» 21/21 (الطبقة 2) التي تشير
-لوسوم <attached-content> الحاضرة الآن فعليًّا بعد 110 — التوحيد
-الكامل يغيّر 21 لقطة sha256 للأدوار = قرار مالك منفصل.
+الحد الذي كان موثقًا سابقًا (غياب الإلحاق النصي عن system
+مسار السلاسل) **أُغلق بـTSK-CEV-116** (D-16 البند 9 — NF-18):
+التوحيد تم عبر `guarded_system` عند مواقع النداء (لا داخل
+AgentLoader — كي يبقى AgentPrompt.content نقيًّا لمستهلكيه)،
+وأُعيد التقاط لقطات corpus (sha256) إعادة التقاط واعية (AIA-R8).
 """
 from __future__ import annotations
 
@@ -81,6 +82,30 @@ def main() -> int:
             errors.append(f"{src}: embeds file_content without "
                           f"'{DATA_ONLY_FENCE}' fences")
 
+    # ── 2ب. مسار السلاسل system: التوحيد الفعلي (TSK-CEV-116) ──
+    # أ) سلوكيًّا: guarded_system تُلحق الحارس بنفس فاصل SYSTEM_PROMPT.
+    gs = getattr(templates, "guarded_system", None)
+    if gs is None:
+        errors.append("templates.guarded_system missing (TSK-CEV-116)")
+    else:
+        composed = gs("ROLE CONTENT")
+        if not composed.endswith("\n\n" + guard) or \
+                not composed.startswith("ROLE CONTENT"):
+            errors.append("guarded_system does not append the guard "
+                          "with the SYSTEM_PROMPT separator")
+        if gs("") != guard:
+            errors.append("guarded_system('') must return the bare guard")
+    # ب) توصيلًا: المواقع الأربعة تستدعي guarded_system فعليًّا.
+    for src, min_uses in (("chain/executor.py", 1),
+                          ("chain/delegate.py", 3)):
+        text = (REPO_ROOT / src).read_text(encoding="utf-8")
+        uses = text.count("guarded_system(agent_prompt.content)")
+        if uses < min_uses:
+            errors.append(
+                f"{src}: expected ≥{min_uses} guarded_system("
+                f"agent_prompt.content) call site(s), found {uses} "
+                "(TSK-CEV-116 regressed)")
+
     # ── 4. مسار السلاسل: المحتوى المحقون مُسيَّج سلوكيًّا ──
     # TSK-CEV-110 (CEV-F-013): فحص مخرجات حية — محتوى عدائي
     # مرقوب يجب أن يخرج محصورًا بين وسمي <attached-content>.
@@ -114,7 +139,8 @@ def main() -> int:
         return 1
 
     print(f"injection guard OK (templates wired; {checked}/21 role files "
-          "carry the data-not-commands rule; DATA ONLY fences present; "
+          "carry the data-not-commands rule; chain system unified via "
+          "guarded_system at 4 call sites; DATA ONLY fences present; "
           "dep results + context files fenced behaviorally)")
     return 0
 

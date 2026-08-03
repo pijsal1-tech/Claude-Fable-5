@@ -17,6 +17,7 @@ from typing import Callable
 
 from core.execution import RunTicket
 from core.structured_log import swallowed as _slog_swallowed
+from prompts.templates import guarded_system
 
 
 class DelegateCancelled(Exception):
@@ -315,7 +316,8 @@ class DelegateBridge:
         system = ""
         if self._agent_loader:
             agent_prompt = self._agent_loader.load("planner")
-            system = agent_prompt.content
+            # TSK-CEV-116 (NF-18): حارس الحقن موحَّد عند التركيب فقط
+            system = guarded_system(agent_prompt.content)
         
         messages = [Message(role="user", content=prompt)]
         response = self._provider.send(
@@ -344,7 +346,8 @@ class DelegateBridge:
         system = ""
         if self._agent_loader:
             agent_prompt = self._agent_loader.load("executor")
-            system = agent_prompt.content
+            # TSK-CEV-116 (NF-18): حارس الحقن موحَّد عند التركيب فقط
+            system = guarded_system(agent_prompt.content)
         
         start = time.monotonic()
         messages = [Message(role="user", content=prompt)]
@@ -384,7 +387,8 @@ class DelegateBridge:
         system = ""
         if self._agent_loader:
             agent_prompt = self._agent_loader.load("code_reviewer")
-            system = agent_prompt.content
+            # TSK-CEV-116 (NF-18): حارس الحقن موحَّد عند التركيب فقط
+            system = guarded_system(agent_prompt.content)
         
         messages = [Message(role="user", content=prompt)]
         response = self._provider.send(

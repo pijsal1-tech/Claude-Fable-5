@@ -43,6 +43,7 @@ from providers.base import (
 )
 from .agent_loader import AgentLoader, AgentPrompt
 from core.structured_log import swallowed as _slog_swallowed
+from prompts.templates import guarded_system
 
 
 # ═══════════════════════════════════════════════════════
@@ -438,7 +439,9 @@ class ChainExecutor:
         """Provider call with optional agent system prompt"""
         request = ProviderRequest(
             prompt=user_prompt,
-            system_prompt=agent_prompt.content,
+            # TSK-CEV-116 (NF-18): توحيد حارس الحقن مع مسار السيرفر —
+            # الحارس يُلحق عند التركيب فقط؛ AgentPrompt.content يبقى نقيًّا.
+            system_prompt=guarded_system(agent_prompt.content),
             timeout_seconds=timeout,
         )
         response = self._provider.generate(request)

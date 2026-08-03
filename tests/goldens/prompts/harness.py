@@ -30,6 +30,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from chain.agent_loader import AgentLoader  # noqa: E402
 from chain.orchestrator import SmartOrchestrator  # noqa: E402
+from prompts.templates import guarded_system  # noqa: E402
 
 GOLDEN_PATH = pathlib.Path(__file__).parent / "prompt_corpus.golden.json"
 
@@ -152,8 +153,12 @@ def run_scenario(name: str) -> dict:
             "stage": step.stage,
             "agent_role": step.agent_role,
             "agent_prompt_source": agent_prompt.source,
-            "system_prompt_sha256": _sha(agent_prompt.content),
-            "system_prompt_len": len(agent_prompt.content),
+            # TSK-CEV-116: القياس على النص المركَّب الفعلي المُرسَل
+            # للمزوّد (دور + حارس الحقن) — لا على الدور الخام وحده.
+            "system_prompt_sha256": _sha(
+                guarded_system(agent_prompt.content)),
+            "system_prompt_len": len(
+                guarded_system(agent_prompt.content)),
             "depends_on": list(step.depends_on),
             "context_policy": step.context_policy,
             "critical": step.critical,

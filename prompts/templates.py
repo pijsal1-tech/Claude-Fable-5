@@ -57,6 +57,18 @@ def fence_attached(source: str, text: str) -> str:
             + "\n" + body + "\n" + ATTACHED_CLOSE)
 
 
+def guarded_system(content: str) -> str:
+    """تركيب system نهائي مُحصَّن بحارس الحقن (TSK-CEV-116 / NF-18).
+
+    توحيد مسار السلاسل مع مسار السيرفر/الدردشة: يُلحق
+    ``INJECTION_GUARD_INSTRUCTION`` بنفس الفاصل المستخدم في
+    ``SYSTEM_PROMPT``/``CORE_SYSTEM_PROMPT``. مع محتوى فارغ يعيد
+    الحارس وحده (بلا فاصل معلّق)."""
+    if not content:
+        return INJECTION_GUARD_INSTRUCTION
+    return content + "\n\n" + INJECTION_GUARD_INSTRUCTION
+
+
 SYSTEM_PROMPT = _load_system_prompt(web=True) + "\n\n" + INJECTION_GUARD_INSTRUCTION
 CORE_SYSTEM_PROMPT = _load_system_prompt(web=False) + "\n\n" + INJECTION_GUARD_INSTRUCTION
 
