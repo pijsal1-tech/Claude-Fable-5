@@ -688,3 +688,21 @@ TestLibraryRolesF014). ملاحظة نزاهة: استمرار نمط flake ال
 test_index_snapshot_wiring — أخضران في التمريرة الخضراء الكاملة
 وكلٌّ أخضر معزولًا في أغلب الإعادات) — ضجيج حمل sandbox موثق منذ
 تكملة 13، مرشح Finding مستقل إن تكرر خارج بيئات sandbox.
+
+### FI-13 — منفَّذ (S109 تكملة 13، بموجب D-16 طابور البند 5 — TSK-CEV-112)
+**طوابير التفويض متعددة المهام حاضرة.** ترقية REFERENCE→ACTIVE
+لانضباط `multi-task-queues.md` (تفويض المالك في D-16). المنفَّذ:
+وحدة جديدة `chain/delegate_queue.py` (DelegateQueue/QueuedTask) فوق
+DelegateBridge القائم **بلا أي تعديل عليه** (صفر مساس بعقود
+T-009/T-015 — مثبَّت بـtest_delegate_module_not_modified): تتابع
+صارم (المهمة التالية لا تُرسل إلا بعد land السابقة — مثبت بعدّ
+نداءات المزود)، بوابة الموافقة سيدة (waiting_approval يوقف الطابور؛
+land_current/reject_current يغلّفان القائم)، رفض/فشل/إلغاء = halt
+(انضباط stop-and-ask — المهام الباقية queued بلا إرسال)، ترحيل
+القيود المقررة (كتلة `[قيود مقررة من مهام سابقة]`: touched_files +
+ملخص المنفّذ + خلاصة الحكم تُحقن في project_context للبريف التالي —
+البريف self-contained). أحداث WS: queue_started/task_started/
+task_waiting_approval/task_landed/halted/completed. 17 اختبارًا
+حتميًا (P-11 — FakeProvider مبرمج) في test_delegate_queue.py تغطي
+التتابع والترحيل والإيقاف ودورة الحياة والأحداث. البوابة: check.sh
+ALL GREEN rc=0 (2265P/34S/0F).
