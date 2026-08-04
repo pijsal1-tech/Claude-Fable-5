@@ -72,6 +72,7 @@ class SessionContext:
     chain_bridge: Any = None             # جسر السلسلة (موافقات chain لهذا الاتصال)
     delegate_bridge: Any = None          # جسر التفويض (يُنشأ كسولًا لكل اتصال)
     background_task: Any = None          # مهمة تفويض خلفية (TSK-732/D-19-4 — كائن جديد لكل مهمة)
+    delegate_queue: Any = None           # طابور تفويض متعدد المهام (TSK-733/D-19-5 — طابور جديد لكل خطة)
     active_agent_loop: Any = None        # حلقة الـ Agent النشطة لهذا الاتصال
     model_provider: Any = None           # اختيار موديل خاص بالتبويب (يتقدّم عند ضبطه)
     provider_source: Callable[[], Any] = _no_provider
