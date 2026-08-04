@@ -935,7 +935,9 @@ def _zip_member_violations(zf, root) -> list:
 @app.route("/api/models")
 def api_models():
     """قائمة المزودين والنماذج المتاحة"""
-    providers_list = [
+    # TSK-735c: تعنوين صريح — عناصر ديناميكية تحمل key_configured: bool
+    # إضافةً إلى str/list[str] الساكنة (حدّ سلكي، Any مقبول هنا — سابقة TSK-614).
+    providers_list: list[dict] = [
         {
             "id": "genspark",
             "name": "🌟 Genspark",
