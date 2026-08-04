@@ -63,21 +63,16 @@ def api_metrics_runs():
     return jsonify({"ok": True, "summary": _srv.run_metrics_store.summary()})
 
 
-@bp.route("/api/permissions")
-def api_permissions():
-    """TSK-621 (CP-5/UXF-04 §R9): سياسة الأمان الفعالة — قراءة فقط.
-
-    glass box: يعرض القيم الحية كما تُطبَّق فعلًا (لا نسخ ثابتة):
-    allowlist أوامر الـ agent (command_policy_from على config الحي)،
-    SAFE/APPROVAL tools، SAFE/DANGEROUS commands، راية
-    force_command_approval، وحالة ApprovalGate (mode/whitelist/timeout).
-    **لا مسار كتابة** — GET بلا آثار جانبية؛ السياسة المطبَّقة لا تُمس.
-    """
+def _permissions_payload():
+    """TSK-621/TSK-734: جسم استجابة الأذونات الفعالة — يبنى من الحقيقة
+    الحية (config الفعال + agent_tools/gate المربوطين) عند كل نداء."""
     from chain.agent_tools import (SAFE_TOOLS, APPROVAL_TOOLS,
                                    command_policy_from)
     from actions.command_runner import SAFE_COMMANDS, DANGEROUS_COMMANDS
 
-    policy = command_policy_from(_srv._load_config())
+    # TSK-734 (القرار 6): من الـ config الفعال — overrides الواجهة
+    # (permissions_overrides.json) تعلو على config.yaml.
+    policy = command_policy_from(_srv._effective_config())
     gate = _srv.approval_gate
     gate_info = None
     if gate is not None:
@@ -107,6 +102,73 @@ def api_permissions():
             "approval_gate": gate_info,
         },
     })
+
+
+@bp.route("/api/permissions", methods=["GET", "POST"])
+def api_permissions():
+    """TSK-621 (قراءة) + TSK-734 (القرار 6 من تسلسل D-19 — كتابة).
+
+    GET ⇒ glass box: السياسة الفعالة الحية (TSK-621) — من TSK-734
+    تُبنى فوق الـ config الفعال (config.yaml + overrides الواجهة).
+
+    POST {overrides} ⇒ تحرير الأذونات من الواجهة (توسيع سادس موثَّق
+    للسطح المجمّد — تعليق D-19-6 في test_rest_blueprints):
+    - whitelist صارم fail-closed: ``force_command_approval`` (bool)
+      و``agent.command_allowlist`` (dict str→str غير فارغ) **فقط**؛
+      أي مفتاح/نوع آخر ⇒ 400 مع **صفر تغيير حالة** (لا لمس للقرص).
+    - ``null`` لمفتاح = مسح ذلك الـ override (العودة لقيمة config.yaml)؛
+      overrides ناتجة فارغة ⇒ حذف الملف الجانبي كليًا.
+    - config.yaml **لا يُكتب أبدًا** (تعليقاته العربية محفوظة) —
+      الكتابة الذرية NF-19 تذهب لـ permissions_overrides.json.
+    - إعادة الربط الحي: بعد نجاح الكتابة تُبنى CommandPolicy جديدة
+      وتُسند مباشرة لـ ``agent_tools.command_policy`` (كائن حي — بلا
+      إعادة تشغيل)؛ ``_force_command_approval()`` يقرأ الفعال أصلًا.
+    - أداة localhost-only (النشر الشبكي = القرار 9 الأخير — مراجعته
+      الأمنية **يجب** أن تعيد فحص هذا المسار).
+    الاستجابة = نفس شكل GET (السياسة الفعالة الجديدة) — اللوحة تعيد
+    الرسم من الحقيقة المعادة لا من افتراض تفاؤلي.
+    """
+    if request.method == "GET":
+        return _permissions_payload()
+
+    # POST — تحرير الأذونات (TSK-734b)
+    from core.permissions_overrides import (ALLOWED_KEYS, read_overrides,
+                                            write_overrides)
+
+    data = request.get_json(silent=True) or {}
+    patch = data.get("overrides")
+    if not isinstance(patch, dict) or not patch:
+        return jsonify({"ok": False,
+                        "error": "overrides يجب أن يكون dict غير فارغ"}), 400
+    unknown = set(patch) - ALLOWED_KEYS
+    if unknown:
+        return jsonify({
+            "ok": False,
+            "error": f"مفاتيح غير مسموحة: {sorted(unknown)} — "
+                     f"المسموح: {sorted(ALLOWED_KEYS)}"}), 400
+
+    # الدمج فوق الحالة المخزنة: null = مسح المفتاح (عودة لـ config.yaml).
+    merged = read_overrides(_srv._DIR)
+    for k, v in patch.items():
+        if v is None:
+            merged.pop(k, None)
+        else:
+            merged[k] = v
+    # write_overrides يتحقق قبل أي لمس للقرص — رفضها = 400 بصفر تغيير.
+    if not write_overrides(_srv._DIR, merged):
+        return jsonify({"ok": False,
+                        "error": "قيم overrides غير صالحة — "
+                                 "force_command_approval: bool؛ "
+                                 "agent.command_allowlist: "
+                                 "dict[str, str غير فارغ]"}), 400
+
+    # إعادة الربط الحي لسياسة أوامر الـ agent (بلا إعادة تشغيل).
+    from chain.agent_tools import command_policy_from
+    new_policy = command_policy_from(_srv._effective_config())
+    if getattr(_srv, "agent_tools", None) is not None:
+        _srv.agent_tools.command_policy = new_policy
+
+    return _permissions_payload()
 
 
 @bp.route("/api/diagnostics")

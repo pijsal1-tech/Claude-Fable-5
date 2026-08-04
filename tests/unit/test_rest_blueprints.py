@@ -15,6 +15,10 @@
    (TSK-731b/D-11: +/api/update-check GET — توسيع عقد مقصود خامس:
    فحص تحديث يدوي opt-in معطَّل افتراضيًا [صفر شبكة على المسار
    الافتراضي] — معرَّف في DEVELOPMENT_TASKS §BATCH-P3/TSK-731.)
+   (TSK-734/D-19-6: /api/permissions GET → GET+POST — توسيع عقد
+   مقصود سادس: تحرير الأذونات من الواجهة عبر ملف overrides جانبي
+   [config.yaml لا يُكتب؛ whitelist صارم fail-closed؛ إعادة ربط
+   حي] — معرَّف في DEVELOPMENT_TASKS §TSK-734، قرار المالك D-19.)
 2. smoke: كل endpoint يستجيب (لا 404/405) على app غير مهيأ.
 3. الحقن الحي (_srv): monkeypatch على فضاء server ينعكس في الـ
    blueprint فورًا (نفس دلالة globals الأصلية — late binding).
@@ -48,7 +52,7 @@ FROZEN_RULES = [
     ("/api/info", ("GET",)),
     ("/api/metrics/runs", ("GET",)),
     ("/api/models", ("GET",)),
-    ("/api/permissions", ("GET",)),  # TSK-621 — قراءة فقط
+    ("/api/permissions", ("GET", "POST")),  # TSK-621 قراءة + TSK-734/D-19-6 تحرير
     ("/api/new-file", ("POST",)),
     ("/api/new-folder", ("POST",)),
     ("/api/restore/<backup_name>", ("POST",)),

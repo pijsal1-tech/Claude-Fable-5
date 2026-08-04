@@ -187,6 +187,21 @@ def _load_config() -> dict:
 _read_config = _load_config
 
 
+def _effective_config() -> dict:
+    """TSK-734 (القرار 6 من تسلسل D-19): الـ config الفعال = config.yaml
+    المُكاش + طبقة overrides طازجة من permissions_overrides.json.
+
+    قرار واعٍ (مواصفة TSK-734): config.yaml **لا يُكتب أبدًا** —
+    تحرير الأذونات من الواجهة يذهب لملف جانبي (سابقة workspace_trust
+    NF-19)؛ القراءة الطازجة للـ overrides عند كل استهلاك تعطي الحيوية
+    (تحرير بلا إعادة تشغيل) دون إبطال ``_config_cache`` — الأسبقية
+    للـ overrides على المفتاحين المسموحين فقط (whitelist صارم في
+    core/permissions_overrides). فشل أي طبقة ⇒ fail-closed للطبقة
+    (config غير مقروء = {}؛ overrides معطوبة = {})."""
+    from core.permissions_overrides import apply_to_config, read_overrides
+    return apply_to_config(_load_config(), read_overrides(_DIR))
+
+
 _hook_runner_cache: "HookRunner | None" = None
 
 if TYPE_CHECKING:  # pragma: no cover — للتلميح فقط، الاستيراد الفعلي كسول
@@ -250,7 +265,10 @@ def _force_command_approval() -> bool:
     if not _workspace_trusted():
         return True
     try:
-        return bool(_load_config().get("force_command_approval", True))
+        # TSK-734 (القرار 6): القراءة من الـ config الفعال — overrides
+        # الواجهة (permissions_overrides.json) تعلو على config.yaml؛
+        # نفس دلالة fail-closed (غياب المفتاح في الطبقتين ⇒ True).
+        return bool(_effective_config().get("force_command_approval", True))
     except Exception:
         # NF-14 §2 (ابتلاع مقصود — fallback موثّق): config غير مقروء →
         # TSK-617: الافتراضي الآمن (إلزام الموافقة) — أخطر الحالات
@@ -2595,7 +2613,9 @@ def main():
     # ── Agent Tools ──
     # T-058 (R-504): سياسة أوامر الـ agent من config.yaml — الـ allowlist
     # ملكية المشروع لا الـ agent؛ قسم غائب = وضع legacy (بوابة الموافقة فقط).
-    _cmd_policy = command_policy_from(_read_config())
+    # TSK-734 (القرار 6): من الـ config الفعال — overrides الواجهة
+    # المخزنة تعلو على config.yaml عند الإقلاع أيضًا (اتساق مع POST الحي).
+    _cmd_policy = command_policy_from(_effective_config())
     # T-112 (R-805): ذاكرة المشاريع الدائمة — مخزن JSONL لكل project_id
     # تحت projects/ بجانب sessions/ (نفس جذر بيانات التطبيق).
     # T-114: صار service global — إطارات لوحة الذاكرة تصل له عبر
