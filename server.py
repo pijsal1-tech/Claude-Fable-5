@@ -50,6 +50,9 @@ from sessions.memory import WindowPolicy, select_history
 from context.facade import gather_message_context
 from chain.bridge import ChainBridge
 from chain.delegate import DelegateBridge
+from chain.background_delegate import (
+    BackgroundDelegateTask, BG_RUNNING, BG_WAITING_APPROVAL,
+)  # TSK-732 (D-19-4)
 from chain.orchestrator import SmartOrchestrator
 from chain.router import RequestRouter
 from chain.action_applier import ActionApplier
@@ -1633,16 +1636,13 @@ def _ws_cancel_run(ctx, sctx, msg):
 
 
 # ── M6: Delegate System ──
-def _ws_delegate_message(ctx, sctx, msg):
-    # تفويض مهمة معقدة
-    user_text = msg.get("text", "").strip()
-    if not user_text:
-        sctx.send({"type": "error", "text": "الرسالة فارغة"})
-        return
+def _gather_delegate_context(sctx):
+    """TSK-732a (D-19-4): جمع سياق التفويض — استخراج حرفي من جسم
+    ``_ws_delegate_message`` (صفر تغيير سلوك للمسار القائم؛ المنطق
+    نفسه صار مشتركًا بين التفويض الأمامي والخلفي).
 
-    if not sctx.delegate_bridge:
-        sctx.delegate_bridge = DelegateBridge(sctx.active_provider(), ctx=ctx)
-
+    Returns: (files_context, project_context)
+    """
     # جمع ملفات السياق
     files_context = {}
     try:
@@ -1675,6 +1675,21 @@ def _ws_delegate_message(ctx, sctx, msg):
         # NF-14 §13 (ابتلاع مقصود): سياق المشروع إثراء اختياري للتفويض.
         _slog_swallowed("server.py:1531", _exc)
         pass
+    return files_context, project_context
+
+
+def _ws_delegate_message(ctx, sctx, msg):
+    # تفويض مهمة معقدة
+    user_text = msg.get("text", "").strip()
+    if not user_text:
+        sctx.send({"type": "error", "text": "الرسالة فارغة"})
+        return
+
+    if not sctx.delegate_bridge:
+        sctx.delegate_bridge = DelegateBridge(sctx.active_provider(), ctx=ctx)
+
+    # TSK-732a: جمع السياق صار مشتركًا — نفس المنطق حرفيًا.
+    files_context, project_context = _gather_delegate_context(sctx)
 
     # T-041 (R-501): نفس مسار الإرسال الموحّد — DelegateRunner فوق
     # الجسر (كان النداء المباشر هنا بلا تذكرة — الآن التفويض من هذا
@@ -1774,6 +1789,138 @@ def _ws_delegate_reject(ctx, sctx, msg):
         sctx.send({"type": "error", "text": "لا يوجد تفويض نشط"})
 
 
+# ── TSK-732 (D-19-4): المهام الخلفية — مؤشر الواجهة يستهلك FI-15 ──
+def _ws_background_delegate_message(ctx, sctx, msg):
+    """إطلاق تفويض خلفي (hand-off) — يرجع فورًا بعد background_started.
+
+    TSK-732a: BackgroundDelegateTask (TSK-CEV-113) فوق جسر تفويض جديد
+    خاص بالمهمة — «كائن جديد لكل مهمة». **قرار واعٍ** (المواصفة):
+    سياسة الـ run الواحد لكل مشروع تبقى سيدة — المهمة الخلفية تحجز
+    خانة المشروع (التذكرة) حتى الحسم land/reject؛ إرخاؤها قرار منتج
+    لاحق. **الثابت الصلب (لا YOLO)**: لا land تلقائي — الكتابة خلف
+    background_approve الصريح ثم أزرار Apply (طبقتا موافقة).
+    """
+    user_text = msg.get("text", "").strip()
+    if not user_text:
+        sctx.send({"type": "error", "text": "الرسالة فارغة"})
+        return
+
+    # مهمة سابقة لم تُحسم تمنع إطلاق جديدة من نفس الاتصال
+    prev = sctx.background_task
+    if prev is not None and prev.status in (BG_RUNNING,
+                                            BG_WAITING_APPROVAL):
+        sctx.send({
+            "type": "error",
+            "text": ("⚠️ مهمة خلفية سابقة لم تُحسم بعد "
+                     f"(الحالة: {prev.status}) — اعتمدها أو ارفضها أولًا."),
+        })
+        return
+
+    # نفس سياسة الـ run الواحد (T-015/TSK-302) — busy يُرسل داخليًا
+    bg_ticket = _begin_run_ticket("delegate", sctx.send, sctx=sctx)
+    if bg_ticket is None:
+        return
+
+    # جسر جديد للمهمة (لا نشارك sctx.delegate_bridge — عزل الحالتين)
+    task = BackgroundDelegateTask(
+        DelegateBridge(sctx.active_provider(), ctx=ctx))
+    sctx.background_task = task
+
+    files_context, project_context = _gather_delegate_context(sctx)
+
+    def _bg_emit(et, ed):
+        try:
+            sctx.send({"type": et, **ed})
+        except Exception as _exc:
+            # NF-14 (ابتلاع مقصود — نمط §14): WS مقفول أثناء بث حدث
+            # خلفي — البث لا يعطل الدورة؛ snapshot يعوّض بعد reconnect.
+            _slog_swallowed("server.py:_ws_background_delegate_message",
+                            _exc)
+            pass
+
+    task.start(
+        user_text,
+        files_context=files_context,
+        project_context=project_context,
+        on_event=_bg_emit,
+        ticket=bg_ticket,
+    )
+
+
+def _ws_background_status(ctx, sctx, msg):
+    """صورة المهمة الخلفية الكاملة — reconnect-safe (الواجهة تستدعيه
+    عند onopen لاستعادة الشارة بعد إعادة اتصال)."""
+    task = sctx.background_task
+    if task is None:
+        sctx.send({"type": "background_status", "task_id": None,
+                   "status": "none"})
+        return
+    sctx.send({"type": "background_status", **task.snapshot()})
+
+
+def _ws_background_approve(ctx, sctx, msg):
+    """الموافقة الصريحة — الطبقة الأولى: land ثم تحليل الأكشنز
+    (نفس منطق ``_ws_delegate_approve`` حرفيًا)؛ الطبقة الثانية:
+    الأفعال نفسها تبقى خلف أزرار Apply القائمة."""
+    task = sctx.background_task
+    if task is None or task.status != BG_WAITING_APPROVAL:
+        sctx.send({"type": "error",
+                   "text": "لا توجد مهمة خلفية بانتظار الاعتماد"})
+        return
+
+    def approval_handler(et, ed):
+        try:
+            sctx.send({"type": et, **ed})
+        except Exception as _exc:
+            # NF-14 §14 (ابتلاع مقصود): نفس سياسة مقبض delegate_approve.
+            _slog_swallowed("server.py:_ws_background_approve", _exc)
+            pass
+
+    landed = task.land(on_event=approval_handler)
+    run = task.run
+    if landed and run is not None and run.result:
+        sctx.send({"type": "start"})
+        sctx.send({"type": "chunk", "text": run.result.response})
+        # TSK-601 (RP-01): parse() الحقيقية + التحويل المشترك — فشل
+        # التحويل يُظهَر للمستخدم (UXF-02) — مرآة _ws_delegate_approve.
+        try:
+            parsed = parser.parse(run.result.response)
+            actions = _parsed_to_actions(parsed)
+            options = _parsed_options(parsed)
+            sctx.send({
+                "type": "done",
+                "actions": actions,
+                "options": options,
+                "summary": (f"✅ تم اعتماد المهمة الخلفية "
+                            f"(task #{task.task_id})"),
+            })
+        except Exception as e:
+            print(f"  ⚠️ فشل تحليل رد التفويض الخلفي بعد الاعتماد: {e}")
+            sctx.send({
+                "type": "error",
+                "text": f"تعذّر تحويل رد التفويض إلى إجراءات: {e}",
+            })
+            sctx.send({
+                "type": "done",
+                "actions": [],
+                "options": [],
+                "summary": "✅ تم اعتماد التعديلات",
+            })
+
+
+def _ws_background_reject(ctx, sctx, msg):
+    """الرفض الصريح — يغلّف task.reject (يحرر التذكرة عبر الجسر)."""
+    task = sctx.background_task
+    if task is None or task.status != BG_WAITING_APPROVAL:
+        sctx.send({"type": "error",
+                   "text": "لا توجد مهمة خلفية بانتظار الاعتماد"})
+        return
+    reason = msg.get("reason", "")
+    task.reject(reason, on_event=lambda et, ed: sctx.send(
+        {"type": et, **ed}
+    ))
+
+
 # ── Memory Panel (T-114, R-805) — إطارات إضافية عبر الوسطاء الوحدويين ──
 def _ws_memory_list(ctx, sctx, msg):
     _root = sctx.project.root if sctx.project else None
@@ -1819,6 +1966,11 @@ WS_HANDLERS = {
     "delegate_message": _ws_delegate_message,
     "delegate_approve": _ws_delegate_approve,
     "delegate_reject": _ws_delegate_reject,
+    # TSK-732 (D-19-4): المهام الخلفية — 4 أنواع جديدة (25 → 29)
+    "background_delegate_message": _ws_background_delegate_message,
+    "background_status": _ws_background_status,
+    "background_approve": _ws_background_approve,
+    "background_reject": _ws_background_reject,
     "memory_list": _ws_memory_list,
     "memory_edit": _ws_memory_edit,
     "memory_delete": _ws_memory_delete,
