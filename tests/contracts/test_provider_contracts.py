@@ -10,6 +10,7 @@ from providers.genspark import GensparkProvider
 from providers.deepseek import DeepSeekProvider
 from providers.use_ai import UseAIProvider
 from providers.alle_ai import AlleAIProvider
+from providers.openai_compat import OpenAICompatProvider
 from tests.fakes.fake_provider import FakeProvider
 
 from tests.contracts.provider_contract import ProviderContractMixin
@@ -29,6 +30,12 @@ class TestUseAIContract(ProviderContractMixin):
 
 class TestAlleAIContract(ProviderContractMixin):
     provider_cls = AlleAIProvider
+
+
+class TestOpenAICompatContract(ProviderContractMixin):
+    # TSK-735b (D-19 القرار 7 / D-20): المزود العام بمفتاح API —
+    # يخضع لنفس عقد T-010 ككل مزود مسجَّل (توجيه check.sh).
+    provider_cls = OpenAICompatProvider
 
 
 class TestMockProviderContract(ProviderContractMixin):

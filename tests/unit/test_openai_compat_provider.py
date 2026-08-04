@@ -226,7 +226,9 @@ class TestStream:
         assert list(_provider().stream("hi")) == ["مر", "حبا", " بك"]
 
     def test_done_terminates_even_with_trailing_lines(self, capture):
-        lines = _sse("قبل") + [b'data: {"choices":[{"delta":{"content":"بعد"}}]}']
+        after_done = ('data: {"choices":[{"delta":{"content":"بعد"}}]}'
+                      .encode("utf-8"))
+        lines = _sse("قبل") + [after_done]
         capture["box"]["response"] = _FakeResponse(lines=lines)
         assert list(_provider().stream("hi")) == ["قبل"]
 
