@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-04 (Session 112 — **القراران 2 و3 من تسلسل D-19 مُغلقان 🏁**: (2) v1.0.0 النهائي موسوم ومدفوع على origin (إلغاء شرط rc-حتى-Windows بقرار مالك D-19؛ commits 0787619+3790c8e+d2fe4d0)؛ (3) تغطية mypy 100% — إصلاح openai_shelby.py:166 (union-attr، ربط v_obj محليًا، صفر تغيير سلوك) + رفع آخر --exclude من check.sh (mypy Success على 95 ملفًا) + تحديث حارس test_mypy_gate_614 لمنع عودة أي استبعاد؛ بوابتان كاملتان ALL GREEN rc=0 (2586P/34S/0F)) |
+| last-updated | 2026-08-04 (Session 112 — **القرارات 2 و3 و4 من تسلسل D-19 مُغلقة 🏁**: (2) v1.0.0 النهائي موسوم ومدفوع؛ (3) mypy 100% على 95 ملفًا؛ (4) TSK-732 مؤشر واجهة المهام الخلفية فوق FI-15 — 4 مقابض WS (background_delegate_message/status/approve/reject) + شارة #bg-task-chip + زر «⏱️ تفويض خلفي» + 12 اختبار تكامل حتميًّا؛ البوابة ALL GREEN rc=0: 2598P/34S/0F) |
 | stage | **V3-STAGE 4 — برنامج CEV مُغلق (D-12→D-17) + دفعة D-18 BATCH-CLOSEOUT مُقفلة 🏁** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 + CEV 99/100 GO + D-18 |
-| current-phase | **تنفيذ تسلسل D-19**: القرار 2 (v1.0.0) 🏁 + القرار 3 (mypy 100%) 🏁 → **التالي: القرار 4** (مؤشر واجهة المهام الخلفية فوق FI-15 — chain/background_delegate.py جاهز بأحداثه background_started/event/finished وsnapshot() — يلزم توصيل server + شارة/لوحة UI) → ثم 5 (CP-12) → 6 → 7 → 8 → 9؛ 10/11 مستقلان |
-| current-task | **القرار 4 من تسلسل D-19 — لم يبدأ**: تخطيط أولًا (إجراء D-7 الدائم): قراءة chain/background_delegate.py + مواضع بث WS في server.py → خطة TSK صغيرة → تنفيذ مؤشر الواجهة (شارة حالة + إشعار إنهاء) — الموافقات تبقى بيد المستخدم (invariant FI-15) |
+| current-phase | **تنفيذ تسلسل D-19**: القرار 2 (v1.0.0) 🏁 + القرار 3 (mypy 100%) 🏁 + القرار 4 (TSK-732 مؤشر المهام الخلفية) 🏁 → **التالي: القرار 5** (لوحة الجلسات CP-12 — واجهة طابور FI-13 delegate_queue.py) → ثم 6 (صلاحيات write-UI) → 7 (مزودو API-key — تعديل SECTION 0.8) → 8 (ACP) → 9 (network exposure أخيرًا)؛ 10/11 مستقلان في أي وقت |
+| current-task | **القرار 5 من تسلسل D-19 — لم يبدأ**: تخطيط أولًا (إجراء D-7 الدائم): قراءة chain/delegate_queue.py (FI-13، TSK-CEV-112) + مواضع UI المرشحة → خطة TSK صغيرة → التنفيذ |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -491,6 +491,14 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-08-04 — Session 112 (تكملة 2) — القرار 4 من تسلسل D-19 مُغلق 🏁: TSK-732 مؤشر واجهة المهام الخلفية (يستهلك FI-15)**:
+  - **المواصفة أولًا (إجراء D-7)**: TSK-732 كُتبت في DEVELOPMENT_TASKS.md بأربع شرائح (a توصيل خلفي → b تثبيتات → c اختبارات → d واجهة) قبل أي سطر كود.
+  - **732a**: حقل `background_task` في SessionContext + KNOWN_CONVERSATION_STATE + استخراج `_gather_delegate_context` (نقل حرفي) + 4 مقابض WS جديدة فوق BackgroundDelegateTask (TSK-CEV-113 — صفر تعديل عليه). **قرار واعٍ**: المهمة الخلفية تحجز خانة المشروع (تذكرة `_begin_run_ticket`) حتى الحسم. **الثابت الصلب**: لا land تلقائي — approve صريح ثم أزرار Apply (طبقتا موافقة).
+  - **732b**: ORIGINAL_MSG_TYPES في test_ws_router.py 25 → 29 (تعليق D-19-4).
+  - **732c**: 12 اختبار تكامل حتميًّا في test_background_delegate_handlers.py (نمط FakeProvider + `_handle_ws_message`) — تغطي المعايير السبعة كلها (hand-off فوري، لا auto-land، snapshot، golden actions، تحرير الخانة، رفض الإطلاق الثاني، busy).
+  - **732d**: background_tasks.js (UMD-lite، smoke 14 تأكيدًا في node) + شارة الهيدر + زر الإطلاق + onopen resync + 4 حالات handleWSMessage + CSS بتوكنز.
+  - **بيئة**: تصفيران (#52، #53) أثناء التنفيذ؛ الرافع التلقائي أنقذ 732a+b (6222e17 + a2bb858) — أُعيد ملف الواجهة فقط. بوابتان كاملتان ALL GREEN rc=0 (2598P/34S/0F). Commits: e2e5a92 (732c) + cedb1e1 (732d) مدفوعان.
+
 - **2026-08-04 — Session 112 (تكملة) — القرار 3 من تسلسل D-19 مُغلق 🏁: تغطية mypy 100% بلا استثناءات**:
   (1) تشخيص الخطأ الموثق `providers/openai_shelby.py:166` بتشغيل mypy
   مباشرة: خطأ وحيد union-attr — `data.get("v").get("message")` بعد

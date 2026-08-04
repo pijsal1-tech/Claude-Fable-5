@@ -1429,3 +1429,48 @@ routes/ + server.py + desktop.py). حارس البوابة
 `test_mypy_gate_614.py::test_documented_excludes_only` حُدِّث: يمنع الآن
 **أي** `--exclude` في check.sh (كان يثبّت وجود استبعاد shelby حرفيًا —
 انحدار مقلوب). البوابة الكاملة ALL GREEN rc=0: 2586P/34S/0F (90.1s).
+
+---
+
+## [TSK-732] — 2026-08-04 (Session 112 تكملة) — القرار 4 من تسلسل D-19: مؤشر واجهة المهام الخلفية (يستهلك FI-15) 🏁
+
+**بموجب قرار مالك D-19 (القرار 4: «أول تغيير يراه المستخدم فعليًا»)** —
+BackgroundDelegateTask (TSK-CEV-113) كان بنية خلفية كاملة بلا أي أثر
+مرئي («مؤشر الواجهة خارج النطاق عمدًا»). الآن: توصيل WS كامل + شارة.
+
+### Added
+- **732a — التوصيل الخلفي**: حقل `background_task` في SessionContext
+  (+ KNOWN_CONVERSATION_STATE في lint_handler_state.py) + استخراج
+  `_gather_delegate_context(sctx)` مساعدًا مشتركًا (نقل حرفي من
+  `_ws_delegate_message` — صفر تغيير سلوك) + 4 مقابض WS جديدة:
+  `background_delegate_message` (تذكرة عبر `_begin_run_ticket` — **قرار
+  واعٍ**: المهمة الخلفية تحجز خانة المشروع حتى الحسم؛ مهمة سابقة
+  waiting_approval تمنع إطلاق جديدة — «كائن جديد لكل مهمة»)،
+  `background_status` (snapshot كامل reconnect-safe)،
+  `background_approve` (**الثابت الصلب — لا YOLO**: land ثم نفس تحليل
+  الأكشنز في delegate_approve؛ الأفعال تبقى خلف أزرار Apply — طبقتا
+  موافقة)، `background_reject`.
+- **732b — التثبيتات**: ORIGINAL_MSG_TYPES في test_ws_router.py
+  25 → 29 بتعليق D-19-4 (إضافة مقصودة موثقة).
+- **732c — اختبارات**: `tests/integration/test_background_delegate_handlers.py`
+  — 12 اختبار تكامل حتميًّا (نمط test_delegate_approve_handler:
+  FakeProvider + `_handle_ws_message`): started فوري (hand-off)؛
+  waiting_approval **بلا land تلقائي**؛ snapshot كامل؛ approve →
+  done+actions (golden مشترك) + فشل التحويل يُظهَر (UXF-02)؛ reject
+  يحرر الخانة؛ إطلاق ثانٍ مرفوض؛ busy عند تذكرة محجوزة.
+- **732d — الواجهة**: `static/js/background_tasks.js` (UMD-lite بنمط
+  status_chip.js — منطق نقي، smoke بـ14 تأكيدًا في node) + شارة
+  `#bg-task-chip` في الهيدر (⏳ يعمل → ✋ بانتظارك مع زرّي اعتماد/رفض)
+  + زر «⏱️ تفويض خلفي» في شريط أدوات الإدخال + onopen يرسل
+  background_status (استعادة بعد reconnect) + 4 حالات في
+  handleWSMessage + أنماط CSS بتوكنز فقط.
+
+### حدود واعية (من المواصفة — كلها محفوظة)
+صفر تعديل على chain/background_delegate.py وdelegate.py
+وdelegate_queue.py؛ مقابض delegate_* القديمة كما هي (الاستخراج نقل
+حرفي)؛ لا طوابير (FI-13 UI = القرار 5 لاحقًا).
+
+### ملاحظة بيئة
+تصفيرا بيئة (#52 و#53) وقعا أثناء التنفيذ؛ الرافع التلقائي أنقذ 732a+b
+(commits 6222e17 + a2bb858) — أُعيد فقط ملف الواجهة المفقود. البوابة
+الكاملة بعد كل شريحة: **ALL GREEN rc=0 — 2598P/34S/0F** (+12 اختبارًا).
