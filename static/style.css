@@ -639,7 +639,7 @@ html, body {
     color: var(--text-muted);
     font-size: 14px;
     margin-left: 2px;
-    transition: color 0.15s;
+    transition: color var(--duration-fast);
 }
 
 .attached-file .remove-attach:hover {
@@ -667,7 +667,7 @@ html, body {
 }
 
 .attach-bubble-content {
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 12px 16px;
     animation: slideUp 0.3s ease;
     max-width: 380px;
@@ -724,7 +724,7 @@ html, body {
     margin-top: 8px;
     padding: 8px 10px;
     background: color-mix(in srgb, var(--shadow-color) 15%, transparent);
-    border-radius: 8px;
+    border-radius: var(--radius);
     max-height: 140px;
     overflow-y: auto;
 }
@@ -1798,7 +1798,7 @@ html, body {
 }
 
 .delegate-card {
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 16px;
     background: linear-gradient(135deg, color-mix(in srgb, var(--lavender-soft) 8%, transparent), color-mix(in srgb, var(--mauve-soft) 8%, transparent));
     border: 1px solid color-mix(in srgb, var(--lavender-soft) 20%, transparent);
@@ -1837,7 +1837,7 @@ html, body {
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     font-size: 13px;
     transition: all 0.3s ease;
 }
@@ -1872,7 +1872,7 @@ html, body {
 }
 
 .delegate-review {
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 16px;
     background: linear-gradient(135deg, color-mix(in srgb, var(--green-soft) 6%, transparent), color-mix(in srgb, var(--teal-soft) 6%, transparent));
     border: 1px solid color-mix(in srgb, var(--green-soft) 20%, transparent);
@@ -1900,7 +1900,7 @@ html, body {
 .review-rework-badge {
     font-size: 11px;
     padding: 2px 8px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     background: color-mix(in srgb, var(--peach-soft) 15%, transparent);
     color: var(--warning);
 }
@@ -1919,7 +1919,7 @@ html, body {
     margin-bottom: 10px;
     padding: 8px 10px;
     background: color-mix(in srgb, var(--shadow-color) 12%, transparent);
-    border-radius: 8px;
+    border-radius: var(--radius);
 }
 
 .review-detail {
@@ -1960,7 +1960,7 @@ html, body {
 .review-btn {
     flex: 1;
     padding: 8px 16px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     font-size: 13px;
 }
 
@@ -2605,7 +2605,7 @@ html, body {
 }
 .rh-entry {
     border: 1px solid var(--surface-1);
-    border-radius: 8px;
+    border-radius: var(--radius);
     margin-bottom: 8px;
     background: var(--bg-base);
     overflow: hidden;
@@ -2627,7 +2627,7 @@ html, body {
 .rh-badge {
     font-size: 10px;
     padding: 1px 6px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: var(--surface-0);
     color: var(--text-muted);
 }
@@ -2672,7 +2672,7 @@ html, body {
     margin: 8px 0;
     padding: 10px;
     border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--red) 8%, transparent);
 }
 .rh-conflict-title {
@@ -2730,7 +2730,7 @@ html, body {
 .sc-section {
     padding: 8px;
     border: 1px solid var(--surface-0);
-    border-radius: 8px;
+    border-radius: var(--radius);
     margin-bottom: 8px;
     background: var(--bg-base);
 }
@@ -2753,7 +2753,7 @@ html, body {
 .sc-badge {
     font-size: 10px;
     padding: 1px 6px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--yellow) 18%, transparent);
     color: var(--yellow);
 }
@@ -2805,7 +2805,7 @@ html, body {
 }
 .mp-entry {
     border: 1px solid var(--surface-1);
-    border-radius: 8px;
+    border-radius: var(--radius);
     margin-bottom: 8px;
     background: var(--bg-base);
     overflow: hidden;
@@ -2821,7 +2821,7 @@ html, body {
 .mp-badge {
     font-size: 10px;
     padding: 1px 6px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: var(--surface-0);
     color: var(--text-muted);
 }
@@ -2936,7 +2936,7 @@ html, body {
     user-select: none;
     padding: 2px 4px;
     border-radius: 4px;
-    transition: background 0.15s;
+    transition: background var(--duration-fast);
 }
 #explorer-title:hover { background: var(--surface-1); }
 .tree-arrow {
@@ -3038,7 +3038,7 @@ html, body {
     border: 1px solid var(--surface-1);
     background: var(--accent);
     color: var(--v25-white);
-    transition: opacity 0.15s;
+    transition: opacity var(--duration-fast);
 }
 .path-decision-card .action-btn:hover:not(:disabled) { opacity: 0.85; }
 .path-decision-card .action-btn:disabled { opacity: 0.45; cursor: default; }
@@ -3116,7 +3116,7 @@ html, body {
     border-radius: 6px;
     padding: 4px 12px;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all var(--duration-fast);
     max-width: 380px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3165,7 +3165,7 @@ html, body {
     background: color-mix(in srgb, var(--v25-white) 3%, transparent) !important;
     border: 1px solid color-mix(in srgb, var(--v25-white) 6%, transparent) !important;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all var(--duration-fast) ease;
     white-space: nowrap;
 }
 #chat-mode-switcher .mode-btn svg { opacity: 0.7; flex-shrink: 0; }
@@ -3263,8 +3263,8 @@ html, body {
     background: transparent;
     color: var(--v25-slate-500);
     cursor: pointer;
-    border-radius: 8px;
-    transition: all 0.15s;
+    border-radius: var(--radius);
+    transition: all var(--duration-fast);
     position: relative;
     padding: 0;
 }
@@ -3314,7 +3314,7 @@ html, body {
     white-space: nowrap;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.15s;
+    transition: opacity var(--duration-fast);
     z-index: 999;
 }
 .activity-btn:hover::after { opacity: 1; }
@@ -3451,7 +3451,7 @@ html, body {
     overflow-y: auto;
     background: var(--v25-bg-raised) !important;
     border: 1px solid color-mix(in srgb, var(--v25-purple) 30%, transparent) !important;
-    border-radius: 12px !important;
+    border-radius: var(--radius-lg) !important;
     box-shadow: 0 -10px 30px color-mix(in srgb, var(--v25-black) 80%, transparent), 0 0 15px color-mix(in srgb, var(--v25-purple) 15%, transparent) !important;
     z-index: 1000 !important;
     padding: 4px;
@@ -3459,7 +3459,7 @@ html, body {
 
 #chat-model-selector #model-dropdown .sessions-header {
     background: var(--v25-bg-elevated);
-    border-radius: 8px 8px 0 0;
+    border-radius: var(--radius) var(--radius) 0 0;
     padding: 8px 12px;
     font-size: 12px;
     font-weight: 600;
@@ -3476,7 +3476,7 @@ html, body {
     font-size: 12px;
     color: var(--v25-slate-300);
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: background var(--duration-fast) ease;
 }
 
 #chat-model-selector #model-dropdown .session-item:hover {
@@ -3507,7 +3507,7 @@ html, body {
     font-size: 12px;
     color: var(--v25-slate-500);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all var(--duration-fast) ease;
     min-width: 280px;
     max-width: 440px;
     user-select: none;
@@ -3581,10 +3581,10 @@ html, body {
     max-width: 90vw;
     background: var(--v25-bg-raised);
     border: 1px solid color-mix(in srgb, var(--v25-purple) 30%, transparent);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     box-shadow: 0 20px 50px color-mix(in srgb, var(--v25-black) 80%, transparent), 0 0 20px color-mix(in srgb, var(--v25-purple) 20%, transparent);
     overflow: hidden;
-    animation: fadeInDown 0.15s ease-out;
+    animation: fadeInDown var(--duration-fast) ease-out;
 }
 
 @keyframes fadeInDown {

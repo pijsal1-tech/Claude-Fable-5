@@ -245,7 +245,14 @@ class TestDoneFrameCarriesMetrics:
 
     def test_server_source_has_no_new_token_constants(self):
         """PM-01: التقدير عبر CharsPerTokenEstimator المركزي حصريًا —
-        لا ثابت تقريب جديد في server.py."""
+        لا ثابت تقريب جديد. المستهلك الفعلي انتقل إلى
+        core/chat_dispatch.py (TSK-612/ADR-002)؛ استيراد server.py
+        القديم كان ميتًا وأُزيل في TSK-CEV-120 (CEV-F-011, D-18) —
+        الحارس يفحص الوحدة المالكة للمنطق لا الغلاف."""
+        dispatch_src = (pathlib.Path(server.__file__).parent
+                        / "core" / "chat_dispatch.py").read_text(
+                            encoding="utf-8")
+        assert "CharsPerTokenEstimator" in dispatch_src
         src = pathlib.Path(server.__file__).read_text(encoding="utf-8")
-        assert "CharsPerTokenEstimator" in src
         assert "len(full_response) // 4" not in src
+        assert "len(full_response) // 4" not in dispatch_src

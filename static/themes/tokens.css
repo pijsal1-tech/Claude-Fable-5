@@ -55,6 +55,10 @@
     /* ── Transitions ── */
     --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* TSK-CEV-122 (CEV-F-008, D-18): الطبقة الثالثة الفعلية (كانت 0.15s
+       خامًا ×10 في style.css) — مدة فقط لا اختصار transition كاملًا،
+       لأن أغلب استهلاكاتها property-specific (color/background/opacity). */
+    --duration-fast: 0.15s;
 
     /* ── Functional role aliases (تشير للوحة الثيم النشط) ── */
     --accent: var(--blue);
