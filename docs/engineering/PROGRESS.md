@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-04 (Session 112 — **قرار مالك D-19 مُسجَّل + القرار 2 مُغلق 🏁: إصدار v1.0.0 النهائي موسوم ومدفوع**: المالك اعتمد ترتيب تنفيذ القرارات المفتوحة «2 → 3 → 4 → 5 → 6 → 7 → 8 → 9» (10/11 مستقلان) — DECISION_LOG §D-19؛ القرار 2 نُفِّذ: core/version.py = "1.0.0" (إلغاء شرط rc-حتى-Windows بقرار مالك) + README §سياسة الإصدارات + USER_GUIDE + docstring update_check (commit 0787619 عبر Auto-Uploader قبل تصفير #49) + قيد CHANGELOG §RELEASE-v1.0.0 (3790c8e بعد الاستئناف) + بوابة check.sh ALL GREEN rc=0 (2586P/34S/0F @ 94.2s) + **وسم v1.0.0 مدفوع على origin** (تفويض D-8-ج — سابقة وسم rc.1)) |
+| last-updated | 2026-08-04 (Session 112 — **القراران 2 و3 من تسلسل D-19 مُغلقان 🏁**: (2) v1.0.0 النهائي موسوم ومدفوع على origin (إلغاء شرط rc-حتى-Windows بقرار مالك D-19؛ commits 0787619+3790c8e+d2fe4d0)؛ (3) تغطية mypy 100% — إصلاح openai_shelby.py:166 (union-attr، ربط v_obj محليًا، صفر تغيير سلوك) + رفع آخر --exclude من check.sh (mypy Success على 95 ملفًا) + تحديث حارس test_mypy_gate_614 لمنع عودة أي استبعاد؛ بوابتان كاملتان ALL GREEN rc=0 (2586P/34S/0F)) |
 | stage | **V3-STAGE 4 — برنامج CEV مُغلق (D-12→D-17) + دفعة D-18 BATCH-CLOSEOUT مُقفلة 🏁** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 + CEV 99/100 GO + D-18 |
-| current-phase | **تنفيذ تسلسل D-19**: القرار 2 (v1.0.0) 🏁 مُغلق → **التالي: القرار 3** (إزالة آخر استثناء mypy — إصلاح providers/openai_shelby.py:166 + رفع exclude من check.sh:25) → ثم 4 (مؤشر واجهة FI-15) → 5 (لوحة جلسات CP-12) → 6 → 7 → 8 → 9؛ القراران 10/11 مستقلان بلا موعد |
-| current-task | **القرار 3 من تسلسل D-19 — لم يبدأ**: فحص providers/openai_shelby.py (الخطأ المنطقي الموثق :166) → إصلاح → إزالة `--exclude 'providers/openai_shelby\.py'` من scripts/check.sh:25 → mypy Success على 95 ملفًا → بوابة كاملة |
+| current-phase | **تنفيذ تسلسل D-19**: القرار 2 (v1.0.0) 🏁 + القرار 3 (mypy 100%) 🏁 → **التالي: القرار 4** (مؤشر واجهة المهام الخلفية فوق FI-15 — chain/background_delegate.py جاهز بأحداثه background_started/event/finished وsnapshot() — يلزم توصيل server + شارة/لوحة UI) → ثم 5 (CP-12) → 6 → 7 → 8 → 9؛ 10/11 مستقلان |
+| current-task | **القرار 4 من تسلسل D-19 — لم يبدأ**: تخطيط أولًا (إجراء D-7 الدائم): قراءة chain/background_delegate.py + مواضع بث WS في server.py → خطة TSK صغيرة → تنفيذ مؤشر الواجهة (شارة حالة + إشعار إنهاء) — الموافقات تبقى بيد المستخدم (invariant FI-15) |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -491,6 +491,21 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-08-04 — Session 112 (تكملة) — القرار 3 من تسلسل D-19 مُغلق 🏁: تغطية mypy 100% بلا استثناءات**:
+  (1) تشخيص الخطأ الموثق `providers/openai_shelby.py:166` بتشغيل mypy
+  مباشرة: خطأ وحيد union-attr — `data.get("v").get("message")` بعد
+  `isinstance(data.get("v"), dict)`؛ mypy لا يضيّق نوع استدعاء `.get()`
+  ثانٍ عبر isinstance على استدعاء أول. (2) الإصلاح الأدنى: ربط
+  `v_obj = data.get("v")` محليًا ثم `isinstance(v_obj, dict)` —
+  **صفر تغيير سلوك** (نفس الدلالات؛ اختبار shelby القائم يمر). (3) رفع
+  آخر `--exclude` من بوابة mypy في check.sh + تحديث تعليقات المبررات
+  (:14-21) — **mypy Success على 95 ملفًا** (كامل النطاق). (4) تحديث حارس
+  البوابة `test_mypy_gate_614.py::test_documented_excludes_only`: كان
+  يثبّت وجود استبعاد shelby حرفيًا (فشل مكشوف بالبوابة الأولى — 2585P/1F)؛
+  الآن يمنع **أي** `--exclude` ويصون رفع الأربعة (shelby + الثلاثة
+  المرفوعة في D-18). (5) البوابة الكاملة: **ALL GREEN rc=0 —
+  2586 passed / 34 skipped / 0 failed** (90.1s). commits: 218cc13 + هذا.
+  التالي: القرار 4 (مؤشر واجهة المهام الخلفية — تخطيط أولًا وفق D-7).
 - **2026-08-04 — Session 112 — قرار مالك D-19 (ترتيب التنفيذ 2→3→4→5→6→7→8→9) + القرار 2 مُغلق 🏁: v1.0.0 النهائي موسوم ومدفوع**:
   بعد إغلاق CEV وتسليم قائمة القرارات الـ11، **اعتمد المالك ترتيب التنفيذ
   حرفيًا**: «2 → 3 → 4 → 5 → 6 → 7 → 8 → 9» والقراران 10/11 مستقلان —
