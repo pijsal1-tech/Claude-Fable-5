@@ -25,7 +25,12 @@ that layer, and none may be reinterpreted to do so.
 - **Prerequisite**: TSK-302 (project_id registration policy) merged first, so
   the unified state has a well-defined keying rule.
 
-### FI-02 — Split server.py god-module [MID]
+### FI-02 — Split server.py god-module [✖ WAIVED BY OWNER — D-18, 2026-08-04]
+> **مُعفاة نهائيًا بقرار مالك D-18** (نصًّا: «مش عاوز تفكيك server.py
+> تخطى اعمله استثناء»). لا تُنفَّذ ولا تبقى بندًا مفتوحًا. المسوّغ
+> الهندسي المساند: M8 حققت جوهرها — server.py هبط 3045→2132 والمنطق
+> مستخرج في core/ws_router + core/chat_dispatch + routes/ (7 blueprints)؛
+> IR-1/IR-2 قررا أن التفكيك الحاصل كافٍ.
 - **Source**: risk g1 (2,613 lines, routes + WS + orchestration + config in one file).
 - **Benefit**: reviewability, testability, smaller blast radius per change;
   unblocks parallel work on M3/M4.
@@ -79,7 +84,11 @@ that layer, and none may be reinterpreted to do so.
   build step; manual smoke of every mode (chat/plan/build/edit).
 - **Prerequisite**: M4 complete (don't split while stream renderer is being rewritten).
 
-### FI-08 — Quality guards in check.sh [SHORT]
+### FI-08 — Quality guards in check.sh [✅ CLOSED — TSK-CEV-120, D-18, 2026-08-04]
+> **أُغلقت**: بوابة الكود الميت `flake8 --select=F` أُضيفت لـcheck.sh
+> (النطاق الداخلي كاملًا + runners/actions/worker.py) بعد إزالة الـ
+> 43 تشخيصًا (CEV-F-011)؛ حراس الـ import-cycle والثوابت المكررة كانوا
+> قائمين سلفًا (scripts/check_import_cycles.py + T-035/T-036/T-060).
 - **Source**: NF-23 (duplication bundle), NF-24 (zero import cycles — keep it that way).
 - **Benefit**: regression tripwires: AST import-cycle check, grep-guards for
   re-introduced duplicate constants (e.g. the L128/L2240 dup) and for direct
@@ -195,7 +204,11 @@ that layer, and none may be reinterpreted to do so.
   disproportionate to a lightweight editor).
 - **Prerequisite**: none technical; owner decision (CEV-G10).
 
-### FI-17 — Morphological expansion of Arabic complexity lexicon [SHORT]
+### FI-17 — Morphological expansion of Arabic complexity lexicon [✅ CLOSED — TSK-CEV-118, D-18, 2026-08-04]
+> **أُغلقت**: محور التصريف وُسّع كاملًا — `[أاتني]ع(?:د|يد\w{0,2})` +
+> جذور بلا تاء المصدر (هيكل/كتاب/تصميم) في orchestrator.py:120-122؛
+> 5 اختبارات انحدار جديدة (TestLexiconGapF017 — منها مجس G7 الأصلي
+> حرفيًّا + ضابط سلبي ضد انزلاق المعجم).
 - **Source**: CEV-F-017 (G7 Red Team probe — S109 تكملة 13).
 - **Benefit**: present-tense Arabic forms («تعيد هيكلته»، «يعيد كتابة»)
   currently miss `_COMPLEX_REQUEST_PATTERNS` (orchestrator.py:110-115),
