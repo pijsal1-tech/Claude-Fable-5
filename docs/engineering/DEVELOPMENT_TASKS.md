@@ -3622,3 +3622,75 @@ reject_current + 6 أحداث queue_*) بلا أي مقبض WS أو أثر مر�
   الكاملة؛ check.sh ALL GREEN.
 
 **DAG (TSK-733)**: 733a → 733b → 733c → 733d (الواجهة آخرًا — بعد ثبات العقد الخلفي).
+
+---
+
+## TSK-734 — تحرير الأذونات من الواجهة (القرار 6 من تسلسل D-19) [متوسطة]
+**بموجب قرار مالك D-19 (القرار 6: «تحرير الأذونات من الواجهة»)** —
+البناء فوق TSK-621 (لوحة الصلاحيات glass box قراءة-فقط). الفجوة:
+تعديل السياسة يتطلب فتح config.yaml يدويًا وإعادة تشغيل (القارئ مُكاش
+— موثَّق في /api/settings).
+
+**قرارات واعية (ملزمة)**:
+1. **ملف overrides جانبي — لا كتابة على config.yaml**: config.yaml
+   غني بتعليقات عربية تشرح كل مفتاح؛ yaml.safe_dump يمحوها. البديل
+   المنضبط (سابقة workspace_trust حرفيًا): `permissions_overrides.json`
+   بجوار config.yaml، كتابة ذرية NF-19 (tmp + fsync + os.replace)،
+   قراءة طازجة عند كل استهلاك (الملف صغير — لا cache ⇒ **حيوية بلا
+   إبطال _config_cache**). الأسبقية: overrides > config.yaml
+   **للمفتاحين المسموحين حصرًا**.
+2. **سطح التحرير المسموح (whitelist صارم — fail-closed)**:
+   `force_command_approval` (bool) و`agent.command_allowlist`
+   (dict نص→نص غير فارغ) فقط. أي مفتاح آخر في الطلب ⇒ 400 بلا أي
+   تغيير حالة. `null` لمفتاح = مسح الـ override (العودة لقيمة
+   config.yaml/الافتراض).
+3. **إعادة الربط الحي**: بعد كتابة الـ overrides يُعاد بناء
+   `command_policy_from(effective)` ويُربط في `agent_tools.command_policy`
+   مباشرة (الكائن الحي — لا إعادة تشغيل)؛ `_force_command_approval()`
+   يتحول للقراءة عبر `_effective_config()` فيصير حيًّا تلقائيًا.
+4. **حدود أمنية**: الأداة localhost-only (التعريض الشبكي = القرار 9
+   أخيرًا حصرًا) — تحرير سياسة الأمان من UI مقبول قبل القرار 9 لهذا
+   السبب حصرًا؛ مراجعة القرار 9 الأمنية **يجب** أن تعيد فحص هذا
+   المسار (يُسجَّل في المواصفة والـ CHANGELOG).
+5. **طبقتا أمان في الواجهة**: لا كتابة صامتة — نموذج تحرير صريح بزر
+   حفظ واحد؛ الاستجابة تعيد السياسة الفعالة الجديدة فتُعاد رسملة
+   اللوحة منها (لا افتراض تفاؤلي).
+
+- **734a — الوحدة النقية `core/permissions_overrides.py`**:
+  `OVERRIDES_FILENAME`، `read_overrides(dir) -> dict` (fail-closed:
+  {} عند غياب/عطب/مفاتيح غير مسموحة/أنواع خاطئة — لا يرفع)،
+  `write_overrides(dir, overrides) -> bool` (تحقق صارم ثم NF-19؛
+  overrides فارغ = حذف الملف)، `apply_to_config(cfg, overrides) ->
+  dict` (دمج بلا تحوير للمدخلات — نسخة جديدة). اختبارات وحدة
+  (round-trip، fail-closed على كل عطب، الدمج لا يحوّر، مسح بـ null).
+- **734b — التوصيل (server.py + routes/meta.py)**:
+  `_effective_config()` في server.py = apply_to_config(_load_config(),
+  read_overrides(_DIR))؛ تحويل `_force_command_approval()` وGET
+  `/api/permissions` وربط الإقلاع `_cmd_policy` إليها؛ POST
+  `/api/permissions` في meta blueprint (ADR-003): تحقق whitelist
+  صارم → write_overrides → إعادة الربط الحي لـ
+  `_srv.agent_tools.command_policy` (إن كان مربوطًا) → إرجاع نفس شكل
+  GET (السياسة الفعالة الجديدة). توسيع السطح المجمّد الموثَّق:
+  `/api/permissions` GET → GET+POST في test_rest_blueprints
+  (تعليق D-19-6).
+- **734c — اختبارات تكامل**: POST يقلب force_command_approval
+  والقيمة الفعالة تتغير حيًّا بلا إعادة تشغيل؛ POST يعدّل allowlist
+  وagent_tools.command_policy يُعاد ربطه حيًّا؛ body غير صالح
+  (مفتاح غريب/نوع خاطئ/قيمة فارغة في allowlist) → 400 + صفر تغيير
+  حالة + الملف لا يُكتب؛ null يمسح الـ override؛ عطب ملف overrides
+  ⇒ fail-closed للسياسة الأصلية؛ GET يعكس الـ overrides.
+- **734d — الواجهة (permissions_panel.js + الغراء)**: وضع تحرير في
+  اللوحة القائمة — مفتاح تبديل force_command_approval + صفوف
+  allowlist (إضافة/حذف) + زر «💾 حفظ» واحد (data-perm-action) →
+  POST → إعادة الرسم من الاستجابة + toast؛ فشل → toast خطأ بلا
+  تغيير محلي. CSS بتوكنز فقط.
+- **حدود واعية**: صفر تعديل على chain/agent_tools.py (command_policy_from
+  كما هي — المدخل هو الـ config الفعال)؛ config.yaml لا يُكتب أبدًا؛
+  ApprovalGate وSAFE/DANGEROUS الساكنة خارج النطاق (قوائم كود لا
+  config)؛ التعريض الشبكي خارج النطاق (القرار 9).
+- **معايير القبول**: التحرير حي بلا إعادة تشغيل (مثبَّت باختبار)؛
+  fail-closed على كل مدخل غير صالح (صفر تغيير حالة)؛ config.yaml
+  بتعليقاته سليم بايتًا-ببايت؛ اللوحة تحرر وتعيد الرسم من الحقيقة
+  المعادة؛ check.sh ALL GREEN.
+
+**DAG (TSK-734)**: 734a → 734b → 734c → 734d (الواجهة آخرًا — بعد ثبات العقد الخلفي).
