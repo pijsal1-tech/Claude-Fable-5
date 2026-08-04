@@ -1529,3 +1529,68 @@ BackgroundDelegateTask (TSK-CEV-113) كان بنية خلفية كاملة بل�
 أنقذ 733a جزئيًّا (491f01e) و733d كاملًا (8d724d4) — أُعيد فقط
 المفقود. البوابة بعد كل شريحة: **ALL GREEN rc=0 — 2609P/34S/0F**
 (+12 اختبارًا فوق أساس TSK-732).
+
+---
+
+## [2026-08-04] — TSK-734: تحرير الأذونات من الواجهة (القرار 6 من تسلسل D-19، فوق TSK-621) — مُغلق 🏁
+
+### السياق
+قرار المالك D-19 (البند 6): «تحرير الأذونات من الواجهة». يبني فوق
+لوحة TSK-621 (glass box قراءة-فقط). المواصفة الملزمة كُتبت أولًا
+(إجراء D-7) في DEVELOPMENT_TASKS §TSK-734 (24fad3b) — 5 قرارات واعية
++ 4 شرائح a-d.
+
+### القرارات الواعية (من المواصفة — كلها منفّذة)
+1. **ملف جانبي لا config.yaml**: `permissions_overrides.json` بجانب
+   config.yaml — config.yaml **لا يُكتب أبدًا** (yaml.safe_dump كان
+   سيدمّر تعليقاته العربية)؛ كتابة ذرية NF-19 (سابقة workspace_trust)؛
+   قراءة طازجة عند كل استهلاك ⇒ حيوية بلا إبطال `_config_cache`.
+2. **whitelist صارم fail-closed**: `force_command_approval` (bool)
+   و`agent.command_allowlist` (dict str→str غير فارغ) **فقط**؛ أي
+   مفتاح/نوع آخر ⇒ 400 بصفر تغيير حالة؛ `null` لمفتاح = مسح الـ
+   override؛ overrides فارغة ⇒ حذف الملف.
+3. **إعادة ربط حية**: بعد POST تُبنى `command_policy_from(الفعال)`
+   وتُسند مباشرة لـ `agent_tools.command_policy` (كائن حي — بلا
+   إعادة تشغيل)؛ `_force_command_approval()` يقرأ `_effective_config()`.
+4. **حد أمني**: أداة localhost-only — القرار 9 (network exposure)
+   **يجب** أن يعيد فحص هذا المسار في مراجعته الأمنية.
+5. **UI بلا تفاؤل**: نموذج تحرير صريح بزر حفظ واحد؛ الاستجابة =
+   السياسة الفعالة الجديدة (شكل GET)؛ اللوحة تعيد الرسم منها.
+
+### الشرائح
+- **734a — الوحدة النقية** (b5caa13): `core/permissions_overrides.py`
+  (validate/read/write/apply؛ NF-19 ذرية؛ fail-closed شامل) +
+  `tests/unit/test_permissions_overrides.py` (22 اختبارًا: round-trip،
+  رفض بصفر لمس للقرص، حذف عند الفراغ، دلالات apply بلا تحوير،
+  تثبيت ALLOWED_KEYS).
+- **734b — الربط** (أنقذها الرافع التلقائي 9062024): `_effective_config()`
+  في server.py = `apply_to_config(_load_config(), read_overrides(_DIR))`؛
+  تحويل `_force_command_approval()` وربط الإقلاع `_cmd_policy` إليها؛
+  POST `/api/permissions` في meta blueprint (نمط /api/trust: تحقق →
+  400، كتابة → إعادة ربط حية → إرجاع شكل GET)؛ توسيع سادس موثَّق
+  للسطح المجمّد GET→GET+POST بتعليق D-19-6 في test_rest_blueprints.
+- **734c — اختبارات التكامل** (824d1f7):
+  `tests/integration/test_permissions_editing.py` — 15 اختبارًا تثبّت
+  معايير القبول حرفيًا: قلب force حي + إعادة ربط policy حية (is not
+  السابقة)؛ 7 أجسام غير صالحة ⇒ 400 بصفر تغيير حالة؛ config.yaml
+  سليم بايتًا-ببايت؛ null يمسح وآخر مسح يحذف الملف؛ استجابة POST =
+  GET حرفيًا؛ ملف معطوب على القرص fail-closed.
+- **734d — الواجهة** (أنقذها الرافع التلقائي 535962a؛ الاختبارات
+  a69abea): `renderEditFormHTML` + `parseAllowlistText` +
+  `buildOverridesPayload` في permissions_panel.js (نقية، node)؛ glue
+  التحرير في 40_panels.js (data-perm-action: edit/save/cancel؛ الحفظ
+  POST ثم `renderPermissionsView(data.permissions)` — من الحقيقة
+  المعادة)؛ CSS بتوكنز فقط (pp-edit-*)؛ +7 اختبارات node + wiring.
+
+### حدود واعية (من المواصفة — كلها محفوظة)
+صفر تعديل على chain/agent_tools.py (command_policy_from كما هو —
+fail-closed)؛ ApprovalGate وقوائم SAFE/DANGEROUS الساكنة خارج النطاق؛
+network exposure خارج النطاق (القرار 9).
+
+### ملاحظة بيئة
+تصفيرات بيئة متتالية (#58–#59) أثناء التنفيذ؛ الرافع التلقائي أنقذ
+734b كاملة (9062024) و734d الواجهة (535962a) — أُعيد فقط المفقود
+(الاختبارات). البوابة بعد كل شريحة: **ALL GREEN rc=0** — تصاعديًا
+2631P → 2648P → **2655P/34S/0F** (+46 اختبارًا فوق أساس TSK-733؛
+الـ flake الموثَّق test_no_save_churn ظهر مرة وعاد أخضر معزولًا
+وفي الإعادة الكاملة — mtime timing، لا علاقة له بهذا العمل).
