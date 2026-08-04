@@ -45,21 +45,21 @@ class TestGateLineStructure:
         assert "routes/ server.py" in CHECK_SH
 
     def test_documented_excludes_only(self):
-        """الاستبعاد الوحيد الباقي: openai_shelby (خطأ قائم مسبقًا :166 —
-        ADR-004؛ D-18 نصًّا: «يبقى مستثنى»). استبعادات
-        you_com/perplexity/blackbox (TSK-CEV-102/D-13) رُفعت بموجب D-18
-        (BATCH-CLOSEOUT) بعد إضافة حارس None بنمط genspark.py:58-59
-        في الثلاثة — لا يجوز عودتها."""
-        assert r"--exclude 'providers/openai_shelby\.py'" in CHECK_SH
-        # الاستبعادات المرفوعة لا تعود (انحدار D-18): سطر exclude نفسه
-        exclude_arg = CHECK_SH.split("--exclude ")[1].splitlines()[0]
-        for lifted in ("you_com", "perplexity", "blackbox"):
-            assert lifted not in exclude_arg, \
-                f"استبعاد {lifted} عاد بعد رفعه في D-18"
-        # لا استبعاد لأي ملف داخل النطاق الداخلي (chain/core/...)
-        assert "--exclude 'chain" not in CHECK_SH
-        assert CHECK_SH.count("--exclude") == 1
-        # providers/ ما زالت تُفحص (لم تُستبعد كلها)
+        """**صفر استبعادات** (D-19/القرار 3): آخر استبعاد —
+        openai_shelby (:166 union-attr، كان قائمًا مسبقًا منذ ADR-004
+        وأبقاه D-18 نصًّا) — رُفع بعد إصلاح الخطأ (ربط v_obj محليًا
+        لتضييق النوع، صفر تغيير سلوك). استبعادات
+        you_com/perplexity/blackbox (TSK-CEV-102/D-13) رُفعت قبله بموجب
+        D-18 بعد حارس None. **لا يجوز عودة أي استبعاد** — تغطية mypy
+        على النطاق الكامل 100%."""
+        # صفر استبعادات في البوابة كلها (انحدار D-18 + D-19)
+        assert "--exclude" not in CHECK_SH, \
+            "عاد استبعاد mypy بعد رفع آخرها في D-19 (القرار 3)"
+        for lifted in ("openai_shelby", "you_com", "perplexity",
+                       "blackbox"):
+            assert f"--exclude 'providers/{lifted}" not in CHECK_SH, \
+                f"استبعاد {lifted} عاد بعد رفعه"
+        # providers/ ما زالت تُفحص كاملة ضمن النطاق
         mypy_line_block = CHECK_SH[CHECK_SH.index("--check-untyped-defs"):]
         assert "providers/ chain/" in mypy_line_block
 

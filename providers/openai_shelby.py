@@ -161,9 +161,14 @@ class OpenAIShelbyProvider(BaseProvider):
                                 continue
 
                             # 1) فحص الرسالة والتأكد إنها بتاعة المساعد (Assistant)
+                            # (القرار 3/D-19: ربط v_obj محليًا — isinstance على
+                            # استدعاء أول لا يضيّق نوع استدعاء .get() ثانٍ؛
+                            # كان mypy union-attr :166 — صفر تغيير سلوك)
                             msg = data.get("message")
-                            if not msg and isinstance(data.get("v"), dict):
-                                msg = data.get("v").get("message")
+                            if not msg:
+                                v_obj = data.get("v")
+                                if isinstance(v_obj, dict):
+                                    msg = v_obj.get("message")
 
                             if msg and isinstance(msg, dict):
                                 role = msg.get("author", {}).get("role", "")

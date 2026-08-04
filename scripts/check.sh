@@ -10,19 +10,17 @@ cd "$(dirname "$0")/.."
 # T-027 (R-301): sessions/ انضمت للبوابة — وحدة إنتاجية جديدة.
 # TSK-614 (QG-04, ADR-004): routes/ + server.py انضما للبوابة، مع
 # --check-untyped-defs (بدونه أجسام الدوال غير المُعنونة لا تُفحص —
-# النداء المدسوس لا يُلتقط، والقبول يسقط). الاستبعادات:
-# providers/openai_shelby.py — خطأ قائم مسبقًا (:166) وproviders/
-# خارج نطاق البرنامج (§0.8)؛ يُرفع الاستبعاد يوم يُصلح خارجه.
+# النداء المدسوس لا يُلتقط، والقبول يسقط).
 # TSK-CEV-102 (D-13، نفس سابقة ADR-004): providers/{you_com,perplexity,
 # blackbox}.py كانت مستبعدة (9 أخطاء module_from_spec على ModuleSpec|None
 # بلا حارس). D-18 (BATCH-CLOSEOUT): أُضيف حارس None بنمط genspark.py:58-59
-# في الثلاثة ورُفعت استبعاداتها — استثناء §0.8 قُيِّد تفويضًا موضعيًا لهذا
-# الإصلاح حصرًا. يبقى openai_shelby.py مستبعدًا (:166 خطأ منطق داخلي
-# مختلف — نص D-18 صراحةً: «يبقى مستثنى»).
+# في الثلاثة ورُفعت استبعاداتها.
+# D-19 (القرار 3): آخر استبعاد — providers/openai_shelby.py — رُفع بعد
+# إصلاح الخطأ الموثق (:166 union-attr — ربط v_obj محليًا لتضييق النوع،
+# صفر تغيير سلوك) — تغطية mypy الآن 100% بلا استثناءات.
 echo "== mypy (gate: providers/ + chain/ + core/ + context/ + sessions/ + routes/ + server.py + desktop.py) =="
 mypy --ignore-missing-imports --follow-imports=silent \
   --check-untyped-defs \
-  --exclude 'providers/openai_shelby\.py' \
   providers/ chain/ core/ context/ sessions/ routes/ server.py desktop.py
 
 # TSK-CEV-120 (CEV-F-011, D-18): بوابة الكود الميت — mypy لا يعلّم
