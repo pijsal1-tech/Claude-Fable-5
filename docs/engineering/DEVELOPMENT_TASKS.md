@@ -3556,3 +3556,69 @@ reject + أحداث background_started/event/finished) لكن «مؤشر الو�
   وتتحدث وتختفي في الدورة الكاملة؛ check.sh ALL GREEN.
 
 **DAG (TSK-732)**: 732a → 732b → 732c → 732d (الواجهة آخرًا — بعد ثبات العقد الخلفي).
+
+## TSK-733 — لوحة المهام وطابور التفويض (القرار 5 من تسلسل D-19 — يستهلك FI-13، يكمل القرار 4) [متوسطة]
+**بموجب قرار مالك D-19 (القرار 5: «لوحة الجلسات والمهام (CP-12) — يكمل
+القرار 4») — الشرط المسبق FI-13 (TSK-CEV-112 `chain/delegate_queue.py`)
+مقفل.** ملاحظة نطاق واعية: MASTER_REVIEW رفض CP-12 «لوحة جلسات
+متعددة» لغياب multi-session، وأجاز إعادة التقييم بعد FI-15 — القرار 4
+وفّر البنية؛ التفسير المنضبط للقرار 5 = **لوحة مهام الطابور** (تتبع خطة
+متعددة المهام فوق DelegateQueue القائم)، لا multi-session مخترع.
+الفجوة: DelegateQueue بنية خلفية كاملة (add_task/start/land_current/
+reject_current + 6 أحداث queue_*) بلا أي مقبض WS أو أثر مرئي.
+- **733a — التوصيل الخلفي (server.py + session_context)**:
+  - حقل `delegate_queue` في SessionContext (نفس نمط background_task)
+    + إضافته لـ KNOWN_CONVERSATION_STATE في lint_handler_state.py.
+  - 4 مقابض WS جديدة في WS_HANDLERS:
+    1. `queue_delegate_start`: msg يحمل `tasks` (قائمة نصوص ≥1) —
+       حراسة: قائمة فارغة/نصوص فارغة → error؛ طابور سابق لم يُحسم
+       (running/waiting_approval) → error («طابور جديد لخطة جديدة»)؛
+       تذكرة عبر `_begin_run_ticket("delegate")` — **قرار واعٍ**:
+       الطابور يحجز خانة المشروع حتى نهايته (completed/halted)؛
+       DelegateQueue لا يستقبل ticket (حدود CEV-112) ⇒ **الخادم يدير
+       التذكرة**: غلاف on_event يلتقط queue_completed → finish
+       ("completed") وqueue_halted → finish("failed"). سياق مشترك عبر
+       `_gather_delegate_context` (نفس files_context لكل المهام —
+       قرار واعٍ: per-task files قرار منتج لاحق). `q.start()` متزامن
+       (يشغّل دورة المهمة 1 كاملة) ⇒ يعمل في خيط daemon.
+    2. `queue_status`: `{"type": "queue_status", **q.to_dict()}` —
+       reconnect-safe (أو status:none بلا طابور).
+    3. `queue_land`: **بوابة الموافقة سيدة** — لا تقدّم بلا حسم صريح.
+       التقاط مرجع المهمة الحالية قبل `land_current()` ثم بعد نجاحه بث
+       start/chunk/done+actions (نفس تحليل `_ws_delegate_approve` —
+       الأفعال تبقى خلف أزرار Apply). البث من غلاف on_event عند
+       `queue_task_landed` (قبل انطلاق المهمة التالية — ترتيب سليم).
+       `land_current` يشغّل دورة المهمة التالية متزامنًا ⇒ خيط daemon.
+    4. `queue_reject`: `reject_current(reason)` (سريع — halt فوري).
+- **733b — تحديث التثبيتات**: ORIGINAL_MSG_TYPES في test_ws_router.py
+  (29 → 33 بتعليق D-19-5)؛ أي حارس آخر تكشفه البوابة.
+- **733c — اختبارات تكامل حتمية** (نمط test_background_delegate_handlers
+  حرفيًا: FakeProvider + `_handle_ws_message` + fresh_registry +
+  خيوط تُنتظر بمهلة): الإطلاق يبث queue_started + يقف عند
+  queue_task_waiting_approval (تتابع صارم — 3 نداءات فقط)؛
+  queue_status يعيد to_dict كاملًا؛ queue_land يبث done+actions
+  للمهمة الهابطة ثم يشغّل التالية؛ اكتمال الكل → queue_completed +
+  التذكرة تُنهى (إطلاق تالٍ بلا busy)؛ queue_reject → queue_halted +
+  التذكرة تُنهى؛ إطلاق فوق طابور غير محسوم يُرفض؛ busy عند تذكرة
+  محجوزة؛ tasks فارغة → error.
+- **733d — الواجهة (لوحة المهام)**:
+  - `static/js/queue_panel.js` (UMD-lite بنمط background_tasks.js):
+    حالة من إطارات queue_* + queue_status (snapshot)؛ قائمة مهام
+    بحالاتها (⏸ queued / ⏳ running / ✋ waiting / ✅ landed /
+    ❌ rejected/failed) + سبب الـ halt + زرّا اعتماد/رفض للمهمة
+    المنتظرة (data-queue-action).
+  - زر «📋 طابور مهام» في شريط الأدوات: يقسم نص الإدخال بأسطر
+    (سطر = مهمة) ويرسل queue_delegate_start.
+  - onopen: إرسال queue_status (استعادة بعد reconnect).
+  - حالات إطارات queue_* في handleWSMessage + شارة/لوحة في الواجهة.
+- **حدود واعية**: صفر تعديل على chain/delegate_queue.py
+  وdelegate.py وbackground_delegate.py؛ مقابض delegate_*/background_*
+  القائمة كما هي؛ الكتابة خلف queue_land الصريح ثم أزرار Apply
+  (طبقتا موافقة)؛ رفض = halt كامل (انضباط stop-and-ask المرجعي —
+  لا استئناف من الواجهة؛ الاستئناف قرار منتج لاحق).
+- **معايير القبول**: المقابض الأربعة مغطاة باختبارات تكامل حتمية
+  خضراء؛ التتابع الصارم مثبَّت (المهمة 2 لا تنطلق قبل land المهمة 1)؛
+  التذكرة تُدار حتى النهاية (لا خانة معلقة)؛ اللوحة تعرض الدورة
+  الكاملة؛ check.sh ALL GREEN.
+
+**DAG (TSK-733)**: 733a → 733b → 733c → 733d (الواجهة آخرًا — بعد ثبات العقد الخلفي).
