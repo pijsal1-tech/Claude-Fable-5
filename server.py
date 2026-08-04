@@ -53,6 +53,9 @@ from chain.delegate import DelegateBridge
 from chain.background_delegate import (
     BackgroundDelegateTask, BG_RUNNING, BG_WAITING_APPROVAL,
 )  # TSK-732 (D-19-4)
+from chain.delegate_queue import (
+    DelegateQueue, QUEUE_RUNNING, QUEUE_WAITING_APPROVAL,
+)  # TSK-733 (D-19-5)
 from chain.orchestrator import SmartOrchestrator
 from chain.router import RequestRouter
 from chain.action_applier import ActionApplier
@@ -1921,6 +1924,172 @@ def _ws_background_reject(ctx, sctx, msg):
     ))
 
 
+# ── TSK-733 (D-19-5): طابور التفويض — لوحة المهام تستهلك FI-13 ──
+def _queue_event_wrapper(sctx, ticket):
+    """غلاف أحداث الطابور — يبث كل حدث كإطار WS ويدير التذكرة.
+
+    **قرار واعٍ** (مواصفة TSK-733): DelegateQueue لا يعرف التذاكر
+    (لا معامل ticket في run_delegation عبر _dispatch_next) — الخادم
+    يدير خانة المشروع بنفسه: الطابور يحجزها من الإطلاق حتى الحسم
+    النهائي (queue_completed → completed / queue_halted → failed) —
+    لا خانة معلقة.
+    """
+    def _emit(et, ed):
+        try:
+            sctx.send({"type": et, **ed})
+        except Exception as _exc:
+            # NF-14 (ابتلاع مقصود — نمط §14): WS مقفول أثناء بث حدث
+            # الطابور — البث لا يعطل الدورة؛ queue_status يعوّض بعد
+            # reconnect.
+            _slog_swallowed("server.py:_queue_event_wrapper", _exc)
+            pass
+        if et == "queue_completed":
+            ticket.finish("completed")
+        elif et == "queue_halted":
+            ticket.finish("failed")
+    return _emit
+
+
+def _ws_queue_delegate_start(ctx, sctx, msg):
+    """إطلاق طابور تفويض متعدد المهام — «طابور جديد لكل خطة».
+
+    TSK-733a: DelegateQueue (TSK-CEV-112) فوق جسر تفويض جديد خاص
+    بالطابور. start() **متزامن** (يشغّل دورة المهمة الأولى كاملة) —
+    لذا يعمل في خيط daemon. **الثابت الصلب (لا YOLO)**: لا كتابة
+    قبل queue_land الصريح ثم أزرار Apply (طبقتا موافقة).
+    """
+    raw_tasks = msg.get("tasks") or []
+    tasks = [t.strip() for t in raw_tasks
+             if isinstance(t, str) and t.strip()]
+    if not tasks:
+        sctx.send({"type": "error",
+                   "text": "قائمة المهام فارغة — مهمة واحدة على الأقل"})
+        return
+
+    # طابور سابق لم يُحسم يمنع إطلاق جديد من نفس الاتصال
+    prev = sctx.delegate_queue
+    if prev is not None and prev.status in (QUEUE_RUNNING,
+                                            QUEUE_WAITING_APPROVAL):
+        sctx.send({
+            "type": "error",
+            "text": ("⚠️ طابور سابق لم يُحسم بعد "
+                     f"(الحالة: {prev.status}) — احسمه أولًا "
+                     "(طابور جديد لخطة جديدة)."),
+        })
+        return
+
+    # نفس سياسة الـ run الواحد (T-015/TSK-302) — busy يُرسل داخليًا
+    q_ticket = _begin_run_ticket("delegate", sctx.send, sctx=sctx)
+    if q_ticket is None:
+        return
+
+    files_context, project_context = _gather_delegate_context(sctx)
+
+    # جسر جديد للطابور (عزل عن delegate_bridge وbackground_task)
+    queue = DelegateQueue(
+        DelegateBridge(sctx.active_provider(), ctx=ctx))
+    for task_text in tasks:
+        # قرار واعٍ (المواصفة): files_context مشترك لكل المهام —
+        # السياق الحي يأتي من carry-facts عبر _compose_context.
+        queue.add_task(task_text, files_context=files_context)
+    sctx.delegate_queue = queue
+
+    threading.Thread(
+        target=queue.start,
+        kwargs={
+            "project_context": project_context,
+            "on_event": _queue_event_wrapper(sctx, q_ticket),
+        },
+        daemon=True,
+        name="delegate-queue-start",
+    ).start()
+
+
+def _ws_queue_status(ctx, sctx, msg):
+    """صورة الطابور الكاملة — reconnect-safe (الواجهة تستدعيه عند
+    onopen لاستعادة اللوحة بعد إعادة اتصال)."""
+    q = sctx.delegate_queue
+    if q is None:
+        sctx.send({"type": "queue_status", "status": "none",
+                   "tasks": []})
+        return
+    sctx.send({"type": "queue_status", **q.to_dict()})
+
+
+def _ws_queue_land(ctx, sctx, msg):
+    """اعتماد المهمة الحالية — الطبقة الأولى: land ثم تحليل الأكشنز
+    (مرآة ``_ws_background_approve``)؛ الطبقة الثانية: الأفعال خلف
+    أزرار Apply القائمة. land_current **متزامن** (يشغّل دورة المهمة
+    التالية كاملة) — لذا يعمل في خيط daemon."""
+    q = sctx.delegate_queue
+    if (q is None or q.status != QUEUE_WAITING_APPROVAL
+            or q.current_task is None):
+        sctx.send({"type": "error",
+                   "text": "لا طابور بمهمة بانتظار الاعتماد"})
+        return
+
+    # نلتقط run/task_id **قبل** land_current — المؤشر يتقدم بعده
+    task = q.current_task
+    landed_run = task.run
+    landed_task_id = task.task_id
+
+    def _after_land():
+        if not q.land_current():
+            sctx.send({"type": "error",
+                       "text": "تعذّر اعتماد المهمة الحالية"})
+            return
+        if landed_run is None or not landed_run.result:
+            return
+        sctx.send({"type": "start"})
+        sctx.send({"type": "chunk", "text": landed_run.result.response})
+        # TSK-601 (RP-01): parse() الحقيقية + التحويل المشترك — فشل
+        # التحويل يُظهَر للمستخدم (UXF-02) — مرآة _ws_background_approve.
+        try:
+            parsed = parser.parse(landed_run.result.response)
+            actions = _parsed_to_actions(parsed)
+            options = _parsed_options(parsed)
+            sctx.send({
+                "type": "done",
+                "actions": actions,
+                "options": options,
+                "summary": (f"✅ اعتُمدت مهمة الطابور "
+                            f"(task #{landed_task_id})"),
+            })
+        except Exception as e:
+            print(f"  ⚠️ فشل تحليل رد مهمة الطابور بعد الاعتماد: {e}")
+            sctx.send({
+                "type": "error",
+                "text": f"تعذّر تحويل رد التفويض إلى إجراءات: {e}",
+            })
+            sctx.send({
+                "type": "done",
+                "actions": [],
+                "options": [],
+                "summary": "✅ تم اعتماد التعديلات",
+            })
+
+    threading.Thread(
+        target=_after_land,
+        daemon=True,
+        name=f"delegate-queue-land-{landed_task_id}",
+    ).start()
+
+
+def _ws_queue_reject(ctx, sctx, msg):
+    """الرفض الصريح — يوقف الطابور كاملًا (stop-and-ask): لا استئناف
+    من الواجهة — قرار منتج لاحق. الحدث queue_halted (عبر الغلاف)
+    ينهي التذكرة failed."""
+    q = sctx.delegate_queue
+    if (q is None or q.status != QUEUE_WAITING_APPROVAL
+            or q.current_task is None):
+        sctx.send({"type": "error",
+                   "text": "لا طابور بمهمة بانتظار الاعتماد"})
+        return
+    if not q.reject_current(msg.get("reason", "")):
+        sctx.send({"type": "error",
+                   "text": "تعذّر رفض المهمة الحالية"})
+
+
 # ── Memory Panel (T-114, R-805) — إطارات إضافية عبر الوسطاء الوحدويين ──
 def _ws_memory_list(ctx, sctx, msg):
     _root = sctx.project.root if sctx.project else None
@@ -1971,6 +2140,11 @@ WS_HANDLERS = {
     "background_status": _ws_background_status,
     "background_approve": _ws_background_approve,
     "background_reject": _ws_background_reject,
+    # TSK-733 (D-19-5): طابور التفويض — 4 أنواع جديدة (29 → 33)
+    "queue_delegate_start": _ws_queue_delegate_start,
+    "queue_status": _ws_queue_status,
+    "queue_land": _ws_queue_land,
+    "queue_reject": _ws_queue_reject,
     "memory_list": _ws_memory_list,
     "memory_edit": _ws_memory_edit,
     "memory_delete": _ws_memory_delete,
