@@ -4,7 +4,8 @@
   1. **القبول الحرفي — endpoint قراءة**: GET /api/permissions يعيد
      القيم الحية (allowlist من config عبر command_policy_from،
      SAFE/APPROVAL tools، SAFE/DANGEROUS commands، force_approval،
-     حالة ApprovalGate) — وبلا أي مسار كتابة (GET فقط، لا POST/PUT).
+     حالة ApprovalGate). (TSK-734/D-19-6: أضيف POST للتحرير —
+     مثبَّت في test_permissions_editing؛ PUT/DELETE ما زالا 405.)
   2. **حفظ السلوك**: النداء لا يغيّر السياسة المطبَّقة (config/globals
      كما هي قبل وبعد)؛ البوابة غير المهيأة تُعرض null لا اختراع.
   3. الوحدة النقية (node): renderPanelHTML يعرض الأقسام الأربعة
@@ -142,10 +143,11 @@ class TestRestEndpoint:
         assert g["auto_whitelist"] == ["read", "write"]
         assert g["timeout_seconds"] == 99.0
 
-    def test_read_only_no_write_methods(self, server):
-        """لا مسار كتابة: POST/PUT/DELETE على المسار مرفوضة (405)."""
+    def test_no_unexpected_write_methods(self, server):
+        """PUT/DELETE مرفوضة (405) — TSK-734/D-19-6 أضاف POST فقط
+        (مغطى في test_permissions_editing)؛ لا مسارات أخرى."""
         with server.app.test_client() as c:
-            for method in ("post", "put", "delete"):
+            for method in ("put", "delete"):
                 resp = getattr(c, method)("/api/permissions")
                 assert resp.status_code == 405, method
 
