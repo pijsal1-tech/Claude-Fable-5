@@ -31,7 +31,7 @@
     <!-- T-061 (R-905): ثيمان إضافيان — ملفا بيانات فقط، صفر تعديل مكوّنات -->
     <link rel="stylesheet" href="/static/themes/high-contrast.css?v=1">
     <link rel="stylesheet" href="/static/themes/monokai.css?v=1">
-    <link rel="stylesheet" href="/static/style.css?v=25">
+    <link rel="stylesheet" href="/static/style.css?v=26">
 
     <!-- highlight.js — T-064 (R-904): المحرك مورَّد محليًا (BSD-3، بلا CDN)
          + grammar إضافية لـ dockerfile. لا stylesheet خارجي: ألوان الإبراز
@@ -100,6 +100,10 @@
          app.js لأن handleWSMessage يستهلك BackgroundTasks. الحسم
          (approve/reject) للمستخدم حصريًا — لا land تلقائي. -->
     <script src="/static/js/background_tasks.js?v=1"></script>
+    <!-- لوحة طابور التفويض — TSK-733d (D-19-5): منطق نقي قبل
+         app.js لأن handleWSMessage يستهلك QueuePanel. الحسم
+         (land/reject) للمستخدم حصريًا — رفض = إيقاف الطابور كاملًا. -->
+    <script src="/static/js/queue_panel.js?v=1"></script>
 </head>
 
 <body>
@@ -470,6 +474,12 @@
                     </div>
                 </div>
 
+                <!-- لوحة طابور التفويض — TSK-733d (D-19-5): تعرض مهام
+                     الخطة بحالاتها (⏸/⏳/✋/✅/❌) وزرّي الحسم للمهمة
+                     المنتظرة (الغراء في 10_chat_ws_stream.js؛ المنطق
+                     في queue_panel.js) -->
+                <div id="queue-panel" class="hidden"></div>
+
                 <!-- Attached Files + Chat Input in unified wrapper -->
                 <div id="chat-input-area">
                     <div id="chat-input-wrapper">
@@ -508,6 +518,16 @@
                                 onclick="launchBackgroundDelegate()"
                                 title="تفويض خلفي — أطلق المهمة وواصل عملك">
                                 ⏱️ تفويض خلفي
+                            </button>
+
+                            <!-- إطلاق طابور تفويض — TSK-733d (D-19-5): يقسم
+                                 نص الإدخال بأسطر (سطر = مهمة) ويرسل
+                                 queue_delegate_start (الكتابة تبقى خلف
+                                 اعتماد كل مهمة صراحة ثم أزرار Apply) -->
+                            <button class="bg-launch-btn" id="queue-launch-btn"
+                                onclick="launchDelegateQueue()"
+                                title="طابور مهام — كل سطر في الإدخال مهمة مستقلة تُنفّذ بالتتابع">
+                                📋 طابور مهام
                             </button>
 
                             <!-- Provider Badge 
@@ -636,7 +656,7 @@
         <!-- TSK-726a (FI-07/D-10): مقاطع ذيلية منقولة حرفيًا من app.js —
              تُحمَّل بعده بالترتيب الرقمي (نطاق عمومي مشترك؛ CP_ACTIONS
              تقيّم مراجع دوال app.js عند التحميل فيلزم أن يسبقها). -->
-        <script src="/static/js/app/10_chat_ws_stream.js?v=1"></script>
+        <script src="/static/js/app/10_chat_ws_stream.js?v=2"></script>
         <script src="/static/js/app/20_editor_files_terminal.js?v=1"></script>
         <script src="/static/js/app/30_sessions_models_attachments.js?v=1"></script>
         <script src="/static/js/app/40_panels.js?v=1"></script>

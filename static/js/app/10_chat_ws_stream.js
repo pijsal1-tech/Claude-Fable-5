@@ -28,6 +28,9 @@ function initWebSocket() {
         // TSK-732d (D-19-4): استعادة صورة المهمة الخلفية بعد
         // إعادة اتصال — snapshot من الكائن الحي (reconnect-safe).
         state.ws.send(JSON.stringify({ type: "background_status" }));
+        // TSK-733d (D-19-5): استعادة صورة طابور التفويض بعد
+        // إعادة اتصال — to_dict من الكائن الحي (reconnect-safe).
+        state.ws.send(JSON.stringify({ type: "queue_status" }));
     };
 
     state.ws.onclose = () => {
@@ -524,6 +527,25 @@ function handleWSMessage(data) {
                 renderBackgroundChip();
             }
             break;
+
+        // ── TSK-733d (D-19-5): طابور التفويض — اللوحة تلتقط إطارات
+        // queue_* السبعة (منطق الحالة نقي في QueuePanel؛ الغراء هنا
+        // يرسم/يُطلق toast فقط — لا منطق جديد). ──
+        case "queue_started":
+        case "queue_task_started":
+        case "queue_task_waiting_approval":
+        case "queue_task_landed":
+        case "queue_halted":
+        case "queue_completed":
+        case "queue_status":
+            if (QueuePanel.noteFrame(queuePanelState, data)) {
+                renderQueuePanel();
+            }
+            {
+                const qt = QueuePanel.frameToast(data);
+                if (qt) toast(qt.text, qt.kind);
+            }
+            break;
     }
 }
 
@@ -589,6 +611,66 @@ document.addEventListener("click", (e) => {
         state.ws.send(JSON.stringify({ type: "background_approve" }));
     } else if (btn.dataset.bgAction === "reject") {
         state.ws.send(JSON.stringify({ type: "background_reject",
+                                       reason: "" }));
+    }
+});
+
+// ═══════════════════════════════════════
+// TSK-733d (D-19-5): غراء لوحة طابور التفويض — DOM فوق
+// QueuePanel (المنطق النقي في static/js/queue_panel.js).
+// الثابت الصلب: زر الاعتماد يرسل queue_land الصريح فقط —
+// والأفعال الناتجة تبقى خلف أزرار Apply القائمة (طبقتا موافقة)؛
+// الرفض = halt كامل (stop-and-ask — لا استئناف من الواجهة).
+// ═══════════════════════════════════════
+const queuePanelState = QueuePanel.createState();
+
+function renderQueuePanel() {
+    const panel = document.getElementById("queue-panel");
+    if (!panel) return;
+    if (QueuePanel.panelVisible(queuePanelState)) {
+        panel.innerHTML = QueuePanel.renderPanelHTML(queuePanelState);
+        panel.classList.remove("hidden");
+    } else {
+        panel.classList.add("hidden");
+        panel.innerHTML = "";
+    }
+}
+
+function launchDelegateQueue() {
+    const input = document.getElementById("chat-input");
+    const tasks = QueuePanel.splitTasks(input.value);
+    if (!tasks.length) {
+        toast("اكتب المهام أولًا — كل سطر مهمة — ثم اضغط طابور مهام",
+              "info");
+        return;
+    }
+    if (!state.connected) {
+        toast("⚠️ الاتصال مقطوع", "error");
+        return;
+    }
+    addChatMessage("user",
+        "📋 طابور مهام (" + tasks.length + "):\n" +
+        tasks.map((t, i) => (i + 1) + ". " + t).join("\n"));
+    state.ws.send(JSON.stringify({
+        type: "queue_delegate_start",
+        tasks: tasks,
+    }));
+    input.value = "";
+    autoResizeInput(input);
+}
+
+// تفويض نقر أزرار الحسم داخل اللوحة (data-queue-action).
+document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-queue-action]");
+    if (!btn) return;
+    if (!state.connected) {
+        toast("⚠️ الاتصال مقطوع", "error");
+        return;
+    }
+    if (btn.dataset.queueAction === "land") {
+        state.ws.send(JSON.stringify({ type: "queue_land" }));
+    } else if (btn.dataset.queueAction === "reject") {
+        state.ws.send(JSON.stringify({ type: "queue_reject",
                                        reason: "" }));
     }
 });
