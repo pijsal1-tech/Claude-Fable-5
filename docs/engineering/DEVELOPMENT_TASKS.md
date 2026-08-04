@@ -3784,3 +3784,98 @@ reject_current + 6 أحداث queue_*) بلا أي مقبض WS أو أثر مر�
   صفر تغيير سلوك؛ check.sh ALL GREEN.
 
 **DAG (TSK-735)**: 735a → 735b → 735c (لا شريحة واجهة — القائمة القائمة تكفي).
+
+---
+
+## TSK-736 — ACP (Agent Client Protocol): المحرر عميلًا لوكلاء خارجيين governed (القرار 8 من تسلسل D-19)
+
+### السياق الحاكم
+- **قرار المالك D-19 (البند 8)**: «ACP بعد 7» — التبعية الصلبة محفوظة
+  (القرار 7/TSK-735 مُغلق 🏁).
+- **استمرارية حوكمية**: حكم MASTER_REVIEW CP-15 كان «REJECT ضمن النطاق
+  الحالي… يرفعه المالك كقرار نطاق جديد» — **D-19(8) هو ذلك القرار
+  الرافِع بعينه**؛ قلقا CP-15 (كسر governed-fleet + مسّ الطبقة
+  المستثناة) يُحلّان تصميميًا أدناه (القراران الواعيان 2 و6).
+- **لا حاجة لتعديل SECTION 0.8 جديد**: التنفيذ يعيش في `chain/acp/`
+  + توصيل server/config — **صفر مساس بـ providers/** (لا القديمة
+  ولا registry/base)؛ الوكيل الخارجي ليس «مزودًا» بل عملية خارجية
+  governed خلف بواباتنا.
+
+### ما هو ACP (المرجع المعياري)
+بروتوكول مفتوح (agentclientprotocol.com — Zed/JetBrains) لتوصيل أي
+وكيل بأي محرر: **JSON-RPC 2.0 عبر stdio** (الوكيل subprocess يملكه
+المحرر)؛ الطرائق الجوهرية: `initialize` → `session/new` →
+`session/prompt` مع إشعارات `session/update` (بث النص/أفكار/أدوات)،
+وطلبات عكسية من الوكيل إلى المحرر: `fs/read_text_file` /
+`fs/write_text_file` / `session/request_permission`.
+
+### القرارات الواعية الملزِمة
+1. **الاتجاه: المحرر عميل ACP فقط** — نشغّل وكلاء خارجيين (Claude
+   Code / Codex / Gemini CLI…) كعمليات فرعية ونتخاطب stdio. **لا**
+   نعرض وكيلنا خادم ACP لمحررات أخرى: خارج رؤية المنتج (R0.1 عمق
+   الثقة لا التوزيع) ويلامس نموذج تهديد القرار 9 — REJECT موثَّق.
+2. **كل كتابة خلف ApprovalGate نفسها (حل قلق CP-15)**:
+   `fs/write_text_file` من الوكيل الخارجي يُترجم إلى ProposedAction
+   ويمر عبر **نفس** البوابة (core/approval.py — نقطة القرار الوحيدة)؛
+   `session/request_permission` يُترجم إلى طلب موافقة قياسي؛ رفض/مهلة
+   ⇒ خطأ JSON-RPC للوكيل (fail-closed). لا YOLO (Non-Goal §15.1) —
+   «خلفية بلا بوابة» ممنوعة.
+3. **كل قراءة عبر مسار القراءة الآمن**: `fs/read_text_file` يمر عبر
+   حدود workspace + denylist الأسرار (chain/path_policy —
+   is_secret_file + التطبيع CEV-117) ⇒ الوكيل الخارجي **لا يقرأ**
+   provider_keys.json/.env/أخواتها أبدًا؛ خارج workspace ⇒ خطأ.
+4. **opt-in عبر config (سابقة api_providers/hooks)**: قسم
+   `acp.agents` في config.yaml — قائمة (id/name/command/args[])؛
+   **بلا قسم = صفر تغيير سلوك**؛ تحليل fail-closed للشكل (مدخل بلا
+   id/command نصيَّين غير فارغين يُسقَط بصمت)؛ الأمر يُشغَّل كما هو
+   بأمر المالك من config (سابقة hooks TSK-728 — noqa S603 موثَّق)؛
+   **لا يمر عبر CommandPolicy** لأن المالك كتبه بيده في config لا
+   الوكيل (نفس تعليل hooks) — لكن عملية الوكيل نفسها **لا ترث** أي
+   صلاحية كتابة: كتاباتها الوحيدة عبر fs/write المُبوَّب (قرار 2).
+5. **صفر subprocess وصفر شبكة في اختبارات الوحدة**: transport قابل
+   للحقن (زوج أنابيب bytes / قوائم رسائل) — `FakeTransport`؛ اختبار
+   التكامل الوحيد المسموح له subprocess حقيقي يستخدم **سكربت وكيل
+   دمية بايثون محلي** (echo-agent في tests/fixtures) — لا تنزيل ولا
+   شبكة أبدًا.
+6. **الطبقة المستثناة لا تُمَس (حل القلق الثاني لـ CP-15)**: صفر
+   تعديل على providers/ وregistry/base؛ chain/acp/ كود جديد في
+   النطاق الأساسي (يُختبَر ويُصان كأي core).
+7. **مهلات fail-closed في كل مكان**: initialize/prompt/إيقاف
+   بمهلات؛ عملية معلّقة ⇒ terminate ثم kill (سابقة agent_tools
+   _TIMEOUT_GRACE_SECONDS)؛ موت العملية أثناء جلسة ⇒ إنهاء نظيف
+   برسالة للمستخدم لا تعليق.
+
+### الشرائح (DAG: 736a → 736b → 736c)
+- **736a — نواة البروتوكول النقية** (`chain/acp/protocol.py` +
+  `chain/acp/connection.py`): تأطير JSON-RPC 2.0 (رسائل مفصولة
+  بأسطر)، بناء/تحليل request/response/notification/error، ربط
+  المعرّفات، `AcpConnection` فوق transport مُحقَن (read_line/
+  write_line) مع مهلة لكل انتظار. **نقية بلا subprocess/شبكة**.
+  اختبارات: round-trip، ردود خارج الترتيب، إشعارات متداخلة، JSON
+  فاسد (تجاهُل مُسجَّل لا انهيار)، مهلة انتظار، خطأ JSON-RPC قياسي.
+- **736b — العملية والجسر المُبوَّب** (`chain/acp/agent_process.py`
+  + `chain/acp/governed_fs.py`): دورة حياة subprocess (spawn/
+  initialize/shutdown/terminate/kill بمهلات)؛ معالجات الطلبات
+  العكسية: fs/read عبر path_policy (workspace-جذر + denylist)،
+  fs/write + request_permission عبر ApprovalGate (ProposedAction
+  بنوع acp_write/acp_permission)؛ رفض/مهلة ⇒ JSON-RPC error.
+  اختبارات: FakeTransport بالكامل (قرار 5) — سيناريوهات قراءة سر
+  مرفوضة (كناري denylist)، كتابة بلا موافقة مرفوضة، موافقة تمر،
+  موت عملية، مهلة إيقاف.
+- **736c — التوصيل** (server + config + واجهة دنيا): تحليل
+  `acp.agents` fail-closed (نمط _api_providers_config)؛ REST:
+  GET `/api/acp/agents` (القائمة + حالة التوافر — **لا يكشف
+  args/command كاملة إن حملت أسرارًا: الاسم والمعرّف فقط**)؛ تكامل
+  الجلسة: تشغيل وكيل + session/prompt + بث session/update إلى WS
+  بإطارات القنوات القائمة؛ عرض الوكلاء في القائمة القائمة (بادئة
+  🤝 — نمط 🔑 في TSK-735c)؛ اختبار تكامل مع وكيل الدمية المحلي.
+- **حدود واعية**: لا خادم ACP؛ لا registry وكلاء عن بُعد (سجل
+  JetBrains = شبكة — بعد القرار 9 إن طُلب)؛ لا تحرير acp.agents من
+  UI؛ صفر مساس بـ providers/؛ MCP خارج النطاق (بروتوكول آخر).
+- **معايير القبول**: وكيل دمية معرَّف في config يظهر في
+  /api/acp/agents ويجيب prompt عبر الجسر (تكامل)؛ fs/read لسر
+  denylist يُرفض (كناري)؛ fs/write بلا موافقة لا يلمس القرص؛ بلا
+  قسم acp = صفر تغيير سلوك؛ صفر subprocess في اختبارات الوحدة؛
+  check.sh ALL GREEN.
+
+**DAG (TSK-736)**: 736a → 736b → 736c.
