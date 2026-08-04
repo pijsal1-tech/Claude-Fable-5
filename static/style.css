@@ -3798,6 +3798,57 @@ html, body {
     padding: 4px 0;
 }
 
+/* ── TSK-734d: نموذج تحرير الأذونات — tokens فقط (لا hex خام) ── */
+.pp-edit-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12.5px;
+    color: var(--text);
+}
+
+.pp-edit-text {
+    flex: 1;
+    background: var(--surface-0);
+    color: var(--text);
+    border: 1px solid var(--surface-1);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: monospace;
+    resize: vertical;
+}
+
+.pp-edit-actions {
+    display: flex;
+    gap: 8px;
+    padding: 6px 0;
+}
+
+.pp-edit-btn {
+    background: var(--surface-0);
+    color: var(--text);
+    border: 1px solid var(--surface-1);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+
+.pp-edit-btn:hover { background: var(--surface-1); }
+
+.pp-edit-btn.pp-edit-save {
+    color: var(--success);
+    border-color: var(--success);
+}
+
+.pp-edit-error {
+    color: var(--error);
+    font-size: 12.5px;
+    padding: 4px 0;
+}
+
 /* ── TSK-722b (P1-4/D-9): لوحة الإعدادات — عرض فقط ──
    الأقسام تعيد استخدام pp-* (TSK-621)؛ هنا هيكل اللوحة فقط. */
 #settings-panel {

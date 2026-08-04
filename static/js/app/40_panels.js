@@ -574,11 +574,78 @@ async function togglePermissionsPanel() {
     try {
         const resp = await fetch("/api/permissions");
         const data = await resp.json();
-        listEl.innerHTML = PermissionsPanel.renderPanelHTML(
-            data.ok ? data.permissions : null);
+        renderPermissionsView(data.ok ? data.permissions : null);
     } catch (e) {
         listEl.innerHTML =
             '<div class="pp-none">⚠️ تعذّر تحميل السياسة</div>';
+    }
+}
+
+// ── TSK-734d (القرار 6 من تسلسل D-19): وضع تحرير الأذونات ──
+// المنطق النقي (النمذجة/التحليل/بناء الجسم) في permissions_panel.js؛
+// هنا الـ glue فقط: زر «تحرير» يفتح النموذج، زر الحفظ الواحد يرسل
+// POST /api/permissions، واللوحة تعيد الرسم من الحقيقة المعادة
+// (استجابة الخادم = السياسة الفعالة الجديدة — لا افتراض تفاؤلي).
+let permsLastLoaded = null;
+
+function renderPermissionsView(perms) {
+    permsLastLoaded = perms;
+    const listEl = document.getElementById("permissions-panel-list");
+    let html = PermissionsPanel.renderPanelHTML(perms);
+    if (perms) {
+        html = '<div class="pp-edit-actions"><button class="pp-edit-btn" ' +
+            'data-perm-action="edit">✏️ تحرير الأذونات</button></div>' + html;
+    }
+    listEl.innerHTML = html;
+    bindPermActions(listEl);
+}
+
+function bindPermActions(listEl) {
+    listEl.querySelectorAll("[data-perm-action]").forEach((btn) => {
+        btn.onclick = () => handlePermAction(btn.dataset.permAction);
+    });
+}
+
+async function handlePermAction(action) {
+    const listEl = document.getElementById("permissions-panel-list");
+    if (action === "edit") {
+        listEl.innerHTML =
+            PermissionsPanel.renderEditFormHTML(permsLastLoaded);
+        bindPermActions(listEl);
+        return;
+    }
+    if (action === "cancel") {
+        renderPermissionsView(permsLastLoaded);
+        return;
+    }
+    if (action !== "save") return;
+    const errEl = document.getElementById("pp-edit-error");
+    const built = PermissionsPanel.buildOverridesPayload(
+        document.getElementById("pp-edit-force").checked,
+        document.getElementById("pp-edit-allowlist").value);
+    if (!built.ok) {
+        errEl.textContent = "⚠️ " + built.error;
+        errEl.classList.remove("hidden");
+        return;
+    }
+    try {
+        const resp = await fetch("/api/permissions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(built.payload),
+        });
+        const data = await resp.json();
+        if (!data.ok) {
+            errEl.textContent = "⚠️ " + (data.error || "رفض الخادم التحديث");
+            errEl.classList.remove("hidden");
+            return;
+        }
+        // إعادة الرسم من الحقيقة المعادة (السياسة الفعالة الجديدة).
+        renderPermissionsView(data.permissions);
+        toast("💾 حُفظت الأذونات — السياسة الفعالة مطبّقة حيًّا", "success");
+    } catch (e) {
+        errEl.textContent = "⚠️ تعذّر الاتصال بالخادم";
+        errEl.classList.remove("hidden");
     }
 }
 

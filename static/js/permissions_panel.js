@@ -1,4 +1,5 @@
-/* TSK-621 (CP-5/UXF-04 §R9): لوحة الصلاحيات — قراءة فقط (glass box).
+/* TSK-621 (CP-5/UXF-04 §R9): لوحة الصلاحيات (glass box)
+ * + TSK-734d (القرار 6 من تسلسل D-19): وضع تحرير صريح.
  * منطق نقي (UMD-lite، قابل للاختبار في node بنمط memory_panel.js).
  * الـ DOM glue في app.js فقط.
  *
@@ -8,9 +9,12 @@
  *   terminal_commands: {safe, dangerous}, force_command_approval,
  *   approval_gate: {mode, auto_whitelist, timeout_seconds} | null } }
  *
- * عرض-فقط: لا أزرار تعديل ولا أي إطار/طلب كتابة — الأقسام الأربعة
- * (allowlist / أدوات agent / أوامر الطرفية / بوابة الموافقة) تُرسم
- * من JSON الحي كما هو؛ UNKNOWN لا يُخترع (غائب ⇒ شارة صريحة).
+ * العرض (renderPanelHTML) ما زال بلا أي أداة كتابة — التحرير في
+ * نموذج منفصل صريح (renderEditFormHTML) بزر حفظ واحد
+ * (data-perm-action="save")؛ الحفظ POST /api/permissions عبر الـ glue
+ * واللوحة تعيد الرسم من الحقيقة المعادة (لا افتراض تفاؤلي).
+ * المفتاحان القابلان للتحرير فقط (whitelist الخادم):
+ * force_command_approval + agent.command_allowlist — الباقي عرض-فقط.
  */
 (function (global) {
     "use strict";
@@ -136,9 +140,90 @@
             renderGateSection(perms);
     }
 
+    // ── TSK-734d: وضع التحرير — نموذج صريح بزر حفظ واحد ──
+
+    /** نص allowlist للنموذج: سطر لكل مدخل بصيغة `name = command`. */
+    function allowlistToText(entries) {
+        var e = entries || {};
+        return Object.keys(e).sort().map(function (name) {
+            return name + " = " + e[name];
+        }).join("\n");
+    }
+
+    /** تحليل نص النموذج → {ok, entries} | {ok:false, error} — نقي.
+     * سطور فارغة تُتجاهل؛ سطر بلا `=` أو باسم/أمر فارغ ⇒ خطأ صريح
+     * (fail-closed محليًا — الخادم يتحقق مجددًا على أي حال). */
+    function parseAllowlistText(text) {
+        var entries = {};
+        var lines = String(text || "").split("\n");
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (!line) { continue; }
+            var eq = line.indexOf("=");
+            if (eq < 0) {
+                return { ok: false,
+                         error: "سطر " + (i + 1) + ": الصيغة name = command" };
+            }
+            var name = line.slice(0, eq).trim();
+            var cmd = line.slice(eq + 1).trim();
+            if (!name || !cmd) {
+                return { ok: false,
+                         error: "سطر " + (i + 1) + ": اسم وأمر غير فارغين" };
+            }
+            entries[name] = cmd;
+        }
+        return { ok: true, entries: entries };
+    }
+
+    /** جسم POST من قيم النموذج — نقي. يعيد {ok, payload} | {ok:false,
+     * error}. المفتاحان المسموحان فقط (whitelist الخادم هو الحكم). */
+    function buildOverridesPayload(forceChecked, allowlistText) {
+        var parsed = parseAllowlistText(allowlistText);
+        if (!parsed.ok) { return parsed; }
+        return {
+            ok: true,
+            payload: { overrides: {
+                "force_command_approval": !!forceChecked,
+                "agent.command_allowlist": parsed.entries,
+            } },
+        };
+    }
+
+    /** HTML نموذج التحرير — نقي. زر حفظ واحد + إلغاء؛ الـ glue يلتقط
+     * data-perm-action (save/cancel) ويرسل POST ويعيد الرسم من
+     * الحقيقة المعادة. */
+    function renderEditFormHTML(perms) {
+        var p = perms || {};
+        var al = p.command_allowlist || {};
+        return '<div class="pp-section"><div class="pp-title">' +
+            "✏️ تحرير الأذونات (overrides فوق config.yaml)</div>" +
+            '<label class="pp-edit-row">' +
+            '<input type="checkbox" id="pp-edit-force"' +
+            (p.force_command_approval ? " checked" : "") + "> " +
+            "إلزام الموافقة على كل أمر (force_command_approval)</label>" +
+            '<div class="pp-edit-row"><span class="pp-key">' +
+            "قائمة أوامر الـ Agent</span>" +
+            '<textarea id="pp-edit-allowlist" class="pp-edit-text" rows="6" ' +
+            'dir="ltr" spellcheck="false" placeholder="name = command">' +
+            escapeHtml(allowlistToText(al.entries)) + "</textarea></div>" +
+            '<div class="pp-none">المفتاحان أعلاه فقط قابلان للتحرير — ' +
+            "تُحفظ كـ overrides جانبية؛ config.yaml لا يُمس.</div>" +
+            '<div class="pp-edit-actions">' +
+            '<button class="pp-edit-btn pp-edit-save" ' +
+            'data-perm-action="save">💾 حفظ</button>' +
+            '<button class="pp-edit-btn" data-perm-action="cancel">' +
+            "إلغاء</button></div>" +
+            '<div id="pp-edit-error" class="pp-edit-error hidden"></div>' +
+            "</div>";
+    }
+
     var api = {
         gateModeLabel: gateModeLabel,
         renderPanelHTML: renderPanelHTML,
+        allowlistToText: allowlistToText,
+        parseAllowlistText: parseAllowlistText,
+        buildOverridesPayload: buildOverridesPayload,
+        renderEditFormHTML: renderEditFormHTML,
     };
 
     global.PermissionsPanel = api;
