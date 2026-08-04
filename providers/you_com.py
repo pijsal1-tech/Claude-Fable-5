@@ -27,6 +27,10 @@ def _load_you_module():
         if not script_path.exists():
             raise FileNotFoundError(f"سكريبت You.com مش موجود: {script_path}")
         spec = importlib.util.spec_from_file_location("you__chat_mod", str(script_path))
+        # D-18 (BATCH-CLOSEOUT): حارس None بنمط genspark.py:58-59 — يرفع
+        # استبعاد mypy الموروث (TSK-CEV-102) لهذا الملف.
+        if spec is None or spec.loader is None:
+            raise ImportError(f"تعذر تحميل spec لسكريبت You.com: {script_path}")
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         _you_module = mod

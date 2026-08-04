@@ -14,13 +14,15 @@ cd "$(dirname "$0")/.."
 # providers/openai_shelby.py — خطأ قائم مسبقًا (:166) وproviders/
 # خارج نطاق البرنامج (§0.8)؛ يُرفع الاستبعاد يوم يُصلح خارجه.
 # TSK-CEV-102 (D-13، نفس سابقة ADR-004): providers/{you_com,perplexity,
-# blackbox}.py — 9 أخطاء module_from_spec على ModuleSpec|None بلا حارس
-# (كود وارد خارج الحوكمة @ c9ab00c، خارج النطاق §0.8)؛ تُرفع
-# الاستبعادات يوم يُصلح النمط خارجيًا (حارس None قبل :30-31).
+# blackbox}.py كانت مستبعدة (9 أخطاء module_from_spec على ModuleSpec|None
+# بلا حارس). D-18 (BATCH-CLOSEOUT): أُضيف حارس None بنمط genspark.py:58-59
+# في الثلاثة ورُفعت استبعاداتها — استثناء §0.8 قُيِّد تفويضًا موضعيًا لهذا
+# الإصلاح حصرًا. يبقى openai_shelby.py مستبعدًا (:166 خطأ منطق داخلي
+# مختلف — نص D-18 صراحةً: «يبقى مستثنى»).
 echo "== mypy (gate: providers/ + chain/ + core/ + context/ + sessions/ + routes/ + server.py + desktop.py) =="
 mypy --ignore-missing-imports --follow-imports=silent \
   --check-untyped-defs \
-  --exclude 'providers/(openai_shelby|you_com|perplexity|blackbox)\.py' \
+  --exclude 'providers/openai_shelby\.py' \
   providers/ chain/ core/ context/ sessions/ routes/ server.py desktop.py
 
 # T-026 (R-204): حدود SafeReader — ممنوع أي قراءة خام لمحتوى ملفات داخل
