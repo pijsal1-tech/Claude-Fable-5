@@ -10,6 +10,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-3776ab?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-Web_Server-000000?style=for-the-badge&logo=flask)](https://flask.palletsprojects.com)
 [![WebSocket](https://img.shields.io/badge/WebSocket-Real_Time-010101?style=for-the-badge&logo=socketdotio)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+[![CEV](https://img.shields.io/badge/CEV_Audit-99%2F100_GO-brightgreen?style=for-the-badge)](docs/engineering/RELEASE_READINESS_REPORT.md)
 
 </div>
 
@@ -27,7 +28,7 @@
 | 📂 **وصول حقيقي للملفات** | يقرأ ويعدل ملفات مشروعك فعلياً |
 | 🔗 **Chain System** | يقسّم المهام المعقدة لخطوات ذكية تلقائياً |
 | 🧠 **21 عميل متخصص** | من bug analyzer لـ architect لـ security auditor |
-| 🔄 **4 مزودي AI** | Genspark, DeepSeek, AlleAI, UseAI |
+| 🔄 **8 مزودي AI** | Genspark, DeepSeek, AlleAI, UseAI, You.com, Perplexity, Blackbox, OpenAI Shelby |
 | 💬 **Real-time Streaming** | ردود AI تظهر حرف بحرف عبر WebSocket |
 | 🛡️ **Backup تلقائي** | نسخة احتياطية قبل أي تعديل |
 | 📋 **إدارة جلسات** | حفظ واستعادة محادثات سابقة |
@@ -38,6 +39,8 @@
 | 🩺 **تشخيص وإعدادات** | `/api/diagnostics` + `/api/settings` — قراءة فقط مُطهَّرة |
 | 🔐 **Workspace Trust** | قرار ثقة صريح لكل مجلد قبل التنفيذ |
 | 🔔 **فحص تحديث opt-in** | `/api/update-check` — معطَّل افتراضيًا، صفر phone-home |
+| 🎨 **ثيمات + رموز تصميم** | 4 ثيمات (dark/light/monokai/high-contrast) مبنية على design tokens (`static/themes/tokens.css`) |
+| ✅ **مُدقَّق بالكامل (CEV)** | برنامج تدقيق شامل 12 بوابة — بطاقة 99/100 + إقرار جاهزية GO (عقد localhost) |
 
 ---
 
@@ -138,7 +141,7 @@ pyinstaller desktop.spec                       # الناتج: dist/WebDevAIEdit
 
 ### 1. 🤖 مزودي الذكاء الاصطناعي (Providers)
 
-4 مزودي AI مجانيين — لا يحتاجون API Keys:
+8 مزودي AI مجانيين — لا يحتاجون API Keys:
 
 | المزود | الموديلات | المميزات |
 |--------|----------|----------|
@@ -146,6 +149,10 @@ pyinstaller desktop.spec                       # الناتج: dist/WebDevAIEdit
 | **DeepSeek** | DeepSeek Chat, R1 | Streaming ✓, Parallel ✓, 64K context |
 | **AlleAI** | Claude, GPT, Gemini | Streaming ✓, Parallel ✓, 128K context |
 | **UseAI** | Gateway models | Streaming ✓, Auto-registration, 200K context |
+| **You.com** | 21 موديل | سكربت ميداني ديناميكي عبر `_NEW_PROVIDERS` |
+| **Perplexity** | 44 موديل | سكربت ميداني ديناميكي عبر `_NEW_PROVIDERS` |
+| **Blackbox** | 24 موديل | سكربت ميداني ديناميكي عبر `_NEW_PROVIDERS` |
+| **OpenAI Shelby** | gpt-5-3-high / mini / pro | ChatGPT Mobile Gateway — المزود الافتراضي في السجل |
 
 **تبديل المزود أثناء الاستخدام**: من القائمة في الواجهة أو عبر WebSocket.
 
@@ -361,16 +368,29 @@ npm install express
 ├── 📋  config.yaml                  # إعدادات المشروع
 │
 ├── 🎨  static/                      # الواجهة الأمامية
-│   ├── index.html                   # الصفحة الرئيسية
-│   ├── app.js                       # منطق الواجهة (63KB)
-│   └── style.css                    # التصميم (39KB)
+│   ├── index.html                   # الصفحة الرئيسية (+ favicon)
+│   ├── app.js                       # نواة الواجهة (مُقسَّم — FI-07)
+│   ├── js/app/                      # وحدات الواجهة المفصولة:
+│   │   ├── 10_chat_ws_stream.js     #   قلب الدردشة/WS/البث
+│   │   ├── 20_editor_files_terminal.js # المحرر/الملفات/التيرمنال
+│   │   ├── 30_sessions_models_attachments.js # الجلسات/النماذج/المرفقات
+│   │   ├── 40_panels.js             #   اللوحات (diagnostics/settings/...)
+│   │   └── 90/91_*.js               #   بحث palette + ثقة المجلد
+│   ├── style.css                    # التصميم (مُرمَّز بـdesign tokens)
+│   ├── themes/                      # tokens.css + 4 ثيمات
+│   └── icons/                       # favicon.svg + sprite.svg
 │
-├── 🤖  providers/                   # مزودي الذكاء الاصطناعي
+├── 🤖  providers/                   # مزودي الذكاء الاصطناعي (8)
 │   ├── base.py                      # العقد الأساسي + MockProvider
 │   ├── genspark.py                  # Genspark (Claude, GPT, Gemini)
 │   ├── deepseek.py                  # DeepSeek Chat
 │   ├── alle_ai.py                   # AlleAI
 │   ├── use_ai.py                    # UseAI (Browser Bridge)
+│   ├── you_com.py                   # You.com (21 موديل)
+│   ├── perplexity.py                # Perplexity (44 موديل)
+│   ├── blackbox.py                  # Blackbox (24 موديل)
+│   ├── openai_shelby.py             # OpenAI Shelby (gpt-5-3 family)
+│   ├── pool.py + capacity.py        # تجميع + نموذج السعة
 │   └── registry.py                  # سجل المزودين
 │
 ├── ⚙️  actions/                     # الإجراءات
@@ -425,7 +445,8 @@ npm install express
 ## 🧪 الاختبارات
 
 ```bash
-# الفحص الكامل — نفس بوابات CI حرفيًا (mypy + البوابات البنيوية + pytest)
+# الفحص الكامل — نفس بوابات CI حرفيًا
+# (mypy + flake8 pyflakes + ~17 بوابة بنيوية + pytest)
 ./scripts/check.sh
 
 # أو الاختبارات فقط
@@ -441,6 +462,19 @@ python scripts/coverage_ratchet.py check
 > (`.github/workflows/ci.yml`) أو `./scripts/check.sh` محليًا.
 > التغطية محروسة بـ ratchet تصاعدي-فقط: لا تنخفض تحت الأرضية
 > المسجلة في `coverage_baseline.txt` أبدًا.
+
+### 🛡️ بوابات الجودة في `check.sh` (مختارات)
+
+| البوابة | ماذا تحرس |
+|---------|-------------|
+| **mypy** | أنواع ساكنة على providers/chain/core/context/sessions/routes + server/desktop |
+| **flake8 — F-rules** | صفر استيرادات/متغيرات ميتة (pyflakes فقط — D-18) |
+| **SafeReader boundary** | لا قراءات خام في context/ (حجب الأسرار) |
+| **import cycles** | صفر دورات استيراد (AST-based) |
+| **color tokens** | لا ألوان خام خارج static/themes/ |
+| **injection guard** | أسوار حماية في كل طبقات الـprompts |
+| **routing corpus** | مصفوفة التوجيه المثبّتة لا تنحرف |
+| **agent manifest** | 21 عميلًا مُجرودين بـschema — لا ملفات يتيمة |
 
 ---
 
@@ -535,6 +569,11 @@ localhost** — ليست خدمة ويب للنشر العام. الحدود ا�
 1. أنشئ ملف في `providers/` يرث من `BaseProvider`
 2. نفّذ `send()` و `stream()` و `is_available()`
 3. سجّله في `main()` بـ `register_provider()`
+4. أضف اختبار عقد في `tests/contracts/` (يرث `ProviderContractMixin`)
+
+> ملاحظة أنواع: عند التحميل الديناميكي بـ`module_from_spec` استخدم
+> حارس None (`if spec is None or spec.loader is None: raise ImportError`)
+> — بوابة mypy تغطي `providers/` كاملًا (استثناء وحيد: `openai_shelby.py`).
 
 ### إضافة استراتيجية كإضافة خارجية (Plugin) 🧩
 
@@ -560,7 +599,7 @@ localhost** — ليست خدمة ويب للنشر العام. الحدود ا�
 
 1. أضف builder function في `chain/strategies.py`
 2. أضف condition في `chain/orchestrator.py`
-3. أضف tests في `tests/test_orchestrator.py`
+3. أضف tests في `tests/unit/test_routing_matrix.py` (مصفوفة التوجيه المثبّتة)
 
 ---
 
@@ -594,5 +633,7 @@ localhost** — ليست خدمة ويب للنشر العام. الحدود ا�
 **صُنع بـ ❤️ بواسطة Belal**
 
 *مستوحى من Antigravity IDE — لأن كل مطور يستحق أدوات ذكية مجاناً*
+
+*حالة الجودة: برنامج CEV مُغلق بإقرار جاهزية GO (99/100) — انظر `docs/engineering/RELEASE_READINESS_REPORT.md`*
 
 </div>
