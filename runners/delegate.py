@@ -44,7 +44,7 @@ from core.runner import (
 )
 
 if TYPE_CHECKING:
-    from chain.delegate import DelegateBridge, DelegateRun
+    from chain.delegate import DelegateBridge
     from core.execution import RunTicket
 
 #: حالة التسليم للمستخدم — التذكرة تبقى حية حتى land/reject.

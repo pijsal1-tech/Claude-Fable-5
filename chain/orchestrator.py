@@ -14,7 +14,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import assert_never
 
-from core.strategy import ExecutionStrategy, RoutingTier, STRATEGY_TABLE
+from core.strategy import ExecutionStrategy
 from context.bundle import ContextBundle, ContextItem
 
 from .plugin_api import PluginContext

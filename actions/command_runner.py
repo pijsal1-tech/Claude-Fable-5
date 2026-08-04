@@ -8,7 +8,6 @@
 """
 import subprocess
 import shlex
-import sys
 import os
 import re
 import time
@@ -280,7 +279,7 @@ class CommandRunner:
     def _ask_approval(self, command: str) -> bool:
         """طلب إذن المستخدم"""
         print(f"\n{Fore.YELLOW}{'─'*50}")
-        print(f"⚡ أمر يحتاج موافقتك:")
+        print("⚡ أمر يحتاج موافقتك:")
         print(f"{Fore.CYAN}  $ {command}")
         print(f"{Fore.YELLOW}{'─'*50}{Style.RESET_ALL}")
 

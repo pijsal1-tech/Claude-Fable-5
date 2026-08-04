@@ -235,7 +235,6 @@ class ContextBudget:
         # ── فيض الـ must_have: خطاف التلخيص لكل عنصر ──
         overflowed = False
         if total > limit:
-            over = total - limit
             mh_indices = sorted(
                 (idx for idx, (it, _) in kept.items()
                  if it.tier == "must_have"),

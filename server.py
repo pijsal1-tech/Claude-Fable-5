@@ -35,7 +35,7 @@ from actions.file_manager import FileManager
 from actions.command_runner import CommandRunner
 from actions.response_parser import ResponseParser
 from actions.session_manager import SessionManager
-from prompts.templates import build_prompt, fence_attached, get_system_prompt
+from prompts.templates import fence_attached
 from providers.registry import register_provider
 from providers.use_ai import UseAIProvider, UseAIConfig
 from providers.genspark import GensparkProvider, GensparkConfig, GENSPARK_MODELS
@@ -47,25 +47,20 @@ from providers.perplexity import PerplexityProvider, PerplexityConfig
 from providers.blackbox import BlackboxProvider, BlackboxConfig
 from providers.base import Message
 from sessions.memory import WindowPolicy, select_history
-from context.budget import CharsPerTokenEstimator  # TSK-609 (PM-01)
 from context.facade import gather_message_context
 from chain.bridge import ChainBridge
 from chain.delegate import DelegateBridge
 from chain.orchestrator import SmartOrchestrator
 from chain.router import RequestRouter
-from core.strategy import RoutingTier
 from chain.action_applier import ActionApplier
 from providers.budget import AccountAwareBudget
 from providers.capacity import CapacityModel
 from providers.pool import ProviderPool
-from chain.agent_loop import AgentLoop
 from chain.agent_tools import AgentTools, command_policy_from
 from core.runner import (
     EVENT_RUN_FINISHED,
     EVENT_RUN_OUTPUT,
     EVENT_RUN_STARTED,
-    RESULT_COMPLETED,
-    RESULT_FAILED,
     RunEvent,
     RunRequest,
 )
@@ -80,8 +75,6 @@ from core.chat_dispatch import dispatch_chat_message  # TSK-612 (ADR-002)
 from core.project_memory import (
     ProjectMemoryStore, CorruptMemoryError, is_stale as _memory_is_stale,
 )
-from chain.knowledge import KnowledgeAccumulator
-from core.execution import ExecutionRegistry
 from core.execution import RunBusyError
 from core.execution import graceful_shutdown  # TSK-705 (FI-03)
 from core.structured_log import swallowed as _slog_swallowed  # TSK-706 (D-6)
@@ -92,7 +85,6 @@ from core.events import (
     ApprovalRequested,
     BudgetChanged,
     EventBus,
-    RoutingDecided,
     RunFinished,
     RunStarted,
     StepProgress,
@@ -1765,7 +1757,7 @@ def _ws_delegate_approve(ctx, sctx, msg):
                         "type": "done",
                         "actions": [],
                         "options": [],
-                        "summary": f"✅ تم اعتماد التعديلات",
+                        "summary": "✅ تم اعتماد التعديلات",
                     })
     else:
         sctx.send({"type": "error", "text": "لا يوجد تفويض نشط"})
@@ -2173,7 +2165,7 @@ def main():
         plugin_registry=plugin_registry,
         planner=chain_planner,
     )
-    print(f"  🔗 Chain System: active")
+    print("  🔗 Chain System: active")
 
     # ── Crash-resume startup scan (T-044, R-601) ──
     # يفحص runs_dir عن runs منقطعة (state.json بحالة غير نهائية) —
@@ -2313,7 +2305,7 @@ def main():
 
     # ── AppContext final config (T-006/T-007, R-102) ──
     ctx.config.update({"host": args.host, "port": args.port, "provider_id": prov_id})
-    print(f"  🧩 AppContext: composition root active")
+    print("  🧩 AppContext: composition root active")
 
     print(f"""
 ═══════════════════════════════════════════════════════

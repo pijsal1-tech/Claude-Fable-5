@@ -7,6 +7,10 @@ pytest-cov>=5.0
 mypy>=1.10,<2
 types-requests
 types-PyYAML
+# TSK-CEV-120 (CEV-F-011, D-18): بوابة الكود الميت في check.sh —
+# flake8 --select=F (قواعد pyflakes حصرًا، يحترم noqa). سقف major
+# بنفس مسوّغ mypy أعلاه.
+flake8>=7,<8
 
 # SymbolIndex grammars (T-055 / R-205) — تبعية اختيارية:
 # غيابها لا يكسر التشغيل (SymbolIndex يتدهور إلى "بلا رموز"

@@ -25,7 +25,7 @@ from .routing_config import RoutingRecord, RoutingThresholds
 if TYPE_CHECKING:
     from chain.orchestrator import SmartOrchestrator, ComplexityAnalysis
     from providers.budget import AccountAwareBudget, BudgetSnapshot
-    from providers.base import BaseProvider
+    from providers.base import BaseProvider  # noqa: F401 — hint نوعي للوثائق (F-011: إيجابية كاذبة مقصودة)
 
 
 # ═══════════════════════════════════════════════════════

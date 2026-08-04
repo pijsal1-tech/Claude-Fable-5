@@ -451,9 +451,9 @@ def build_delegate(user_request: str, context: str = "",
     )
 
     implement_prompt = (
-        f"نفّذ المهمة حسب الـ brief التالي — لا تخرج عن النطاق:\n\n"
-        f"{{previous_context}}\n\n"
-        f"أرجع: الكود (FILE/EDIT/CMD) + تقرير مهيكل"
+        "نفّذ المهمة حسب الـ brief التالي — لا تخرج عن النطاق:\n\n"
+        "{previous_context}\n\n"
+        "أرجع: الكود (FILE/EDIT/CMD) + تقرير مهيكل"
     )
 
     review_prompt = (

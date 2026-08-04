@@ -10,13 +10,11 @@
 from __future__ import annotations
 import json
 import time
-import threading
-from typing import Callable, Any
+from typing import Callable
 
 from chain.knowledge import KnowledgeAccumulator
 from chain.agent_tools import (
     AgentTools, ToolCall, parse_tool_calls, has_tool_calls,
-    SAFE_TOOLS, APPROVAL_TOOLS,
 )
 from core.approval import ApprovalGate, ApprovalRequest, ProposedAction
 from core.execution import RunTicket

@@ -25,6 +25,17 @@ mypy --ignore-missing-imports --follow-imports=silent \
   --exclude 'providers/openai_shelby\.py' \
   providers/ chain/ core/ context/ sessions/ routes/ server.py desktop.py
 
+# TSK-CEV-120 (CEV-F-011, D-18): بوابة الكود الميت — mypy لا يعلّم
+# unused imports ففاتته 42+ تشخيصًا (أُزيلت بالدفعة). flake8 --select=F
+# = قواعد pyflakes فقط (لا أسلوب/pycodestyle) ويحترم وسوم noqa: F401
+# للـ re-exports المقصودة (context/engine.py:37، chain/router.py:28).
+# نفس نطاق مسح F-011 + worker.py/runners//actions/.
+echo "== flake8 pyflakes gate (dead imports/variables — F-rules only) =="
+flake8 --select=F \
+  chain/ core/ context/ sessions/ routes/ runners/ actions/ \
+  server.py worker.py desktop.py
+echo "pyflakes clean"
+
 # T-026 (R-204): حدود SafeReader — ممنوع أي قراءة خام لمحتوى ملفات داخل
 # context/ خارج safe_reader.py. حدود مُلتفّ عليها في مكان واحد ليست حدودًا.
 # (نستثني نداء بوابة SafeReader نفسها: reader.read_text / self._reader.read_text)

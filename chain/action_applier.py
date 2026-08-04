@@ -22,7 +22,7 @@ from core.structured_log import swallowed as _slog_swallowed
 if TYPE_CHECKING:
     from actions.file_manager import FileManager
     from actions.command_runner import CommandRunner
-    from actions.response_parser import ResponseParser, ParsedResponse
+    from actions.response_parser import ResponseParser
     from core.checkpoint import CheckpointManager
 
 
