@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-04 (Sessions 110-111 — **دفعة BATCH-CLOSEOUT (قرار مالك D-18) مُسلَّمة بالكامل 🏁**: FI-02 **WAIVED BY OWNER** (لا تقسيم لـserver.py) + إقفال **كل** البنود المفتوحة من تقرير استئناف S110 — TSK-CEV-118 (توسيع معجم التعقيد CEV-F-017/FI-17: أنماط `[أاتني]ع(?:د|يد)` + جذور مبتورة هيكل/كتاب/تصميم + 5 اختبارات انحدار) · TSK-CEV-119 (تقسية عقد أداء CEV-F-006: best-of-3 في `test_search_perf.py` — **العتبة 1.0s لم تُمَس، لا xfail، لا حذف**) · حارس None بنمط genspark.py في المزودات الثلاثة (blackbox/perplexity/you_com) + رفع 3 استثناءات mypy (openai_shelby وحده باقٍ) + اختبارا حارس · TSK-CEV-120 (CEV-F-011/FI-08: إزالة 43 تشخيصًا ميتًا عبر 16 ملفًا + بوابة `flake8 --select=F` دائمة في check.sh + flake8 في requirements-dev) · TSK-CEV-121 (CEV-F-009: عقد `_err_status` في routes/files.py — PermissionError⇒403 / FileNotFoundError⇒404 / ValueError⇒400 / غيره⇒500، fail-closed بلا تغيير + 4 اختبارات) · TSK-CEV-122 (CEV-F-008: ترميز radius/duration في style.css عبر `var(--radius)`/`var(--radius-lg)`/`--duration-fast` الجديد في tokens.css) · TSK-CEV-123 (CEV-F-007: `static/icons/favicon.svg` ∞ + وصلة في index.html) · إصلاح جانبي: حارس PM-01 في test_instrumentation_609 يفحص `core/chat_dispatch.py` (مالك المنطق الفعلي) · تدوير §6.4 دفعة رابعة (S106–S108 → ARCHIVE_2). commits: 4a2b234 → 4184f9b → 31e4c8c → 12aca86 → 025b7b7 → 3b5f4bf → d7f88de + هذا) |
+| last-updated | 2026-08-04 (Session 112 — **قرار مالك D-19 مُسجَّل + القرار 2 مُغلق 🏁: إصدار v1.0.0 النهائي موسوم ومدفوع**: المالك اعتمد ترتيب تنفيذ القرارات المفتوحة «2 → 3 → 4 → 5 → 6 → 7 → 8 → 9» (10/11 مستقلان) — DECISION_LOG §D-19؛ القرار 2 نُفِّذ: core/version.py = "1.0.0" (إلغاء شرط rc-حتى-Windows بقرار مالك) + README §سياسة الإصدارات + USER_GUIDE + docstring update_check (commit 0787619 عبر Auto-Uploader قبل تصفير #49) + قيد CHANGELOG §RELEASE-v1.0.0 (3790c8e بعد الاستئناف) + بوابة check.sh ALL GREEN rc=0 (2586P/34S/0F @ 94.2s) + **وسم v1.0.0 مدفوع على origin** (تفويض D-8-ج — سابقة وسم rc.1)) |
 | stage | **V3-STAGE 4 — برنامج CEV مُغلق (D-12→D-17) + دفعة D-18 BATCH-CLOSEOUT مُقفلة 🏁** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 + CEV 99/100 GO + D-18 |
-| current-phase | **ما بعد CEV — صيانة/انتظار توجيه مالك**: CEV مُغلق بإقرار CEV-R12 (99/100، RRR = GO ضمن عقد localhost أحادي المستخدم)؛ دفعة D-18 BATCH-CLOSEOUT أقفلت كل الذيول (CEV-F-006/007/008/009/011/017 + FI-08/FI-17 + حارس المزودات + تدوير §6.4)؛ FI-02 مُتنازَل عنها بقرار مالك (WAIVED) |
-| current-task | **لا مهمة مفتوحة — صفر بنود معلَّقة**: كل بنود تقرير استئناف S110 أُقفلت ضمن D-18 (انظر NEW_FINDINGS §BATCH-CLOSEOUT وFUTURE_IMPROVEMENTS). EOP-1 كان مُقفلًا سلفًا 🏁 (لم يُكرَّر). المعلَّق الوحيد خارجي غير حاجب: أي توجيه مالك جديد |
+| current-phase | **تنفيذ تسلسل D-19**: القرار 2 (v1.0.0) 🏁 مُغلق → **التالي: القرار 3** (إزالة آخر استثناء mypy — إصلاح providers/openai_shelby.py:166 + رفع exclude من check.sh:25) → ثم 4 (مؤشر واجهة FI-15) → 5 (لوحة جلسات CP-12) → 6 → 7 → 8 → 9؛ القراران 10/11 مستقلان بلا موعد |
+| current-task | **القرار 3 من تسلسل D-19 — لم يبدأ**: فحص providers/openai_shelby.py (الخطأ المنطقي الموثق :166) → إصلاح → إزالة `--exclude 'providers/openai_shelby\.py'` من scripts/check.sh:25 → mypy Success على 95 ملفًا → بوابة كاملة |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -491,6 +491,25 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-08-04 — Session 112 — قرار مالك D-19 (ترتيب التنفيذ 2→3→4→5→6→7→8→9) + القرار 2 مُغلق 🏁: v1.0.0 النهائي موسوم ومدفوع**:
+  بعد إغلاق CEV وتسليم قائمة القرارات الـ11، **اعتمد المالك ترتيب التنفيذ
+  حرفيًا**: «2 → 3 → 4 → 5 → 6 → 7 → 8 → 9» والقراران 10/11 مستقلان —
+  مُسجَّل **D-19** في DECISION_LOG (يشمل إلغاء شرط rc-حتى-تحقق-Windows
+  صراحةً). **القرار 2 (v1.0.0 نهائي) نُفِّذ وأُغلق**: (1) استطلاع كامل
+  لمواقع الإصدار (version.py:14 / server.py:82 APP_VERSION / README:617 /
+  USER_GUIDE:4 / update_check docstring)؛ التحقق أن اختبارات الإصدار
+  (test_version/test_diagnostics/test_update_endpoint) ديناميكية ضد
+  `__version__` وأن test_update_check.py بسلاسل حرفية مستقلة — لا اختبار
+  ينكسر بالرفع. (2) الرفع: `__version__ = "1.0.0"` + تحديث README
+  §سياسة الإصدارات + USER_GUIDE + docstring update_check (سلوك
+  `_VERSION_RE` بلا مساس). (3) **تصفير بيئة #49** قطع إلحاق قيد CHANGELOG —
+  الاستئناف وجد كل التعديلات + D-19 على origin عبر 0787619 (Auto-Uploader)؛
+  أُعيد إلحاق قيد CHANGELOG §RELEASE-v1.0.0 فقط (3790c8e). (4) البوابة:
+  check.sh **ALL GREEN rc=0 — 2586 passed / 34 skipped / 0 failed** (94.2s).
+  (5) وسم annotated **v1.0.0** + دفع main+tag على origin (تفويض D-8-ج —
+  سابقة وسم rc.1، CHANGELOG:1197؛ Auto-Uploader لا يحمل الوسوم). **صفر
+  تغيير سلوك — Baseline مرجعي مثبَّت**. التالي: القرار 3 (mypy 100% —
+  openai_shelby).
 - **2026-08-04 — Sessions 110-111 — 🏁 دفعة BATCH-CLOSEOUT (قرار مالك D-18) مُسلَّمة بالكامل — صفر بنود مفتوحة**:
   **تفويض المالك D-18** (DECISION_LOG): (أ) FI-02 (تقسيم server.py)
   **WAIVED BY OWNER** — لا يُنفَّذ أبدًا؛ (ب) إقفال **كل** البنود
