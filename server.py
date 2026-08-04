@@ -202,6 +202,60 @@ def _effective_config() -> dict:
     return apply_to_config(_load_config(), read_overrides(_DIR))
 
 
+def _api_providers_config() -> dict[str, dict]:
+    """TSK-735c (القرار 7 من تسلسل D-19 / قيد D-20): مزودو API-key
+    المعرَّفون في ``providers.api_providers`` — id → إعدادات.
+
+    opt-in خالص (سابقة TSK-731): بلا قسم ⇒ {} ⇒ صفر تغيير سلوك.
+    fail-closed على الشكل: إدخال بلا id نصي غير فارغ أو بلا base_url
+    نصي غير فارغ يُسقَط صامتًا. **لا سر هنا** — المفتاح في الملف
+    الجانبي المُتجاهَل provider_keys.json (core/provider_keys)."""
+    cfg = _load_config()
+    providers_cfg = cfg.get("providers")
+    if not isinstance(providers_cfg, dict):
+        return {}
+    entries = providers_cfg.get("api_providers")
+    if not isinstance(entries, list):
+        return {}
+    out: dict[str, dict] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        pid = entry.get("id")
+        base_url = entry.get("base_url")
+        if not isinstance(pid, str) or not pid.strip():
+            continue
+        if not isinstance(base_url, str) or not base_url.strip():
+            continue
+        models = entry.get("models")
+        out[pid] = {
+            "name": str(entry.get("name") or pid),
+            "base_url": base_url,
+            "models": [m for m in models if isinstance(m, str)]
+            if isinstance(models, list) else [],
+        }
+    return out
+
+
+def _build_api_provider(pid: str, model_name: str):
+    """بناء مزود API-key من config + المفتاح الجانبي (قراءة طازجة —
+    تعديل provider_keys.json ينفذ عند التبديل التالي بلا إعادة تشغيل).
+
+    عقد عدم-الترديد (V3 §0 قيد 6): المفتاح يُحقن في الكائن فقط —
+    لا يُسجَّل ولا يدخل أي استجابة."""
+    from core.provider_keys import key_for
+    from providers.openai_compat import (OpenAICompatConfig,
+                                         OpenAICompatProvider)
+    entry = _api_providers_config()[pid]
+    cfg = OpenAICompatConfig(
+        model=model_name,
+        base_url=entry["base_url"],
+        api_key=key_for(_DIR, pid) or "",
+        provider_id=pid,
+    )
+    return OpenAICompatProvider(cfg)
+
+
 _hook_runner_cache: "HookRunner | None" = None
 
 if TYPE_CHECKING:  # pragma: no cover — للتلميح فقط، الاستيراد الفعلي كسول
@@ -972,6 +1026,19 @@ def api_models():
             ],
         },
     ]
+    # ── TSK-735c (D-19 القرار 7 / D-20): مزودو API-key المعرَّفون في
+    # providers.api_providers يُلحقون ديناميكيًا — بلا قسم = القائمة
+    # الساكنة كما هي (صفر تغيير سلوك). راية key_configured فقط —
+    # **المفتاح نفسه لا يدخل الاستجابة أبدًا** (V3 §0 قيد 6).
+    from core.provider_keys import read_provider_keys as _rpk
+    _keys = _rpk(_DIR)
+    for _pid, _entry in _api_providers_config().items():
+        providers_list.append({
+            "id": _pid,
+            "name": f"🔑 {_entry['name']}",
+            "models": _entry["models"],
+            "key_configured": _pid in _keys,
+        })
     _prov = _active_provider()
     current = {
         "provider": getattr(_prov, 'name', 'unknown') if _prov else 'none',
@@ -1033,6 +1100,17 @@ def api_switch_model():
         elif prov_id == "blackbox":
             cfg = BlackboxConfig(model=model_name)
             provider = BlackboxProvider(cfg)
+        elif prov_id in _api_providers_config():
+            # TSK-735c (D-19 القرار 7 / D-20): فرع عام واحد لكل مزودي
+            # API-key — المفتاح يُقرأ طازجًا من الملف الجانبي عند كل
+            # تبديل (حيوية بلا إعادة تشغيل، سابقة TSK-734).
+            provider = _build_api_provider(prov_id, model_name)
+            if not provider.is_available():
+                return jsonify({
+                    "ok": False,
+                    "error": (f"المزود '{prov_id}' بلا مفتاح — أضفه في "
+                              "provider_keys.json بجوار config.yaml"),
+                }), 400
         else:
             return jsonify({"ok": False, "error": f"مزود غير معروف: {prov_id}"}), 400
 

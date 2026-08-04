@@ -210,15 +210,23 @@ providers:
     accounts_file: "accounts_use_ai.json"
     create_share: true
 
-  # مثال: إضافة Gemini مستقبلاً
-  # gemini:
-  #   api_key: ""
-  #   model: "gemini-2.5-pro"
-
-  # مثال: إضافة OpenAI مستقبلاً
-  # openai:
-  #   api_key: ""
-  #   model: "gpt-4o"
+  # ── مزودو API-key (TSK-735 / قيد D-20) ──
+  # ⚠️ لا تضع أي api_key هنا أبدًا — هذا الملف متتبَّع في git
+  # (V3 §0 قيد 6). المفتاح يذهب حصرًا للملف الجانبي المُتجاهَل
+  # provider_keys.json بجوار هذا الملف، بالشكل:
+  #   {"version": 1, "keys": {"<id>": "<api_key>"}}
+  # التعريف هنا غير-سري فقط (id/name/base_url/models) — أي خادم
+  # OpenAI-متوافق (/chat/completions): OpenAI الرسمي، Gemini
+  # (openai-compat endpoint)، DeepSeek الرسمي، ollama المحلي…
+  # api_providers:
+  #   - id: "my_openai"
+  #     name: "OpenAI (مفتاحي)"
+  #     base_url: "https://api.openai.com/v1"
+  #     models: ["gpt-4o", "gpt-4o-mini"]
+  #   - id: "local_ollama"
+  #     name: "Ollama محلي"
+  #     base_url: "http://localhost:11434/v1"
+  #     models: ["qwen2.5-coder"]
 
 # ── خطّافات المالك (TSK-728 / CP-4) — عقد «تشديد-فقط» ──
 # pre_command: خروج ≠0 أو فشل/مهلة ⇒ حجب الأمر (fail-closed).
