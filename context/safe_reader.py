@@ -23,7 +23,8 @@
 ## denylist
 
 بالاسم: `.env` وكل `.env.*` (عدا `.env.example`)، `id_rsa*`،
-`credentials*`، `passwd`، `shadow`، `keys.txt`.
+`credentials*`، `passwd`، `shadow`، `keys.txt`،
+`provider_keys.json` (TSK-735a/D-20: مفاتيح API الجانبية).
 بالامتداد: `.pem`, `.key`, `.pkcs12`, `.pfx`, `.p12`, `.asc`,
 و`*.env` (مثل `production.env`).
 بالمجلد: `.aws`, `.ssh`, `.git`, `.gcloud`, `.kube`.

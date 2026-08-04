@@ -17,7 +17,10 @@ _LOG = logging.getLogger("chain.path_policy")
 
 SECRETS_DENYLIST_NAMES: Set[str] = {
     "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",
-    "credentials", "passwd", "shadow", "keys.txt"
+    "credentials", "passwd", "shadow", "keys.txt",
+    # TSK-735a (D-20): ملف مفاتيح API الجانبي — سر بالتعريف؛
+    # أدوات الوكيل وSafeReader لا تقرآنه أبدًا.
+    "provider_keys.json",
 }
 SECRETS_DENYLIST_EXTENSIONS: Set[str] = {
     ".pem", ".key", ".pkcs12", ".pfx", ".p12", ".asc"

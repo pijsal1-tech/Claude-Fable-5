@@ -18,6 +18,8 @@ ENV/
 *.tar.gz
 accounts_use_ai.json
 keys.txt
+# TSK-735a (D-20): مفاتيح API الجانبية — سر لا يُتتبَّع أبدًا (V3 §0 قيد 6)
+provider_keys.json
 active_team_backup.zip
 editor_v3.rar
 doc_2026-07-12_02-53-55.agents.rar
