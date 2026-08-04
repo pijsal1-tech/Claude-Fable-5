@@ -277,6 +277,59 @@ class TestLexiconGapF015:
         assert d.record.matched_signals.get("request_complexity")
 
 
+# ═══════════════ CEV-F-017: محور المضارعة — مُغلق (TSK-CEV-118) ═══════════════
+
+class TestLexiconGapF017:
+    """محور التصريف الكامل لأفعال إعادة الهيكلة/الكتابة/التصميم (F-017 مُغلقة).
+
+    تاريخ الفجوة (G7 Red Team، S109): «تعيد هيكلته» و«يعيد كتابة» و
+    «نعيد تصميم» (حروف المضارعة ت/ي/ن) لم تُلتقط بأنماط
+    _COMPLEX_REQUEST_PATTERNS — الطلب توجّه direct بدرجة 0.0 رغم أنه
+    إعادة هيكلة كاملة + اختبارات + أمان. الحسم: TSK-CEV-118 (D-18) وسّع
+    فئة الحرف الأول إلى [أاتني] وقصّ الجذور إلى (هيكل|كتاب|تصميم)
+    لالتقاط الضمائر المتصلة (هيكلته/كتابته). الضوابط الخضراء القديمة
+    (أعد/إعادة/refactor) تبقى في TestLexiconGapF015.
+    """
+
+    G7_PROBE = ("راجع الكود ده وتعيد هيكلته كله مع اختبارات وأمان "
+                "ومراجعة شاملة")
+
+    def test_g7_probe_present_tense_ta_catches(self, router):
+        """مجسّ G7 الأصلي حرفيًّا: «وتعيد هيكلته» (عطف + تاء مضارعة +
+        ضمير متصل) يُلتقط الآن ⇒ ليس direct بدرجة 0.0."""
+        d = router.route(self.G7_PROBE, mode="build",
+                         file_content=_lines(2500))
+        assert d.strategy == "full_chain"
+        assert d.record.matched_signals.get("request_complexity")
+
+    def test_present_tense_ya_rewrite_catches(self, router):
+        d = router.route("خليه يعيد كتابة الوحدة دي بالكامل من الصفر",
+                         mode="build", file_content=_lines(2500))
+        assert d.strategy == "full_chain"
+        assert d.record.matched_signals.get("request_complexity")
+
+    def test_present_tense_na_redesign_catches(self, router):
+        d = router.route("محتاجين نعيد تصميم البنية كلها وننقل الوحدات",
+                         mode="build", file_content=_lines(2500))
+        assert d.strategy == "full_chain"
+        assert d.record.matched_signals.get("request_complexity")
+
+    def test_attached_pronoun_root_catches(self, router):
+        """جذر بلا تاء المصدر + ضمير متصل: «أعد هيكلته» (كان يفلت من
+        نمط TSK-CEV-104 المنتهي بـ«هيكلة»)."""
+        d = router.route("أعد هيكلته بالكامل وقسّمه إلى وحدات مستقلة",
+                         mode="build", file_content=_lines(2500))
+        assert d.strategy == "full_chain"
+        assert d.record.matched_signals.get("request_complexity")
+
+    def test_negative_control_plain_write_not_matched(self, router):
+        """ضابط سلبي: «اكتب» العادية لا تطابق التوسيع — لا انزلاق للمعجم
+        (الجذر «كتاب» مشروط بسابقة [أاتني]ع(د|يد) قبله)."""
+        d = router.route("اكتب لي دالة تجمع رقمين", mode="build")
+        assert d.strategy == "direct"
+        assert not d.record.matched_signals.get("request_complexity")
+
+
 # ═══════════════ R10: القدرات المعلنة ↔ حالات corpus ═══════════════
 
 class TestR10CapabilityCorpusLink:

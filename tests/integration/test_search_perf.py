@@ -221,8 +221,35 @@ class TestGoldenParitySearchCode:
 
 # ═══════════════ الأداء (معيار قبول QA-T13) ═══════════════
 
+def _best_of(n: int, fn):
+    """أفضل قياس من n تشغيلات — تقسية ضد رجفة الجدولة على 2 vCPU.
+
+    TSK-CEV-119 (CEV-F-006 S3، بموجب D-18): القياس المضبوط (S109
+    تكملة 15) أثبت أن فشل عتبة 1s **منهجي تحت حمل الحزمة** (3/3 على
+    الأساس) وسببه مزاحمة CPU البيئية لا انحدار الكود (الزمن الفعلي
+    ~0.13s أي أدنى من العتبة بـ~7×). التقسية بأخذ **أفضل** قياس من 3
+    هي الخيار الأول في توصية NEW_FINDINGS §CEV-F-006 (تصحيح التوصيف):
+    - العتبة **لم تُرفع** (تبقى 1.0s حرفيًا)؛
+    - الاختبار **لم يُشطب** ولم يُوسم xfail؛
+    - أفضل-من-3 يقيس قدرة الكود الحقيقية (انحدار خوارزمي حقيقي يفشل
+      الثلاثة معًا) ويُسقط ضجيج الجدولة (يكفي أن تسلم تشغيلة واحدة).
+    يعيد (أفضل زمن، مخرَج التشغيلة الأفضل).
+    """
+    best_dt, best_out = float("inf"), None
+    for _ in range(n):
+        t0 = time.perf_counter()
+        out = fn()
+        dt = time.perf_counter() - t0
+        if dt < best_dt:
+            best_dt, best_out = dt, out
+    return best_dt, best_out
+
+
 class TestPerf5k:
-    """مستودع 5k ملف: كلا المسارين < 1s في الحالة المستقرة."""
+    """مستودع 5k ملف: كلا المسارين < 1s في الحالة المستقرة.
+
+    (TSK-CEV-119) القياس = أفضل-من-3 عبر `_best_of` — انظر مسوّغها هناك.
+    """
 
     def test_api_search_path_under_1s(self, big_project):
         index = ProjectIndex(str(big_project))
@@ -231,23 +258,21 @@ class TestPerf5k:
         svc.search_project("payload_25", walk_exts=WEB_EXTENSIONS,
                            max_size=MAX_FILE_SIZE,
                            content_exts=API_CONTENT_EXTS)
-        t0 = time.perf_counter()
-        res = svc.search_project("MAGIC_NEEDLE_QA_T13",
-                                 walk_exts=WEB_EXTENSIONS,
-                                 max_size=MAX_FILE_SIZE,
-                                 content_exts=API_CONTENT_EXTS)
-        dt = time.perf_counter() - t0
-        assert dt < 1.0, f"api_search على 5k ملف استغرق {dt:.2f}s (≥ 1s)"
+        dt, res = _best_of(3, lambda: svc.search_project(
+            "MAGIC_NEEDLE_QA_T13", walk_exts=WEB_EXTENSIONS,
+            max_size=MAX_FILE_SIZE, content_exts=API_CONTENT_EXTS))
+        assert dt < 1.0, \
+            f"api_search على 5k ملف: أفضل-من-3 = {dt:.2f}s (≥ 1s)"
         assert any(r["type"] == "content" and "MAGIC_NEEDLE_QA_T13" in r["snippet"]
                    for r in res)
 
     def test_tool_search_code_path_under_1s(self, big_project):
         tools = AgentTools(project_root=str(big_project))
         tools.tool_search_code("payload_10", ".")        # إحماء الكاش
-        t0 = time.perf_counter()
-        out = tools.tool_search_code("MAGIC_NEEDLE_QA_T13", ".")
-        dt = time.perf_counter() - t0
-        assert dt < 1.0, f"tool_search_code على 5k ملف استغرق {dt:.2f}s (≥ 1s)"
+        dt, out = _best_of(
+            3, lambda: tools.tool_search_code("MAGIC_NEEDLE_QA_T13", "."))
+        assert dt < 1.0, \
+            f"tool_search_code على 5k ملف: أفضل-من-3 = {dt:.2f}s (≥ 1s)"
         assert "MAGIC_NEEDLE_QA_T13" in out
 
     def test_repeated_calls_reuse_index_and_cache(self, big_project):
