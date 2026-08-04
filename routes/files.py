@@ -12,6 +12,27 @@ bp = Blueprint("files", __name__)
 _srv: Any = None  # كائن وحدة server — يُحقن عند register() (ADR-003)
 
 
+def _err_status(e: Exception) -> int:
+    """TSK-CEV-121 (CEV-F-009, D-18): توحيد العقد الرقمي لأخطاء العميل.
+
+    كان انتهاك حدود المشروع نفسه يرجع 404 للقراءة و500 للكتابة
+    (except Exception شامل). دلاليًا أخطاء التحقق/الحدود أخطاء عميل:
+      PermissionError (اجتياز حدود — path_policy)      ⇒ 403
+      FileNotFoundError (مسار غير موجود)               ⇒ 404
+      ValueError (مدخل مرفوض: حجم/نص غير موجود…)     ⇒ 400
+      أي شيء آخر (عطل خادم حقيقي)                  ⇒ 500
+    fail-closed نفسه بلا تغيير — التغيير في الرمز الرقمي فقط
+    (العميل يعرض error نصيًا — لا كسر توافق).
+    """
+    if isinstance(e, PermissionError):
+        return 403
+    if isinstance(e, FileNotFoundError):
+        return 404
+    if isinstance(e, ValueError):
+        return 400
+    return 500
+
+
 def register(app, srv):
     """يحقن كائن وحدة server ويسجّل الـ blueprint على التطبيق."""
     global _srv
@@ -78,7 +99,11 @@ def api_read_file(filepath):
             "lines": len(content.splitlines())
         })
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 404
+        # TSK-CEV-121: كان 404 شاملًا (حتى لانتهاك الحدود) — الآن نفس
+        # عقد _err_status في الاتجاهين (قراءة/كتابة): اجتياز ⇒ 403.
+        status = _err_status(e)
+        return jsonify({"ok": False, "error": str(e)}), \
+            404 if status == 500 else status
 
 
 @bp.route("/api/folder/<path:folderpath>")
@@ -97,7 +122,7 @@ def api_read_folder(folderpath):
             "count": len(files),
         })
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e)}), _err_status(e)
 
 
 @bp.route("/api/file/<path:filepath>", methods=["POST"])
@@ -109,7 +134,7 @@ def api_write_file(filepath):
         saved_path = _srv.fm.write_file(filepath, content)
         return jsonify({"ok": True, "path": saved_path})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e)}), _err_status(e)
 
 
 @bp.route("/api/file/<path:filepath>", methods=["DELETE"])
@@ -123,7 +148,7 @@ def api_delete_file(filepath):
             return jsonify({"ok": True})
         return jsonify({"ok": False, "error": "ملف غير موجود"}), 404
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e)}), _err_status(e)
 
 
 @bp.route("/api/new-file", methods=["POST"])
@@ -138,7 +163,7 @@ def api_new_file():
         saved = _srv.fm.write_file(filepath, content, backup=False)
         return jsonify({"ok": True, "path": saved})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e)}), _err_status(e)
 
 
 @bp.route("/api/new-folder", methods=["POST"])
@@ -153,4 +178,4 @@ def api_new_folder():
         full.mkdir(parents=True, exist_ok=True)
         return jsonify({"ok": True, "path": folder_name})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e)}), _err_status(e)

@@ -144,3 +144,54 @@ class TestNoImportCycle:
                     "rollback", "project", "__init__"):
             src = (ROOT / "routes" / f"{mod}.py").read_text(encoding="utf-8")
             assert "import server" not in src, mod
+
+
+class TestErrStatusContractF009:
+    """TSK-CEV-121 (CEV-F-009, D-18): العقد الرقمي الموحد لأخطاء العميل.
+
+    كان انتهاك حدود المشروع نفسه يرجع 404 قراءةً و500 كتابةً
+    (except Exception شامل). الآن `_err_status` يميّز:
+    PermissionError⇒403، FileNotFoundError⇒404، ValueError⇒400،
+    والباقي (عطل خادم حقيقي)⇒500. fail-closed لم يتغير — الرمز فقط.
+    """
+
+    def test_err_status_mapping_unit(self):
+        from routes.files import _err_status
+        assert _err_status(PermissionError("x")) == 403
+        assert _err_status(FileNotFoundError("x")) == 404
+        assert _err_status(ValueError("x")) == 400
+        assert _err_status(RuntimeError("x")) == 500
+
+    def test_write_traversal_returns_4xx_not_500(self, monkeypatch, tmp_path):
+        """مجس G6 الأصلي: POST بكتابة خارج الجذر — كان 500، الآن 403.
+        fail-closed يبقى: لا ملف يُكتب خارج الجذر."""
+        from actions.file_manager import FileManager
+        proj = tmp_path / "proj"
+        proj.mkdir()
+        monkeypatch.setattr(server, "fm", FileManager(str(proj)))
+        c = server.app.test_client()
+        r = c.post("/api/file/..%2fpwned.txt", json={"content": "x"})
+        assert r.status_code == 403, r.status_code
+        assert r.get_json()["ok"] is False
+        assert not (tmp_path / "pwned.txt").exists()   # fail-closed محفوظ
+
+    def test_read_traversal_returns_403(self, monkeypatch, tmp_path):
+        """القراءة عبر الحدود: كانت 404 شاملة — الآن 403 (نفس عقد الكتابة)."""
+        from actions.file_manager import FileManager
+        proj = tmp_path / "proj"
+        proj.mkdir()
+        monkeypatch.setattr(server, "fm", FileManager(str(proj)))
+        c = server.app.test_client()
+        r = c.get("/api/file/..%2f..%2fetc%2fpasswd")
+        assert r.status_code == 403, r.status_code
+        assert r.get_json()["ok"] is False
+
+    def test_read_missing_file_still_404(self, monkeypatch, tmp_path):
+        """الملف غير الموجود داخل الحدود يبقى 404 — لا كسر للعقد القديم."""
+        from actions.file_manager import FileManager
+        proj = tmp_path / "proj"
+        proj.mkdir()
+        monkeypatch.setattr(server, "fm", FileManager(str(proj)))
+        c = server.app.test_client()
+        r = c.get("/api/file/no_such_file.txt")
+        assert r.status_code == 404, r.status_code
