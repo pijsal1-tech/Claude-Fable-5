@@ -3694,3 +3694,93 @@ reject_current + 6 أحداث queue_*) بلا أي مقبض WS أو أثر مر�
   المعادة؛ check.sh ALL GREEN.
 
 **DAG (TSK-734)**: 734a → 734b → 734c → 734d (الواجهة آخرًا — بعد ثبات العقد الخلفي).
+
+---
+
+## TSK-735 — مزود API-key عام (OpenAI-متوافق) — القرار 7 من تسلسل D-19 [متوسطة]
+**بموجب قرار مالك D-19 (القرار 7: «فتح طبقة Providers بمفاتيح API») —
+تعديل SECTION 0.8 مُقيَّد في DECISION_LOG (قيد D-20، إجراء V3 §10
+مستوفى).** الفجوة: كل المزودين الحاليين تكاملات هندسة-عكسية هشة
+(cookies/attestation مضمنة)؛ لا مسار قياسي لمستخدم يملك مفتاح API
+رسميًا (OpenAI/Gemini/DeepSeek الرسمي/أي خادم OpenAI-متوافق محلي).
+
+**قرارات واعية (ملزمة)**:
+1. **السر في ملف جانبي مُتجاهَل حصرًا — `provider_keys.json`**:
+   اكتشاف D-20 الحاكم: config.yaml **متتبَّع في git** والشجرة تُعامل
+   كمنشورة دائمًا (V3 §0 قيد 5) ⇒ الأمثلة المعلَّقة `api_key: ""`
+   (config.yaml:215/:220) **مُلغاة كنمط ويُحدَّث تعليقها** ليوجّه إلى
+   الملف الجانبي. الشكل: `{"version": 1, "keys": {"<provider_id>":
+   "<api_key>"}}` بجوار config.yaml؛ يُضاف إلى .gitignore (سابقة
+   accounts_use_ai.json) **وإلى SECRETS_DENYLIST_NAMES في
+   chain/path_policy.py** فلا تقرؤه أدوات الوكيل ولا SafeReader.
+   قراءة طازجة عند كل استهلاك (سابقة TSK-734: حيوية بلا cache)،
+   fail-closed ({} عند غياب/عطب/أنواع خاطئة — لا يرفع).
+2. **المفتاح لا يُردَّد أبدًا (V3 §0 قيد 6)**: لا يظهر في أي
+   endpoint/log/خطأ/تتبع. /api/settings يستبعد قسم providers أصلًا
+   (routes/meta.py:249 — يبقى)؛ /api/models يعرض راية
+   `key_configured` (bool) فقط؛ رسائل أخطاء المزود تُبنى من
+   status_code لا من نص الطلب (الترويسة Authorization لا تدخل أي
+   استثناء). **اختبار عقد**: مفتاح مميز مزروع لا يظهر في أي استجابة.
+3. **مزود عام واحد لا فرع لكل بائع**: `providers/openai_compat.py` —
+   `OpenAICompatProvider` فوق عقد BaseProvider القائم (send/stream/
+   initialize/is_available)، `OpenAICompatConfig(ProviderConfig)`
+   بحقول `base_url` (إلزامي، من config.yaml — ليس سرًّا) و`api_key`
+   (يُحقن وقت الإنشاء من القارئ — لا يُخزَّن في config.yaml أبدًا).
+   بروتوكول `/chat/completions` القياسي (stream=true عبر SSE).
+   Gemini/DeepSeek الرسمي/ollama تعمل بنفس الصنف عبر base_url —
+   قرار واعٍ: لا تكامل خاص لكل بائع (يبقى SECTION 0.8 سيدًا على
+   القديم؛ D-20 موضعي).
+4. **التهيئة عبر config.yaml (غير السري) + المفتاح جانبيًا**: قسم
+   `providers.api_providers` جديد (قائمة: id/name/base_url/models
+   list) — المستخدم يعرّف مزوداته؛ بلا قسم = صفر تغيير سلوك
+   (opt-in، سابقة TSK-731). /api/models يُلحق هذه الإدخالات
+   ديناميكيًا بالقائمة الساكنة مع `key_configured`.
+5. **صفر شبكة في الاختبارات**: كل اختبارات المزود بـ monkeypatch على
+   requests داخل الوحدة (سابقة حارس TSK-731 المُرقَّع الذي يرمي)؛
+   بناء الطلب (URL/ترويسات/payload) يُختبَر بالتقاط الوسائط لا
+   بالإرسال.
+
+- **735a — الوحدة النقية `core/provider_keys.py`**: `KEYS_FILENAME`،
+  `read_provider_keys(dir) -> dict[str, str]` (fail-closed؛ مفاتيح
+  وقيم نصوص غير فارغة فقط — أي شذوذ ⇒ إسقاط صامت للإدخال المعطوب)،
+  `key_for(dir, provider_id) -> str | None`. لا دالة كتابة — الملف
+  يُنشئه المستخدم يدويًا (قرار واعٍ: لا مسار كتابة أسرار من الكود في
+  هذه المرحلة؛ تحريره من UI قرار منتج لاحق وبعد القرار 9 حصرًا).
+  + إدراج `provider_keys.json` في .gitignore
+  وSECRETS_DENYLIST_NAMES (chain/path_policy.py) وتوثيق SafeReader.
+  اختبارات وحدة: round-trip قراءة، fail-closed على كل عطب، denylist
+  يحجب الاسم (اختبار انحدار في نمط test_path_policy القائم).
+- **735b — المزود `providers/openai_compat.py`**: الصنفان أعلاه؛
+  `send` = POST واحد `{base_url}/chat/completions` بترويسة
+  `Authorization: Bearer <key>`؛ `stream` = SSE بنمط openai_shelby؛
+  خطأ 401/403 ⇒ ProviderAuthenticationError برسالة **بلا المفتاح**؛
+  غياب المفتاح ⇒ is_available()=False وinitialize()=False (لا
+  استثناء عند الإقلاع). capabilities: streaming=True. اختبارات وحدة
+  (mocked transport): بناء الطلب صحيح، التقاط الترويسة تحمل المفتاح
+  المحقون، 401 يرفع النوع الصحيح، غياب المفتاح لا يرمي، **المفتاح
+  لا يظهر في str/repr/to_dict للمزود**.
+- **735c — التوصيل (server.py + config.yaml)**: تسجيل ديناميكي عند
+  الإقلاع من `providers.api_providers` (register_provider + بناء
+  config بمفتاح من key_for(_DIR, id))؛ فرع عام في set-model: prov_id
+  موجود في api_providers ⇒ بناء OpenAICompatConfig/Provider (المفتاح
+  يُقرأ طازجًا — تعديل الملف الجانبي ينفذ عند التبديل التالي بلا
+  إعادة تشغيل)؛ /api/models يُلحق الإدخالات مع `key_configured`؛
+  تحديث تعليق config.yaml (إلغاء نمط api_key المعلَّق + مثال
+  api_providers معلَّق بنمط 728c). اختبارات تكامل: إدخال معرَّف يظهر
+  في /api/models براية key_configured الصحيحة؛ set-model لمزود
+  api_providers ينجح بمفتاح مزروع في tmp dir؛ بلا قسم ⇒ /api/models
+  مطابق للساكن (صفر تغيير سلوك)؛ **اختبار العقد الشامل: المفتاح
+  المزروع لا يظهر في /api/models ولا /api/settings ولا استجابة
+  set-model**.
+- **حدود واعية**: صفر تعديل على المزودين القدامى وpool/budget/
+  capacity (تبقى opaque — D-20 موضعي)؛ صفر UI جديد (القائمة القائمة
+  تعرض المزود تلقائيًا عبر /api/models)؛ لا كتابة أسرار من الكود
+  ولا تحرير مفاتيح من UI (بعد القرار 9)؛ config.yaml لا يحمل سرًّا
+  أبدًا؛ registry/base لا يُعدَّلان (استهلاك العقد كما هو).
+- **معايير القبول**: مزود api_providers معرَّف + مفتاح جانبي = يعمل
+  send/stream (mocked)؛ غياب المفتاح = يظهر بـ key_configured:false
+  بلا أعطال؛ المفتاح لا يتسرب لأي استجابة/سجل (اختبار عقد)؛
+  provider_keys.json محجوب عن أدوات الوكيل (denylist)؛ بلا قسم =
+  صفر تغيير سلوك؛ check.sh ALL GREEN.
+
+**DAG (TSK-735)**: 735a → 735b → 735c (لا شريحة واجهة — القائمة القائمة تكفي).
