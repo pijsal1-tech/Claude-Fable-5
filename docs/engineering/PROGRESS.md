@@ -10,10 +10,10 @@
 
 | Field | Value |
 |---|---|
-| last-updated | 2026-08-04 (Session 112 — **القرارات 2 و3 و4 من تسلسل D-19 مُغلقة 🏁**: (2) v1.0.0 النهائي موسوم ومدفوع؛ (3) mypy 100% على 95 ملفًا؛ (4) TSK-732 مؤشر واجهة المهام الخلفية فوق FI-15 — 4 مقابض WS (background_delegate_message/status/approve/reject) + شارة #bg-task-chip + زر «⏱️ تفويض خلفي» + 12 اختبار تكامل حتميًّا؛ البوابة ALL GREEN rc=0: 2598P/34S/0F) |
+| last-updated | 2026-08-04 (Session 112 — **القرارات 2 و3 و4 و5 من تسلسل D-19 مُغلقة 🏁**: (2) v1.0.0 النهائي موسوم ومدفوع؛ (3) mypy 100% على 95 ملفًا؛ (4) TSK-732 مؤشر واجهة المهام الخلفية فوق FI-15؛ (5) TSK-733 لوحة طابور التفويض فوق FI-13 — 4 مقابض WS (queue_delegate_start/status/land/reject) + لوحة #queue-panel + زر «📋 طابور مهام» + 12 اختبار تكامل حتميًّا؛ البوابة ALL GREEN rc=0: 2609P/34S/0F) |
 | stage | **V3-STAGE 4 — برنامج CEV مُغلق (D-12→D-17) + دفعة D-18 BATCH-CLOSEOUT مُقفلة 🏁** — سوابق مُقفلة كلها 🏁: BATCH-P0 6/6 (v1.0.0-rc.1) + BATCH-FI01 5/5 + BATCH-SHORT 5/5 + D-6 5/5 + BATCH-P1 6/6 (D-9) + BATCH-P2 5/5 (D-10) + BATCH-P3 4/4 (D-11) + EOP-1 + CEV 99/100 GO + D-18 |
-| current-phase | **تنفيذ تسلسل D-19**: القرار 2 (v1.0.0) 🏁 + القرار 3 (mypy 100%) 🏁 + القرار 4 (TSK-732 مؤشر المهام الخلفية) 🏁 → **التالي: القرار 5** (لوحة الجلسات CP-12 — واجهة طابور FI-13 delegate_queue.py) → ثم 6 (صلاحيات write-UI) → 7 (مزودو API-key — تعديل SECTION 0.8) → 8 (ACP) → 9 (network exposure أخيرًا)؛ 10/11 مستقلان في أي وقت |
-| current-task | **القرار 5 من تسلسل D-19 — لم يبدأ**: تخطيط أولًا (إجراء D-7 الدائم): قراءة chain/delegate_queue.py (FI-13، TSK-CEV-112) + مواضع UI المرشحة → خطة TSK صغيرة → التنفيذ |
+| current-phase | **تنفيذ تسلسل D-19**: القرار 2 (v1.0.0) 🏁 + القرار 3 (mypy 100%) 🏁 + القرار 4 (TSK-732 مؤشر المهام الخلفية) 🏁 + القرار 5 (TSK-733 لوحة طابور التفويض) 🏁 → **التالي: القرار 6** (صلاحيات write-UI) → ثم 7 (مزودو API-key — تعديل SECTION 0.8) → 8 (ACP) → 9 (network exposure أخيرًا)؛ 10/11 مستقلان في أي وقت |
+| current-task | **القرار 6 من تسلسل D-19 — لم يبدأ**: تخطيط أولًا (إجراء D-7 الدائم): استطلاع بنية الصلاحيات القائمة (write-UI) → خطة TSK صغيرة → التنفيذ |
 | completion % (v4.1 archive) | Planning 100% (40/40) · Execution 100% (19/19 TSK) — مُقفل 🏁 |
 | completion % (new lifecycle) | Stage 1: **12/12 ✅** · Stage 2: **3/3 ✅** · Stage 3: **26/26 TSK ✅ 🏁** (آخر المُغلقة S83: 605←D-2، 617←D-1، 622←D-4، 623←D-3) |
 | repository | pijsal1-tech/Claude-Fable-5 (working branch: main @ 9a3aed0 عند فتح S95) |
@@ -491,6 +491,15 @@ AIA) بالترتيب؛ المفتوحة الآن: **CEV-G1 (البنية)**.
 > **تدوير §6.4 (2026-07-30, S89/D-6)**: قيود Sessions 24–83 (حقبة V1)
 > وأرشيف v4.1 المضمَّن رُحِّلا إلى `PROGRESS_ARCHIVE_1.md` — المقاطع
 > الحاكمة أعلاه لم تُمَس. أدناه قيود حقبة V3 فقط (S84+).
+- **2026-08-04 — Session 112 (تكملة 3) — القرار 5 من تسلسل D-19 مُغلق 🏁: TSK-733 لوحة طابور التفويض (يستهلك FI-13، يكمل القرار 4)**:
+  - **مواصفة D-7 أولًا** (commit 4c416ed): ملاحظة نطاق واعية — MASTER_REVIEW رفض CP-12 multi-session وأجاز إعادة التقييم بعد FI-15؛ التفسير المنضبط = لوحة مهام الطابور فوق DelegateQueue (TSK-CEV-112) — لا multi-session مخترع.
+  - **733a** (3b8ba9c + إنقاذ 491f01e): حقل `delegate_queue` + 4 مقابض WS (queue_delegate_start/status/land/reject) + غلاف `_queue_event_wrapper` يدير التذكرة (completed/failed — لا خانة معلقة؛ DelegateQueue لا يستقبل ticket بحدود CEV-112)؛ start/land_current متزامنان ⇒ خيوط daemon.
+  - **733b** (3b8ba9c): ORIGINAL_MSG_TYPES 29 → 33 بتعليق D-19-5.
+  - **733c** (3b8ba9c): 12 اختبار تكامل حتميًّا — التتابع الصارم مثبَّت (3 نداءات مزود فقط قبل land)؛ الاعتماد → done+actions golden ثم انطلاق التالية؛ الاكتمال/الرفض يحرران التذكرة؛ بديل wait() الغائبة: حلقة استقصاء بمهلة.
+  - **733d** (إنقاذ 8d724d4): queue_panel.js UMD-lite (smoke node 21/21) + لوحة #queue-panel (⏸/⏳/✋/✅/❌ + halt + زرّا data-queue-action) + زر «📋 طابور مهام» (سطر = مهمة) + onopen queue_status + 7 حالات queue_* + CSS بتوكنز فقط.
+  - **الثوابت محفوظة**: صفر تعديل على delegate_queue.py/delegate.py/background_delegate.py؛ الكتابة خلف queue_land الصريح ثم أزرار Apply (طبقتا موافقة)؛ رفض = halt كامل (stop-and-ask).
+  - **البوابة**: check.sh ALL GREEN rc=0 — **2609P/34S/0F** + mypy نجاح (بعد كل شريحة). تصفيرات بيئة #54–#57 أثناء التنفيذ — الرافع التلقائي أنقذ 733a جزئيًّا و733d كاملًا.
+  - **التالي بموجب D-19**: القرار 6 (صلاحيات write-UI) — تخطيط أولًا.
 - **2026-08-04 — Session 112 (تكملة 2) — القرار 4 من تسلسل D-19 مُغلق 🏁: TSK-732 مؤشر واجهة المهام الخلفية (يستهلك FI-15)**:
   - **المواصفة أولًا (إجراء D-7)**: TSK-732 كُتبت في DEVELOPMENT_TASKS.md بأربع شرائح (a توصيل خلفي → b تثبيتات → c اختبارات → d واجهة) قبل أي سطر كود.
   - **732a**: حقل `background_task` في SessionContext + KNOWN_CONVERSATION_STATE + استخراج `_gather_delegate_context` (نقل حرفي) + 4 مقابض WS جديدة فوق BackgroundDelegateTask (TSK-CEV-113 — صفر تعديل عليه). **قرار واعٍ**: المهمة الخلفية تحجز خانة المشروع (تذكرة `_begin_run_ticket`) حتى الحسم. **الثابت الصلب**: لا land تلقائي — approve صريح ثم أزرار Apply (طبقتا موافقة).

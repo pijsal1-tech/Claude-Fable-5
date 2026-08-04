@@ -1474,3 +1474,58 @@ BackgroundDelegateTask (TSK-CEV-113) كان بنية خلفية كاملة بل�
 تصفيرا بيئة (#52 و#53) وقعا أثناء التنفيذ؛ الرافع التلقائي أنقذ 732a+b
 (commits 6222e17 + a2bb858) — أُعيد فقط ملف الواجهة المفقود. البوابة
 الكاملة بعد كل شريحة: **ALL GREEN rc=0 — 2598P/34S/0F** (+12 اختبارًا).
+
+---
+
+## TSK-733 — لوحة المهام وطابور التفويض (القرار 5 من تسلسل D-19 — يستهلك FI-13، يكمل القرار 4) — 2026-08-04 (S112)
+
+**بموجب قرار مالك D-19 (القرار 5)** — أول واجهة فوق FI-13
+(`chain/delegate_queue.py`، TSK-CEV-112): خطة متعددة المهام تُنفَّذ
+بالتتابع الصارم، كل مهمة خلف بوابة اعتماد صريحة. ملاحظة نطاق واعية
+(مثبتة بالمواصفة): MASTER_REVIEW رفض CP-12 «لوحة جلسات متعددة» وأجاز
+إعادة التقييم بعد FI-15 — التفسير المنضبط = **لوحة مهام الطابور**،
+لا multi-session مخترع.
+
+### ما نُفّذ (4 شرائح بمواصفة D-7 مسبقة)
+- **733a — التوصيل الخلفي**: حقل `delegate_queue` في SessionContext
+  (+ KNOWN_CONVERSATION_STATE في lint_handler_state.py) + 4 مقابض WS:
+  `queue_delegate_start` (msg.tasks قائمة نصوص ≥1؛ طابور سابق غير
+  محسوم يُرفض — «طابور جديد لخطة جديدة»؛ تذكرة عبر `_begin_run_ticket`)،
+  `queue_status` (to_dict كامل reconnect-safe)، `queue_land` (**بوابة
+  الموافقة سيدة**: land ثم نفس تحليل أكشنز delegate_approve؛ الأفعال
+  تبقى خلف أزرار Apply — طبقتا موافقة)، `queue_reject` (halt كامل —
+  stop-and-ask). **قرار واعٍ**: DelegateQueue لا يستقبل ticket (حدود
+  CEV-112) ⇒ الخادم يديرها عبر غلاف `_queue_event_wrapper`
+  (queue_completed → completed / queue_halted → failed — لا خانة
+  معلقة). start() وland_current() متزامنان (دورة كاملة) ⇒ خيوط daemon؛
+  التقاط run/task_id قبل land_current (المؤشر يتقدم بعده).
+- **733b — التثبيتات**: ORIGINAL_MSG_TYPES في test_ws_router.py
+  29 → 33 بتعليق D-19-5 (إضافة مقصودة موثقة).
+- **733c — اختبارات**: `tests/integration/test_delegate_queue_handlers.py`
+  — 12 اختبار تكامل حتميًّا (نمط test_background_delegate_handlers:
+  FakeProvider + `_handle_ws_message` + fresh_registry): queue_started
+  + توقف عند waiting_approval (**التتابع الصارم مثبَّت**: 3 نداءات مزود
+  فقط — المهمة 2 لا تنطلق قبل land المهمة 1)؛ to_dict كامل + none؛
+  land → done+actions (golden مشترك) ثم انطلاق التالية تلقائيًا؛
+  الاكتمال → queue_completed + تحرير التذكرة؛ reject → halted + تحرير
+  التذكرة؛ إطلاق ثانٍ مرفوض؛ busy؛ قائمة فارغة → error. **قرار واعٍ**:
+  DelegateQueue بلا wait() ⇒ حلقة استقصاء `_wait_until` بمهلة.
+- **733d — الواجهة**: `static/js/queue_panel.js` (UMD-lite بنمط
+  background_tasks.js — منطق نقي، smoke بـ21 تأكيدًا في node) + لوحة
+  `#queue-panel` فوق منطقة الإدخال (⏸ queued / ⏳ running / ✋ waiting
+  / ✅ landed / ❌ rejected-failed + سبب halt + زرّا اعتماد/رفض
+  data-queue-action) + زر «📋 طابور مهام» (يقسم الإدخال بأسطر — سطر =
+  مهمة) + onopen يرسل queue_status + 7 حالات queue_* في
+  handleWSMessage + toasts مفصلية + CSS بتوكنز فقط.
+
+### حدود واعية (من المواصفة — كلها محفوظة)
+صفر تعديل على chain/delegate_queue.py وdelegate.py
+وbackground_delegate.py؛ مقابض delegate_*/background_* القائمة كما
+هي؛ الكتابة خلف queue_land الصريح ثم أزرار Apply (طبقتا موافقة)؛
+رفض = halt كامل بلا استئناف من الواجهة (قرار منتج لاحق).
+
+### ملاحظة بيئة
+تصفيرات بيئة متتالية (#54–#57) وقعت أثناء التنفيذ؛ الرافع التلقائي
+أنقذ 733a جزئيًّا (491f01e) و733d كاملًا (8d724d4) — أُعيد فقط
+المفقود. البوابة بعد كل شريحة: **ALL GREEN rc=0 — 2609P/34S/0F**
+(+12 اختبارًا فوق أساس TSK-732).
