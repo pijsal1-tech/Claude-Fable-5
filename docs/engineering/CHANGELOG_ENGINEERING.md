@@ -1594,3 +1594,88 @@ network exposure خارج النطاق (القرار 9).
 2631P → 2648P → **2655P/34S/0F** (+46 اختبارًا فوق أساس TSK-733؛
 الـ flake الموثَّق test_no_save_churn ظهر مرة وعاد أخضر معزولًا
 وفي الإعادة الكاملة — mtime timing، لا علاقة له بهذا العمل).
+
+## [2026-08-04] — TSK-735: مزودو API-key القياسيون (القرار 7 من تسلسل D-19، بموجب تعديل D-20) — مُغلق 🏁
+
+### السياق
+قرار المالك D-19 (البند 7): «دعم مزودي API-key». تطلّب تفعيل استثناء
+SECTION 0.8 المرخَّص مسبقًا في D-19 («يُسجَّل صراحة عند بلوغه») —
+سُجِّل قيدًا دستوريًا واحدًا **D-20** في DECISION_LOG (61617f9) بأركان
+V3 §10 الأربعة، بنطاق **موضعي كسابقة D-18**: providers/ فُتح لـ
+TSK-735 فقط؛ التكاملات القديمة (use_ai/alle_ai/shelby/blackbox/
+you_com/perplexity/deepseek/genspark الداخلية + pool/budget/capacity)
+تبقى معتمة؛ الاستبعاد الثنائي يعود بعد إغلاق القرار 7. المواصفة
+الملزمة كُتبت أولًا (إجراء D-7) في DEVELOPMENT_TASKS §TSK-735
+(61617f9) — 5 قرارات واعية + 3 شرائح a-c (بلا شريحة واجهة —
+القائمة المنسدلة القائمة تستهلك /api/models كما هي).
+
+### اكتشاف حاكم (صحّح اعتقادًا سابقًا)
+`config.yaml` **متتبَّع في git** (`git ls-files` = 1؛ .gitignore لا
+يذكره — فقط .env/keys.txt/accounts_use_ai.json). بما أن الشجرة
+تُعامَل كمنشورة دائمًا (V3 §0 قيد 5)، **أُلغي نمط** أمثلة
+`api_key: ""` المعلَّقة — الأسرار تعيش حصريًا في ملف جانبي مُتجاهَل
+`provider_keys.json` بصيغة `{"version":1,"keys":{"<id>":"<key>"}}`.
+
+### القرارات الواعية (من المواصفة — كلها منفّذة)
+1. **السر في ملف جانبي مُتجاهَل + قائمة الحجب**: `provider_keys.json`
+   أُضيف إلى `.gitignore` **و** `SECRETS_DENYLIST_NAMES` — أدوات
+   الوكيل وSafeReader لا يقرآنه أبدًا؛ اختبار الحجب البارامتري
+   (test_path_policy_secret_normalization يمرّ على
+   sorted(SECRETS_DENYLIST_NAMES)) غطّى الاسم الجديد **تلقائيًا**
+   بمتغيرات التهرب (CEV-117 normalize_secret_name).
+2. **المفتاح لا يُردَّد أبدًا**: رسائل الأخطاء تُبنى من status_code
+   فقط؛ /api/models يكشف راية `key_configured` bool فقط؛ اختبارات
+   كناري (canary) في الوحدة والتكامل تتأكد أن السر غائب عن كل رسالة
+   واستجابة (`get_info`/`__repr__`/الأخطاء/الـ endpoints الأربعة).
+3. **مزود عام واحد**: `providers/openai_compat.py` — معيار
+   `/chat/completions` + بث SSE (نمط shelby iter_lines) — **صفر
+   تفرعات لكل بائع**؛ التعيين: 401/403 ⇒ Auth (من الحالة فقط)،
+   429/5xx/4xx ⇒ Transient، Timeout ⇒ ProviderTimeoutError،
+   RequestException ⇒ Transient بـ `type(exc).__name__` فقط (النص
+   الخام قد يحمل ترويسات).
+4. **اشتراك اختياري (opt-in)**: قائمة `providers.api_providers` في
+   config.yaml (id/name/base_url/models) — **بلا قسم = صفر تغيير
+   سلوك**؛ تحليل fail-closed للشكل (مدخل بلا id/base_url نصيَّين
+   غير فارغين يُسقَط بصمت).
+5. **صفر شبكة في الاختبارات**: monkeypatch على `oc.requests.post`
+   مع `_FakeResponse` قابل للبرمجة — التقاط url/headers/json.
+
+### الشرائح
+- **735a — طبقة المفاتيح** (71b5f8e): `core/provider_keys.py` نقي
+  (read_provider_keys fail-closed + إسقاط المدخل الفاسد بصمت +
+  key_for؛ **لا دالة كتابة** — تحرير المفاتيح من الواجهة مؤجَّل
+  لما بعد القرار 9)؛ الحجب الثلاثي (path_policy/.gitignore/توثيق
+  safe_reader)؛ 20 اختبار وحدة / 5 فئات.
+- **735b — المزود العام** (أنقذه الرافع a645b4e؛ الإكمال e7875b0):
+  `providers/openai_compat.py` (Config بـ base_url rstrip + api_key
+  + provider_id؛ is_available = مفتاح **و** رابط؛ get_info براية
+  key_configured لا المفتاح؛ __repr__ يخفيه)؛ 19 اختبارًا ممسرَحًا
+  (كناري "sk-CANARY-735-do-not-echo")؛ إصلاح SyntaxError في ملف
+  الرافع (بايتات بأحرف عربية ⇒ `.encode("utf-8")`)؛ تسجيل
+  OpenAICompatProvider في عقد T-010 (ProviderContractMixin).
+- **735c — توصيل الخادم** (أنقذه الرافع 037175f؛ إصلاح الأنواع
+  11aa183): `_api_providers_config()` (تحليل fail-closed) +
+  `_build_api_provider()` (**قراءة مفتاح طازجة** عبر key_for عند
+  كل تبديل — سابقة TSK-734: تحرير الملف يسري عند التبديل التالي
+  بلا إعادة تشغيل) + إلحاق ديناميكي في /api/models (اسم بادئة 🔑 +
+  key_configured) + فرع تبديل عام (400 برسالة تذكر provider_keys.json
+  عند غياب المفتاح)؛ config.yaml (متتبَّع — تعليقات فقط): استبدال
+  أمثلة api_key المعلَّقة بكتلة تحذير D-20 + مثال api_providers؛
+  11 اختبار تكامل / 4 فئات (كناري "sk-CANARY-735c-never-echoed"؛
+  القراءة الطازجة مثبتة؛ قسم providers ما زال مستبعدًا من
+  /api/settings حسب TSK-722a)؛ إصلاح mypy dict-item بتعنوين
+  `providers_list: list[dict]` (Any عند الحد السلكي — سابقة TSK-614).
+
+### حدود واعية (كلها محفوظة)
+registry/base بلا تعديل (حدود D-20)؛ التكاملات القديمة لم تُمَس؛
+network exposure خارج النطاق (القرار 9 — **يجب أن يعيد فحص مسار
+provider_keys.json عند بلوغه**)؛ لا كتابة مفاتيح من الواجهة.
+
+### ملاحظة بيئة
+تصفيرات بيئة متتالية (#61–#64) أثناء التنفيذ؛ الرافع التلقائي أنقذ
+735b (a645b4e — بخطأ صياغة أُصلح) و735c كاملة (037175f — بخطأ mypy
+أُصلح). البوابة بعد كل شريحة: **ALL GREEN rc=0** — تصاعديًا
+2655P → 2687P → 2718P → **2729P/34S/0F** (+74 اختبارًا فوق أساس
+TSK-734؛ الـ flakes الزمنية الموثَّقة test_no_save_churn
+وTestBenchmark::test_append_cost ظهرتا بالتناوب أثناء 735a وعادتا
+خضراوين معزولتين وفي الإعادة الكاملة — لا علاقة لهما بهذا العمل).
