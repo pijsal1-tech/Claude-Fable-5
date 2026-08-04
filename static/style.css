@@ -3901,3 +3901,46 @@ html, body {
     color: var(--red-soft);
     background: color-mix(in srgb, var(--red-soft) 12%, transparent);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   TSK-732d (D-19-4): شارة المهام الخلفية + زر الإطلاق
+   ═══════════════════════════════════════════════════════════ */
+#bg-task-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 14px;
+    font-size: 11.5px;
+    background: color-mix(in srgb, var(--blue) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--blue) 35%, transparent);
+    color: var(--text);
+    white-space: nowrap;
+}
+#bg-task-chip.hidden { display: none; }
+.bg-chip-label { user-select: none; }
+.bg-chip-btn {
+    border: 1px solid var(--surface-1);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    color: var(--text);
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+    font-family: inherit;
+}
+.bg-chip-btn:hover { filter: brightness(1.2); }
+.bg-chip-btn.bg-approve { border-color: var(--green-soft); }
+.bg-chip-btn.bg-reject { border-color: var(--red-soft); }
+.bg-launch-btn {
+    border: 1px solid var(--surface-1);
+    border-radius: 12px;
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    font-size: 11.5px;
+    padding: 3px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+}
+.bg-launch-btn:hover { color: var(--text); border-color: var(--blue); }

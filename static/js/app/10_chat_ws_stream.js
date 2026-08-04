@@ -25,6 +25,9 @@ function initWebSocket() {
         state.connected = true;
         updateConnectionDot(true);
         wsReconnectBackoff.reset();
+        // TSK-732d (D-19-4): استعادة صورة المهمة الخلفية بعد
+        // إعادة اتصال — snapshot من الكائن الحي (reconnect-safe).
+        state.ws.send(JSON.stringify({ type: "background_status" }));
     };
 
     state.ws.onclose = () => {
@@ -509,8 +512,86 @@ function handleWSMessage(data) {
             state.streaming = false;
             document.getElementById("send-btn").disabled = false;
             break;
+
+        // ── TSK-732d (D-19-4): المهام الخلفية — الشارة تلتقط الإطارات
+        // الأربعة (منطق الحالة نقي في BackgroundTasks؛ الغراء هنا
+        // يرسم/يُطلق toast فقط — لا منطق جديد). ──
+        case "background_started":
+        case "background_event":
+        case "background_finished":
+        case "background_status":
+            if (BackgroundTasks.noteFrame(backgroundTasksState, data)) {
+                renderBackgroundChip();
+            }
+            break;
     }
 }
+
+// ═══════════════════════════════════════════
+// TSK-732d (D-19-4): غراء شارة المهام الخلفية — DOM فوق
+// BackgroundTasks (المنطق النقي في static/js/background_tasks.js).
+// الثابت الصلب: زر الاعتماد يرسل background_approve الصريح فقط —
+// والأفعال الناتجة تبقى خلف أزرار Apply القائمة (طبقتا موافقة).
+// ═══════════════════════════════════════════
+const backgroundTasksState = BackgroundTasks.createState();
+let _bgLastToastStatus = "";   // منع تكرار toast لنفس الحالة النهائية
+
+function renderBackgroundChip() {
+    const chip = document.getElementById("bg-task-chip");
+    if (!chip) return;
+    const st = backgroundTasksState;
+    if (BackgroundTasks.chipVisible(st)) {
+        chip.innerHTML = BackgroundTasks.renderChipHTML(st);
+        chip.classList.remove("hidden");
+        _bgLastToastStatus = "";
+    } else {
+        chip.classList.add("hidden");
+        chip.innerHTML = "";
+        // حالة نهائية → toast واحد (لا تكرار عند إعادة snapshot).
+        if (BackgroundTasks.isTerminal(st.status)
+            && st.status !== _bgLastToastStatus) {
+            const t = BackgroundTasks.terminalToast(st.status, st.error);
+            if (t) toast(t.text, t.kind);
+            _bgLastToastStatus = st.status;
+        }
+    }
+}
+
+function launchBackgroundDelegate() {
+    const input = document.getElementById("chat-input");
+    const text = input.value.trim();
+    if (!text) {
+        toast("اكتب وصف المهمة أولًا ثم اضغط تفويض خلفي", "info");
+        return;
+    }
+    if (!state.connected) {
+        toast("⚠️ الاتصال مقطوع", "error");
+        return;
+    }
+    addChatMessage("user", text + " ⏱️ (تفويض خلفي)");
+    state.ws.send(JSON.stringify({
+        type: "background_delegate_message",
+        text: text,
+    }));
+    input.value = "";
+    autoResizeInput(input);
+}
+
+// تفويض نقر أزرار الحسم داخل الشارة (data-bg-action).
+document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-bg-action]");
+    if (!btn) return;
+    if (!state.connected) {
+        toast("⚠️ الاتصال مقطوع", "error");
+        return;
+    }
+    if (btn.dataset.bgAction === "approve") {
+        state.ws.send(JSON.stringify({ type: "background_approve" }));
+    } else if (btn.dataset.bgAction === "reject") {
+        state.ws.send(JSON.stringify({ type: "background_reject",
+                                       reason: "" }));
+    }
+});
 
 // ═══════════════════════════════════════════
 // Terminal Approval Card (run_command lifecycle)

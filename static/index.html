@@ -96,6 +96,10 @@
     <!-- Workspace Trust — TSK-725c (P2-3/D-10): منطق نقي قبل app.js
          لأن غراء الثقة يستهلك TrustBanner. القرار للمستخدم فقط. -->
     <script src="/static/js/trust_banner.js?v=1"></script>
+    <!-- شارة المهام الخلفية — TSK-732d (D-19-4): منطق نقي قبل
+         app.js لأن handleWSMessage يستهلك BackgroundTasks. الحسم
+         (approve/reject) للمستخدم حصريًا — لا land تلقائي. -->
+    <script src="/static/js/background_tasks.js?v=1"></script>
 </head>
 
 <body>
@@ -165,6 +169,12 @@
 
             <!-- Right controls -->
             <div class="header-right">
+
+                <!-- شارة المهمة الخلفية — TSK-732d (D-19-4): تظهر مع
+                     background_started، تتحدث مع الأحداث، وتعرض زري
+                     الحسم عند waiting_approval (الغراء في
+                     10_chat_ws_stream.js؛ المنطق في background_tasks.js) -->
+                <div id="bg-task-chip" class="hidden"></div>
 
                 <div class="header-divider"></div>
 
@@ -489,6 +499,16 @@
                             </div>
 
                             <div class="chat-toolbar-spacer"></div>
+
+                            <!-- إطلاق تفويض خلفي — TSK-732d (D-19-4): يرسل
+                                 background_delegate_message بنص الإدخال الحالي
+                                 (hand-off — المستخدم يواصل عمله؛ الكتابة تبقى
+                                 خلف الاعتماد الصريح ثم أزرار Apply) -->
+                            <button class="bg-launch-btn" id="bg-launch-btn"
+                                onclick="launchBackgroundDelegate()"
+                                title="تفويض خلفي — أطلق المهمة وواصل عملك">
+                                ⏱️ تفويض خلفي
+                            </button>
 
                             <!-- Provider Badge 
                             <div class="provider-badge" id="chat-provider-badge">
