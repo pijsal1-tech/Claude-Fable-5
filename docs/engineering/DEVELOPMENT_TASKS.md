@@ -3492,3 +3492,67 @@ the gates» (:8-19). الفجوة: معايير الحكم في
 
 
 **DAG**: 101 → 102 → 103 (كل شريحة تُقفل ببوابة مستقلة)؛ 104 مستقلة. 105–109 (حراس AIA-7) مستقلة عن 101–104؛ 109a يسبق 109b. 110 بعد 109 (تُقفل حدّه الموثق)؛ 110a+110b معًا ثم 110c؛ 111 مستقلة (تحسم F-003 — أول بنود طابور D-16)؛ 112 مستقلة (FI-13 — D-16 البند 5)؛ 113 (FI-15 — D-16 البند 7) بعد 112؛ 114 مستقلة (FI-14 — D-16 البند 6؛ نُفِّذت قبل 113 وفق ترتيب طابور المالك)؛ 115 مستقلة (FI-16 — D-16 البند 8)؛ 116 مستقلة (NF-18 توحيد — D-16 البند 9 الأخير قبل G7).
+
+
+## TSK-732 — مؤشر واجهة المهام الخلفية (القرار 4 من تسلسل D-19 — يستهلك FI-15) [متوسطة]
+**بموجب قرار مالك D-19 (القرار 4: «أول تغيير يراه المستخدم فعليًا») —
+الشرط المسبق FI-15 (TSK-CEV-113 `chain/background_delegate.py`) مقفل.**
+الفجوة: BackgroundDelegateTask بنية خلفية كاملة (start/snapshot/land/
+reject + أحداث background_started/event/finished) لكن «مؤشر الواجهة
+خارج النطاق عمدًا» (نص TSK-CEV-113) — لا مقبض WS ولا أي أثر مرئي.
+- **732a — التوصيل الخلفي (server.py + session_context)**:
+  - حقل `background_task` في SessionContext (كسول لكل اتصال — نفس
+    نمط delegate_bridge) + إضافته لقائمة KNOWN_CONVERSATION_STATE
+    في scripts/lint_handler_state.py.
+  - استخراج `_gather_delegate_context(sctx)` مساعدًا مشتركًا من جسم
+    `_ws_delegate_message` (جمع files_context + الميزانية +
+    project_context — نقل حرفي، صفر تغيير سلوك للمسار القائم).
+  - 4 مقابض WS جديدة في WS_HANDLERS:
+    1. `background_delegate_message`: تذكرة عبر `_begin_run_ticket`
+       (سياسة الـ run الواحد لكل مشروع تبقى سيدة — **قرار واعٍ**:
+       المهمة الخلفية تحجز خانة المشروع حتى الحسم؛ إرخاؤها قرار
+       منتج لاحق) → `BackgroundDelegateTask(DelegateBridge(...))` فوق
+       جسر الاتصال → `start(..., on_event=بثّ {"type": et, **ed},
+       ticket=ticket)` — يرجع فورًا (hand-off).
+    2. `background_status`: يرسل إطار `{"type": "background_status",
+       **task.snapshot()}` — reconnect-safe (تستدعيه الواجهة عند
+       onopen لاستعادة الصورة بعد إعادة اتصال).
+    3. `background_approve`: **الثابت الصلب (لا YOLO)** — كتابة فقط
+       بعد هذا الإطار الصريح: `task.land()` ثم نفس تحليل الأكشنز
+       في `_ws_delegate_approve` (parse → actions → إطار done) —
+       الأفعال نفسها تبقى خلف أزرار Apply القائمة (بوابة الموافقة).
+    4. `background_reject`: `task.reject(reason)`.
+  - مهمة خلفية سابقة لم تُحسم (waiting_approval) تمنع إطلاق جديدة
+    من نفس الاتصال (رسالة خطأ واضحة) — كائن جديد لكل مهمة.
+- **732b — تحديث التثبيتات**: ORIGINAL_MSG_TYPES في
+  test_ws_router.py (25 → 29 بتعليق يوثق الإضافة المقصودة تحت
+  D-19-4)؛ أي حارس آخر تكشفه البوابة.
+- **732c — اختبارات تكامل حتمية** (نمط
+  test_delegate_approve_handler.py: FakeProvider + `_handle_ws_message`
+  حرفيًا): الإطلاق يرجع إطار background_started فورًا؛ بعد
+  اكتمال الدورة (wait بمهلة) الحالة waiting_approval **بلا land
+  تلقائي**؛ background_status يعيد snapshot كاملًا؛ background_approve
+  يهبط ويبث done+actions؛ background_reject يرفض؛ إطلاق ثانٍ فوق
+  waiting_approval يُرفض برسالة؛ busy عند تذكرة محجوزة.
+- **732d — الواجهة (المؤشر المرئي)**:
+  - `static/js/background_tasks.js` (UMD-lite بنمط status_chip.js):
+    شارة في الهيدر (id="bg-task-chip") تظهر عند background_started
+    (⏳ يعمل)، تتحدث مع background_event، وعند background_finished
+    بحالة waiting_approval تتحول (✋ بانتظارك) مع زرّي اعتماد/رفض
+    يرسلان background_approve/background_reject؛ landed/rejected/
+    failed = toast + إخفاء الشارة.
+  - زر إطلاق في شريط أدوات الإدخال («⏱️ تفويض خلفي») يرسل
+    background_delegate_message بنص الإدخال الحالي.
+  - onopen: إرسال background_status لاستعادة الشارة بعد إعادة اتصال.
+  - حالات الإطارات الأربعة في handleWSMessage (10_chat_ws_stream.js).
+- **حدود واعية**: صفر تعديل على chain/background_delegate.py
+  وdelegate.py وdelegate_queue.py؛ صفر تغيير على مقابض
+  delegate_message/approve/reject القائمة (المسار القديم كما هو —
+  الاستخراج المساعد نقل حرفي)؛ الكتابة تبقى خلف approve الصريح ثم
+  أزرار Apply (طبقتا موافقة — لا اختزال)؛ لا طوابير (FI-13 UI خارج
+  النطاق — القرار 5 لاحقًا).
+- **معايير القبول**: المقابض الأربعة مغطاة باختبارات تكامل حتمية
+  خضراء؛ الثابت الصلب مثبَّت (لا land بلا إطار صريح)؛ الشارة تظهر
+  وتتحدث وتختفي في الدورة الكاملة؛ check.sh ALL GREEN.
+
+**DAG (TSK-732)**: 732a → 732b → 732c → 732d (الواجهة آخرًا — بعد ثبات العقد الخلفي).

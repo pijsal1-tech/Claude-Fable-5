@@ -37,6 +37,7 @@ KNOWN_CONVERSATION_STATE = frozenset({
     "chat_history", "fm", "cmd_runner", "session_mgr", "provider",
     "_binding_banner", "delegate_bridge", "chain_bridge",
     "_active_agent_loop", "_backup_done_for_batch",
+    "background_task",  # TSK-732 (D-19-4): حالة محادثة — عبر sctx حصريًا
 })
 
 _MUTABLE_NODES = (ast.List, ast.Dict, ast.Set, ast.ListComp, ast.DictComp,
