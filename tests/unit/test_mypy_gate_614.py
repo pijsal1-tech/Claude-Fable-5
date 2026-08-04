@@ -45,18 +45,33 @@ class TestGateLineStructure:
         assert "routes/ server.py" in CHECK_SH
 
     def test_documented_excludes_only(self):
-        """الاستبعادات محصورة بالمسوَّغ الموثَّق: openai_shelby (خطأ قائم
-        مسبقًا — ADR-004) + you_com/perplexity/blackbox (كود وارد خارج
-        الحوكمة @ c9ab00c — TSK-CEV-102/D-13)؛ كلها providers/ خارج
-        النطاق §0.8، وproviders/ نفسها باقية في النطاق."""
-        assert (r"--exclude 'providers/(openai_shelby|you_com|perplexity"
-                r"|blackbox)\.py'") in CHECK_SH
+        """الاستبعاد الوحيد الباقي: openai_shelby (خطأ قائم مسبقًا :166 —
+        ADR-004؛ D-18 نصًّا: «يبقى مستثنى»). استبعادات
+        you_com/perplexity/blackbox (TSK-CEV-102/D-13) رُفعت بموجب D-18
+        (BATCH-CLOSEOUT) بعد إضافة حارس None بنمط genspark.py:58-59
+        في الثلاثة — لا يجوز عودتها."""
+        assert r"--exclude 'providers/openai_shelby\.py'" in CHECK_SH
+        # الاستبعادات المرفوعة لا تعود (انحدار D-18): سطر exclude نفسه
+        exclude_arg = CHECK_SH.split("--exclude ")[1].splitlines()[0]
+        for lifted in ("you_com", "perplexity", "blackbox"):
+            assert lifted not in exclude_arg, \
+                f"استبعاد {lifted} عاد بعد رفعه في D-18"
         # لا استبعاد لأي ملف داخل النطاق الداخلي (chain/core/...)
         assert "--exclude 'chain" not in CHECK_SH
         assert CHECK_SH.count("--exclude") == 1
         # providers/ ما زالت تُفحص (لم تُستبعد كلها)
         mypy_line_block = CHECK_SH[CHECK_SH.index("--check-untyped-defs"):]
         assert "providers/ chain/" in mypy_line_block
+
+    def test_lifted_providers_have_none_guard(self):
+        """القبول المادي لرفع الاستبعادات: الحارس موجود نصًّا في الملفات
+        الثلاثة (نفس نمط genspark.py) — الشرط الذي علّقت عليه
+        TSK-CEV-102 الرفع («تُرفع الاستبعادات يوم يُصلح النمط»)."""
+        for fname in ("you_com.py", "perplexity.py", "blackbox.py",
+                      "genspark.py"):
+            src = (ROOT / "providers" / fname).read_text(encoding="utf-8")
+            assert "if spec is None or spec.loader is None:" in src, \
+                f"providers/{fname} بلا حارس None"
 
 
 # ═══════════ 2) الاختبار السلبي الموثق (القبول) ═══════════
