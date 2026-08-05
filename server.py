@@ -237,6 +237,43 @@ def _api_providers_config() -> dict[str, dict]:
     return out
 
 
+def _acp_agents_config() -> dict[str, dict]:
+    """TSK-736c (القرار 8 من تسلسل D-19): وكلاء ACP الخارجيون
+    المعرَّفون في ``acp.agents`` — id → إعدادات.
+
+    opt-in خالص (القرار الواعي 4 في مواصفة TSK-736 — نمط
+    _api_providers_config): بلا قسم ⇒ {} ⇒ صفر تغيير سلوك.
+    fail-closed على الشكل: إدخال بلا id نصي غير فارغ أو بلا command
+    نصي غير فارغ يُسقَط صامتًا. ``command``/``args`` يكتبهما المالك
+    بيده (سابقة hooks TSK-728) — ولا يُكشفان عبر أي REST أبدًا
+    (قد يحملان مسارات/وسائط حساسة)."""
+    cfg = _load_config()
+    acp_cfg = cfg.get("acp")
+    if not isinstance(acp_cfg, dict):
+        return {}
+    entries = acp_cfg.get("agents")
+    if not isinstance(entries, list):
+        return {}
+    out: dict[str, dict] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        aid = entry.get("id")
+        command = entry.get("command")
+        if not isinstance(aid, str) or not aid.strip():
+            continue
+        if not isinstance(command, str) or not command.strip():
+            continue
+        args = entry.get("args")
+        out[aid] = {
+            "name": str(entry.get("name") or aid),
+            "command": command,
+            "args": [a for a in args if isinstance(a, str)]
+            if isinstance(args, list) else [],
+        }
+    return out
+
+
 def _build_api_provider(pid: str, model_name: str):
     """بناء مزود API-key من config + المفتاح الجانبي (قراءة طازجة —
     تعديل provider_keys.json ينفذ عند التبديل التالي بلا إعادة تشغيل).
