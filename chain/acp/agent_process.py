@@ -35,7 +35,6 @@ import threading
 from typing import IO, Any, Callable
 
 from .connection import AcpConnection, AcpError, Notification, Request
-from .protocol import Notification as _Note  # noqa: F401 — re-export توثيقي
 
 logger = logging.getLogger(__name__)
 
