@@ -252,3 +252,16 @@ providers:
 # updates:
 #   check_enabled: true
 #   manifest_url: "https://example.com/releases/manifest.json"
+
+# ── وكلاء ACP الخارجيون (TSK-736 / D-19 القرار 8) — opt-in، معطَّل افتراضيًا ──
+# المحرر **عميل** ACP فقط (لا خادم — القرار الواعي 1). بلا قسم = صفر
+# تغيير سلوك. command/args يكتبهما المالك بيده هنا حصرًا (سابقة hooks
+# TSK-728) — لا تحرير من الواجهة ولا يُكشفان عبر REST. العملية لا ترث
+# أي صلاحية كتابة: كل fs/write + request_permission عبر ApprovalGate
+# نفسها، وكل fs/read عبر path_policy (denylist الأسرار) — لا YOLO.
+# acp:
+#   agents:
+#     - id: "my_agent"
+#       name: "وكيلي المحلي"
+#       command: "python"
+#       args: ["path/to/agent.py"]

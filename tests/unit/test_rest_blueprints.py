@@ -38,6 +38,7 @@ import server  # noqa: E402
 # نفس القائمة حرفيًا؛ أي تغيير هنا تغيير عقد يحتاج قرارًا).
 FROZEN_RULES = [
     ("/", ("GET",)),
+    ("/api/acp/agents", ("GET",)),  # TSK-736c/D-19-8 — قائمة وكلاء ACP (id/name فقط — لا كشف command/args)
     ("/api/backups", ("GET",)),
     ("/api/capacity", ("GET",)),
     ("/api/chat-history", ("GET",)),
@@ -84,7 +85,7 @@ def _current_rules():
 
 class TestRouteSurfaceFrozen:
     def test_rule_count_constant(self):
-        assert len(_current_rules()) == 35   # 31 + diagnostics(721) + settings(722a) + trust(725b) + update-check(731b)
+        assert len(_current_rules()) == 36   # 31 + diagnostics(721) + settings(722a) + trust(725b) + update-check(731b) + acp/agents(736c)
 
     def test_rules_bit_identical(self):
         assert _current_rules() == sorted(FROZEN_RULES)

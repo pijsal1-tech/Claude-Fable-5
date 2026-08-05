@@ -1086,6 +1086,20 @@ def api_models():
     return jsonify({"ok": True, "providers": providers_list, "current": current})
 
 
+@app.route("/api/acp/agents")
+def api_acp_agents():
+    """TSK-736c (D-19 القرار 8): وكلاء ACP المعرَّفون في ``acp.agents``.
+
+    **عقد عدم-الكشف** (مواصفة TSK-736): الاستجابة تحمل id/name فقط —
+    ``command``/``args`` لا يدخلان أي REST أبدًا (قد يحملان مسارات
+    محلية/وسائط حساسة كتبها المالك). بادئة 🤝 (نمط 🔑 TSK-735c).
+    بلا قسم acp ⇒ قائمة فارغة (opt-in خالص — صفر تغيير سلوك).
+    """
+    agents = [{"id": aid, "name": f"🤝 {entry['name']}"}
+              for aid, entry in _acp_agents_config().items()]
+    return jsonify({"ok": True, "agents": agents})
+
+
 @app.route("/api/switch-model", methods=["POST"])
 def api_switch_model():
     """تغيير المزود/النموذج"""
@@ -2245,6 +2259,101 @@ def _ws_memory_delete(ctx, sctx, msg):
     sctx.send(_memory_delete_frame(_root, msg.get("entry_id", "")))
 
 
+# ═══════════════════════════════════════════
+#  TSK-736c (D-19 القرار 8): ACP — المحرر عميلًا لوكلاء خارجيين
+# ═══════════════════════════════════════════
+
+
+def _run_acp_prompt(sctx, entry, root, ticket, text):
+    """جسم تشغيلة ACP على خيط عامل (نمط _apply_batch/TSK-606).
+
+    الحوكمة (حلّ قلقَي CP-15 — القراران الواعيان 2 و3):
+    - كل fs/write + request_permission من الوكيل ⇒ **نفس**
+      ApprovalGate الوحدوي (يُقرأ وقت النداء — لا كاش، سابقة T-006).
+    - كل fs/read ⇒ path_policy (احتواء workspace + denylist أسرار).
+    - العملية لا ترث أي صلاحية كتابة — كتاباتها الوحيدة عبر
+      GovernedFsHandler المُبوَّب؛ stderr إلى DEVNULL.
+
+    عقد عدم-الترديد: الأخطاء المُبثّة للواجهة تحمل نوع الاستثناء
+    فقط — لا أوامر ولا مسارات (قد تحمل تفاصيل بيئة المالك).
+    """
+    from chain.acp.agent_process import AcpAgentProcess, AcpAgentUnavailable
+    from chain.acp.governed_fs import GovernedFsHandler
+    handler = GovernedFsHandler(root, approval_gate=approval_gate,
+                                source="acp")
+
+    def _notify(note):
+        if note.method != "session/update":
+            return
+        params = note.params if isinstance(note.params, dict) else {}
+        frame = {"type": "acp_update"}
+        for key in ("sessionId", "kind", "text"):
+            if key in params:
+                frame[key] = params[key]
+        try:
+            sctx.send(frame)
+        except Exception as _exc:
+            # NF-14 (ابتلاع مقصود — نمط §14): WS مقفول أثناء بث
+            # إشعار وكيل — البث لا يعطل الجلسة.
+            _slog_swallowed("server.py:_run_acp_prompt:notify", _exc)
+
+    proc = AcpAgentProcess(
+        command=entry["command"], args=entry["args"], cwd=root,
+        on_request=handler, on_notification=_notify)
+    try:
+        proc.start()
+        session_id = proc.new_session(root)
+        result = proc.prompt(session_id, text)
+        payload = result if isinstance(result, dict) else {}
+        frame = {"type": "acp_result"}
+        for key in ("stopReason", "text"):
+            if key in payload:
+                frame[key] = payload[key]
+        sctx.send(frame)
+        ticket.finish("completed")
+    except AcpAgentUnavailable as exc:
+        # رسالتنا نحن (نوع استثناء فقط — agent_process يضمن ذلك)
+        sctx.send({"type": "acp_error", "text": str(exc)})
+        ticket.finish("failed")
+    except Exception as exc:
+        sctx.send({"type": "acp_error",
+                   "text": f"فشلت جلسة الوكيل ({type(exc).__name__})"})
+        ticket.finish("failed")
+    finally:
+        proc.stop()
+
+
+def _ws_acp_prompt(ctx, sctx, msg):
+    """إطلاق prompt على وكيل ACP معرَّف في ``acp.agents``.
+
+    opt-in خالص: وكيل غير معرَّف في config ⇒ رفض (لا تشغيل أوامر
+    من الواجهة أبدًا — الأمر من config حصرًا، القرار الواعي 4).
+    """
+    agent_id = str(msg.get("agent_id", "")).strip()
+    text = str(msg.get("text", "")).strip()
+    if not agent_id or not text:
+        sctx.send({"type": "acp_error", "text": "agent_id والنص مطلوبان"})
+        return
+    entry = _acp_agents_config().get(agent_id)
+    if entry is None:
+        sctx.send({"type": "acp_error",
+                   "text": f"وكيل غير معرَّف في config: {agent_id}"})
+        return
+    root = sctx.project.root if sctx.project else None
+    if not root:
+        sctx.send({"type": "acp_error", "text": "لا مشروع نشط"})
+        return
+    ticket = _begin_run_ticket("agent", sctx.send, sctx=sctx)
+    if ticket is None:
+        return
+    threading.Thread(
+        target=_run_acp_prompt,
+        args=(sctx, entry, root, ticket, text),
+        daemon=True,
+        name="runner-acp",
+    ).start()
+
+
 # TSK-611 (ADR-001): جدول dispatch — التوجيه كبيانات؛ الأنواع المركّبة
 # مفتاحان لنفس المقبض. يُمرَّر إلى core.ws_router.dispatch.
 WS_HANDLERS = {
@@ -2283,6 +2392,8 @@ WS_HANDLERS = {
     "memory_list": _ws_memory_list,
     "memory_edit": _ws_memory_edit,
     "memory_delete": _ws_memory_delete,
+    # TSK-736c (D-19-8): وكلاء ACP الخارجيون — نوع جديد (36 → 37)
+    "acp_prompt": _ws_acp_prompt,
 }
 
 

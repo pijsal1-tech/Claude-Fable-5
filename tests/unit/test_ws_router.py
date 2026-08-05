@@ -31,6 +31,9 @@ ORIGINAL_MSG_TYPES = frozenset({
     # (تستهلك FI-13) — التجميد 29 → 33.
     "queue_delegate_start", "queue_status",
     "queue_land", "queue_reject",
+    # TSK-736c (D-19-8): إضافة مقصودة — نوع واحد لوكلاء ACP
+    # الخارجيين — التجميد 33 → 34.
+    "acp_prompt",
 })
 
 # الأنواع المركّبة: مفتاحان → نفس المقبض (سلوك السلسلة الأصلية
@@ -87,6 +90,7 @@ class TestServerTable:
     def test_table_keys_exactly_match_original_25_types(self, table):
         # TSK-732 (D-19-4): التجميد صار 29 نوعًا (25 أصلية + 4 خلفية).
         # TSK-733 (D-19-5): التجميد صار 33 نوعًا (+4 لطابور التفويض).
+        # TSK-736c (D-19-8): التجميد صار 34 نوعًا (+1 لوكلاء ACP).
         assert set(table.keys()) == ORIGINAL_MSG_TYPES
 
     def test_all_handlers_are_callables_named_ws_prefix(self, table):
