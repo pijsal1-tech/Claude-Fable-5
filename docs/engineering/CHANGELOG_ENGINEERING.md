@@ -1679,3 +1679,69 @@ provider_keys.json عند بلوغه**)؛ لا كتابة مفاتيح من ال
 TSK-734؛ الـ flakes الزمنية الموثَّقة test_no_save_churn
 وTestBenchmark::test_append_cost ظهرتا بالتناوب أثناء 735a وعادتا
 خضراوين معزولتين وفي الإعادة الكاملة — لا علاقة لهما بهذا العمل).
+
+---
+
+## TSK-736 — ACP: المحرر عميلًا لوكلاء خارجيين governed (القرار 8 من تسلسل D-19) 🏁
+
+**القرار**: D-19(8) — المالك رفع تكامل ACP كقرار نطاق جديد، وهو بالضبط
+«يرفعه المالك كقرار نطاق جديد» الذي اشترطه حكم CP-15 في MASTER_REVIEW
+(«REJECT ضمن النطاق الحالي»). قلقا CP-15 حُلّا بالتصميم:
+(أ) كسر الأسطول المحكوم ⇐ كل fs/write + request_permission من الوكيل
+الخارجي عبر **نفس** ApprovalGate (لا YOLO — Non-Goal §15.1) وكل fs/read
+عبر path_policy (احتواء workspace + denylist الأسرار)؛
+(ب) الطبقة المستبعدة ⇐ الكود كله في `chain/acp/` — **صفر مساس بـ
+providers/** ⇒ لا حاجة لتعديل SECTION 0.8 (الوكيل الخارجي عملية
+محكومة لا «مزود»).
+
+**القرارات الواعية السبعة** (مثبَّتة في مواصفة TSK-736): (1) المحرر
+عميل ACP فقط — لا خادم (R0.1 + نموذج تهديد القرار 9)؛ (2) كل الكتابات
+خلف ApprovalGate نفسها؛ (3) كل القراءات عبر path_policy/denylist؛
+(4) opt-in عبر `acp.agents` — الأمر من config بيد المالك حصرًا (سابقة
+hooks TSK-728، noqa S603؛ العملية لا ترث صلاحية كتابة)؛ (5) صفر
+subprocess/شبكة في اختبارات الوحدة — اختبار التكامل الوحيد بوكيل دمية
+بايثون محلي؛ (6) providers/ وregistry/base بلا مساس؛ (7) مهلات
+fail-closed في كل مكان (terminate→kill — سابقة agent_tools).
+
+### الشرائح
+- **736a — نواة البروتوكول النقية** (542730b): `chain/acp/protocol.py`
+  (تأطير JSON-RPC 2.0 بأسطر؛ parse_line fail-closed لا يرفع أبدًا؛
+  `_valid_id` بـ TypeGuard لتضييق mypy) + `chain/acp/connection.py`
+  (AcpConnection فوق Transport مُحقَن؛ خريطة pending لكل معرّف —
+  نمط TSK-615؛ مهلة لكل انتظار؛ EOF يوقظ المنتظرين؛ أخطاء المعالج
+  ⇒ INTERNAL_ERROR باسم النوع فقط — عقد عدم-الترديد)؛ 40 اختبارًا
+  (FakeTransport؛ ردود خارج الترتيب بـ Barrier؛ كناري لا يُردَّد).
+- **736b — العملية والجسر المُبوَّب** (أنقذ الرافع الكود 13cf256؛
+  الاختبارات 45cd376): `chain/acp/governed_fs.py` (GovernedFsHandler:
+  fs/read عبر resolve_workspace_path + is_secret_file برسالة عامة
+  موحّدة «مسار محظور» — لا تأكيد وجود؛ fs/write كـ ProposedAction
+  بنوع acp_write عبر البوابة — لا بوابة ⇒ رفض (سابقة T-012)؛
+  request_permission بنوع acp_permission يعيد {outcome, reason} بلا
+  رفع؛ سقف قراءة 512KB) + `chain/acp/agent_process.py`
+  (AcpAgentProcess: spawn بـ noqa S603 — أمر المالك من config؛
+  stderr→DEVNULL؛ initialize بمهلة 20s؛ stop: stdin close → wait →
+  terminate → wait → kill)؛ +36 اختبارًا (بوابات حقيقية auto/deny؛
+  كناري السر لا يظهر؛ الكتابة المعتمدة تهبط فعليًا؛ kind متخصص
+  لا يمرّ بقائمة write العامة؛ _PipeTransport فوق StringIO).
+- **736c — التوصيل** (69b67bb): `_acp_agents_config()` fail-closed
+  (نمط _api_providers_config؛ بلا قسم = صفر تغيير سلوك) + GET
+  /api/acp/agents (id/name ببادئة 🤝 — **عقد عدم-الكشف: command/args
+  لا يدخلان أي REST**) + _ws_acp_prompt/_run_acp_prompt (خيط عامل؛
+  نفس approval_gate الوحدوي؛ session/update → إطار acp_update؛
+  تذكرة run؛ stop في finally) + نوع WS «acp_prompt» (التجميد 33→34)
+  + مسار REST جديد (التجميد 35→36 — تغيير عقد مقصود بقرار D-19-8)
+  + مثال config.yaml معلَّق + وكيل الدمية tests/fixtures/
+  acp_echo_agent.py + 8 اختبارات تكامل (subprocess الحقيقي الوحيد؛
+  الكناري لا يصل الوكيل؛ الكتابة المرفوضة لا تلمس القرص).
+
+### حدود واعية (كلها محفوظة)
+لا خادم ACP؛ لا registry وكلاء عن بُعد (شبكة — بعد القرار 9 إن
+طُلب)؛ لا تحرير acp.agents من الواجهة؛ MCP خارج النطاق؛ **القرار 9
+(network exposure) يجب أن يعيد فحص مسارات ACP (الكتابة/الإذن) مع
+permissions_overrides.json وprovider_keys.json عند بلوغه**.
+
+### ملاحظة بيئة
+تصفيرات بيئة متتالية (#65–#69) أثناء التنفيذ؛ الرافع التلقائي أنقذ
+كود 736b (13cf256) وجزءًا من 736c (5357711). البوابة بعد كل شريحة:
+**ALL GREEN rc=0** — تصاعديًا 2769P → 2805P → **2813P/34S/0F**
+(+84 اختبارًا فوق أساس TSK-735).
