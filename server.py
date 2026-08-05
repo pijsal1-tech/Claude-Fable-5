@@ -335,6 +335,32 @@ def _workspace_trusted() -> bool:
         return False
 
 
+def _network_exposed() -> bool:
+    """TSK-737b (القرار 9): هل الخادم مربوط خارج loopback؟
+
+    الحكم بواقعة الربط لا بعنوان الطالب (القرار الواعي 5):
+    يُقرأ ``ctx.config["host"]`` — كاتبه الوحيد main (قيمة --host
+    بافتراض argparse ``127.0.0.1``) — لا ``remote_addr`` لكل طلب
+    (قابل للتضليل خلف proxy). غياب المفتاح/ctx غير مهيأ =
+    سياق اختبار/قبل-main ⇒ محلي (لا تعريض — صفر تغيير سلوك
+    للانحدار القائم). دالة بلا حالة وحدة متحوّلة (امتثال
+    lint_handler_state).
+    """
+    try:
+        if ctx is None:
+            return False
+        host = ctx.config.get("host")
+        if host is None:
+            return False
+        from core.network_guard import is_loopback_host
+        return not is_loopback_host(host)
+    except Exception:
+        # NF-14 §2 (ابتلاع مقصود): تعذّر القراءة ⇒ محلي — الحارس
+        # الأول (رفض الإقلاع في main) هو خط الدفاع الأساسي؛
+        # هذه الدالة defense-in-depth تحت الراية فقط.
+        return False
+
+
 def _force_command_approval() -> bool:
     """TSK-502 (NF-16): راية إلزام الموافقة على كل أمر.
 
@@ -354,6 +380,14 @@ def _force_command_approval() -> bool:
     # TSK-725b (Workspace Trust): مساحة غير موثوقة ⇒ إلزام الموافقة
     # قبل أي قراءة من config (fail-closed يعلو على false الصريحة).
     if not _workspace_trusted():
+        return True
+    # TSK-737b (القرار 9 — القرار الواعي 4): تعريض شبكي ⇒ قسر
+    # True (يعلو على overrides وعلى false الصريحة — نفس نمط علو
+    # Workspace Trust أعلاه). **حد موثّق**: defense-in-depth ضد
+    # وصول REST-فقط — لا يحمي من نظير WS متصل (T4: قناة
+    # الموافقة نفسها غير مُصادَقة) — الحارس الأساسي رفض الربط
+    # المكشوف في main.
+    if _network_exposed():
         return True
     try:
         # TSK-734 (القرار 6): القراءة من الـ config الفعال — overrides
@@ -2329,6 +2363,14 @@ def _ws_acp_prompt(ctx, sctx, msg):
     opt-in خالص: وكيل غير معرَّف في config ⇒ رفض (لا تشغيل أوامر
     من الواجهة أبدًا — الأمر من config حصرًا، القرار الواعي 4).
     """
+    # TSK-737b (القرار 9 — القرار الواعي 3-جـ): تعريض شبكي ⇒ رفض حتى
+    # تحت راية --unsafe-expose-network — لا إطلاق subprocess بقيادة
+    # نظير شبكي (T3/T4: قناة الموافقة نفسها WS غير مُصادَق).
+    if _network_exposed():
+        sctx.send({"type": "acp_error",
+                   "text": "وكلاء ACP معطَّلون عند التعريض الشبكي — "
+                           "localhost فقط (TSK-737)"})
+        return
     agent_id = str(msg.get("agent_id", "")).strip()
     text = str(msg.get("text", "")).strip()
     if not agent_id or not text:
@@ -2590,7 +2632,30 @@ def main():
                             help="عنوان السيرفر")
     arg_parser.add_argument("--model", "-m", type=str, default=None)
     arg_parser.add_argument("--debug", action="store_true")
+    # TSK-737b (القرار 9 — القرار الواعي 2): opt-in صريح للربط
+    # خارج loopback — اسم الراية يصرّح بالخطر؛ بدونها أي
+    # --host غير loopback يُرفض في الإقلاع (fail-closed).
+    arg_parser.add_argument("--unsafe-expose-network", action="store_true",
+                            help="السماح بربط غير loopback — خطر: "
+                                 "لا مصادقة؛ من يصل للمنفذ يملك "
+                                 "المشروع والطرفية (TSK-737)")
     args = arg_parser.parse_args()
+
+    # ── TSK-737b: حارس الإقلاع fail-closed (القرار 9 — الأخير) ──
+    # ربط غير loopback بلا راية ⇒ رفض برسالة شارحة (تذكر نفق
+    # SSH/VPN/proxy والراية). تغيير سلوك مقصود بقرار مالك
+    # D-19-9 — التحذير النصي في README صار إنفاذًا كوديًا.
+    from core.network_guard import exposure_refusal_message, is_loopback_host
+    if not is_loopback_host(args.host):
+        if not args.unsafe_expose_network:
+            print(exposure_refusal_message(args.host))
+            raise SystemExit(2)
+        print(f"⚠️  تعريض شبكي مُفعّل (--host {args.host} + "
+              f"--unsafe-expose-network):\n"
+              f"   • force_command_approval مقسور true (لا يمكن قلبه)\n"
+              f"   • POST /api/permissions مقفل 403\n"
+              f"   • وكلاء ACP معطّلون\n"
+              f"   • ما تبقّى مكشوف بلا مصادقة — على مسؤوليتك (T4)")
 
     # مسار المشروع
     project_path = os.path.abspath(args.project)

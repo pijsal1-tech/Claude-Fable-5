@@ -131,6 +131,15 @@ def api_permissions():
     if request.method == "GET":
         return _permissions_payload()
 
+    # TSK-737b (القرار 9 — القرار الواعي 3-أ): تعريض شبكي ⇒ 403 حتى
+    # تحت راية --unsafe-expose-network — T1 أخطر مسار (قلب
+    # force_command_approval + توسيع allowlist عن بُعد = RCE كامل).
+    # GET يبقى (قراءة glass-box لا تُغيّر حالة).
+    if _srv._network_exposed():
+        return jsonify({"ok": False,
+                        "error": "تحرير الأذونات معطَّل عند التعريض "
+                                 "الشبكي — localhost فقط (TSK-737)"}), 403
+
     # POST — تحرير الأذونات (TSK-734b)
     from core.permissions_overrides import (ALLOWED_KEYS, read_overrides,
                                             write_overrides)
